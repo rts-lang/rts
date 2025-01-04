@@ -2,7 +2,7 @@
 name = "rts"
 edition = "2021"
 authors = ["miruji <miruji@protonmail.com>"]
-description = "Reactive scripting language of free data structures"
+description = "Reactive Scripting Language of Free Data Structures"
 license-file = "LICENCE"
 readme = "README.md"
 

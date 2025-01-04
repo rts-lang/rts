@@ -97,7 +97,7 @@ pub fn formatString(string: &str) -> String
                 );
                 _result.push_str(&format!(
                   "{}",
-                  Bg(hexToTermionColor(&_string).unwrap_or_else(|| Rgb(0, 0, 0)))
+                  Bg(hexToTermionColor(_string.as_str()).unwrap_or_else(|| Rgb(0, 0, 0)))
                 ));
                 _i += _string.len()+1;
                 continue;

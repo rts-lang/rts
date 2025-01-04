@@ -595,7 +595,8 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
             // и продолжается на вложенные линии;
             match &line.lines 
             {
-              Some(lineLines) => {
+              Some(_) =>
+              {
                 match lastTokenIndex 
                 {
                   0 => { false }

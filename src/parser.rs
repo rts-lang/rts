@@ -9,7 +9,7 @@ pub mod structure;
 
 use crate::{
   logger::*,
-  _argc, _argv, _debugMode, _exit, _exitCode,
+  _argc, _argv, _debugMode, _exit,
   parser::structure::*,
   tokenizer::{token::*, line::*}
 };
@@ -17,7 +17,6 @@ use crate::{
 use std::{
   time::{Instant, Duration},
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-  ptr::addr_of_mut
 };
 
 // проверяет что переданный dataType 
@@ -589,7 +588,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>, structuresRead: bool) ->
   {
     let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap(); // Читаем структуру
     (
-      unsafe { &structure.lineIndex as *const usize as *mut usize }, 
+      { &structure.lineIndex as *const usize as *mut usize },
       structure.lines.len()
     )
   };

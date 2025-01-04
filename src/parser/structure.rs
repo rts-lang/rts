@@ -292,7 +292,7 @@ impl Structure
   }
 
   // добавляет новую вложенную структуру в текущую структуру
-  pub fn pushStructure(&mut self, mut structure: Structure) -> ()
+  pub fn pushStructure(&mut self, structure: Structure) -> ()
   { 
     match self.structures.is_none() 
     {
@@ -317,7 +317,8 @@ impl Structure
     {
       true => 
       { // go next
-        let nextStructureNesting: &[Token] = &structureNesting[1..];
+        //let nextStructureNesting: &[Token] = &structureNesting[1..];
+        // todo: ?
       }  
       false => 
       {
@@ -465,7 +466,7 @@ impl Structure
   }
 
   // Вычисляем значение для struct имени типа TokenType::Word 
-  fn replaceStructureByName(&self, value: &mut Vec<Token>, length: &mut usize, index: usize) -> ()
+  fn replaceStructureByName(&self, value: &mut Vec<Token>, index: usize) -> ()
   {
     fn setNone(value: &mut Vec<Token>, index: usize) 
     { // Возвращаем пустое значение
@@ -501,9 +502,9 @@ impl Structure
                   let mut linesResult: Vec<Token> = Vec::new();
                   for line in &structure.lines 
                   {
-                    let tokens: &mut Vec<Token> = &mut line.read().unwrap()
-                                                    .tokens.clone();
-                    let _ = drop(line);
+                    let tokens: &mut Vec<Token> =
+                      &mut line.read().unwrap()
+                        .tokens.clone();
                     linesResult.push( self.expression(tokens) );
                   }
                   value[index] = Token::newNesting( Some(linesResult) );
@@ -570,7 +571,7 @@ impl Structure
                     &lineTokens[0].getData().unwrap_or_default() 
                   )
                   {
-                    Some(childStructureLink) => 
+                    Some(_) =>
                     {
                       let _ = drop(currentStructure);
                       return currentStructureLock.read().unwrap()
@@ -582,7 +583,7 @@ impl Structure
                   let _ = drop(currentStructure);
                   return self.linkExpression(currentStructureLink, link, parameters);
                 } else 
-                if let Some(parameters) = parameters 
+                if let Some(_) = parameters
                 { // Если это был просто запуск метода, то запускаем его
                   let _ = drop(currentStructure);
                   
@@ -658,7 +659,7 @@ impl Structure
       Err(_) => 
       { // если мы не нашли цифры в ссылке, значит это просто struct name;
         // они работают в пространстве первого self, но могут и внутри себя
-        let mut structureLink: Option< Arc<RwLock<Structure>> > = 
+        let structureLink: Option< Arc<RwLock<Structure>> > =
           match currentStructureLink
           {
             Some(currentStructureLink) => 
@@ -731,7 +732,7 @@ impl Structure
                   } 
                   false => match parameters 
                   {
-                    Some(parameters) => 
+                    Some(_) =>
                     { // Если это был просто запуск метода, то запускаем его
                       let mut parametersToken: Token = Token::newNesting( Some(Vec::new()) ); // todo: add parameters
                       parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
@@ -1055,7 +1056,7 @@ impl Structure
             }  
             false => 
             { // Вычисляем значение для struct имени типа TokenType::Word 
-              self.replaceStructureByName(value, &mut valueLength, i);
+              self.replaceStructureByName(value, i);
             }
           }
         } 
@@ -1404,7 +1405,7 @@ impl Structure
                         Some( valueBuffer.trim_end().to_string() )
                       );
                     }
-                    Err(e) => 
+                    Err(_) =>
                     { // не удалось ввести, пустая строка
                       value[i].setData( Some(String::new()) );
                     }
@@ -1548,7 +1549,7 @@ impl Structure
         }
         "clear" =>
         { // clear
-          Command::new("clear")
+          let _ = Command::new("clear")
             .status(); // игнорируем ошибки
           // todo: однако можно выдавать результат boolean при ошибке
         }
