@@ -5,7 +5,8 @@
   - match быстрее if; matches! быстрее простой проверки if
     при множества значениях на одну проверку;
   - .len() == 0 быстрее is_empty()
-  - Использование ссылок на данные быстрее их клонирования;
+  - Использование ссылок на данные быстрее клонирования,
+    но не означает, что всегда нужно использовать ссылки;
   - Использование Arc+RwLock позволяет нескольким потокам 
     управлять чем-то без клонирования его самого;
   - На RwLock следует вовремя использовать drop(),
@@ -81,6 +82,7 @@ async fn main() -> io::Result<()>
   let input:    Vec<String> = env::args().collect();
   match input.len() > 1 
   {
+    false => { help() }
     true => 
     {
       // first argument is treated as key, others as values
@@ -89,7 +91,6 @@ async fn main() -> io::Result<()>
       // store key and values in args vector
       args = (command.clone(), values.clone());
     }
-    false => { help() }
   }
   
   // read key
@@ -100,6 +101,7 @@ async fn main() -> io::Result<()>
 
   match !args.0.is_empty() 
   {
+    false => {}
     true => {
       let key: &str = args.0.as_str();
       match key
@@ -118,15 +120,12 @@ async fn main() -> io::Result<()>
         _ if (key == "run" || key == "drun") && valuesLength >= 1 =>
         { // run
 
-          // debug ?
           match key == "drun" 
-          { 
-            true  => { unsafe {_debugMode = true;} } 
+          { // debug mode ?
             false => {}
+            true  => unsafe{_debugMode = true;}
           }
 
-          // todo: if not file
-          // run file
           unsafe
           {
             _argc = valuesLength-1;
@@ -134,26 +133,22 @@ async fn main() -> io::Result<()>
             _filePath = args.1[0].clone();
           }
 
-          // todo: check filePath file type
           match unsafe{_debugMode} 
           {
-            true  => { log("ok",&format!("Run [{}]",unsafe{&*_filePath})); }
             false => {}
+            true  => { log("ok",&format!("Run [{}]",unsafe{&*_filePath})); }
           }
-          runFile = true;
 
-          // run script
-          /*
-          let combinedString: String = values.concat().replace("\\n", "\n"); // todo: \\n ?
-          buffer = combinedString.clone().into_bytes();
-          // todo: argc & argv
-
-          // todo: check filePath file type
-          if unsafe{_debugMode} 
-          {
-            log("ok",&format!("Run [{}]",combinedString));
+          unsafe{
+            // Проверяем, что мы запускаем файл или скрипт;
+            // todo: В данном случае это является временным решением,
+            //       чтобы сохранить run и drun, а также разделить скрипт и файлы;
+            let filePathEnd: String =
+              _filePath
+                .chars().rev().take(3)
+                .collect::<Vec<_>>().iter().rev().collect();
+            runFile = filePathEnd == ".rt";
           }
-          */
 
           // run package
           // todo: run package
@@ -164,27 +159,26 @@ async fn main() -> io::Result<()>
         }
       }
     }
-    false => {}
   }
 
-  match unsafe{_debugMode} 
+  match unsafe{_debugMode}
   {
+    false => {}
     true => 
     {
       logSeparator("Arguments");
       log("ok","Debug mode");
     }
-    false => {}
   }
 
   // run file
   match runFile 
   {
     true => 
-    {
+    { // Обработка файла
       match unsafe{_debugMode} 
       {
-        true  => { logSeparator("File"); }
+        true  => { logSeparator(&format!("Running the file [{}] in debug mode",unsafe{&*_filePath})); }
         false => {}
       }
       // open file
@@ -194,14 +188,14 @@ async fn main() -> io::Result<()>
         {
           match unsafe{_debugMode} 
           {
-            true  => { log("ok",&format!("Opening the file [{}] was successful",unsafe{&*_filePath})); }
+            true  => { log("ok","Opening was successful"); }
             false => {}
           }
           file
         },
         Err(_) => 
         {
-          log("err",&format!("Unable to opening file [{}]",unsafe{&*_filePath}));
+          log("err","Unable to opening file");
           logExit(1)
         }
       };
@@ -212,32 +206,42 @@ async fn main() -> io::Result<()>
         {
           match unsafe{_debugMode} 
           {
-            true  => { log("ok",&format!("Reading the file [{}] was successful",unsafe{&*_filePath})); }
+            true  => { log("ok","Reading was successful"); }
             false => {}
           }
         }
         Err(_) => 
         {
-          log("err",&format!("Unable to read file [{}]",unsafe{&*_filePath}));
+          log("err","Unable to read file");
           logExit(1)
         }
       }
     }
-    false => {}
+    false =>
+    { // Обработка скрипта
+      // run script
+      match unsafe{_debugMode}
+      {
+        false => {}
+        true  => { logSeparator("Running the script in debug mode"); }
+      }
+
+      unsafe{ buffer = _filePath.clone().into_bytes(); }
+    }
   }
 
   // проверяем что в конце был \n, если нет, то добавляем его
   match buffer.last() 
   {
+    None => {}
     Some(&lastByte) => 
     {
       match lastByte != b'\n' 
       {
-        true  => { buffer.push(b'\n'); }
         false => {}
+        true  => { buffer.push(b'\n'); }
       }
     }
-    None => {}
   }
 
   // Начинаем чтение кода
@@ -246,13 +250,13 @@ async fn main() -> io::Result<()>
   match unsafe{_debugMode} 
   {
     // Замеры всего прошедшего времени работы
+    false => {}
     true => 
     { 
       let endTime:  Instant  = Instant::now();
       let duration: Duration = endTime-startTime;
       log("ok",&format!("All duration [{:?}]",duration));
     }
-    false => {}
   }
   // ** Для дополнительных тестов можно использовать hyperfine/perf
 
