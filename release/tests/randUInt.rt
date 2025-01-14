@@ -10,14 +10,22 @@ b = randUInt(0,15)
 ? b > 15
   res = 2
 
+print(1)
+
 test
- a = randUInt(0,15)
- ? a > 15
-   res = 3
- ? a > 15
-   res = 4
+  print(4)
+  a = randUInt(0,15)
+  print(5)
+  ? a > 15
+    res = 3
+  ? a > 15
+    res = 4
+
+print(2)
 
 test()
+
+print(3)
 
 # Если не было ошибок при проверке, то всё правильно
 exit(res)

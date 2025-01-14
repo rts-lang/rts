@@ -1,8 +1,12 @@
 
+# todo:
+
 a
  
   10
 
 println(f"{a}:{type(a)}")
-println(f"{a.0}:{type(a)}")
+println(f"{a.0}:{type(a.0)}")
 println(f"{a.0.0}:{type(a.0.0)}")
+
+println(f"{a.1}:{type(a.1)}")

@@ -60,7 +60,13 @@ fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure
         lineTokens.remove(0);
 
         // редактируемый родитель, поскольку мы собираемся присвоить значение его result
-        let mut structure:  RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
+        let newResultData: Token =
+        { // Используем expression, чтобы получить результат выражения;
+          let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+          structure.expression(&mut lineTokens)
+        };
+
+        let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
 
         // собственно, структура ожидает какой-то тип в результате, 
         // либо это может быть TokenType:None. Но мы просто будем менять data
@@ -69,19 +75,20 @@ fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure
         {
           Some(_) =>
           { // Вариант, в котором результат ожидает возвращение определённого типа данных;
-            // Используем expression, чтобы получить результат выражения;
-            let newResultData: Option<String> = structure.expression(&mut lineTokens).getData();
             match &mut structure.result 
             { // Присваиваем новую data результату;
-              Some(structureResult) => { structureResult.setData( newResultData ); }
               None => {}
+              Some(structureResult) =>
+              {
+                structureResult.setData( newResultData.getData() );
+              }
             }
           }
           _ => 
           { // Вариант, в котором тип результата был не указан;
             // Используем expression, чтобы получить результат выражения;
             // Присваиваем новый результат;
-            structure.result = Some( structure.expression(&mut lineTokens) );
+            structure.result = Some( newResultData );
           }
         }
 
@@ -145,39 +152,26 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 // todo: Может быть объединено с блоком ниже
                 match lineTokensLength > 3 && 
                    lineTokens[2].getDataType().unwrap_or_default() == TokenType::Pointer && 
-                   lineTokens[3].getDataType().unwrap_or_default() == TokenType::Word 
+                   lineTokens[3].getDataType().unwrap_or_default() != TokenType::None
                 {
+                  false => {} // если результата не было, то просто пропускаем
                   true => 
                   { // в таком случае просто читаем тип результата структуры
-                    match lineTokens[3].getData() 
-                    {
-                      Some(lineTokenData) => {
-                        newStructureResultType = Some( getStructureResultType(lineTokenData) );
-                      }
-                      None => {}
-                    }
-                  } 
-                  false => {} // если результата не было, то просто пропускаем
+                    newStructureResultType = lineTokens[3].getDataType();
+                  }
                 }
               }  
               false => 
               { // в этом случае это вариант только с результатом структуры
                 match lineTokensLength > 2 && 
                    lineTokens[1].getDataType().unwrap_or_default() == TokenType::Pointer && 
-                   lineTokens[2].getDataType().unwrap_or_default() == TokenType::Word 
+                   lineTokens[2].getDataType().unwrap_or_default() != TokenType::None
                 {
+                  false => {} // если результата не было, то просто пропускаем
                   true => 
                   { // в таком случае просто читаем тип результата структуры
-                    match lineTokens[2].getData() 
-                    {
-                      Some(lineTokenData) => 
-                      {
-                        newStructureResultType = Some( getStructureResultType(lineTokenData) );
-                      }
-                      None => {}
-                    }
+                    newStructureResultType = lineTokens[2].getDataType();
                   }
-                  false => {} // если результата не было, то просто пропускаем
                 }
               }
             } // если параметров и результата не было, то просто пропускаем
@@ -211,7 +205,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             }
 
             // Ставим результат структуры, если он есть
-            newStructure.result = match newStructureResultType 
+            newStructure.result = match newStructureResultType
             {
               Some(_) => Some( Token::newEmpty(newStructureResultType.clone()) ),
               None    => None,
@@ -245,12 +239,12 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
           opType = lineToken.getDataType().unwrap_or_default().clone();
           match isMathOperator(opType.clone()) 
           {
+            false => {}
             true => 
             {
               opPos = i+1;
               break;
             }
-            false => {}
           }
         }
         
@@ -265,9 +259,12 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               { // получаем имя первого токена, чтобы знать с кем мы работаем
 
                 // это левая часть линейной записи
+                // todo: возможно сократить? это просто один токен из structureName
                 let leftValue:  Option< Vec<Token> > = Some( lineTokens[1..opPos-1].to_vec() );
                 // это правая (рабочая) запись линейной части
                 let rightValue: Option< Vec<Token> > = Some( lineTokens[opPos..(lineTokensLength)].to_vec() );
+
+                println!("le> {:?} {:?}",leftValue,rightValue);
                 // получаем родительскую структуру
                 
                 // ищем в родительской структуре, есть ли там похожая на structureName
@@ -280,28 +277,32 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 {
                   Some(structureLink) =>
                   { // если мы нашли такую, то значит работаем уже с существующей структурой
+                    println!("  A1 {} <-> {}",structureName,structureLink.read().unwrap().name);
+                    println!("  A2");
                     parentLink.clone()
                       .read().unwrap()
                       .structureOp(
                         structureLink, 
                         opType, 
-                        leftValue.unwrap_or(vec![]).clone(),
-                        rightValue.unwrap_or(vec![]).clone()
+                        leftValue.unwrap_or(vec![]),
+                        rightValue.unwrap_or(vec![])
                     );
-                  }  
+                    println!("  A3");
+                  }
                   None =>
                   { // если мы не нашли похожую, то создаём новую и работаем с правой частью выражения
-                    let tokens: Vec<Token> = 
+                    let tokens: Vec<Token> =
                       vec![ // значение будет состоять из вычисленной правой части выражения
                         parentLink.read().unwrap()
                           .expression(&mut rightValue.unwrap_or(vec![]).clone()) // один токен
                       ];
                     // закидываем новую структуру в родительскую структуру
                     let mut structure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
+                    println!("  B1 {} <- {} : {}",structure.name,structureName,structuresRead);
                     structure.pushStructure(
                       Structure::new(
                         structureName,
-                        vec![ Arc::new(RwLock::new( 
+                        vec![ Arc::new(RwLock::new(
                           Line {
                             tokens: tokens,
                             indent: 0,

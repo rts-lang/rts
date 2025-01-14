@@ -1,0 +1,10 @@
+
+p
+  println(111)
+  println(222)
+d = p
+
+println(f"{d}:{type(d)}")
+d()
+d()
+d()

@@ -312,8 +312,14 @@ impl fmt::Display for Token
   {
     match &self.data 
     {
-      Some(data) => { write!(f, "{}", data) }  
-      None       => { write!(f, " ") }
+      Some(data) =>
+      {
+        write!(f, "{}", data)
+      }
+      None =>
+      {
+        write!(f, "{}", self.getDataType().unwrap_or_default().to_string())
+      }
     }
   }
 }
@@ -323,8 +329,14 @@ impl fmt::Debug for Token
   {
     match &self.data 
     {
-      Some(data) => { write!(f, "{}", data) }  
-      None       => { write!(f, " ") }
+      Some(data) =>
+      {
+        write!(f, "{}", data)
+      }
+      None =>
+      {
+        write!(f, "{}", self.getDataType().unwrap_or_default().to_string())
+      }
     }
   }
 }

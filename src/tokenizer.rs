@@ -169,8 +169,15 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     false => {
       match result.as_str()
       {
+        //
         "true"     => Token::new( Some(TokenType::Bool), Some(String::from("1")) ),
         "false"    => Token::new( Some(TokenType::Bool), Some(String::from("0")) ),
+        //
+        "UInt"     => Token::newEmpty( Some(TokenType::UInt) ),
+        "Int"      => Token::newEmpty( Some(TokenType::Int) ),
+        "String"   => Token::newEmpty( Some(TokenType::String) ),
+        "Char"     => Token::newEmpty( Some(TokenType::Char) ),
+        //
         _          => Token::new( Some(TokenType::Word), Some(result) ),
       }
     }
@@ -674,7 +681,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
           TokenType::Char | TokenType::FormattedChar =>
           { // если токен это Char | FormattedChar
             log("parserToken",&format!(
-              "{}{}{}\\fg(#f0f8ff)\\b'\\c{}\\c\\fg(#f0f8ff)\\b'\\c  |{}",
+              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b'\\c{}\\c\\fg(#f0f8ff)\\b'\\c  |{}",
               lineIndentString,
               c,
               identString,
@@ -685,7 +692,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
           TokenType::String | TokenType::FormattedString =>
           { // если токен это String | FormattedString
             log("parserToken",&format!(
-              "{}{}{}\\fg(#f0f8ff)\\b\"\\c{}\\c\\fg(#f0f8ff)\\b\"\\c  |{}",
+              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b\"\\c{}\\c\\fg(#f0f8ff)\\b\"\\c  |{}",
               lineIndentString,
               c,
               identString,
@@ -696,7 +703,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
           TokenType::RawString | TokenType::FormattedRawString =>
           { // если токен это RawString | FormattedRawString
             log("parserToken",&format!(
-              "{}{}{}\\fg(#f0f8ff)\\b`\\c{}\\c\\fg(#f0f8ff)\\b`\\c  |{}",
+              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b`\\c{}\\c\\fg(#f0f8ff)\\b`\\c  |{}",
               lineIndentString,
               c,
               identString,
@@ -707,7 +714,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
           _ => 
           { // если это обычный токен
             log("parserToken",&format!(
-              "{}{}{}{}  |{}",
+              "{}\\b{}\\c{}{}  |{}",
               lineIndentString,
               c,
               identString,
@@ -720,7 +727,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
       _ => 
       { // если это токен только с типом, то выводим тип как символ
         formatPrint(&format!(
-          "{}{}{}{}\n",
+          "{}\\b{}\\c{}{}\n",
           lineIndentString,
           c,
           identString,
