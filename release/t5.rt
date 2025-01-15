@@ -1,9 +1,14 @@
 
-b = randUInt(0,15)
-? b > 15
-  println(b)
-? b > 15
-  println(b)
+b:UInt = randUInt(0,15) # константа, посчитана в этот момент
 
-println(b)
-println(b)
+println(b) # значение b
+println(b) # значение b
+
+c~:UInt = randUInt(0,15)
+
+println(c) # случайное значение
+println(c) # случайное значение
+
+d~~:UInt = 10
+d = -10
+println(type(d))

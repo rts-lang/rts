@@ -290,7 +290,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::MinusEquals) ) }
         b'-' => { increment(2); Token::newEmpty( Some(TokenType::UnaryMinus) ) }
         b'>' => { increment(2); Token::newEmpty( Some(TokenType::Pointer) ) }
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::Minus) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Minus) ) }
       }
     }
     b'*' => 
@@ -299,7 +299,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::MultiplyEquals) ) }
         b'*' => { increment(2); Token::newEmpty( Some(TokenType::UnaryMultiply) ) }
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::Multiply) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Multiply) ) }
       }
     }
     b'/' => 
@@ -308,7 +308,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::DivideEquals) ) }
         b'/' => { increment(2); Token::newEmpty( Some(TokenType::UnaryDivide) ) }
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::Divide) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Divide) ) }
       }
     }
     b'%' => 
@@ -317,7 +317,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::Modulo) ) } // todo: add new type in Token
         b'%' => { increment(2); Token::newEmpty( Some(TokenType::Modulo) ) } // todo: add new type in Token
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::Modulo) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Modulo) ) }
       }
     }
     b'^' => 
@@ -326,7 +326,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::Exponent) ) } // todo: add new type in Token
         b'^' => { increment(2); Token::newEmpty( Some(TokenType::Exponent) ) } // todo: add new type in Token
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::Disjoint) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Disjoint) ) }
       }
     }
     b'>' => 
@@ -334,7 +334,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       match nextByte 
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::GreaterThanOrEquals) ) }
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::GreaterThan) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::GreaterThan) ) }
       }
     }
     b'<' => 
@@ -342,7 +342,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       match nextByte 
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::LessThanOrEquals) ) }
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::LessThan) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::LessThan) ) }
       }
     }
     b'!' => 
@@ -350,7 +350,15 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       match nextByte 
       {
         b'=' => { increment(2); Token::newEmpty( Some(TokenType::NotEquals) ) }
-        _ =>    { increment(1); Token::newEmpty( Some(TokenType::Exclusion) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Exclusion) ) }
+      }
+    }
+    b'~' =>
+    {
+      match nextByte
+      {
+        b'~' => { increment(2); Token::newEmpty( Some(TokenType::DoubleTilde) ) }
+        _    => { increment(1); Token::newEmpty( Some(TokenType::Tilde) ) }
       }
     }
     b'&' => { increment(1); Token::newEmpty( Some(TokenType::Joint) ) }
@@ -369,7 +377,6 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     b',' => { increment(1); Token::newEmpty( Some(TokenType::Comma) ) }
     b'.' => { increment(1); Token::newEmpty( Some(TokenType::Dot) ) }
     b'?' => { increment(1); Token::newEmpty( Some(TokenType::Question) ) }
-    b'~' => { increment(1); Token::newEmpty( Some(TokenType::Tilde) ) }
     _ => Token::newEmpty( None ),
   }
 }

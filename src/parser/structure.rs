@@ -20,7 +20,6 @@ use std::{
 };
 
 use rand::Rng;
-use crate::tokenizer::token::TokenType::Minus;
 
 // вычисляет по математической операции значение и тип нового токена из двух
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
@@ -1606,7 +1605,6 @@ impl Structure
                 lineLink.clone(), 
                 parentLink.clone(), 
                 &mut lineIndex,
-                false
               ); 
             }
             None => {}
@@ -1686,7 +1684,7 @@ impl Structure
                 }
               }
               // запускаем новую структуру
-              readLines(calledStructureLink.clone(), false);
+              readLines(calledStructureLink.clone());
             }
             None => {}
           }

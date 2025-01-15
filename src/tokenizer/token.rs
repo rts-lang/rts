@@ -68,7 +68,9 @@ pub enum TokenType
 // other
   Colon,   // :
   Pointer, // ->
-  Tilde,   // ~
+
+  Tilde,       // ~
+  DoubleTilde, // ~~
 
   Link, // Link
 // words
@@ -161,7 +163,9 @@ impl ToString for TokenType
       // other
       TokenType::Colon   => String::from(":"),  // :
       TokenType::Pointer => String::from("->"), // ->
-      TokenType::Tilde   => String::from("~"),  // ~
+
+      TokenType::Tilde       => String::from("~"),   // ~
+      TokenType::DoubleTilde => String::from("~~"),  // ~~
 
       TokenType::Link => String::from("Link"), // Link
       
@@ -172,7 +176,6 @@ impl ToString for TokenType
       TokenType::UFloat   => String::from("UFloat"),   // Unsigned float
       TokenType::Rational => String::from("Rational"), // Rational
       TokenType::Complex  => String::from("Complex"),  // Complex
-
 
       TokenType::Bool      => String::from("Bool"),      // Bool
       TokenType::Joint     => String::from("Joint"),     // & (and)
