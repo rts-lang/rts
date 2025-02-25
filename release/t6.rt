@@ -1,0 +1,6 @@
+
+a~ = 10
+
+println(a)
+println(type(a))
+println(mut(a))

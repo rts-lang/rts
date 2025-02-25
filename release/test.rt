@@ -31,8 +31,8 @@ l = 0
   ? res = 0
     println("[\fg(#1ae96b)\bOK\c]")
   ?
-    println("[\fg(#e91a34)\bERR\c]")
-    exit(res)
+    println(f"[\fg(#e91a34)\b{res}\c]")
+    exit(1)
   
   l += 1
   go(1)

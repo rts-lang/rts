@@ -21,6 +21,8 @@ use std::{
 
 use rand::Rng;
 
+// Addition for Structure ==========================================================================
+
 // вычисляет по математической операции значение и тип нового токена из двух
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
 {
@@ -224,39 +226,88 @@ pub fn getStructureResultType(word: String) -> TokenType
   }
 }
 
+// StructureMut ====================================================================================
+/// Обозначает уровень изменения структуры
+#[derive(PartialEq)]
+#[derive(Clone)]
+pub enum StructureMut
+{
+  /// Ожидает первое значение и превратится в Constant
+  Final,
+  /// Не может быть изменена, присваивается в момент создания
+  Constant,
+  /// Может изменять только значение, (зависит от наблюдателя => может меняться со временем)
+  Variable,
+  /// Может изменять и значение и тип данных, (зависит от наблюдателя => может меняться со временем)
+  Dynamic
+}
+
+impl ToString for StructureMut
+{ // todo convert -> fmt::Display ?
+  fn to_string(&self) -> String
+  {
+    match self
+    {
+      StructureMut::Final => String::from("Final"),
+      StructureMut::Constant => String::from("Constant"),
+      StructureMut::Variable => String::from("Variable"),
+      StructureMut::Dynamic => String::from("Dynamic"),
+    }
+  }
+}
+
+// Structure =======================================================================================
+/// Свободная структура данных
 #[derive(Clone)]
 pub struct Structure 
 {
-  pub           name: String,                        // unique name
-                                                     // todo: Option
-  pub          lines: Vec< Arc<RwLock<Line>> >,      // nesting lines
-                                                     // todo: Option
-  pub     parameters: Option< Vec<Token> >,          // parameters
-  pub         result: Option<Token>,                 // result type
-      // if result type = None, => procedure
-      // else => function
-  pub     structures: Option< Vec< Arc<RwLock<Structure>> > >,
-  pub         parent: Option< Arc<RwLock<Structure>> >,
+  /// Уникальное имя
+  /// todo option
+  pub name: String,
 
-  pub      lineIndex: usize,
+  /// Уровень изменения структуры
+  pub mutable: Option< StructureMut >,
+
+  /// Ссылки на вложенные линии
+  /// todo option
+  pub lines: Vec< Arc<RwLock<Line>> >,
+
+  /// Входные параметры
+  pub parameters: Option< Vec<Token> >,
+
+  /// Выходной результат
+  /// None => procedure
+  /// else => function
+  pub result: Option<Token>,
+
+  /// Ссылки на вложенные структуры
+  pub structures: Option< Vec< Arc<RwLock<Structure>> > >,
+
+  /// Ссылка на родителя
+  pub parent: Option< Arc<RwLock<Structure>> >,
+
+  /// todo comment
+  pub lineIndex: usize,
 }
 impl Structure 
 {
   pub fn new
   (
-      name: String,
-     lines: Vec< Arc<RwLock<Line>> >,
-    parent: Option< Arc<RwLock<Structure>> >,
+    name:    String,
+    mutable: Option< StructureMut >,
+    lines:   Vec< Arc<RwLock<Line>> >,
+    parent:  Option< Arc<RwLock<Structure>> >,
   ) -> Self 
   {
     Structure 
     {
-              name,
-             lines,
-        parameters: None, // todo: remove
-            result: None,
-        structures: None,
-            parent,
+      name,
+      mutable,
+      lines,
+      parameters: None, // todo: remove ?
+      result: None,
+      structures: None,
+      parent,
       lineIndex: 0
     }
   }
@@ -1355,11 +1406,19 @@ impl Structure
             { // это позволит выйти, если мы ожидаем не стандартные варианты
               match structureName.as_str()
               { // проверяем на сходство стандартных функций
+
+                // todo: создать resultType() ?
+                //       для возвращения результата ожидаемого структурой
+
                 "type" =>
-                { // todo: создать resultType() ?
-                  // для возвращения результата ожидаемого структурой
+                { // Возвращает тип данных переданной структуры
                   value[i].setDataType( Some(TokenType::String) );
                   value[i].setData    ( Some(expressions[0].getDataType().unwrap_or_default().to_string()) );
+                }
+                "mut" =>
+                { // Возвращает уровень модификации переданной структуры
+                  value[i].setDataType( Some(TokenType::String) );
+                  value[i].setData    ( Some(expressions[0].getMut()) );
                 }
                 "randUInt" if expressions.len() > 1 =>
                 { // возвращаем случайное число типа UInt от min до max

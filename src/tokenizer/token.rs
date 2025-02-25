@@ -4,185 +4,259 @@
 
 use std::fmt;
 
+// TokenType =======================================================================================
+/// Тип элементарной единицы хранения информации
 #[derive(PartialEq)]
 #[derive(Clone)]
 pub enum TokenType 
 {
 // basic
-  None,    // None
-  Word,    // Word
-  Endline, // Endline
-  Comma,   // ,
-  Dot,     // .
+  /// Пустота
+  None,
+  /// Обычная связка букв
+  Word,
+  /// ; или \n
+  Endline,
+  /// ,
+  Comma,
+  /// .
+  Dot,
 
-  Comment, // #
+  /// \#
+  Comment,
+
 // quotes
-  RawString,          // `
-  String,             // "
-  Char,               // '
-  FormattedRawString, // f``
-  FormattedString,    // f""
-  FormattedChar,      // f''
+  /// `
+  RawString,
+  /// "
+  String,
+  /// '
+  Char,
+  /// f``
+  FormattedRawString,
+  /// f""
+  FormattedString,
+  /// f''
+  FormattedChar,
+
 // single math
-  Plus,     // +
-  Minus,    // -
-  Multiply, // *
-  Divide,   // /
-  Equals,   // =
-  Modulo,   // %
-  Exponent, // ^
+  /// +
+  Plus,
+  /// -
+  Minus,
+  /// *
+  Multiply,
+  /// /
+  Divide,
+  /// =
+  Equals,
+  /// %
+  Modulo,
+  /// ^
+  Exponent,
+
 // double math
-  UnaryPlus,      // ++
-  PlusEquals,     // +=
+  /// ++
+  UnaryPlus,
+  /// +=
+  PlusEquals,
 
-  UnaryMinus,     // --
-  MinusEquals,    // -=
+  /// --
+  UnaryMinus,
+  /// -=
+  MinusEquals,
 
-  UnaryMultiply,  // **
-  MultiplyEquals, // *=
+  /// **
+  UnaryMultiply,
+  /// *=
+  MultiplyEquals,
 
-  UnaryDivide,    // //
-  DivideEquals,   // /=
+  /// //
+  UnaryDivide,
+  /// /=
+  DivideEquals,
 
-  UnaryModulo,    // %%
-  ModuloEquals,   // %=
+  /// %%
+  UnaryModulo,
+  /// %=
+  ModuloEquals,
 
-  UnaryExponent,  // ^^
-  ExponentEquals, // ^=
+  /// ^^
+  UnaryExponent,
+  /// ^=
+  ExponentEquals,
+
 // single logical
-  GreaterThan, // >
-  LessThan,    // <
-  Question,    // ?
-  Not,         // !
+  /// >
+  GreaterThan,
+  /// <
+  LessThan,
+  /// ?
+  Question,
+  /// !
+  Not,
+
 // double logical
-  GreaterThanOrEquals, // >=
-  LessThanOrEquals,    // <=
-  NotEquals,           // !=
+  /// >=
+  GreaterThanOrEquals,
+  /// <=
+  LessThanOrEquals,
+  /// !=
+  NotEquals,
+
 // brackets
-  CircleBracketBegin, // (
-  CircleBracketEnd,   // )
-  SquareBracketBegin, // [
-  SquareBracketEnd,   // ]
-  FigureBracketBegin, // {
-  FigureBracketEnd,   // }
+  /// (
+  CircleBracketBegin,
+  /// )
+  CircleBracketEnd,
+  /// [
+  SquareBracketBegin,
+  /// ]
+  SquareBracketEnd,
+  /// {
+  FigureBracketBegin,
+  /// }
+  FigureBracketEnd,
+
 // other
-  Colon,   // :
-  Pointer, // ->
+  /// :
+  Colon,
+  /// ->
+  Pointer,
 
-  Tilde,       // ~
-  DoubleTilde, // ~~
+  // ~
+  Tilde,
+  /// ~~
+  DoubleTilde,
 
-  Link, // Link
+  /// Ссылка на структуру
+  Link,
+
 // words
-  Int,      // Integer
-  UInt,     // Unsigned integer
-  Float,    // Float
-  UFloat,   // Unsigned float
-  Rational, // Rational
-  Complex,  // Complex
+  /// Integer
+  Int,
+  /// Unsigned integer
+  UInt,
+  /// Float
+  Float,
+  /// Unsigned float
+  UFloat,
+  /// Rational
+  Rational,
+  /// Complex
+  Complex,
 
-  Bool,      // Bool
-  Joint,     // & (and) Joint
-  Disjoint,  // ^
-  Inclusion, // | (or)
-  Exclusion, // ! (not)
+  /// Bool
+  Bool,
+  /// & (and) Joint
+  Joint,
+  /// ^
+  Disjoint,
+  /// | (or)
+  Inclusion,
+  /// ! (not)
+  Exclusion,
+  // todo здесь должна быть троичная логика
 
+// custom
+  /// Позволяет создавать пользовательские типы
   Custom(String),
 }
 
 impl ToString for TokenType 
-{
+{ // todo convert -> fmt::Display ?
   fn to_string(&self) -> String 
   {
     match self 
     {
       // basic
-      TokenType::None    => String::from("None"),    // None
-      TokenType::Word    => String::from("Word"),    // Word
-      TokenType::Endline => String::from("\\n"),     // Endline
-      TokenType::Comma   => String::from(","),       // ,
-      TokenType::Dot     => String::from("."),       // .
+      TokenType::None    => String::from("None"),
+      TokenType::Word    => String::from("Word"),
+      TokenType::Endline => String::from("\\n"),
+      TokenType::Comma   => String::from(","),
+      TokenType::Dot     => String::from("."),
 
-      TokenType::Comment => String::from("Comment"), // #
+      TokenType::Comment => String::from("Comment"),
       
       // quotes
-      TokenType::RawString          => String::from("RawString"),          // `
-      TokenType::String             => String::from("String"),             // "
-      TokenType::Char               => String::from("Char"),               // '
-      TokenType::FormattedRawString => String::from("FormattedRawString"), // f``
-      TokenType::FormattedString    => String::from("FormattedString"),    // f""
-      TokenType::FormattedChar      => String::from("FormattedChar"),      // f''
+      TokenType::RawString          => String::from("RawString"),
+      TokenType::String             => String::from("String"),
+      TokenType::Char               => String::from("Char"),
+      TokenType::FormattedRawString => String::from("FormattedRawString"),
+      TokenType::FormattedString    => String::from("FormattedString"),
+      TokenType::FormattedChar      => String::from("FormattedChar"),
      
       // single math
-      TokenType::Plus     => String::from("+"), // +
-      TokenType::Minus    => String::from("-"), // -
-      TokenType::Multiply => String::from("*"), // *
-      TokenType::Divide   => String::from("/"), // /
-      TokenType::Equals   => String::from("="), // =
-      TokenType::Modulo   => String::from("%"), // %
-      TokenType::Exponent => String::from("^"), // ^
+      TokenType::Plus     => String::from("+"),
+      TokenType::Minus    => String::from("-"),
+      TokenType::Multiply => String::from("*"),
+      TokenType::Divide   => String::from("/"),
+      TokenType::Equals   => String::from("="),
+      TokenType::Modulo   => String::from("%"),
+      TokenType::Exponent => String::from("^"),
       
       // double math
-      TokenType::UnaryPlus      => String::from("++"), // ++
-      TokenType::PlusEquals     => String::from("+="), // +=
+      TokenType::UnaryPlus      => String::from("++"),
+      TokenType::PlusEquals     => String::from("+="),
 
-      TokenType::UnaryMinus     => String::from("--"), // --
-      TokenType::MinusEquals    => String::from("-="), // -=
+      TokenType::UnaryMinus     => String::from("--"),
+      TokenType::MinusEquals    => String::from("-="),
 
-      TokenType::UnaryMultiply  => String::from("**"), // **
-      TokenType::MultiplyEquals => String::from("*="), // *=
+      TokenType::UnaryMultiply  => String::from("**"),
+      TokenType::MultiplyEquals => String::from("*="),
 
-      TokenType::UnaryDivide    => String::from("//"), // //
-      TokenType::DivideEquals   => String::from("/="), // /=
+      TokenType::UnaryDivide    => String::from("//"),
+      TokenType::DivideEquals   => String::from("/="),
 
-      TokenType::UnaryModulo    => String::from("%%"), // %%
-      TokenType::ModuloEquals   => String::from("%="), // %=
+      TokenType::UnaryModulo    => String::from("%%"),
+      TokenType::ModuloEquals   => String::from("%="),
 
-      TokenType::UnaryExponent  => String::from("^^"), // ^^
-      TokenType::ExponentEquals => String::from("^="), // ^=
+      TokenType::UnaryExponent  => String::from("^^"),
+      TokenType::ExponentEquals => String::from("^="),
 
       // single logical
-      TokenType::GreaterThan => String::from(">"), // >
-      TokenType::LessThan    => String::from("<"), // <
-      TokenType::Question    => String::from("?"), // ?
-      TokenType::Not         => String::from("!"), // !
+      TokenType::GreaterThan => String::from(">"),
+      TokenType::LessThan    => String::from("<"),
+      TokenType::Question    => String::from("?"),
+      TokenType::Not         => String::from("!"),
       
       // double logical
-      TokenType::GreaterThanOrEquals => String::from(">="),  // >=
-      TokenType::LessThanOrEquals    => String::from("<="),  // <=
-      TokenType::NotEquals           => String::from("!="),  // !=
+      TokenType::GreaterThanOrEquals => String::from(">="),
+      TokenType::LessThanOrEquals    => String::from("<="),
+      TokenType::NotEquals           => String::from("!="),
       
       // brackets
-      TokenType::CircleBracketBegin => String::from("("), // (
-      TokenType::CircleBracketEnd   => String::from(")"), // )
-      TokenType::SquareBracketBegin => String::from("["), // [
-      TokenType::SquareBracketEnd   => String::from("]"), // ]
-      TokenType::FigureBracketBegin => String::from("{"), // {
-      TokenType::FigureBracketEnd   => String::from("}"), // }
+      TokenType::CircleBracketBegin => String::from("("),
+      TokenType::CircleBracketEnd   => String::from(")"),
+      TokenType::SquareBracketBegin => String::from("["),
+      TokenType::SquareBracketEnd   => String::from("]"),
+      TokenType::FigureBracketBegin => String::from("{"),
+      TokenType::FigureBracketEnd   => String::from("}"),
       
       // other
-      TokenType::Colon   => String::from(":"),  // :
-      TokenType::Pointer => String::from("->"), // ->
+      TokenType::Colon   => String::from(":"),
+      TokenType::Pointer => String::from("->"),
 
-      TokenType::Tilde       => String::from("~"),   // ~
-      TokenType::DoubleTilde => String::from("~~"),  // ~~
+      TokenType::Tilde       => String::from("~"),
+      TokenType::DoubleTilde => String::from("~~"),
 
-      TokenType::Link => String::from("Link"), // Link
+      TokenType::Link => String::from("Link"),
       
       // words
-      TokenType::Int      => String::from("Int"),      // Integer
-      TokenType::UInt     => String::from("UInt"),     // Unsigned integer
-      TokenType::Float    => String::from("Float"),    // Float
-      TokenType::UFloat   => String::from("UFloat"),   // Unsigned float
-      TokenType::Rational => String::from("Rational"), // Rational
-      TokenType::Complex  => String::from("Complex"),  // Complex
+      TokenType::Int      => String::from("Int"),
+      TokenType::UInt     => String::from("UInt"),
+      TokenType::Float    => String::from("Float"),
+      TokenType::UFloat   => String::from("UFloat"),
+      TokenType::Rational => String::from("Rational"),
+      TokenType::Complex  => String::from("Complex"),
 
-      TokenType::Bool      => String::from("Bool"),      // Bool
-      TokenType::Joint     => String::from("Joint"),     // & (and)
-      TokenType::Disjoint  => String::from("Disjoint"),  // ^
-      TokenType::Inclusion => String::from("Inclusion"), // | (or)
-      TokenType::Exclusion => String::from("Exclusion"), // ! (not)
+      TokenType::Bool      => String::from("Bool"),
+      TokenType::Joint     => String::from("Joint"),
+      TokenType::Disjoint  => String::from("Disjoint"),
+      TokenType::Inclusion => String::from("Inclusion"),
+      TokenType::Exclusion => String::from("Exclusion"),
 
+      // custom
       TokenType::Custom(value) => value.clone(),
     }
   }
@@ -195,67 +269,57 @@ impl Default for TokenType
   }
 }
 
+// Token ===========================================================================================
+/// Элементарная единица хранения информации
 #[derive(Clone)]
 pub struct Token 
 {
-        data: Option< String >,
-    dataType: Option< TokenType >,
+  /// Данные единицы хранения
+  data:       Option< String >,
+  /// Тип данных единицы хранения
+  dataType:   Option< TokenType >,
+  /// Набор вложенных единиц хранения
   pub tokens: Option< Vec<Token> >,
 }
 impl Token 
 {
+  /// Обычное создание
+  pub fn new(
+    dataType: Option< TokenType >,
+    data:     Option< String >
+  ) -> Self
+  {
+    Token
+    {
+      data,
+      dataType,
+      tokens: None,
+    }
+  }
+  /// Пустой, но имеет тип данных
   pub fn newEmpty(
     dataType: Option< TokenType >
   ) -> Self 
   {
     Token 
     {
-          data: None,
+      data: None,
       dataType,
-        tokens: None,
+      tokens: None,
     }
   }
-  pub fn new(
-    dataType: Option< TokenType >,
-    data:     Option< String >
-  ) -> Self 
-  {
-    Token 
-    {
-          data,
-      dataType,
-        tokens: None,
-    }
-  }
+  /// Пустой, но выполняет роль держателя вложения
   pub fn newNesting(
     tokens: Option< Vec<Token> >
   ) -> Self 
   {
     Token 
     {
-          data: None,
+      data: None,
       dataType: None,
-        tokens,
+      tokens,
     }
   }
-
-  // convert type
-  // todo:
-  /*
-  fn convertType(&mut self) -> ()
-  {
-    if self.data.chars().nth(0) == Some('-') 
-    {
-      self.dataType = 
-        match self.dataType 
-        {
-          TokenType::UInt => TokenType::Int,
-          TokenType::UFloat => TokenType::Float,
-          _ => self.dataType.clone(),
-        }
-    }
-  }
-  */
 
   // convert data
   fn convertData(&mut self) -> ()
@@ -285,24 +349,24 @@ impl Token
     }
   }
 
-  //
+  /// Получает тип данных
   pub fn getDataType(&self) -> Option< TokenType >
   {
     self.dataType.clone()
   }
-  //
+  /// Устанавливает тип данных
   pub fn setDataType(&mut self, newDataType: Option< TokenType >) -> ()
   {
     self.dataType = newDataType;
     self.convertData();
   }
 
-  //
+  /// Получает данные
   pub fn getData(&self) -> Option< String >
   {
     self.data.clone()
   }
-  //
+  /// Устанавливает данные
   pub fn setData(&mut self, newData: Option< String >) -> ()
   {
     self.data = newData;

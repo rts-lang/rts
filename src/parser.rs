@@ -1,5 +1,5 @@
 /* /parser
-  предоставляет механизмы для парсинга токенов;
+  предоставляет механизмы для парсинга токенов,
   что позволяет запускать получившиеся структуры.
 */
 
@@ -19,8 +19,7 @@ use std::{
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-// проверяет что переданный dataType 
-// является математическим оператором
+/// Проверяет, что переданный dataType является математическим оператором
 fn isMathOperator(dataType: TokenType) -> bool 
 {
   matches!(dataType, 
@@ -40,72 +39,73 @@ fn isMathOperator(dataType: TokenType) -> bool
   )
 }
 
-// эта функция должна искать return для структур
-// e:  = value
-// это явно показывает, что это не просто валяющееся значение
+/// Эта функция ищет return для структур `= value`;
+/// Видно, что это не просто валяющееся значение
 fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure>>) -> bool 
 {
   let mut lineTokens: Vec<Token> = 
-  {
-    lineLink.read().unwrap() // читаемая линия, на которой мы сейчас находимся
-      .tokens.clone()        // токены линии на которой мы сейчас находимся
+  { // Читаемая линия, на которой мы сейчас находимся
+    lineLink.read().unwrap()
+      // Токены линии на которой мы сейчас находимся
+      .tokens.clone()
   };
 
-  return
-    match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Equals 
-    {
-      true =>
-      { // если нашли TokenType::Equals, значит это return, сразу удаляем его,
-        // чтобы он нам не мешался потом
-        lineTokens.remove(0);
+  // Возвращаем успешно или не успешно мы нашли
+  match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Equals
+  {
+    false =>
+    { // Это был не результат, идём дальше
+      false
+    }
+    true =>
+    { // Если нашли TokenType::Equals, значит это return, сразу удаляем его,
+      // Чтобы он нам не мешался потом
+      lineTokens.remove(0);
 
-        // редактируемый родитель, поскольку мы собираемся присвоить значение его result
-        let newResultData: Token =
-        { // Используем expression, чтобы получить результат выражения;
-          let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
-          structure.expression(&mut lineTokens)
-        };
+      // Редактируемый родитель, поскольку мы собираемся присвоить значение его result
+      let newResultData: Token =
+      { // Используем expression, чтобы получить результат выражения;
+        let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+        structure.expression(&mut lineTokens)
+      };
 
-        let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
+      let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
 
-        // собственно, структура ожидает какой-то тип в результате, 
-        // либо это может быть TokenType:None. Но мы просто будем менять data
+      // Структура ожидает какой-то тип в результате,
+      // либо это может быть TokenType:None. Но мы просто будем менять data
 
-        match structure.result
-        {
-          Some(_) =>
-          { // Вариант, в котором результат ожидает возвращение определённого типа данных;
-            match &mut structure.result 
-            { // Присваиваем новую data результату;
-              None => {}
-              Some(structureResult) =>
-              {
-                structureResult.setData( newResultData.getData() );
-              }
+      match structure.result
+      {
+        Some(_) =>
+        { // Вариант, в котором результат ожидает возвращение определённого типа данных;
+          match &mut structure.result
+          { // Присваиваем новую data результату;
+            None => {}
+            Some(structureResult) =>
+            {
+              structureResult.setData( newResultData.getData() );
             }
           }
-          _ => 
-          { // Вариант, в котором тип результата был не указан;
-            // Используем expression, чтобы получить результат выражения;
-            // Присваиваем новый результат;
-            structure.result = Some( newResultData );
-          }
         }
+        _ =>
+        { // Вариант, в котором тип результата был не указан;
+          // Используем expression, чтобы получить результат выражения;
+          // Присваиваем новый результат;
+          structure.result = Some( newResultData );
+        }
+      }
 
-        // всё успешно, это был результат
-        true
-      }
-      false => 
-      { // это был не результат, идём дальше
-        false
-      }
+      // Всё успешно, это был результат
+      true
     }
+  }
 }
-// эта функция ищет структуры
-// это может быть либо:
-// - вложенная структура (типо array/vector/list, как удобно)
-// - линейное выражение (типо a = 10)
-// - условный блок (типо if/elif/else)
+/// Эта функция ищет структуры;
+///
+/// Это может быть:
+/// - Вложенная структура (array/vector/list ...)
+/// - Линейное выражение (a = 10)
+/// - Условный блок (if/elif/else)
 fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure>>, lineIndex: *mut usize) -> bool
 {
   // todo: line можно вынести, чтобы потом не было .read().unwrap();
@@ -180,6 +180,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             let mut newStructure: Structure = 
               Structure::new(
                 newStructureName.clone(),
+                None,
                 lineLines,
                 Some(parentLink.clone())
               );
@@ -519,12 +520,14 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
 }
 
 lazy_static! 
-{ // основная структура, в которой вкладываются остальные;
-  // в эту структуру будут переданы стартовые параметры
+{ /// Основная структура; В неё вкладываются остальные;
+  /// В эту структуру будут переданы стартовые параметры;
+  /// Неизменяемая; Действует во время всей жизни программы;
   static ref _main: Arc<RwLock<Structure>> = Arc::new(
     RwLock::new(
       Structure::new(
         String::from("main"),
+        Some(StructureMut::Constant),
         Vec::new(),
         None
       )
@@ -532,28 +535,31 @@ lazy_static!
   );
 }
 
-// это основная функция для парсинга строк;
-// она разделена на подготовительную часть,
-// и часть запуска readLine()
+/// Это основная функция для парсинга строк;
+/// Она разделена на подготовительную часть, и часть запуска readLine()
 pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
-{ // начинается подготовка к запуску
+{ // Начинается подготовка к запуску
   match unsafe{_debugMode} 
   {
     true  => { logSeparator("Preparation"); }
     false => {}
   }
 
-  // присваиваем в главную структуру argc & argv
-  {
+  { // Присваиваем в главную структуру
     let mut main: RwLockWriteGuard<'_, Structure> = _main.write().unwrap();
-    main.lines = tokenizerLinesLinks; // также присваиваем линии от Tokenizer
+
+    // Присваиваем линии от Tokenizer
+    main.lines = tokenizerLinesLinks;
+
     // argc
     main.pushStructure(
       Structure::new(
-        String::from("argc"),   // todo: LockedFinal
-        vec![                   // в линии структуры
-          Arc::new(RwLock::new( // добавляем линию с 1 токеном
-            Line {
+        String::from("argc"),
+        Some(StructureMut::Constant), // Неизменяемая;
+        vec![                    // В линии структуры
+          Arc::new(RwLock::new(       // добавляем линию с 1 токеном
+            Line
+            {
               tokens: vec![
                 Token::new( 
                   Some(TokenType::UInt), 
@@ -566,16 +572,18 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
             }
           ))
         ],
-        Some( _main.clone() ), // ссылаемся на родителя
+        Some( _main.clone() ), // Ссылаемся на родителя
       )
     );
+
     // argv
     let mut argv: Vec< Arc<RwLock<Line>> > = Vec::new();
     for a in unsafe{&_argv}
     {
       argv.push(
-        Arc::new(RwLock::new( // добавляем линию с 1 токеном
-          Line {
+        Arc::new(RwLock::new( // Добавляем линию с 1 токеном
+          Line
+          {
             tokens: vec![
               Token::new( 
                 Some(TokenType::String), 
@@ -591,61 +599,58 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
     }
     main.pushStructure(
       Structure::new(
-        String::from("argv"),  // todo: LockedFinal
-        argv,                  // в линии структуры добавляем все argv линии
-        Some( _main.clone() ), // ссылаемся на родителя
+        String::from("argv"),
+        Some(StructureMut::Constant), // Неизменяемая;
+        argv,                         // В линии структуры добавляем все argv линии;
+        Some( _main.clone() ),        // ссылаемся на родителя
       )
     );
   }
 
-  unsafe
+  // Выводим arch & argv
+  match unsafe{_debugMode}
   {
-    match _debugMode 
+    true =>
     {
-      true => 
+      log("ok",&format!("argc [{}]",unsafe{_argc}));
+      match unsafe{_argc} > 0
       {
-        log("ok",&format!("argc [{}]",_argc));
-        match _argc > 0 
+        true =>
         {
-          true => 
-          {
-            log("ok",&format!("argv {:?}",_argv));
-          }
-          false => {}
+          log("ok",&format!("argv {:?}",unsafe{_argv}));
         }
+        false => {}
       }
-      false => {}
     }
+    false => {}
   }
 
-  // подготовка закончена, читаем линии
-  let startTime: Instant = Instant::now(); // получаем текущее время для замера debug
+  // Подготовка закончена, читаем линии
+  let startTime: Instant = Instant::now(); // Получаем текущее время для debug замера
   match unsafe{_debugMode} 
   {
     true  => { logSeparator("Interpretation"); }
     false => {}
   }
-  // передаём ссылку на структуру, указатель текущей линии и количество линий
+  // Передаём ссылку на структуру и запускаем
   readLines(_main.clone());
-  // далее идут замеры
+  // Далее идут debug замеры
   match unsafe{_debugMode} 
   {
     true => 
     {
-      let endTime:  Instant  = Instant::now();    // получаем текущее время
-      let duration: Duration = endTime-startTime; // получаем сколько всего прошло
+      let endTime:  Instant  = Instant::now();    // Получаем текущее время
+      let duration: Duration = endTime-startTime; // Получаем сколько всего прошло
       logSeparator("End");
       log("ok",&format!("Parser duration [{:?}]",duration));
     }
     false => {}
   }
 }
-// эта функция занимается чтением блоков по ссылке на них;
-// также необходимо передать переменную указателя чтения линии,
-// передать сколько всего линий вложено.
-// todo: исправить переполнение стека
+/// Эта функция занимается чтением блоков по ссылке на них
+/// todo: исправить переполнение стека
 pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
-{ // получаем сколько линий вложено в структуру
+{ // Получаем сколько линий вложено в структуру
   let (lineIndex, linesLength): (*mut usize, usize) = 
   {
     let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap(); // Читаем структуру
@@ -655,38 +660,40 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     )
   };
 
-  // выполнение программы происходит до тех пор, 
+  // Выполнение программы происходит до тех пор,
   // пока не будет всё прочитано, либо 
   // пока не будет вызван _exitCode на true
   let mut lineLink: Arc<RwLock<Line>>;
   while unsafe{_exit == false} && unsafe{*lineIndex < linesLength}
-  { // если мы читаем строки, то создаём сразу ссылку на текущую линию
+  { // Если мы читаем строки, то создаём сразу ссылку на текущую линию
     lineLink = 
-    { // получаем её через чтение текущей структуры;
-      // берём линию по индексу линии
+    { // Получаем её через чтение текущей структуры;
+      // Берём линию по индексу линии
       structureLink.read().unwrap()
         .lines[unsafe{*lineIndex}].clone()
     };
-    // после чего проверяем, если линия пустая на токены, 
-    // то не читаем и идём дальше
-    match lineLink.read().unwrap()
-        .tokens.len() == 0 
+    // После чего проверяем, если линия пустая на токены, то не читаем и идём дальше
+    match
+      lineLink.read().unwrap()
+        .tokens.len() == 0
     {
+      false => {}
       true => 
       {
         unsafe{*lineIndex += 1}
         continue;
       }
-      false => {}
     }
     // Если всё хорошо, то начинаем читать через специальные функции;
     // Ищем структуры
     match !searchStructure(lineLink.clone(), structureLink.clone(), lineIndex)
     {
+      false => {}
       true => 
       { // Читаем return
         match !searchReturn(lineLink.clone(), structureLink.clone())
         {
+          false => {}
           true =>
           { // Ищем линейные выражения
             structureLink.read().unwrap()
@@ -696,15 +703,13 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
               );
             // Клонируем токены, для сохранения возможности повторного запуска
           }
-          false => {}
         }
       }
-      false => {}
     }
-    // идём дальше
+    // Идём дальше
     unsafe{*lineIndex += 1}
   }
-  // сбрасываем указатель линий для текущей структуры на 0
-  // для того чтобы можно было запускать повторно
+  // Сбрасываем указатель линий для текущей структуры на 0
+  // Для того чтобы можно было запускать повторно
   unsafe{*lineIndex = 0}
 }
