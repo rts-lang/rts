@@ -6,6 +6,8 @@
 pub mod value;
 pub mod uf64;
 pub mod structure;
+mod procedureCall;
+mod functionCall;
 
 use crate::{
   logger::*,
