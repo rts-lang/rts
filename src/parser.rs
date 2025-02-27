@@ -180,7 +180,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             let mut newStructure: Structure = 
               Structure::new(
                 newStructureName.clone(),
-                None,
+                StructureMut::Constant,
                 lineLines,
                 Some(parentLink.clone())
               );
@@ -196,6 +196,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   newStructure.pushStructure(
                     Structure::new(
                       parameter.getData().unwrap_or_default(),
+                      StructureMut::Constant,
                       vec![], // todo: add option, pls 
                       None,
                     )
@@ -256,8 +257,8 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
           { // теперь мы точно уверенны, что это линейная запись с математической операцией
 
             let leftValueTokens:Vec<Token> = lineTokens[0..opPos-1].to_vec();
-            let mut leftValueModificator: Option<TokenType> = None;
-            let mut leftValueDataType: Option<TokenType> = None;
+            let mut leftValueMutable: StructureMut = StructureMut::Constant;
+            let mut leftValueDataType: Option<TokenType> = None; // todo не определяет final type
             { // Определяем тип данных и тип модификатора у левой части выражения
               let leftValueTokensLength:usize = leftValueTokens.len();
               let mut dataTypeBeginPos:usize = 1;
@@ -268,14 +269,27 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   false => {}
                   true =>
                   {
-                    let modificatorType:Option<TokenType> = leftValueTokens[1].getDataType();
-                    match matches!(modificatorType.clone().unwrap_or_default(), TokenType::DoubleTilde | TokenType::Tilde)
+                    match leftValueTokens[1].getDataType()
                     {
-                      false => {}
-                      true =>
+                      None => {}
+                      Some(mutableType) =>
                       {
                         dataTypeBeginPos += 1;
-                        leftValueModificator = modificatorType;
+                        match mutableType
+                        {
+                          TokenType::DoubleTilde =>
+                          {
+                            leftValueMutable = StructureMut::Dynamic;
+                          }
+                          TokenType::Tilde =>
+                          {
+                            leftValueMutable = StructureMut::Variable;
+                          }
+                          _ =>
+                          {
+                            leftValueMutable = StructureMut::Constant;
+                          }
+                        }
                       }
                     }
                   }
@@ -319,7 +333,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               }
               //
             }
-            println!("leftValueModificator {}:{}",leftValueModificator.unwrap_or_default().to_string(), leftValueDataType.unwrap_or_default().to_string());
+            println!("leftValueMutable {}:{}",leftValueMutable.to_string(), leftValueDataType.unwrap_or_default().to_string());
 
             match lineTokens[0].getData() 
             { // получаем имя первого токена, чтобы знать с кем мы работаем
@@ -341,6 +355,8 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 };
                 match structureLink
                 {
+                  // todo проверка на opType, потому что может быть неправильное выражение
+                  //      и его даже не следует обрабатывать
                   Some(structureLink) =>
                   { // если мы нашли такую, то значит работаем уже с существующей структурой
                     parentLink.clone()
@@ -353,13 +369,44 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                     );
                   }
                   None =>
-                  { // если мы не нашли похожую, то создаём новую и работаем с правой частью выражения
-                    let tokens: Vec<Token> = rightValue.unwrap_or(vec![]);
+                  { // Если мы не нашли похожую, то создаём новую
+                    // и работаем с правой частью выражения
+                    let mut tokens: Vec<Token> =
+                      match rightValue
+                      {
+                        None =>
+                        { // Если правого выражения не было, то это Final
+                          leftValueMutable = StructureMut::Final;
+                          vec![]
+                        }
+                        Some(rightValue) =>
+                        { // Если правое выражение существует
+                          rightValue // Constant | Variable | Dynamic
+                        }
+                      };
+
+                    let calculateRightValueNow: bool = leftValueMutable == StructureMut::Constant;
+
                     // закидываем новую структуру в родительскую структуру
-                    let mut structure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
-                    structure.pushStructure(
+                    let mut parentStructure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
+
+                    // Вычисляем правое выражение?
+                    match calculateRightValueNow
+                    {
+                      false => {} // Мы ничего не вычисляем сейчас для Variable | Dynamic
+                      true =>
+                      {
+                        tokens = vec![
+                          parentStructure.expression(&mut tokens)
+                        ];
+                      }
+                    }
+
+                    // Создаём структуру
+                    parentStructure.pushStructure(
                       Structure::new(
                         structureName,
+                        leftValueMutable,
                         vec![ Arc::new(RwLock::new(
                           Line {
                             tokens: tokens,
@@ -478,6 +525,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 RwLock::new(
                   Structure::new(
                     String::from("if-elif"),
+                    StructureMut::Constant,
                     condition.lines.clone().unwrap_or(vec![]),
                     Some(parentLink.clone())
                   )
@@ -499,6 +547,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             RwLock::new(
               Structure::new(
                 String::from("else"),
+                StructureMut::Constant,
                 condition.lines.clone().unwrap_or(vec![]),
                 Some(parentLink.clone())
               )
@@ -527,7 +576,7 @@ lazy_static!
     RwLock::new(
       Structure::new(
         String::from("main"),
-        Some(StructureMut::Constant),
+        StructureMut::Constant,
         Vec::new(),
         None
       )
@@ -555,7 +604,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
     main.pushStructure(
       Structure::new(
         String::from("argc"),
-        Some(StructureMut::Constant), // Неизменяемая;
+        StructureMut::Constant, // Неизменяемая;
         vec![                    // В линии структуры
           Arc::new(RwLock::new(       // добавляем линию с 1 токеном
             Line
@@ -600,7 +649,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
     main.pushStructure(
       Structure::new(
         String::from("argv"),
-        Some(StructureMut::Constant), // Неизменяемая;
+        StructureMut::Constant, // Неизменяемая;
         argv,                         // В линии структуры добавляем все argv линии;
         Some( _main.clone() ),        // ссылаемся на родителя
       )
@@ -608,21 +657,24 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Выводим arch & argv
-  match unsafe{_debugMode}
+  unsafe
   {
-    true =>
+    match _debugMode
     {
-      log("ok",&format!("argc [{}]",unsafe{_argc}));
-      match unsafe{_argc} > 0
+      false => {}
+      true =>
       {
-        true =>
+        log("ok", &format!("argc [{}]", _argc));
+        match _argc > 0
         {
-          log("ok",&format!("argv {:?}",unsafe{_argv}));
+          false => {}
+          true =>
+          {
+            log("ok", &format!("argv {:?}", _argv));
+          }
         }
-        false => {}
       }
     }
-    false => {}
   }
 
   // Подготовка закончена, читаем линии

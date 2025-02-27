@@ -22,17 +22,16 @@ use std::{
 use rand::Rng;
 
 // Addition for Structure ==========================================================================
-
-// вычисляет по математической операции значение и тип нового токена из двух
+/// Вычисляет по математической операции значение и тип нового токена из двух
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
 {
-  // получаем значение левой части выражения
+  // Получаем значение левой части выражения
   let leftTokenDataType: TokenType = leftToken.getDataType().unwrap_or_default();
   let leftValue: Value = getValue(leftToken.getData().unwrap_or_default(), &leftTokenDataType);
-  // получаем значение правой части выражения
+  // Получаем значение правой части выражения
   let rightTokenDataType: TokenType = rightToken.getDataType().unwrap_or_default();
   let rightValue: Value = getValue(rightToken.getData().unwrap_or_default(), &rightTokenDataType);
-  // получаем значение выражения, а также предварительный тип
+  // Получаем значение выражения, а также предварительный тип
   let mut resultType: TokenType = TokenType::UInt;
   let resultValue: String = match *op 
   {
@@ -114,8 +113,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     _ => "0".to_string(),
   };
-  // после того как значение было получено,
-  // смотрим какой точно тип выдать новому токену
+  // После того как значение было получено,
+  // Смотрим какой точно тип выдать новому токену
   // todo: if -> match
   match resultType != TokenType::Bool 
   {
@@ -149,66 +148,67 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     false => {}
   }
-  return Token::new( Some(resultType), Some(resultValue) );
+  // return
+  Token::new( Some(resultType), Some(resultValue) )
 }
-// зависимость для calculate
-// считает значение левой и правой части выражения
+/// Зависимость для calculate;
+/// Считает значение левой и правой части выражения
 fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value 
 {
-  return
-    match tokenDataType {
-      TokenType::Int    => 
-      { 
-        tokenData.parse::<i64>()
-          .map(Value::Int)
-          .unwrap_or(Value::Int(0)) 
-      },
-      TokenType::UInt   => 
-      { 
-        tokenData.parse::<u64>()
-          .map(Value::UInt)
-          .unwrap_or(Value::UInt(0)) 
-      },
-      TokenType::Float  => 
-      { 
-        tokenData.parse::<f64>()
-          .map(Value::Float)
-          .unwrap_or(Value::Float(0.0)) 
-      },
-      TokenType::UFloat => 
-      { 
-        tokenData.parse::<f64>()
-          .map(uf64::from)
-          .map(Value::UFloat)
-          .unwrap_or(Value::UFloat(uf64::from(0.0))) 
-      },
-      TokenType::Char  => 
-      { // todo: добавить поддержку операций с TokenType::formattedChar
-        tokenData.parse::<char>()
-          .map(|x| Value::Char(x))
-          .unwrap_or(Value::Char('\0')) 
-      },
-      TokenType::String => 
+  match tokenDataType {
+    TokenType::Int    =>
+    {
+      tokenData.parse::<i64>()
+        .map(Value::Int)
+        .unwrap_or(Value::Int(0))
+    },
+    TokenType::UInt   =>
+    {
+      tokenData.parse::<u64>()
+        .map(Value::UInt)
+        .unwrap_or(Value::UInt(0))
+    },
+    TokenType::Float  =>
+    {
+      tokenData.parse::<f64>()
+        .map(Value::Float)
+        .unwrap_or(Value::Float(0.0))
+    },
+    TokenType::UFloat =>
+    {
+      tokenData.parse::<f64>()
+        .map(uf64::from)
+        .map(Value::UFloat)
+        .unwrap_or(Value::UFloat(uf64::from(0.0)))
+    },
+    TokenType::Char  =>
+    { // todo: добавить поддержку операций с TokenType::formattedChar
+      tokenData.parse::<char>()
+        .map(|x| Value::Char(x))
+        .unwrap_or(Value::Char('\0'))
+    },
+    TokenType::String =>
+    {
+      tokenData.parse::<String>()
+        .map(|x| Value::String(x))
+        .unwrap_or(Value::String("".to_string()))
+    },
+    TokenType::Bool   =>
+    {
+      match tokenData == "0"
       {
-        tokenData.parse::<String>()
-          .map(|x| Value::String(x))
-          .unwrap_or(Value::String("".to_string())) 
-      },
-      TokenType::Bool   => 
-      { 
-        match tokenData == "0" 
-        {
-          true  => { Value::UInt(0) } 
-          false => { Value::UInt(1) } 
-        }
-      },
-      _ => Value::UInt(0),
-    };
+        true  => { Value::UInt(0) }
+        false => { Value::UInt(1) }
+      }
+    },
+    _ => Value::UInt(0),
+  }
 }
 
-// get structure result type
-// todo: вообще лучше бы это было в самом Token,
-//       поскольку там есть перевод уже TokenType -> String
+/// get structure result type
+///
+/// todo: вообще лучше бы это было в самом Token,
+///       поскольку там есть перевод уже TokenType -> String
 pub fn getStructureResultType(word: String) -> TokenType 
 {
   match word.as_str() 
@@ -248,10 +248,10 @@ impl ToString for StructureMut
   {
     match self
     {
-      StructureMut::Final => String::from("Final"),
-      StructureMut::Constant => String::from("Constant"),
-      StructureMut::Variable => String::from("Variable"),
-      StructureMut::Dynamic => String::from("Dynamic"),
+      StructureMut::Final => String::from("final"),
+      StructureMut::Constant => String::from("constant"),
+      StructureMut::Variable => String::from("variable"),
+      StructureMut::Dynamic => String::from("dynamic"),
     }
   }
 }
@@ -266,7 +266,7 @@ pub struct Structure
   pub name: String,
 
   /// Уровень изменения структуры
-  pub mutable: Option< StructureMut >,
+  pub mutable: StructureMut,
 
   /// Ссылки на вложенные линии
   /// todo option
@@ -294,7 +294,7 @@ impl Structure
   pub fn new
   (
     name:    String,
-    mutable: Option< StructureMut >,
+    mutable: StructureMut,
     lines:   Vec< Arc<RwLock<Line>> >,
     parent:  Option< Arc<RwLock<Structure>> >,
   ) -> Self 
@@ -517,7 +517,7 @@ impl Structure
     }
   }
 
-  // Вычисляем значение для struct имени типа TokenType::Word 
+  /// Вычисляем значение для struct имени типа TokenType::Word
   fn replaceStructureByName(&self, value: &mut Vec<Token>, index: usize) -> ()
   {
     fn setNone(value: &mut Vec<Token>, index: usize) 
@@ -951,14 +951,14 @@ impl Structure
   fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Option< Vec<Token> >
   {
     match value.len() < 2 || value[i+1].getDataType().unwrap_or_default() != TokenType::CircleBracketBegin
-    { // Проверяем, что обязательно существует круглая скобка рядом;
+    { // Проверяем, что обязательно существует круглая скобка рядом
       false => {}
       true => { return None; }
     }
 
     let mut result: Vec<Token> = Vec::new();
     match value.get(i+1).map(|v| &v.tokens) 
-    { // Начинаем читать вложения в круглых скобках;
+    { // Начинаем читать вложения в круглых скобках
       None => {}
       Some(tokens) => 
       {
@@ -992,7 +992,7 @@ impl Structure
           }
           //
         }
-        // Удаляем скобки;
+        // Удаляем скобки
         value.remove(i+1);
         *valueLength -= 1;
       }
@@ -1019,39 +1019,41 @@ impl Structure
     {
       false => {}
       true =>
-      { // Если это выражение с 1 токеном, то;
+      { // Если это выражение с 1 токеном, то
         match value[0].getDataType().unwrap_or_default()
-        { // Проверяем возможные варианты;
+        { // Проверяем возможные варианты
           TokenType::Link =>
-          { // Если это TokenType::Link, то;
+          { // Если это TokenType::Link, то
             let data: String = value[0].getData().unwrap_or_default(); // token data
-            let mut link: Vec<String> = data.split('.')
-                                          .map(|s| s.to_string())
-                                          .collect();
+            let mut link: Vec<String> =
+              data.split('.')
+                .map(|s| s.to_string())
+                .collect();
             let linkResult: Token  = self.linkExpression(None, &mut link, None); // Получаем результат от data
             let linkType:   TokenType = linkResult.getDataType().unwrap_or_default(); // Предполагаем изменение dataType
             match linkType
             {
               TokenType::Word =>
-              { // если это TokenType::Word то теперь это будет TokenType::Link
+              { // Если это TokenType::Word то теперь это будет TokenType::Link
                 value[0].setDataType( Some(TokenType::Link) );
               }
               _ =>
-              { // если это другие типы, то просто ставим новый dataType
+              { // Если это другие типы, то просто ставим новый dataType
                 value[0].setDataType( linkResult.getDataType() );
               }
             }
-            value[0].setData( linkResult.getData() ); // ставим новый data
+            value[0].setData( linkResult.getData() ); // Ставим новый data
           }
           TokenType::Word =>
-          { // если это TokenType::Word, то;
+          { // Если это TokenType::Word, то
             let data:       String = value[0].getData().unwrap_or_default();// token data
-            let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // получаем результат от data
-            value[0].setDataType( linkResult.getDataType() ); // ставим новый dataType
-            value[0].setData( linkResult.getData() );  // ставим новый data
+            println!("!!! A1 {}",data);
+            let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
+            value[0].setDataType( linkResult.getDataType() ); // Ставим новый dataType
+            value[0].setData( linkResult.getData() );  // Ставим новый data
           }
           TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
-          { // если это форматные варианты Char, String, RawString;
+          { // Если это форматные варианты Char, String, RawString
             match value[0].getData()
             {
               None => {}
@@ -1071,7 +1073,7 @@ impl Structure
           }
           _ => {} // Идём дальше;
         }
-        return value[0].clone(); // возвращаем результат в виде одного токена
+        return value[0].clone(); // Возвращаем результат в виде одного токена
       }
     }
 
@@ -1417,7 +1419,25 @@ impl Structure
                 "mut" =>
                 { // Возвращает уровень модификации переданной структуры
                   value[i].setDataType( Some(TokenType::String) );
-                  value[i].setData    ( Some(expressions[0].getMut()) );
+                  let result: String =
+                    match expressions[0].getData()
+                    {
+                      None => String::from(""),
+                      Some(structureName) =>
+                      { // Получили название структуры
+                        println!("!!! {}", structureName);
+                        match self.getStructureByName(&structureName)
+                        {
+                          None => String::from(""),
+                          Some(structureLink) =>
+                          { // Получили ссылку на структуру
+                            let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+                            structure.mutable.to_string()
+                          }
+                        }
+                      }
+                    };
+                  value[i].setData( Some(result) );
                 }
                 "randUInt" if expressions.len() > 1 =>
                 { // Возвращаем случайное число типа UInt от min до max
