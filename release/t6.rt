@@ -4,6 +4,9 @@ a:UInt = randUInt(0,10)
 # a -> variable link
 # println(a) <- a будет преобразована в значение
 
+println(a,a,a)
+print(10,20,30)
+
 println(a)
 println(a)
 println(type(a))

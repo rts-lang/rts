@@ -1353,11 +1353,11 @@ impl Structure
   /// todo: когда будет вынесено, то должна ожидать тип данных, который должен в Tokenizer::getWord() тоже
   pub fn functionCall(&self, value: &mut Vec<Token>, valueLength: &mut usize, i: usize) -> ()
   {
-    let expressions: Option< Vec<Token> > = self.getCallParameters(value, i, valueLength);
-    match expressions
+    let parameters: Option< Vec<Token> > = self.getCallParameters(value, i, valueLength);
+    match parameters
     { // Запуск методов может содержать передаваемые параметры при обращении;
       None => {}
-      Some(ref expressions) =>
+      Some(ref parameters) =>
       {
         match value[i].getData()
         {
@@ -1369,18 +1369,18 @@ impl Structure
               { // Получаем значение выражения в типе
                 // todo: Float, UFloat
                 value[i].setDataType( Some(TokenType::UInt ) );
-                value[i].setData    ( Some(expressions[0].getData().unwrap_or_default()) );
+                value[i].setData    ( Some(parameters[0].getData().unwrap_or_default()) );
               }
               TokenType::Int =>
               { // Получаем значение выражения в типе
                 value[i].setDataType( Some(TokenType::Int ) );
-                value[i].setData    ( Some(expressions[0].getData().unwrap_or_default()) );
+                value[i].setData    ( Some(parameters[0].getData().unwrap_or_default()) );
               }
               TokenType::String =>
               { // Получаем значение выражение в типе String
                 // todo: подумать над formatted типами
                 value[i].setDataType( Some(TokenType::String ) );
-                value[i].setData    ( Some(expressions[0].getData().unwrap_or_default()) );
+                value[i].setData    ( Some(parameters[0].getData().unwrap_or_default()) );
               }
               TokenType::Char =>
               { // Получаем значение выражения в типе Char
@@ -1388,7 +1388,7 @@ impl Structure
                 value[i].setDataType( Some(TokenType::Char) );
                 value[i].setData(
                   Some(
-                    (expressions[0].getData().unwrap_or_default()
+                    (parameters[0].getData().unwrap_or_default()
                       .parse::<u8>().unwrap() as char
                     ).to_string()
                   )
@@ -1414,13 +1414,13 @@ impl Structure
                 "type" =>
                 { // Возвращает тип данных переданной структуры
                   value[i].setDataType( Some(TokenType::String) );
-                  value[i].setData    ( Some(expressions[0].getDataType().unwrap_or_default().to_string()) );
+                  value[i].setData    ( Some(parameters[0].getDataType().unwrap_or_default().to_string()) );
                 }
                 "mut" =>
                 { // Возвращает уровень модификации переданной структуры
                   value[i].setDataType( Some(TokenType::String) );
                   let result: String =
-                    match expressions[0].getData()
+                    match parameters[0].getData()
                     {
                       None => String::from(""),
                       Some(structureName) =>
@@ -1439,16 +1439,16 @@ impl Structure
                     };
                   value[i].setData( Some(result) );
                 }
-                "randUInt" if expressions.len() > 1 =>
+                "randUInt" if parameters.len() > 1 =>
                 { // Возвращаем случайное число типа UInt от min до max
                   let min: usize =
-                    match expressions[0].getData()
+                    match parameters[0].getData()
                     {
                       Some(expressionData) => { expressionData.parse::<usize>().unwrap_or_default() }
                       None => { 0 }
                     };
                   let max: usize =
-                    match expressions[1].getData()
+                    match parameters[1].getData()
                     {
                       Some(expressionData) => { expressionData.parse::<usize>().unwrap_or_default() }
                       None => { 0 }
@@ -1464,7 +1464,7 @@ impl Structure
                 }
                 "len" =>
                 { // Получаем размер структуры;
-                  match expressions[0].getDataType().unwrap_or_default()
+                  match parameters[0].getDataType().unwrap_or_default()
                   {
                     TokenType::None =>
                     { // Результат 0
@@ -1479,7 +1479,7 @@ impl Structure
                       value[i] = Token::new(
                         Some(TokenType::UInt),
                         Some(
-                          expressions[0].getData().unwrap_or_default()
+                          parameters[0].getData().unwrap_or_default()
                             .chars().count().to_string()
                         )
                       );
@@ -1489,7 +1489,7 @@ impl Structure
                       // Результат только в UInt
                       value[i].setDataType( Some(TokenType::UInt) );
                       // Получаем значение
-                      match self.getStructureByName(&expressions[0].getData().unwrap_or_default())
+                      match self.getStructureByName(&parameters[0].getData().unwrap_or_default())
                       {
                         Some(structureLink) =>
                         {
@@ -1514,15 +1514,15 @@ impl Structure
                   // Результат может быть только String
                   value[i].setDataType( Some(TokenType::String) );
 
-                  match expressions[0].getData()
+                  match parameters[0].getData()
                   {
                     None => {}
-                    Some(expressionData) =>
+                    Some(parametersData) =>
                     { // Это может быть выведено перед вводом;
                       // todo: возможно потом это лучше убрать,
                       //       т.к. программист сам может вызвать
                       //       такое через иные методы
-                      print!("{}",expressionData);
+                      print!("{}",parametersData);
                       io::stdout().flush().unwrap(); // forced withdrawal of old
                     }
                   }
@@ -1544,10 +1544,10 @@ impl Structure
                 }
                 "exec" =>
                 { // Запускает что-то и возвращает строковый output работы
-                  let data: String = expressions[0].getData().unwrap_or_default();
+                  let data: String = parameters[0].getData().unwrap_or_default();
                   let mut parts: SplitWhitespace<'_> = data.split_whitespace();
 
-                  let command: &str      = parts.next().expect("No command found in expression"); // todo: no errors
+                  let command: &str      = parts.next().expect("No command found in parameters"); // todo: no errors
                   let    args: Vec<&str> = parts.collect();
 
                   let output: Output =
@@ -1570,7 +1570,7 @@ impl Structure
                 { // Запускает что-то и возвращает кодовый результат работы
                   // todo: Возможно изменение: Следует ли оставлять вывод stdout & stderr ?
                   //       -> Возможно следует сделать отдельные методы для подобных операций.
-                  let data: String = expressions[0].getData().unwrap_or_default();
+                  let data: String = parameters[0].getData().unwrap_or_default();
                   let mut parts: SplitWhitespace<'_> = data.split_whitespace();
 
                   let command: &str      = parts.next().expect("No command found in expression"); // todo: no errors
@@ -1592,7 +1592,7 @@ impl Structure
             }
             // Если код не завершился ранее, то далее идут custom методы;
             { // Передаём параметры, они также могут быть None
-              self.procedureCall(&structureName, expressions);
+              self.procedureCall(&structureName, parameters);
               // После чего решаем какой результат оставить
               match self.getStructureByName(&structureName)
               {
