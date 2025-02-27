@@ -606,7 +606,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
       lastTokenIndex = line.tokens.len()-1;
       match line.tokens[lastTokenIndex].getDataType().unwrap_or_default()
       {
-        TokenType::Comment =>  
+        TokenType::Comment =>
         { // Удаляем комментарии
           line.tokens.remove(lastTokenIndex);
 
@@ -845,12 +845,12 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           // то вкладываем возможные скобки
           bracketNesting(
             &mut lineTokens,
-            &TokenType::CircleBracketBegin, 
+            &TokenType::CircleBracketBegin,
             &TokenType::CircleBracketEnd
           );
           bracketNesting(
             &mut lineTokens,
-            &TokenType::SquareBracketBegin, 
+            &TokenType::SquareBracketBegin,
             &TokenType::SquareBracketEnd
           );
           // todo FigureBracketBegin и FigureBracketEnd
@@ -927,22 +927,22 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
                 {
                   let backToken: &Token = &lineTokens[lineTokensLength-1];
                   // todo if -> match
-                  if backToken.getDataType().unwrap_or_default() == TokenType::Word && 
+                  if backToken.getDataType().unwrap_or_default() == TokenType::Word &&
                      backToken.getData().unwrap_or_default() == "f" 
                   {
                     match token.getDataType().unwrap_or_default()
                     {
                       TokenType::RawString =>
                       {
-                       token.setDataType( Some(TokenType::FormattedRawString) ); 
+                       token.setDataType( Some(TokenType::FormattedRawString) );
                       }
                       TokenType::String =>
                       { 
-                        token.setDataType( Some(TokenType::FormattedString) ); 
+                        token.setDataType( Some(TokenType::FormattedString) );
                       }
                       TokenType::Char =>
                       { 
-                        token.setDataType( Some(TokenType::FormattedChar) ); 
+                        token.setDataType( Some(TokenType::FormattedChar) );
                       }
                       _ => {}
                     }

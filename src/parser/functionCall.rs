@@ -225,9 +225,18 @@ impl Structure
                         {
                           value[i].setData(
                             Some(
-                              structureLink.read().unwrap()
-                                .lines.len().to_string()
+                              // Получаем количество линий структуры
+                              match &structureLink.read().unwrap().lines
+                              {
+                                None => String::from("0"),
+                                Some(lines) =>
+                                {
+                                  lines.len().to_string()
+                                }
+                                //
+                              }
                             )
+                            //
                           );
                         }
                         None =>

@@ -11,14 +11,12 @@ use crate::{
 };
 
 use std::{
-  io::{self, Write},
-  process::{Command, Output, ExitStatus},
-  str::SplitWhitespace,
+  io::{Write},
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use rand::Rng;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::parser::structure::parameters::Parameters;
 
 // Addition for Structure ==========================================================================
@@ -209,6 +207,7 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
 ///
 /// todo: вообще лучше бы это было в самом Token,
 ///       поскольку там есть перевод уже TokenType -> String
+/*
 pub fn getStructureResultType(word: String) -> TokenType 
 {
   match word.as_str() 
@@ -225,6 +224,7 @@ pub fn getStructureResultType(word: String) -> TokenType
     _ => TokenType::Custom(word),
   }
 }
+*/
 
 // StructureMut ====================================================================================
 /// Обозначает уровень изменения структуры
@@ -241,7 +241,6 @@ pub enum StructureMut
   /// Может изменять и значение и тип данных, (зависит от наблюдателя => может меняться со временем)
   Dynamic
 }
-
 impl ToString for StructureMut
 { // todo convert -> fmt::Display ?
   fn to_string(&self) -> String
@@ -256,24 +255,104 @@ impl ToString for StructureMut
   }
 }
 
+// DataType ========================================================================================
+/// Тип данных структуры
+#[derive(PartialEq)]
+#[derive(Clone)]
+pub enum StructureType
+{
+// primitives
+  None,
+  Link,
+
+  Bool,
+
+  UInt,
+  Int,
+
+  UFloat,
+  Float,
+
+  Rational,
+  Complex,
+
+  Char,
+  String,
+  RawString,
+
+  FormattedChar,
+  FormattedString,
+  FormattedRawString,
+
+  Method,
+
+  List,
+
+  // todo
+  // Time
+  // Address
+
+// custom
+  /// Позволяет создавать пользовательские типы
+  Custom(String),
+}
+impl ToString for StructureType
+{ // todo convert -> fmt::Display ?
+  fn to_string(&self) -> String
+  {
+    match self
+    { // primitives
+      StructureType::None => String::from("None"),
+      StructureType::Link => String::from("Link"),
+
+      StructureType::Bool => String::from("Bool"),
+
+      StructureType::UInt => String::from("UInt"),
+      StructureType::Int => String::from("Int"),
+
+      StructureType::UFloat => String::from("UFloat"),
+      StructureType::Float => String::from("Float"),
+
+      StructureType::Rational => String::from("Rational"),
+      StructureType::Complex => String::from("Complex"),
+
+      StructureType::Char => String::from("Char"),
+      StructureType::String => String::from("String"),
+      StructureType::RawString => String::from("RawString"),
+
+      StructureType::FormattedChar => String::from("FormattedChar"),
+      StructureType::FormattedString => String::from("FormattedString"),
+      StructureType::FormattedRawString => String::from("FormattedRawString"),
+
+      StructureType::Method => String::from("Method"),
+
+      StructureType::List => String::from("List"),
+
+      // custom
+      StructureType::Custom(value) => value.clone(),
+    }
+  }
+}
 // Structure =======================================================================================
 /// Свободная структура данных
 #[derive(Clone)]
 pub struct Structure 
 {
-  /// Уникальное имя
-  /// todo option
-  pub name: String,
+  /// Уникальное имя;
+  /// Если не будет указано, значит это временная структура
+  pub name: Option<String>,
 
-  /// Уровень изменения структуры
+  /// Уровень изменения
   pub mutable: StructureMut,
 
+  /// Тип данных
+  pub dataType: StructureType,
+
   /// Ссылки на вложенные линии
-  /// todo option
-  pub lines: Vec< Arc<RwLock<Line>> >,
+  pub lines: Option< Vec< Arc<RwLock<Line>> > >,
 
   /// Входные параметры
-  /// todo не используется
+  /// todo не используется в коде
   pub parameters: Parameters,
 
   /// Выходной результат
@@ -294,16 +373,18 @@ impl Structure
 {
   pub fn new
   (
-    name:    String,
-    mutable: StructureMut,
-    lines:   Vec< Arc<RwLock<Line>> >,
-    parent:  Option< Arc<RwLock<Structure>> >,
+    name:     Option<String>,
+    mutable:  StructureMut,
+    dataType: StructureType,
+    lines:    Option< Vec< Arc<RwLock<Line>> > >,
+    parent:   Option< Arc<RwLock<Structure>> >,
   ) -> Self 
   {
     Structure 
     {
       name,
       mutable,
+      dataType,
       lines,
       parameters: Parameters::new(None),
       result: None,
@@ -323,7 +404,9 @@ impl Structure
       {
         for childStructureLink in someStructures 
         {
-          match name == childStructureLink.read().unwrap().name 
+          match
+            name == childStructureLink.read().unwrap()
+              .name.clone().unwrap_or_default() // todo плохо
           {
             true  => { return Some( childStructureLink.clone() ); }
             false => {}
@@ -445,26 +528,36 @@ impl Structure
         {
           true => 
           { // nesting
-            self.setStructureNesting(
-              &structureNesting, 
-              &structureLink.read().unwrap().lines, 
-              rightValue
-            );
+            match &structureLink.read().unwrap().lines
+            {
+              None => {}
+              Some(lines) =>
+              {
+                self.setStructureNesting(
+                  &structureNesting,
+                  lines,
+                  rightValue
+                );
+                //
+              }
+            }
+            //
           }
           false => 
           { // not nesting
             let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
             structure.lines = 
-              vec![ 
+              Some(vec![
                 Arc::new(RwLock::new( 
-                  Line {
+                  Line
+                  {
                     tokens: vec![ self.expression(&mut rightValue.clone()) ],
                     indent: 0,
                     lines:  None,
                     parent: None
                   }
                 ))
-              ];
+              ]);
           }
         }
       }  
@@ -474,19 +567,25 @@ impl Structure
         let leftValue: Token = 
         {
           let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
-          match structure.lines.len() > 0
+          match &structure.lines
           {
-            true => 
+            None => { Token::newEmpty( Some(TokenType::None) ) }
+            Some(lines) =>
             {
-              self.expression(
-                &mut structure.lines[0].read().unwrap()
-                  .tokens.clone())
-            }  
-            false => 
-            {
-              Token::newEmpty(Some(TokenType::None))
+              match lines.len() > 0
+              {
+                true =>
+                {
+                  self.expression(
+                    &mut lines[0].read().unwrap()
+                      .tokens.clone())
+                }
+                false => { Token::newEmpty( Some(TokenType::None) ) }
+              }
+              //
             }
           }
+          //
         };
         let rightValue: Token = self.expression(&mut rightValue.clone()); // todo: возможно не надо клонировать токены, но скорее надо
 
@@ -497,7 +596,7 @@ impl Structure
           TokenType::PlusEquals => 
           { 
             structure.lines = 
-              vec![ 
+              Some(vec![
                 Arc::new(RwLock::new( 
                   Line {
                     tokens: vec![ calculate(&TokenType::Plus, &leftValue, &rightValue) ],
@@ -506,7 +605,7 @@ impl Structure
                     parent: None
                   }
                 ))
-              ];
+              ]);
           }
           _ => {} // todo: Дописать другие варианты;
         }
@@ -538,34 +637,42 @@ impl Structure
           Some(structureLink) => 
           {
             let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
-            { // Если это просто обращение к имени структуры
-              let structureLinesLen: usize = structure.lines.len();
-              match structureLinesLen 
+            // Если это просто обращение к имени структуры
+            match &structure.lines
+            {
+              None => {}
+              Some(lines) =>
               {
-                1 =>
-                { // Структура с одним вложением
-                  let tokens: &mut Vec<Token> = &mut structure.lines[0]
-                                                  .read().unwrap()
-                                                  .tokens.clone();
-                  let _ = drop(structure);
-                  let result: Token = self.expression(tokens);
-                  value[index].setData    ( result.getData().clone() );
-                  value[index].setDataType( result.getDataType().clone() );
-                } 
-                structureLinesLen if structureLinesLen > 1 =>
-                { // Это структура с вложением
-                  let mut linesResult: Vec<Token> = Vec::new();
-                  for line in &structure.lines 
-                  {
+                let structureLinesLen: usize = lines.len();
+                match structureLinesLen
+                {
+                  1 =>
+                  { // Структура с одним вложением
                     let tokens: &mut Vec<Token> =
-                      &mut line.read().unwrap()
+                      &mut lines[0]
+                        .read().unwrap()
                         .tokens.clone();
-                    linesResult.push( self.expression(tokens) );
+                    let _ = drop(structure);
+                    let result: Token = self.expression(tokens);
+                    value[index].setData    ( result.getData().clone() );
+                    value[index].setDataType( result.getDataType().clone() );
                   }
-                  value[index] = Token::newNesting( Some(linesResult) );
-                  value[index].setDataType( Some(TokenType::Link) ); // todo: Речь не о Link, а об Array?
-                } 
-                _ => { setNone(value, index); } // В структуре не было вложений
+                  structureLinesLen if structureLinesLen > 1 =>
+                  { // Это структура с вложением
+                    let mut linesResult: Vec<Token> = Vec::new();
+                    for line in lines
+                    {
+                      let tokens: &mut Vec<Token> =
+                        &mut line.read().unwrap()
+                          .tokens.clone();
+                      linesResult.push( self.expression(tokens) );
+                    }
+                    value[index] = Token::newNesting( Some(linesResult) );
+                    value[index].setDataType( Some(TokenType::Link) ); // todo: Речь не о Link, а об Array?
+                  }
+                  _ => { setNone(value, index); } // В структуре не было вложений
+                }
+                //
               }
             }
             //
@@ -603,106 +710,123 @@ impl Structure
         { // Это структура, которая была передана предыдущем уровнем ссылки;
           // Только в ней мы можем найти нужную линию
           let currentStructure: RwLockReadGuard<'_, Structure> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок
-          if let Some(line) = currentStructure.lines.get(lineNumber)                                   //       для получения линии и выхода из read().unwrap()
-          { // Тогда просто берём такую линию по её номеру
-            let mut lineTokens: Vec<Token> = 
+
+          match &currentStructure.lines
+          {
+            None => {}
+            Some(lines) =>
             {
-              line.read().unwrap()
-                .tokens.clone()
-            };
+              if let Some(line) = lines.get(lineNumber)                                   //       для получения линии и выхода из read().unwrap()
+              { // Тогда просто берём такую линию по её номеру
+                let mut lineTokens: Vec<Token> =
+                {
+                  line.read().unwrap()
+                    .tokens.clone()
+                };
 
-            match lineTokens.len() > 0 
-            { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то;
-              false =>
-              { // В линии нет токенов, нам нечего вычислять
-                return Token::newEmpty( Some(TokenType::None) );
-              }
-              true => 
-              { // В линии есть хотя бы 1 токен
-                if link.len() != 0 
-                { // Если дальше есть продолжение ссылки
-                  link.insert(0, lineTokens[0].getData().unwrap_or_default());
-
-                  // То мы сначала проверяем что такая структура есть во внутреннем пространстве
-                  match currentStructure.getStructureByName( 
-                    &lineTokens[0].getData().unwrap_or_default() 
-                  )
-                  {
-                    None => {}
-                    Some(_) =>
-                    {
-                      let _ = drop(currentStructure);
-                      return currentStructureLock.read().unwrap()
-                        .linkExpression(None, link, parameters);
-                    }
+                match lineTokens.len() > 0
+                { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то;
+                  false =>
+                  { // В линии нет токенов, нам нечего вычислять
+                    return Token::newEmpty( Some(TokenType::None) );
                   }
-                  // А если такой ссылки там не было, то значит она в self
-                  let _ = drop(currentStructure);
-                  return self.linkExpression(currentStructureLink, link, parameters);
-                } else 
-                if let Some(_) = parameters
-                { // Если это был просто запуск метода, то запускаем его
-                  let _ = drop(currentStructure);
-                  
-                  let mut parametersToken: Token = Token::newNesting( Some(Vec::new()) ); // todo: add parameters
-                  parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
+                  true =>
+                  { // В линии есть хотя бы 1 токен
+                    if link.len() != 0
+                    { // Если дальше есть продолжение ссылки
+                      link.insert(0, lineTokens[0].getData().unwrap_or_default());
 
-                  let mut expressionTokens: Vec<Token> = vec![
-                    Token::new( Some(TokenType::Word), lineTokens[0].getData() ),
-                    parametersToken
-                  ];
-
-                  return currentStructureLock.read().unwrap()
-                    .expression(&mut expressionTokens);
-                } else 
-                { // если дальше нет продолжения ссылки
-                  match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Word 
-                  {
-                    false =>
-                    { // Если это не слово, то смотрим на результат expression
-                      return self.expression(&mut lineTokens);
-                    }
-                    true => 
-                    { // Если это слово, то это либо ссылка т.к. там много значений в ней;
-                      // Либо это структура с одиночным вложением и мы можем его забрать сейчас.
-
-                      match currentStructure.getStructureByName( 
-                        &lineTokens[0].getData().unwrap_or_default() 
+                      // То мы сначала проверяем что такая структура есть во внутреннем пространстве
+                      match currentStructure.getStructureByName(
+                        &lineTokens[0].getData().unwrap_or_default()
                       )
-                      { // Пробуем проверить что там 1 линия вложена в структуре;
-                        // После чего сможем посчитать её значение.
+                      {
                         None => {}
-                        Some(childStructureLink) => 
+                        Some(_) =>
                         {
-                          let childStructure: RwLockReadGuard<'_, Structure> = childStructureLink.read().unwrap();
-                          match childStructure.lines.len() == 1 
-                          {
-                            false => {}
-                            true => 
+                          let _ = drop(currentStructure);
+                          return currentStructureLock.read().unwrap()
+                            .linkExpression(None, link, parameters);
+                        }
+                      }
+                      // А если такой ссылки там не было, то значит она в self
+                      let _ = drop(currentStructure);
+                      return self.linkExpression(currentStructureLink, link, parameters);
+                    } else
+                    if let Some(_) = parameters
+                    { // Если это был просто запуск метода, то запускаем его
+                      let _ = drop(currentStructure);
+
+                      let mut parametersToken: Token = Token::newNesting( Some(Vec::new()) ); // todo: add parameters
+                      parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
+
+                      let mut expressionTokens: Vec<Token> = vec![
+                        Token::new( Some(TokenType::Word), lineTokens[0].getData() ),
+                        parametersToken
+                      ];
+
+                      return currentStructureLock.read().unwrap()
+                        .expression(&mut expressionTokens);
+                    } else
+                    { // если дальше нет продолжения ссылки
+                      match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                      {
+                        false =>
+                        { // Если это не слово, то смотрим на результат expression
+                          return self.expression(&mut lineTokens);
+                        }
+                        true =>
+                        { // Если это слово, то это либо ссылка т.к. там много значений в ней;
+                          // Либо это структура с одиночным вложением и мы можем его забрать сейчас.
+
+                          match currentStructure.getStructureByName(
+                            &lineTokens[0].getData().unwrap_or_default()
+                          )
+                          { // Пробуем проверить что там 1 линия вложена в структуре;
+                            // После чего сможем посчитать её значение.
+                            None => {}
+                            Some(childStructureLink) =>
                             {
-                              match childStructure.lines.get(0) 
-                              { // По сути это просто 0 линия через expression
-                                None => {}
-                                Some(line) => 
-                                { 
-                                  let mut lineTokens: Vec<Token> = 
+                              let childStructure: RwLockReadGuard<'_, Structure> = childStructureLink.read().unwrap();
+                              match lines.len() == 1
+                              {
+                                false => {}
+                                true =>
+                                {
+                                  match &childStructure.lines
+                                  {
+                                    None => {}
+                                    Some(lines) =>
                                     {
-                                      line.read().unwrap()
-                                        .tokens.clone()
-                                    };
-                                  let _ = drop(childStructure);
-                                  return self.expression(&mut lineTokens);
+                                      match lines.get(0)
+                                      { // По сути это просто 0 линия через expression
+                                        None => {}
+                                        Some(line) =>
+                                        {
+                                          let mut lineTokens: Vec<Token> =
+                                            {
+                                              line.read().unwrap()
+                                                .tokens.clone()
+                                            };
+                                          let _ = drop(childStructure);
+                                          return self.expression(&mut lineTokens);
+                                          //
+                                        }
+                                      }
+                                      //
+                                    }
+                                  }
                                   //
                                 }
                               }
                               //
                             }
                           }
-                          //
+                          // Если ничего не получилось, значит оставляем ссылку
+                          return Token::new( Some(TokenType::Link), lineTokens[0].getData() );
                         }
                       }
-                      // Если ничего не получилось, значит оставляем ссылку
-                      return Token::new( Some(TokenType::Link), lineTokens[0].getData() );
+                      //
                     }
                   }
                   //
@@ -733,15 +857,23 @@ impl Structure
                   None => false,
                   Some(childStructureLink) => 
                   {
-                    match 
-                      childStructureLink.read().unwrap()
-                        .lines.len() != 0 
+                    match &childStructureLink.read().unwrap().lines
                     {
-                      true  => true,
-                      false => false
+                      None => false,
+                      Some(lines) =>
+                      {
+                        match lines.len() != 0
+                        {
+                          true  => true,
+                          false => false
+                        }
+                        //
+                      }
                     }
+                    //
                   }
                 }
+                //
               };
 
               match hasLines
@@ -767,61 +899,64 @@ impl Structure
               true =>
               { // Если это конец, то берём последнюю структуру и работаем с ней
                 let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
-                match structure.lines.len() == 1 
+                match &structure.lines
                 {
-                  true => 
-                  { // Если это просто одиночное значение, то просто выдаём его
-                    match structure.lines.get(0) 
+                  None => {}
+                  Some(lines) =>
+                  {
+                    match lines.len() == 1
                     {
-                      None => {}
-                      Some(line) => 
-                      { // По сути это просто 0 линия через expression
-                        let mut lineTokens: Vec<Token> = 
-                          {
-                            line.read().unwrap()
-                              .tokens.clone()
-                          };
+                      true =>
+                      { // Если это просто одиночное значение, то просто выдаём его
+                        // По сути это просто 0 линия через expression
+                        let mut lineTokens: Vec<Token> =
+                        {
+                          lines[0].read().unwrap()
+                            .tokens.clone()
+                        };
                         let _ = drop(structure);
                         return self.expression(&mut lineTokens);
                       }
-                    }
-                  } 
-                  false => match parameters
-                  { // Здесь могут быть параметры функции или Some(vec![]) для процедуры;
-                    // В ином случае, это просто ссылка;
-                    None =>
-                    { // Если это просто ссылка, то оставляем её
-                      return Token::new( Some(TokenType::Link), Some(structure.name.clone()) );
-                    }
-                    Some(_) =>
-                    { // Если это был просто запуск метода, то запускаем его
-                      let mut parametersToken: Token = Token::newNesting( parameters );
-                      parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
-
-                      let mut expressionTokens: Vec<Token> = vec![
-                        Token::new( Some(TokenType::Word), Some(structure.name.clone()) ),
-                        parametersToken
-                      ];
-
-                      match structure.parent.clone()
-                      {
-                        None => {}
-                        Some(structureParent) => 
-                        {
-                          let _ = drop(structure);
-                          return structureParent.read().unwrap()
-                            .expression(&mut expressionTokens);
+                      false => match parameters
+                      { // Здесь могут быть параметры функции или Some(vec![]) для процедуры;
+                        // В ином случае, это просто ссылка;
+                        None =>
+                        { // Если это просто ссылка, то оставляем её
+                          return Token::new( Some(TokenType::Link), Some(structure.name.clone().unwrap_or_default()) ); // todo плохо
                         }
-                      }
+                        Some(_) =>
+                        { // Если это был просто запуск метода, то запускаем его
+                          let mut parametersToken: Token = Token::newNesting( parameters );
+                          parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
 
-                      return Token::newEmpty( Some(TokenType::None) );
+                          let mut expressionTokens: Vec<Token> = vec![
+                            Token::new( Some(TokenType::Word), Some(structure.name.clone().unwrap_or_default()) ), // todo плохо
+                            parametersToken
+                          ];
+
+                          match structure.parent.clone()
+                          {
+                            None => {}
+                            Some(structureParent) =>
+                            {
+                              let _ = drop(structure);
+                              return structureParent.read().unwrap()
+                                .expression(&mut expressionTokens);
+                            }
+                          }
+
+                          return Token::newEmpty( Some(TokenType::None) );
+                        }
+                        //
+                      }
                     }
+                    //
                   }
-                  //
                 }
+                //
               }
-              //
             }
+            //
           }
         }
         //
@@ -1205,31 +1340,39 @@ impl Structure
                 Some(structureLink) =>
                 { // Мы должны проверить, что структура имеет только одно вложение;
                   let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
-                  match structure.lines.len() == 1
+                  match &structure.lines
                   {
-                    false => {} // Если вложений больше 1, то пропускаем;
-                    true =>
+                    None => {} // Если линий нет, то пропускаем
+                    Some(lines) =>
                     {
-                      let line: RwLockReadGuard<'_, Line> = structure.lines[0].read().unwrap();
-                      match line.tokens.len() == 1
+                      match lines.len() == 1
                       {
-                        false => {} // Если больше одного токена, то пропускаем;
+                        false => {} // Если вложений больше 1, то пропускаем;
                         true =>
                         {
-                          // todo: Вообще должна быть проверка на TokenType::Link
-                          match line.tokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                          let line: RwLockReadGuard<'_, Line> = lines[0].read().unwrap();
+                          match line.tokens.len() == 1
                           {
-                            false => {} // Если этот один токен не был ссылкой, то пропускаем;
+                            false => {} // Если больше одного токена, то пропускаем;
                             true =>
                             {
-                              self.linkExpression(
-                                None,
-                                &mut [
-                                  line.tokens[0].getData().unwrap_or_default()
-                                ].to_vec(),
-                                Some(vec![]) // todo: Передать параметры функции
-                              );
-                              runBasicMethod = false; // Запуск метода по ссылке
+                              // todo: Вообще должна быть проверка на TokenType::Link
+                              match line.tokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                              {
+                                false => {} // Если этот один токен не был ссылкой, то пропускаем;
+                                true =>
+                                {
+                                  self.linkExpression(
+                                    None,
+                                    &mut [
+                                      line.tokens[0].getData().unwrap_or_default()
+                                    ].to_vec(),
+                                    Some(vec![]) // todo: Передать параметры функции
+                                  );
+                                  runBasicMethod = false; // Запуск метода по ссылке
+                                }
+                              }
+                              //
                             }
                           }
                           //

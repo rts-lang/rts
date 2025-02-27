@@ -9,12 +9,12 @@ use std::sync::{Arc, RwLock};
 // Line
 #[derive(Clone)]
 pub struct Line {
-  pub       tokens: Vec<Token>,                  // list
+  pub tokens: Vec<Token>,                        // list
                                                  // todo: Option<Vec< Arc<RwLock<Token>> >>
-  pub       indent: usize,                       // indentation
+  pub indent: usize,                             // indentation
                                                  // todo: Option
-  pub        lines: Option< Vec< Arc<RwLock<Line>> > >, // child lines
-  pub       parent: Option< Arc<RwLock<Line>> >         // parent link
+  pub lines: Option< Vec< Arc<RwLock<Line>> > >, // child lines
+  pub parent: Option< Arc<RwLock<Line>> >        // parent link
 }
 impl Line 
 {

@@ -8,7 +8,7 @@ use std::fmt;
 /// Тип элементарной единицы хранения информации
 #[derive(PartialEq)]
 #[derive(Clone)]
-pub enum TokenType 
+pub enum TokenType
 {
 // basic
   /// Пустота
@@ -157,13 +157,9 @@ pub enum TokenType
   /// ! (not)
   Exclusion,
   // todo здесь должна быть троичная логика
-
-// custom
-  /// Позволяет создавать пользовательские типы
-  Custom(String),
 }
 
-impl ToString for TokenType 
+impl ToString for TokenType
 { // todo convert -> fmt::Display ?
   fn to_string(&self) -> String 
   {
@@ -254,14 +250,11 @@ impl ToString for TokenType
       TokenType::Joint     => String::from("Joint"),
       TokenType::Disjoint  => String::from("Disjoint"),
       TokenType::Inclusion => String::from("Inclusion"),
-      TokenType::Exclusion => String::from("Exclusion"),
-
-      // custom
-      TokenType::Custom(value) => value.clone(),
+      TokenType::Exclusion => String::from("Exclusion")
     }
   }
 }
-impl Default for TokenType 
+impl Default for TokenType
 {
   fn default() -> Self 
   {
@@ -337,7 +330,7 @@ impl Token
           {
             match self.dataType.clone().unwrap_or_default()
             {
-              TokenType::UInt   => { *data = String::from("0"); } 
+              TokenType::UInt   => { *data = String::from("0"); }
               TokenType::UFloat => { *data = String::from("0.0"); } // todo: use . (0.0)
               _ => {}
             }

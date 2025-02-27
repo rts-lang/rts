@@ -84,21 +84,29 @@ impl Structure
             None => {}
             Some(parentLink) =>
             {
-              let (mut lineIndex, lineLink): (usize, Arc<RwLock<Line>>) =
-                { // Это более безопасный вариант, чтобы использование parent закончилось
-                  // перед дальнейшим использованием ссылки на него
-                  let parent: RwLockReadGuard<'_, Structure> = parentLink.read().unwrap();
-                  let lineIndexBuffer: usize = parent.lineIndex;
+              // Получаем ссылку на линию
+              let parent: RwLockReadGuard<'_, Structure> = parentLink.read().unwrap();
+              let lineIndexBuffer: usize = parent.lineIndex;
 
-                  // Получаем ссылку на линию
-                  (lineIndexBuffer, parent.lines[lineIndexBuffer].clone())
-                };
-              // Используем линию parent а также сам parent для нового запуска
-              searchStructure(
-                lineLink.clone(),
-                parentLink.clone(),
-                &mut lineIndex,
-              );
+              match &parent.lines
+              {
+                None => {}
+                Some(lines) =>
+                {
+                  let (mut lineIndex, lineLink): (usize, Arc<RwLock<Line>>) =
+                    (lineIndexBuffer, lines[lineIndexBuffer].clone());
+
+                  let _ = drop(parent);
+
+                  // Используем линию parent а также сам parent для нового запуска
+                  searchStructure(
+                    lineLink.clone(),
+                    parentLink.clone(),
+                    &mut lineIndex,
+                  );
+                  //
+                }
+              }
               //
             }
           }
@@ -167,43 +175,43 @@ impl Structure
                 {
                   None => {}
                   Some(parameters) =>
+                  {
+                    for (l, parameter) in parameters.iter().enumerate()
                     {
-                      for (l, parameter) in parameters.iter().enumerate()
+                      match &calledStructure.structures
                       {
-                        match &calledStructure.structures
-                        {
-                          None => {}
-                          Some(calledStructureStructures) =>
+                        None => {}
+                        Some(calledStructureStructures) =>
+                          {
+                            let parameterResult: Token = self.expression(&mut vec![parameter.clone()]);
+                            match calledStructureStructures.get(l)
                             {
-                              let parameterResult: Token = self.expression(&mut vec![parameter.clone()]);
-                              match calledStructureStructures.get(l)
+                              None => {}
+                              Some(parameterStructure) =>
                               {
-                                None => {}
-                                Some(parameterStructure) =>
-                                  {
-                                    let mut parameterStructure: RwLockWriteGuard<'_, Structure> = parameterStructure.write().unwrap();
-                                    // add new structure
-                                    parameterStructure.lines =
-                                      vec![
-                                        Arc::new(
-                                          RwLock::new(
-                                            Line {
-                                              tokens: vec![parameterResult],
-                                              indent: 0,
-                                              lines:  None,
-                                              parent: None
-                                            }
-                                          ))
-                                      ];
-                                  }
+                                let mut parameterStructure: RwLockWriteGuard<'_, Structure> = parameterStructure.write().unwrap();
+                                // add new structure
+                                parameterStructure.lines =
+                                  Some(vec![
+                                    Arc::new(
+                                      RwLock::new(
+                                        Line {
+                                          tokens: vec![parameterResult],
+                                          indent: 0,
+                                          lines:  None,
+                                          parent: None
+                                        }
+                                      ))
+                                  ]);
                               }
-                              //
                             }
-                        }
-                        //
+                            //
+                          }
                       }
                       //
                     }
+                    //
+                  }
                 }
               }
               // Запускаем новую структуру
