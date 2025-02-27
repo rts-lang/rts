@@ -1,13 +1,16 @@
 
 a:UInt = randUInt(0,10)
 
-# a -> variable link
-# println(a) <- a будет преобразована в значение
-
 println(a,a,a)
-print(10,20,30)
 
-println(a)
-println(a)
 println(type(a))
 println(mut(a))
+
+println("===")
+
+b~:UInt = randUInt(0,10)
+
+println(b,b,b)
+
+println(type(b))
+println(mut(b))

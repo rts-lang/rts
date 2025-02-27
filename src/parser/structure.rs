@@ -248,10 +248,10 @@ impl ToString for StructureMut
   {
     match self
     {
-      StructureMut::Final => String::from("final"),
-      StructureMut::Constant => String::from("constant"),
-      StructureMut::Variable => String::from("variable"),
-      StructureMut::Dynamic => String::from("dynamic"),
+      StructureMut::Final => String::from("Final"),
+      StructureMut::Constant => String::from("Constant"),
+      StructureMut::Variable => String::from("Variable"),
+      StructureMut::Dynamic => String::from("Dynamic"),
     }
   }
 }
@@ -980,7 +980,17 @@ impl Structure
                     false => {}
                     true  => { expressionBuffer.push( token.clone() ); }
                   }
-                  result.push( self.expression(&mut expressionBuffer) );
+                  match expressionBuffer.len() > 1
+                  {
+                    true =>
+                    { // Выражение из токенов
+                      result.push( Token::newNesting(Some(expressionBuffer.clone())) );
+                    }
+                    false =>
+                    { // Один токен
+                      result.push( expressionBuffer[0].clone() );
+                    }
+                  }
                   expressionBuffer.clear();
                 }  
                 false => 
@@ -1048,7 +1058,6 @@ impl Structure
           TokenType::Word =>
           { // Если это TokenType::Word, то
             let data:       String = value[0].getData().unwrap_or_default();// token data
-            println!("!!! A1 {}",data);
             let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
             value[0].setDataType( linkResult.getDataType() ); // Ставим новый dataType
             value[0].setData( linkResult.getData() );  // Ставим новый data

@@ -17,9 +17,9 @@ impl Procedure
 {
   // =========================================================================================
   /// Выводит несколько значений
-  fn print(parameters: &Parameters)
+  fn print(structure: &Structure, parameters: &Parameters)
   {
-    match parameters.getAll()
+    match parameters.getAllExpressions(structure)
     {
       None => {}
       Some(parameters) =>
@@ -36,9 +36,9 @@ impl Procedure
   }
   // =========================================================================================
   /// Выводит несколько значений и \n в конце
-  fn println(parameters: &Parameters)
+  fn println(structure: &Structure, parameters: &Parameters)
   {
-    Self::print(parameters);
+    Self::print(structure, parameters);
     formatPrint("\n");
     //
   }
@@ -61,12 +61,12 @@ impl Structure
       { // Проверяем на сходство стандартных функций
         "println" =>
         { // println
-          Procedure::println(&parameters);
+          Procedure::println(self, &parameters);
         }
         // =========================================================================================
         "print" =>
         { // print
-          Procedure::print(&parameters);
+          Procedure::print(self, &parameters);
           //
         }
         // =========================================================================================
@@ -114,7 +114,7 @@ impl Structure
         // =========================================================================================
         "sleep" =>
         { // sleep
-          match parameters.get(0)
+          match parameters.getExpression(self, 0)
           {
             None => {}
             Some(p0) => unsafe
@@ -136,7 +136,7 @@ impl Structure
         // =========================================================================================
         "exit" =>
         { // Завершает программу с определённым кодом или кодом ошибки;
-          match parameters.get(0)
+          match parameters.getExpression(self,0)
           {
             None => {}
             Some(p0) => unsafe
@@ -159,56 +159,56 @@ impl Structure
           {
             None => {}
             Some(calledStructureLink) =>
-              { // После получения такой нестандартной структуры по имени,
-                // мы смотрим на её параметры
+            { // После получения такой нестандартной структуры по имени,
+              // мы смотрим на её параметры
+              {
+                let calledStructure: RwLockReadGuard<'_, Structure> = calledStructureLink.read().unwrap();
+                match parameters.getAllExpressions(self)
                 {
-                  let calledStructure: RwLockReadGuard<'_, Structure> = calledStructureLink.read().unwrap();
-                  match parameters.getAll()
-                  {
-                    None => {}
-                    Some(parameters) =>
+                  None => {}
+                  Some(parameters) =>
+                    {
+                      for (l, parameter) in parameters.iter().enumerate()
                       {
-                        for (l, parameter) in parameters.iter().enumerate()
+                        match &calledStructure.structures
                         {
-                          match &calledStructure.structures
-                          {
-                            None => {}
-                            Some(calledStructureStructures) =>
+                          None => {}
+                          Some(calledStructureStructures) =>
+                            {
+                              let parameterResult: Token = self.expression(&mut vec![parameter.clone()]);
+                              match calledStructureStructures.get(l)
                               {
-                                let parameterResult: Token = self.expression(&mut vec![parameter.clone()]);
-                                match calledStructureStructures.get(l)
-                                {
-                                  None => {}
-                                  Some(parameterStructure) =>
-                                    {
-                                      let mut parameterStructure: RwLockWriteGuard<'_, Structure> = parameterStructure.write().unwrap();
-                                      // add new structure
-                                      parameterStructure.lines =
-                                        vec![
-                                          Arc::new(
-                                            RwLock::new(
-                                              Line {
-                                                tokens: vec![parameterResult],
-                                                indent: 0,
-                                                lines:  None,
-                                                parent: None
-                                              }
-                                            ))
-                                        ];
-                                    }
-                                }
-                                //
+                                None => {}
+                                Some(parameterStructure) =>
+                                  {
+                                    let mut parameterStructure: RwLockWriteGuard<'_, Structure> = parameterStructure.write().unwrap();
+                                    // add new structure
+                                    parameterStructure.lines =
+                                      vec![
+                                        Arc::new(
+                                          RwLock::new(
+                                            Line {
+                                              tokens: vec![parameterResult],
+                                              indent: 0,
+                                              lines:  None,
+                                              parent: None
+                                            }
+                                          ))
+                                      ];
+                                  }
                               }
-                          }
-                          //
+                              //
+                            }
                         }
                         //
                       }
-                  }
+                      //
+                    }
                 }
-                // Запускаем новую структуру
-                readLines(calledStructureLink.clone());
               }
+              // Запускаем новую структуру
+              readLines(calledStructureLink.clone());
+            }
           }
         }
         // =========================================================================================

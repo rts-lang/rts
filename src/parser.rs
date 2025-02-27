@@ -335,8 +335,6 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               }
               //
             }
-            println!("leftValueMutable {}:{}",leftValueMutable.to_string(), leftValueDataType.unwrap_or_default().to_string());
-
             match lineTokens[0].getData() 
             { // получаем имя первого токена, чтобы знать с кем мы работаем
               None => {}

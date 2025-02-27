@@ -32,7 +32,7 @@ impl Structure
           TokenType::UInt =>
           { // Получаем значение выражения в типе
             // todo: Float, UFloat
-            match parameters.get(0)
+            match parameters.getExpression(self,0)
             {
               None => {}
               Some(p0) =>
@@ -44,7 +44,7 @@ impl Structure
           }
           TokenType::Int =>
           { // Получаем значение выражения в типе
-            match parameters.get(0)
+            match parameters.getExpression(self,0)
             {
               None => {}
               Some(p0) =>
@@ -59,7 +59,7 @@ impl Structure
           TokenType::String =>
           { // Получаем значение выражение в типе String
             // todo: подумать над formatted типами
-            match parameters.get(0)
+            match parameters.getExpression(self,0)
             {
               None => {}
               Some(p0) =>
@@ -74,7 +74,7 @@ impl Structure
           TokenType::Char =>
           { // Получаем значение выражения в типе Char
             // todo: проверить работу
-            match parameters.get(0)
+            match parameters.getExpression(self,0)
             {
               None => {}
               Some(p0) =>
@@ -111,7 +111,7 @@ impl Structure
 
             "type" =>
             { // Возвращает тип данных переданной структуры
-              match parameters.get(0)
+              match parameters.getExpression(self,0)
               {
                 None => {}
                 Some(p0) =>
@@ -135,7 +135,6 @@ impl Structure
                       None => String::from(""),
                       Some(structureName) =>
                       { // Получили название структуры
-                        println!("!!! {}", structureName);
                         match self.getStructureByName(&structureName)
                         {
                           None => String::from(""),
@@ -154,7 +153,7 @@ impl Structure
             "randUInt" if !parameters.isNone() =>
             { // Возвращаем случайное число типа UInt от min до max
               let min: usize =
-                match parameters.get(0)
+                match parameters.getExpression(self,0)
                 {
                   None => 0,
                   Some(p0) =>
@@ -167,7 +166,7 @@ impl Structure
                   }
                 };
               let max: usize =
-                match parameters.get(1)
+                match parameters.getExpression(self,1)
                 {
                   None => 0,
                   Some(p1) =>
@@ -190,7 +189,7 @@ impl Structure
             }
             "len" =>
             { // Получаем размер структуры;
-              match parameters.get(0)
+              match parameters.getExpression(self,0)
               {
                 None => {}
                 Some(p0) =>
@@ -247,7 +246,7 @@ impl Structure
               // Результат может быть только String
               value[i].setDataType( Some(TokenType::String) );
 
-              match parameters.get(0)
+              match parameters.getExpression(self,0)
               {
                 None => {}
                 Some(p0) =>
@@ -284,7 +283,7 @@ impl Structure
             }
             "exec" =>
             { // Запускает что-то и возвращает строковый output работы
-              match parameters.get(0)
+              match parameters.getExpression(self,0)
               {
                 None => {}
                 Some(p0) =>
@@ -319,7 +318,7 @@ impl Structure
             { // Запускает что-то и возвращает кодовый результат работы
               // todo: Возможно изменение: Следует ли оставлять вывод stdout & stderr ?
               //       -> Возможно следует сделать отдельные методы для подобных операций.
-              match parameters.get(0)
+              match parameters.getExpression(self,0)
               {
                 None => {}
                 Some(p0) =>
