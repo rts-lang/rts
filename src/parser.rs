@@ -47,18 +47,25 @@ fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure
 {
   let mut lineTokens: Vec<Token> = 
   { // Читаемая линия, на которой мы сейчас находимся
-    lineLink.read().unwrap()
-      // Токены линии на которой мы сейчас находимся
-      .tokens.clone()
+    match lineLink.read().unwrap().tokens.clone()
+    {
+      None => return false, // Если в линии нет токенов, то мы её не читаем
+      Some(tokens) =>
+      { // Токены линии на которой мы сейчас находимся
+        tokens
+      }
+    }
   };
+  match lineTokens.is_empty()
+  {
+    true => return false, // Если в линии нет токенов, то мы её не читаем
+    false => {}
+  }
 
   // Возвращаем успешно или не успешно мы нашли
   match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Equals
   {
-    false =>
-    { // Это был не результат, идём дальше
-      false
-    }
+    false => { false } // Это был не результат, идём дальше
     true =>
     { // Если нашли TokenType::Equals, значит это return, сразу удаляем его,
       // Чтобы он нам не мешался потом
@@ -112,19 +119,29 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
 {
   // todo: line можно вынести, чтобы потом не было .read().unwrap();
   //       для этого надо сразу забрать все нужные значения здесь.
-  let line:             RwLockReadGuard<'_, Line> = lineLink.read().unwrap(); // сама линия
-  let lineTokens:       &Vec<Token>               = &line.tokens;             // ссылка на токены линии
-  let lineTokensLength: usize                     = lineTokens.len();         // размер токенов линии
+  let line: RwLockReadGuard<'_, Line> = lineLink.read().unwrap(); // Текущая линия
+  let lineTokens: &Vec<Token> = // Ссылка на токены линии
+    match &line.tokens
+    {
+      None => return false, // Если в линии нет токенов, то мы её не читаем
+      Some(tokens) => { tokens }
+    };
+  let lineTokensLength: usize = lineTokens.len(); // размер токенов линии
+  match lineTokensLength == 0
+  {
+    true => return false, // Если в линии нет токенов, то мы её не читаем
+    false => {}
+  }
 
   let firstTokenType:  TokenType                = lineTokens[0].getDataType().unwrap_or_default(); // тип первого токена в строке
-  let lineLines:       Vec< Arc<RwLock<Line>> > = line.lines.clone().unwrap_or(vec![]);            // вложенные линии
+  let lineLines: Option< Vec< Arc<RwLock<Line>> > > = line.lines.clone(); // вложенные линии
 
   if firstTokenType == TokenType::Word
   { // если мы видим TokenType::Word в начале строки, 
     // это значит, что это либо структура, либо линейная запись
-    match lineLines.len() > 0
+    match lineLines
     {
-      true => 
+      Some(lineLine) =>
       { // если в линии есть вложение, то это структура
         match lineTokens[0].getData() 
         { // первый токен - имя структуры
@@ -185,7 +202,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 Some(newStructureName.clone()),
                 StructureMut::Constant,
                 StructureType::Method,
-                Some(lineLines),
+                Some(lineLine),
                 Some(parentLink.clone())
               );
 
@@ -234,7 +251,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
           }
         }
       }  
-      false =>
+      None =>
       { // если это не структура, значит это линейная запись
         let mut opType: TokenType = TokenType::None; // готовим место для проверки оператора
         let mut opPos:  usize     = 0;               // это будет место, где находится оператор
@@ -415,8 +432,8 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                         Some(vec![
                           Arc::new(RwLock::new(
                           Line {
-                            tokens: tokens,
-                            indent: 0,
+                            tokens: Some(tokens),
+                            indent: None,
                             lines:  None,
                             parent: None
                           }
@@ -439,7 +456,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
   // в том случае, если это не структура и не линейная запись, 
   // мы видим TokenType::Question в начале строки и есть вложения у этой линии, 
   // то это условное вложение
-  if firstTokenType == TokenType::Question && lineLines.len() > 0
+  if firstTokenType == TokenType::Question && !lineLines.is_none()
   { // условное вложение запускает код внутри себя, в том случае если её условное выражение = true;
     // если условное выражение = false, то условное вложение не запускается, 
     // но может продолжить запускать блоки ниже, если такие там есть.
@@ -468,17 +485,17 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               let lineBottomLink: Arc<RwLock<Line>> = lines[i].clone(); // ссылка на нижнюю линию
               { // берём нижнюю линию на чтение
                 let bottomLine: RwLockReadGuard<'_, Line> = lineBottomLink.read().unwrap();
-                match bottomLine.tokens.len() == 0
+                match &bottomLine.tokens
                 { // Выходим если линия пустая
-                  true  => { break; }
-                  false =>
-                    {
-                      match bottomLine.tokens[0].getDataType().unwrap_or_default() != TokenType::Question
-                      { // Выходим если в начале линии нет TokenType::Question
-                        true  => { break; }
-                        false => {}
-                      }
+                  None => { break; }
+                  Some(tokens) =>
+                  {
+                    match tokens[0].getDataType().unwrap_or_default() != TokenType::Question
+                    { // Выходим если в начале линии нет TokenType::Question
+                      true  => { break; }
+                      false => {}
                     }
+                  }
                 }
               }
               // если мы не вышли, значит это условный блок;
@@ -502,44 +519,65 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
     { // итак, мы читает ссылки на условия в цикле;
       // после чего мы берём само условие на чтение
       let condition: RwLockReadGuard<'_, Line> = conditionLink.read().unwrap();
-      match condition.tokens.len() > 1 
+      match &condition.tokens
       {
-        true => 
-        { // если условие больше чем просто один токен TokenType::Question,
-          // то значит там обычное if/elif условие
-          { // проверяем верность условия;
-            let mut conditionTokens: Vec<Token> = condition.tokens.clone(); // todo: no clone ? fix its please
-            // удаляем TokenType::Question токен
-            conditionTokens.remove(0);
-            // и проверяем
-            conditionTruth = 
-            { // получаем string ответ от expression, true/false
-              let expressionResult: Option<String> = 
-                parentLink.read().unwrap() // для этого берём родительскую линию;
-                  .expression(&mut conditionTokens).getData(); // и её токены.
-              // итоговый boolean результат
-              match expressionResult 
+        None => {}
+        Some(tokens) =>
+        {
+          match tokens.len() > 1
+          {
+            true =>
+            { // если условие больше чем просто один токен TokenType::Question,
+              // то значит там обычное if/elif условие
+              { // проверяем верность условия;
+                let mut conditionTokens: Vec<Token> = tokens.clone(); // todo: no clone ? fix its please
+                // удаляем TokenType::Question токен
+                conditionTokens.remove(0);
+                // и проверяем
+                conditionTruth =
+                { // получаем string ответ от expression, true/false
+                  let expressionResult: Option<String> =
+                    parentLink.read().unwrap() // для этого берём родительскую линию;
+                      .expression(&mut conditionTokens).getData(); // и её токены.
+                  // итоговый boolean результат
+                  match expressionResult
+                  {
+                    Some(expressionResult) => { expressionResult == "1" }
+                    None => { false }
+                  }
+                };
+              }
+              // если условие верно
+              match conditionTruth
               {
-                Some(expressionResult) =>
-                {
-                  expressionResult == "1"
-                }
-                None =>
-                {
-                  false
+                false => {}
+                true =>
+                { // создаём новую временную структуру условного блока
+                  let structure: Arc<RwLock<Structure>> =
+                    Arc::new(RwLock::new(
+                      Structure::new(
+                        Some(String::from("if-elif")),
+                        StructureMut::Constant,
+                        StructureType::Method, // todo может быть что-то другое ?
+                        condition.lines.clone(),
+                        Some(parentLink.clone())
+                      )
+                    ));
+                  // после создания, читаем эту структуру
+                  let _ = drop(condition);
+                  readLines(structure);
+                  break; // end
                 }
               }
-            };
-          }
-          // если условие верно
-          match conditionTruth 
-          {
-            true => 
+            }
+            // в случае если в токенах условия просто TokenType::Question,
+            // значит это else блок
+            false => if !conditionTruth
             { // создаём новую временную структуру условного блока
               let structure: Arc<RwLock<Structure>> =
                 Arc::new(RwLock::new(
                   Structure::new(
-                    Some(String::from("if-elif")),
+                    Some(String::from("else")),
                     StructureMut::Constant,
                     StructureType::Method, // todo может быть что-то другое ?
                     condition.lines.clone(),
@@ -551,29 +589,11 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               readLines(structure);
               break; // end
             }
-            false => {}
           }
-        }
-        // в случае если в токенах условия просто TokenType::Question,
-        // значит это else блок
-        false => if !conditionTruth
-        { // создаём новую временную структуру условного блока
-          let structure: Arc<RwLock<Structure>> =
-            Arc::new(RwLock::new(
-              Structure::new(
-                Some(String::from("else")),
-                StructureMut::Constant,
-                StructureType::Method, // todo может быть что-то другое ?
-                condition.lines.clone(),
-                Some(parentLink.clone())
-              )
-            ));
-          // после создания, читаем эту структуру
-          let _ = drop(condition);
-          readLines(structure);
-          break; // end
+          //
         }
       }
+      //
     }
 
     // и только после прочтения всех блоков, 
@@ -628,13 +648,13 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
           Arc::new(RwLock::new( // добавляем линию с 1 токеном
             Line
             {
-              tokens: vec![
+              tokens: Some(vec![
                 Token::new( 
                   Some(TokenType::UInt), 
                   Some(unsafe{_argc.to_string()}) 
                 )
-              ],
-              indent: 0,
+              ]),
+              indent: None,
               lines:  None,
               parent: None
             }
@@ -652,13 +672,13 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
         Arc::new(RwLock::new( // Добавляем линию с 1 токеном
           Line
           {
-            tokens: vec![
+            tokens: Some(vec![
               Token::new( 
                 Some(TokenType::String), 
                 Some(String::from(a)) 
               )
-            ],
-            indent: 0,
+            ]),
+            indent: None,
             lines: None,
             parent: None
           }
@@ -758,7 +778,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     // После чего проверяем, если линия пустая на токены, то не читаем и идём дальше
     match
       lineLink.read().unwrap()
-        .tokens.len() == 0
+        .tokens.is_none()
     {
       false => {}
       true => 
@@ -782,7 +802,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
             structureLink.read().unwrap()
               .expression(
                 &mut lineLink.read().unwrap()
-                  .tokens.clone()
+                  .tokens.clone().unwrap_or_default()
               );
             // Клонируем токены, для сохранения возможности повторного запуска
           }

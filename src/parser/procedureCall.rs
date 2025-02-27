@@ -196,8 +196,8 @@ impl Structure
                                     Arc::new(
                                       RwLock::new(
                                         Line {
-                                          tokens: vec![parameterResult],
-                                          indent: 0,
+                                          tokens: Some(vec![parameterResult]),
+                                          indent: None,
                                           lines:  None,
                                           parent: None
                                         }

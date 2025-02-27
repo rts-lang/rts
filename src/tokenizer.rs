@@ -501,9 +501,9 @@ fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
   while index < length && nextIndex < length 
   { // Если мы не дошли до конца, то читаем линии
     compare = 
-    {
-      let currentIndent: usize = linesLinks[index].read().unwrap().indent;
-      let nextIndent:    usize = linesLinks[nextIndex].read().unwrap().indent;
+    { // Только в Tokenizer мы уверены, что существует indent
+      let currentIndent: usize = linesLinks[index].read().unwrap().indent.unwrap();
+      let nextIndent:    usize = linesLinks[nextIndex].read().unwrap().indent.unwrap();
       currentIndent < nextIndent
     };
     match compare 
@@ -568,7 +568,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
         Some(lineLines) => { deleteNestedComment(lineLines, 0); }
       }
       
-      match line.tokens.is_empty()
+      match line.tokens.is_none()
       {
         false => {}
         true => 
@@ -589,7 +589,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
             {
               match
                 linesLinks[index+1].write().unwrap()
-                 .tokens.is_empty()
+                 .tokens.is_none()
               { // Если токенов в следующей линии не было, значит точно separator;
                 // Повторение подобных условий оставит 1 separator линию по итогу;
                 false => {}
@@ -602,48 +602,53 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
           break 'exit; // Выходим из прерывания
         }
       }
-      
-      lastTokenIndex = line.tokens.len()-1;
-      match line.tokens[lastTokenIndex].getDataType().unwrap_or_default()
-      {
-        TokenType::Comment =>
-        { // Удаляем комментарии
-          line.tokens.remove(lastTokenIndex);
 
-          match
-          { // Проверяем если есть вложенные линии,
-            // а также, что комментарий не удалится весь 
-            // и продолжается на вложенные линии
-            match &line.lines 
-            {
-              None => false,
-              Some(_) =>
+      match line.tokens
+      { None => {} Some(ref mut tokens) =>
+      {
+
+        lastTokenIndex = tokens.len()-1;
+        match tokens.get(lastTokenIndex)
+        { None => {} Some(token) =>
+        {
+
+          match token.getDataType().unwrap_or_default() == TokenType::Comment
+          { false => {} true =>
+          { // Удаляем комментарии
+
+            tokens.remove(lastTokenIndex);
+            match
+            { // Проверяем если есть вложенные линии,
+              // а также, что комментарий не удалится весь
+              // и продолжается на вложенные линии
+              match &line.lines
+              { None => false, Some(_) =>
               {
-                match lastTokenIndex 
+                match lastTokenIndex
                 {
                   0 => { false }
                   _ => { true }
                 }
-              }
+              }}
             }
-          }
-          {
-            false => {}
-            true => { line.lines = None; }
-          }
+            {
+              false => {}
+              true => { line.lines = None; }
+            }
 
-          match line.tokens.is_empty()
-          { // Переходим к удалению пустой линии
-            false => {}
-            true => 
+            // Переходим к удалению пустой линии
+            match line.tokens.is_none()
+            { false => {} true =>
             {
               deleteLine = true; // Линия была удалена
               break 'exit;       // Выходим из прерывания
-            }
-          }
-        }
-        _ => {}
-      }
+            }}
+          }}
+          //
+        }}
+        //
+      }}
+      //
     }
     // Когда линия удалена в прерывании,
     // её можно спокойно удалить
@@ -770,16 +775,18 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
     line = lineLink.read().unwrap();
     log("parserBegin", &format!("{} {}",identStr1,i));
 
-    match (&line.tokens).len() 
+
+    match &line.tokens
     {
-      0 => 
+      None =>
       { // Заголовок для разделителей
         formatPrint(&format!("{}\\b┗ \\fg(#90df91)Separator\\c\n",identStr2));
       } 
-      _ =>
+      Some(tokens) =>
       { // Заголовок для начала вложенных токенов
         formatPrint(&format!("{}\\b┣ \\fg(#90df91)Tokens\\c\n",identStr2));
-        outputTokens(&line.tokens, &indent, &1); // выводим вложенные токены
+        // todo плохо используются tokens
+        outputTokens(tokens, &indent, &1); // выводим вложенные токены
       }
     } 
     
@@ -885,10 +892,11 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           // Добавляем новую линию и пушим ссылку на неё
           linesLinks.push( 
             Arc::new(RwLock::new( 
-              Line {
-                tokens: std::mem::take(&mut lineTokens), // Забираем все токены в линию,
+              Line
+              {
+                tokens: Some(std::mem::take(&mut lineTokens)), // Забираем все токены в линию,
                                                          // оставляя пустой вектор для следующей
-                indent: lineIndent,
+                indent: Some(lineIndent),
                 lines:  None, // В данный момент у неё нет вложенных линий, будет чуть ниже
                 parent: None  // Также у неё нет родителя, это тоже будет ниже при вложении
               }

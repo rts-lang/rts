@@ -466,12 +466,21 @@ impl Structure
           None => {}
           Some(nestingLine) => 
           {
-            nestingLine.write().unwrap()
-              .tokens = newTokens;
+            match nestingLine.write().unwrap().tokens
+            {
+              None => {}
+              Some(ref mut tokens) =>
+              {
+                *tokens = newTokens;
+              }
+            }
+            //
           }
         }
+        //
       }
     }
+    //
   }
 
   /// Выполняет операцию со структурой,
@@ -551,8 +560,8 @@ impl Structure
                 Arc::new(RwLock::new( 
                   Line
                   {
-                    tokens: vec![ self.expression(&mut rightValue.clone()) ],
-                    indent: 0,
+                    tokens: Some(vec![ self.expression(&mut rightValue.clone()) ]),
+                    indent: None,
                     lines:  None,
                     parent: None
                   }
@@ -578,7 +587,9 @@ impl Structure
                 {
                   self.expression(
                     &mut lines[0].read().unwrap()
-                      .tokens.clone())
+                      .tokens.clone()
+                      .unwrap_or_default() // todo плохо
+                  )
                 }
                 false => { Token::newEmpty( Some(TokenType::None) ) }
               }
@@ -599,8 +610,8 @@ impl Structure
               Some(vec![
                 Arc::new(RwLock::new( 
                   Line {
-                    tokens: vec![ calculate(&TokenType::Plus, &leftValue, &rightValue) ],
-                    indent: 0,
+                    tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightValue) ]),
+                    indent: None,
                     lines:  None,
                     parent: None
                   }
@@ -651,7 +662,7 @@ impl Structure
                     let tokens: &mut Vec<Token> =
                       &mut lines[0]
                         .read().unwrap()
-                        .tokens.clone();
+                        .tokens.clone().unwrap_or_default(); // todo плохо
                     let _ = drop(structure);
                     let result: Token = self.expression(tokens);
                     value[index].setData    ( result.getData().clone() );
@@ -664,7 +675,7 @@ impl Structure
                     {
                       let tokens: &mut Vec<Token> =
                         &mut line.read().unwrap()
-                          .tokens.clone();
+                          .tokens.clone().unwrap_or_default(); // todo плохо
                       linesResult.push( self.expression(tokens) );
                     }
                     value[index] = Token::newNesting( Some(linesResult) );
@@ -721,7 +732,7 @@ impl Structure
                 let mut lineTokens: Vec<Token> =
                 {
                   line.read().unwrap()
-                    .tokens.clone()
+                    .tokens.clone().unwrap_or_default() // todo плохо
                 };
 
                 match lineTokens.len() > 0
@@ -806,7 +817,7 @@ impl Structure
                                           let mut lineTokens: Vec<Token> =
                                             {
                                               line.read().unwrap()
-                                                .tokens.clone()
+                                                .tokens.clone().unwrap_or_default() // todo плохо
                                             };
                                           let _ = drop(childStructure);
                                           return self.expression(&mut lineTokens);
@@ -912,7 +923,7 @@ impl Structure
                         let mut lineTokens: Vec<Token> =
                         {
                           lines[0].read().unwrap()
-                            .tokens.clone()
+                            .tokens.clone().unwrap_or_default() // todo плохо
                         };
                         let _ = drop(structure);
                         return self.expression(&mut lineTokens);
@@ -1003,6 +1014,7 @@ impl Structure
             )[0] // Получаем результат выражения в виде ссылки на буферную линию
               .read().unwrap() // Читаем ссылку и
               .tokens.clone()  // получаем все токены линии
+              .unwrap_or_default() // todo плохо
           };
           // Отправляем все токены линии как выражение
           match self.expression(&mut expressionBufferTokens).getData() 
@@ -1351,25 +1363,33 @@ impl Structure
                         true =>
                         {
                           let line: RwLockReadGuard<'_, Line> = lines[0].read().unwrap();
-                          match line.tokens.len() == 1
+                          match &line.tokens
                           {
-                            false => {} // Если больше одного токена, то пропускаем;
-                            true =>
+                            None => {}
+                            Some(tokens) =>
                             {
-                              // todo: Вообще должна быть проверка на TokenType::Link
-                              match line.tokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                              match tokens.len() == 1
                               {
-                                false => {} // Если этот один токен не был ссылкой, то пропускаем;
+                                false => {} // Если больше одного токена, то пропускаем;
                                 true =>
                                 {
-                                  self.linkExpression(
-                                    None,
-                                    &mut [
-                                      line.tokens[0].getData().unwrap_or_default()
-                                    ].to_vec(),
-                                    Some(vec![]) // todo: Передать параметры функции
-                                  );
-                                  runBasicMethod = false; // Запуск метода по ссылке
+                                  // todo: Вообще должна быть проверка на TokenType::Link
+                                  match tokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                                  {
+                                    false => {} // Если этот один токен не был ссылкой, то пропускаем;
+                                    true =>
+                                    {
+                                      self.linkExpression(
+                                        None,
+                                        &mut [
+                                          tokens[0].getData().unwrap_or_default()
+                                        ].to_vec(),
+                                        Some(vec![]) // todo: Передать параметры функции
+                                      );
+                                      runBasicMethod = false; // Запуск метода по ссылке
+                                    }
+                                  }
+                                  //
                                 }
                               }
                               //

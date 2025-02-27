@@ -6,15 +6,18 @@ use crate::tokenizer::token::*;
 
 use std::sync::{Arc, RwLock};
 
-// Line
+/// Это последовательный набор токенов
 #[derive(Clone)]
-pub struct Line {
-  pub tokens: Vec<Token>,                        // list
-                                                 // todo: Option<Vec< Arc<RwLock<Token>> >>
-  pub indent: usize,                             // indentation
-                                                 // todo: Option
-  pub lines: Option< Vec< Arc<RwLock<Line>> > >, // child lines
-  pub parent: Option< Arc<RwLock<Line>> >        // parent link
+pub struct Line
+{
+  /// Список вложенных токенов
+  pub tokens: Option< Vec<Token> >,
+  /// Уровень отступа
+  pub indent: Option<usize>,
+  /// Вложенные линии
+  pub lines: Option< Vec< Arc<RwLock<Line>> > >,
+  /// Ссылка на родителя
+  pub parent: Option< Arc<RwLock<Line>> >
 }
 impl Line 
 {
@@ -22,9 +25,9 @@ impl Line
   {
     Line 
     {
-      tokens: Vec::new(),
-      indent: 0,
-       lines: None,
+      tokens: None,
+      indent: None,
+      lines: None,
       parent: None
     }
   }
