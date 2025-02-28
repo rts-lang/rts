@@ -5,15 +5,15 @@
 use std::fmt;
 use crate::parser::uf64::*;
 
-// Value
+// Value ===========================================================================================
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum Value 
 {
-     Int(i64),
-    UInt(u64),
-   Float(f64),
+  Int(i64),
+  UInt(u64),
+  Float(f64),
   UFloat(uf64),
-    Char(char),
+  Char(char),
   String(String),
 }
 impl Value 
@@ -48,7 +48,7 @@ impl fmt::Display for Value
   }
 }
 
-// +
+// + ===============================================================================================
 impl std::ops::Add for Value 
 {
   type Output = Self;
@@ -126,7 +126,7 @@ impl std::ops::Add for Value
     }
   }
 }
-// -
+// - ===============================================================================================
 impl std::ops::Sub for Value 
 {
   type Output = Self;
@@ -199,7 +199,7 @@ impl std::ops::Sub for Value
     }
   }
 }
-// *
+// * ===============================================================================================
 impl std::ops::Mul for Value 
 {
   type Output = Self;
@@ -232,7 +232,7 @@ impl std::ops::Mul for Value
     }
   }
 }
-// /
+// / ===============================================================================================
 impl std::ops::Div for Value 
 {
   type Output = Self;

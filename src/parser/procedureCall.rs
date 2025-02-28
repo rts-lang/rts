@@ -18,6 +18,8 @@ impl Procedure
 {
   // ===============================================================================================
   /// Выводит несколько значений
+  ///
+  /// todo есть какая-то ошибка вывода последнего print(mut(a))
   fn print(structure: &Structure, parameters: &Parameters)
   {
     match parameters.getAllExpressions(structure)

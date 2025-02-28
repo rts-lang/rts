@@ -88,13 +88,10 @@ fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure
         Some(_) =>
         { // Вариант, в котором результат ожидает возвращение определённого типа данных;
           match &mut structure.result
+          { None => {} Some(structureResult) =>
           { // Присваиваем новую data результату;
-            None => {}
-            Some(structureResult) =>
-            {
-              structureResult.setData( newResultData.getData() );
-            }
-          }
+            structureResult.setData( newResultData.getData() );
+          }}
         }
         _ =>
         { // Вариант, в котором тип результата был не указан;
@@ -391,17 +388,17 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   None =>
                   { // Если мы не нашли похожую, то создаём новую
                     // и работаем с правой частью выражения
-                    let mut tokens: Vec<Token> =
+                    let mut tokens: Option< Vec<Token> > =
                       match rightValue
                       {
                         None =>
                         { // Если правого выражения не было, то это Final
                           leftValueMutable = StructureMut::Final;
-                          vec![]
+                          None
                         }
                         Some(rightValue) =>
                         { // Если правое выражение существует
-                          rightValue // Constant | Variable | Dynamic
+                          Some(rightValue) // Constant | Variable | Dynamic
                         }
                       };
 
@@ -412,15 +409,18 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
 
                     // Вычисляем правое выражение?
                     match calculateRightValueNow
-                    {
-                      false => {} // Мы ничего не вычисляем сейчас для Variable | Dynamic
-                      true =>
-                      {
-                        tokens = vec![
-                          parentStructure.expression(&mut tokens)
-                        ];
-                      }
-                    }
+                    { false => {} true =>
+                    { // Мы ничего не вычисляем сейчас для Final | Variable | Dynamic
+                      // Только для константной структуры значение определяется сразу
+                      tokens =
+                        match tokens.is_none()
+                        { true => None, false =>
+                        {
+                          Some(vec![
+                            parentStructure.expression(&mut tokens.unwrap())
+                          ])
+                        }}
+                    }}
 
                     // Создаём структуру
                     parentStructure.pushStructure(
@@ -431,7 +431,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                         Some(vec![
                           Arc::new(RwLock::new(
                           Line {
-                            tokens: Some(tokens),
+                            tokens: tokens,
                             indent: None,
                             lines:  None,
                             parent: None
@@ -795,11 +795,12 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
           false => {}
           true =>
           { // Ищем линейные выражения
+            let tokens: &mut Vec<Token> =
+              &mut lineLink.read().unwrap()
+                .tokens.clone()
+                .unwrap_or_default(); // todo плохо
             structureLink.read().unwrap()
-              .expression(
-                &mut lineLink.read().unwrap()
-                  .tokens.clone().unwrap_or_default()
-              );
+              .expression(tokens);
             // Клонируем токены, для сохранения возможности повторного запуска
           }
         }

@@ -1,0 +1,12 @@
+
+a
+
+println(a)
+println(type(a))
+println(mut(a))
+
+a = 20
+
+println(a)
+println(type(a))
+println(mut(a))

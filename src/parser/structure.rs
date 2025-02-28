@@ -203,29 +203,6 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
   }
 }
 
-/// get structure result type
-///
-/// todo: вообще лучше бы это было в самом Token,
-///       поскольку там есть перевод уже TokenType -> String
-/*
-pub fn getStructureResultType(word: String) -> TokenType 
-{
-  match word.as_str() 
-  {
-    "Int"      => TokenType::Int,
-    "UInt"     => TokenType::UInt,
-    "Float"    => TokenType::Float,
-    "UFloat"   => TokenType::UFloat,
-    "Rational" => TokenType::Rational,
-    "Complex"  => TokenType::Complex,
-    "Char"     => TokenType::Char,
-    "String"   => TokenType::String,
-    "Bool"     => TokenType::Bool,
-    _ => TokenType::Custom(word),
-  }
-}
-*/
-
 // StructureMut ====================================================================================
 /// Обозначает уровень изменения структуры
 #[derive(PartialEq)]
@@ -273,8 +250,9 @@ pub enum StructureType
   UFloat,
   Float,
 
-  Rational,
-  Complex,
+  // todo
+  //Rational,
+  //Complex,
 
   Char,
   String,
@@ -286,7 +264,7 @@ pub enum StructureType
 
   Method,
 
-  List,
+  List, // todo List<Type>
 
   // todo
   // Time
@@ -313,8 +291,8 @@ impl ToString for StructureType
       StructureType::UFloat => String::from("UFloat"),
       StructureType::Float => String::from("Float"),
 
-      StructureType::Rational => String::from("Rational"),
-      StructureType::Complex => String::from("Complex"),
+      //StructureType::Rational => String::from("Rational"),
+      //StructureType::Complex => String::from("Complex"),
 
       StructureType::Char => String::from("Char"),
       StructureType::String => String::from("String"),
@@ -513,6 +491,7 @@ impl Structure
       true => 
       { // Если это простое приравнивание к структуре
         let mut structureNesting: Vec<Token> = Vec::new();
+        println!("!!! {:?} | {:?}",leftValue.clone(),rightValue.clone());
         for value in leftValue 
         {
           match value.getDataType().unwrap_or_default() == TokenType::SquareBracketBegin 
@@ -531,7 +510,8 @@ impl Structure
         match structureNesting.len() > 0 
         {
           true => 
-          { // nesting
+          { // Если есть вложения
+            // todo проверить работу этого варианта
             match &structureLink.read().unwrap().lines
             { None => {} Some(lines) =>
             {
@@ -544,7 +524,7 @@ impl Structure
             //
           }
           false => 
-          { // not nesting
+          { // Если нет вложений
             let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
             structure.lines = 
               Some(vec![
@@ -609,7 +589,7 @@ impl Structure
                 ))
               ]);
           }
-          _ => {} // todo: Дописать другие варианты;
+          _ => {} // todo: Дописать другие варианты; а также добавит для них отдельные тесты
         }
         //if op == TokenType::PlusEquals     { structure.value = calculate(&TokenType::Plus,     &leftValue, &rightValue); } else 
         //if op == TokenType::MinusEquals    { structure.value = calculate(&TokenType::Minus,    &leftValue, &rightValue); } else 

@@ -18,10 +18,10 @@ files
   "./tests/randUInt.rt"
   "./tests/charsCycle.rt"
   "./tests/exec.rt"
-#  "./tests/cycle/array.rt"
-#  "./tests/cycle/charsArray.rt"
-#  "./tests/cycle/colorNumbers.rt"
-#  "./tests/cycle/numbers.rt"
+  "./tests/cycle/array.rt"
+  "./tests/cycle/charsArray.rt"
+  "./tests/cycle/colorNumbers.rt"
+  "./tests/cycle/numbers.rt"
 
 l = 0
 ? l < len(files)
