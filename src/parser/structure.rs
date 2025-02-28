@@ -493,7 +493,7 @@ impl Structure
     {
       TokenType::Equals | TokenType::PlusEquals | TokenType::MinusEquals | 
       TokenType::MultiplyEquals | TokenType::DivideEquals => {},
-      _ => { return },
+      _ => return
     }
 
     // calculate new values
@@ -516,40 +516,31 @@ impl Structure
         for value in leftValue 
         {
           match value.getDataType().unwrap_or_default() == TokenType::SquareBracketBegin 
+          { false => {} true =>
           {
-            false => {}
-            true =>
+
+            match value.tokens
+            { None => {} Some(mut valueTokens) =>
             {
-              match value.tokens 
-              {
-                None => {}
-                Some(mut valueTokens) => 
-                {
-                  structureNesting.push( 
-                    self.expression(&mut valueTokens) 
-                  );
-                }
-              }
-            }
-          }
+              structureNesting.push(
+                self.expression(&mut valueTokens)
+              );
+            }}
+          }}
         }
         match structureNesting.len() > 0 
         {
           true => 
           { // nesting
             match &structureLink.read().unwrap().lines
+            { None => {} Some(lines) =>
             {
-              None => {}
-              Some(lines) =>
-              {
-                self.setStructureNesting(
-                  &structureNesting,
-                  lines,
-                  rightValue
-                );
-                //
-              }
-            }
+              self.setStructureNesting(
+                &structureNesting,
+                lines,
+                rightValue
+              );
+            }}
             //
           }
           false => 

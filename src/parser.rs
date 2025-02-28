@@ -142,7 +142,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
     match lineLines
     {
       Some(lineLine) =>
-      { // если в линии есть вложение, то это структура
+      { // Если в линии есть вложение, то это структура с вложением
         match lineTokens[0].getData() 
         { // первый токен - имя структуры
           None => {}
@@ -250,9 +250,9 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             return true;
           }
         }
-      }  
+      }
       None =>
-      { // если это не структура, значит это линейная запись
+      { // Это линейная запись
         let mut opType: TokenType = TokenType::None; // готовим место для проверки оператора
         let mut opPos:  usize     = 0;               // это будет место, где находится оператор
         for (i, lineToken) in lineTokens.iter().enumerate()
@@ -286,73 +286,59 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               for i in 0..leftValueTokensLength
               {
                 match i == 1
+                { false => {} true =>
                 { // Определяем тип модификатора у левой части выражения
-                  false => {}
-                  true =>
+
+                  match leftValueTokens[1].getDataType()
+                  { None => {} Some(mutableType) =>
                   {
-                    match leftValueTokens[1].getDataType()
+                    dataTypeBeginPos += 1;
+                    match mutableType
                     {
-                      None => {}
-                      Some(mutableType) =>
+                      TokenType::DoubleTilde =>
                       {
-                        dataTypeBeginPos += 1;
-                        match mutableType
-                        {
-                          TokenType::DoubleTilde =>
-                          {
-                            leftValueMutable = StructureMut::Dynamic;
-                          }
-                          TokenType::Tilde =>
-                          {
-                            leftValueMutable = StructureMut::Variable;
-                          }
-                          _ =>
-                          {
-                            leftValueMutable = StructureMut::Constant;
-                          }
-                        }
+                        leftValueMutable = StructureMut::Dynamic;
+                      }
+                      TokenType::Tilde =>
+                      {
+                        leftValueMutable = StructureMut::Variable;
+                      }
+                      _ =>
+                      {
+                        leftValueMutable = StructureMut::Constant;
                       }
                     }
-                  }
-                }
-                match i == dataTypeBeginPos
-                { // Определяем тип данных у левой части выражения
-                  false => {}
-                  true =>
-                  { // Если есть 3 токен
-                    match leftValueTokens[dataTypeBeginPos].getDataType().unwrap_or_default() == TokenType::Colon
-                    {
-                      false => {}
-                      true =>
-                      { // Если это : то следом должен быть тип данных
-                        match leftValueTokensLength > dataTypeBeginPos
-                        {
-                          false => {}
-                          true =>
-                          { // Токен с типом данных существует
-                            let dataType:Option<TokenType> = leftValueTokens[dataTypeBeginPos+1].getDataType();
-                            match matches!(dataType.clone().unwrap_or_default(),
-                              TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float |
-                              TokenType::String | TokenType::Char | TokenType::Rational | TokenType::Complex)
-                            {
-                              false => {}
-                              true =>
-                              { // todo возможно нестабильно
-                                leftValueDataType = StructureType::Custom(
-                                  leftValueTokens[dataTypeBeginPos+1].getData().unwrap_or_default()
-                                );
-                              }
-                              //
-                            }
-                          }
-                          //
-                        }
-                      }
+                  }}
+                }}
+                match i == dataTypeBeginPos // Определяем тип данных у левой части выражения
+                { false => {} true =>
+                { // Если есть 3 токен
+
+                  match leftValueTokens[dataTypeBeginPos].getDataType().unwrap_or_default() == TokenType::Colon
+                  { false => {} true =>
+                  { // Если это : то следом должен быть тип данных
+
+                    match leftValueTokensLength > dataTypeBeginPos
+                    { false => {} true =>
+                    { // Токен с типом данных существует
+
+                      let dataType:Option<TokenType> = leftValueTokens[dataTypeBeginPos+1].getDataType();
+                      match matches!(dataType.clone().unwrap_or_default(),
+                        TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float |
+                        TokenType::String | TokenType::Char | TokenType::Rational | TokenType::Complex)
+                      { false => {} true =>
+                      { // todo возможно нестабильно
+                        leftValueDataType = StructureType::Custom(
+                          leftValueTokens[dataTypeBeginPos+1].getData().unwrap_or_default()
+                        );
+                        //
+                      }}
                       //
-                    }
-                  }
+                    }}
+                    //
+                  }}
                   //
-                }
+                }}
               }
               //
             }
@@ -380,14 +366,27 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   //      и его даже не следует обрабатывать
                   Some(structureLink) =>
                   { // Если мы нашли такую, то значит работаем уже с существующей структурой
-                    parentLink.clone()
-                      .read().unwrap()
-                      .structureOp(
-                        structureLink, 
-                        opType, 
-                        leftValue.unwrap_or(vec![]),
-                        rightValue.unwrap_or(vec![])
-                    );
+                    let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+
+                    let structureMut: StructureMut =
+                    {
+                      let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+                      structure.mutable.clone()
+                    };
+
+                    match structureMut
+                    {
+                      StructureMut::Constant => {} // Константные структуры изменить нельзя
+                      StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
+                      { // Всё остальное изменить можно
+                        parent.structureOp(
+                          structureLink,
+                          opType,
+                          leftValue.unwrap_or(vec![]), // todo лучше будет option ?
+                          rightValue.unwrap_or(vec![]) // todo лучше будет option ?
+                        );
+                      }
+                    }
                   }
                   None =>
                   { // Если мы не нашли похожую, то создаём новую
@@ -470,46 +469,43 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
           .lines.clone()           // родительские линии
       };
       match lines
+      { None => {} Some(lines) =>
       {
-        None => {}
-        Some(lines) =>
-        {
-          let linesLength: usize = lines.len(); // количество линий родительской структуры
-          { // смотрим линии внизу
-            let mut i: usize = unsafe{*lineIndex};
-            while i < linesLength
-            { // если line index < lines length, то читаем вниз линии,
-              // и если там первый токен не имеет TokenType::Question,
-              // или количество токенов == 0, то только в этом случае break;
-              // это будет означать, что мы нашли все возможные условные блоки.
-              let lineBottomLink: Arc<RwLock<Line>> = lines[i].clone(); // ссылка на нижнюю линию
-              { // берём нижнюю линию на чтение
-                let bottomLine: RwLockReadGuard<'_, Line> = lineBottomLink.read().unwrap();
-                match &bottomLine.tokens
-                { // Выходим если линия пустая
-                  None => { break; }
-                  Some(tokens) =>
-                  {
-                    match tokens[0].getDataType().unwrap_or_default() != TokenType::Question
-                    { // Выходим если в начале линии нет TokenType::Question
-                      true  => { break; }
-                      false => {}
-                    }
+        let linesLength: usize = lines.len(); // количество линий родительской структуры
+        { // смотрим линии внизу
+          let mut i: usize = unsafe{*lineIndex};
+          while i < linesLength
+          { // если line index < lines length, то читаем вниз линии,
+            // и если там первый токен не имеет TokenType::Question,
+            // или количество токенов == 0, то только в этом случае break;
+            // это будет означать, что мы нашли все возможные условные блоки.
+            let lineBottomLink: Arc<RwLock<Line>> = lines[i].clone(); // ссылка на нижнюю линию
+            { // берём нижнюю линию на чтение
+              let bottomLine: RwLockReadGuard<'_, Line> = lineBottomLink.read().unwrap();
+              match &bottomLine.tokens
+              { // Выходим если линия пустая
+                None => { break; }
+                Some(tokens) =>
+                {
+                  match tokens[0].getDataType().unwrap_or_default() != TokenType::Question
+                  { // Выходим если в начале линии нет TokenType::Question
+                    true  => { break; }
+                    false => {}
                   }
                 }
               }
-              // если мы не вышли, значит это условный блок;
-              // значит мы его добавляем
-              conditions.push(lineBottomLink);
-              i += 1;
             }
+            // если мы не вышли, значит это условный блок;
+            // значит мы его добавляем
+            conditions.push(lineBottomLink);
+            i += 1;
           }
-          // в данном месте мы точно уверенны
-          // что conditions.len() > 1 из-за первого блока
-          saveNewLineIndex = conditions.len()-1;
-          //
         }
-      }
+        // в данном месте мы точно уверенны
+        // что conditions.len() > 1 из-за первого блока
+        saveNewLineIndex = conditions.len()-1;
+        //
+      }}
       //
     }
     // после нахождения всех возможных условных блоков,

@@ -6,6 +6,12 @@ println(a,a,a)
 println(type(a))
 println(mut(a))
 
+a = -2
+println(a,a,a)
+
+println(type(a))
+println(mut(a))
+
 println("===")
 
 b~:UInt = randUInt(0,10)
