@@ -213,7 +213,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 newStructure.pushStructure(
                   Structure::new(
                     parameter.getData(),
-                    StructureMut::Constant,
+                    StructureMut::Constant, // todo не знаю что сюда ставить
                     StructureType::None, // todo не знаю что сюда ставить
                     None,
                     None,
@@ -341,8 +341,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 Some( lineTokens[opPos..lineTokensLength].to_vec() )
             };
 
-          // Получаем родительскую структуру
-
+          // Получаем родительскую структуру;
           // Ищем в родительской структуре, есть ли там похожая на structureName
           let structureLink: Option< Arc<RwLock<Structure>> > =
           {
@@ -368,15 +367,24 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 StructureMut::Constant => {} // Константные структуры изменить нельзя
                 StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
                 { // Всё остальное изменить можно
-                  parent.structureOp(
-                    structureLink,
-                    opType,
-                    structureMut,
-                    leftPart.unwrap_or(vec![]), // todo лучше будет option ?
-                    rightPart.unwrap_or(vec![]) // todo лучше будет option ?
-                  );
+                  match (leftPart, rightPart)
+                  {
+                    (Some(leftPart), Some(rightPart)) =>
+                    {
+                      parent.structureOp(
+                        structureLink,
+                        opType,
+                        structureMut,
+                        leftPart,
+                        rightPart
+                      );
+                    }
+                    _ => {}
+                  }
+                  //
                 }
               }
+              //
             }
             None =>
             { // Если мы не нашли похожую, то создаём новую
@@ -395,7 +403,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   }
                 };
 
-              let calculateRightValueNow: bool = leftValueMutable == StructureMut::Constant;
+              let calculateRightValueNow: bool = leftValueMutable != StructureMut::Final;
 
               // Закидываем новую структуру в родительскую структуру
               let mut parentStructure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
@@ -405,13 +413,19 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               { false => {} true =>
               { // Только для константной структуры значение определяется сразу
                 let hasTokens: bool = tokens.is_none();
-                let value: Token = parentStructure.expression(&mut tokens.unwrap());
+                let mut value: Token = parentStructure.expression(&mut tokens.unwrap());
                 match leftValueDataType == StructureType::None
-                { false => {} true =>
-                { // Тип вычисляется только если он не был изначально определён;
-                  // Вычисляется он по типу из результата правой части выражения
-                  leftValueDataType = value.getDataType().toStructureType();
-                }}
+                {
+                  true =>
+                  { // Тип вычисляется только если он не был изначально определён;
+                    // Вычисляется он по типу из результата правой части выражения
+                    leftValueDataType = value.getDataType().toStructureType();
+                  }
+                  false =>
+                  { // Требуется выполнить преобразование в указанный тип данных
+                    value.setDataType(leftValueDataType.toTokenType());
+                  }
+                }
                 //
                 tokens =
                   match hasTokens
@@ -422,7 +436,6 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               }}
 
               // Создаём структуру
-              println!(">>> {}",leftValueDataType.to_string());
               parentStructure.pushStructure(
                 Structure::new(
                   Some(structureName),

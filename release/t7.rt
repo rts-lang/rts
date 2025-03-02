@@ -1,56 +1,56 @@
 
-# ========== final v ===========
+# ==================== final v =====================
 
-println("========== a ===========")
-a      # будет final:None
-println(f"{a}>{type(a)}>{mut(a)}")
-a = 10 # будет constant UInt:10
-println(f"{a}>{type(a)}>{mut(a)}")
+println("=============== a ================")
+a
+println(f"{a}:{type(a)}:{mut(a)} <- :None:Final")
+a = 10
+println(f"{a}:{type(a)}:{mut(a)} <- 10:UInt:Constant")
 
-println("========== b ===========")
-b:UInt  # будет final:UInt
-println(f"{b}>{type(b)}>{mut(b)}")
-b = -10 # будет constant UInt:0
-println(f"{b}>{type(b)}>{mut(b)}")
+println("=============== b ================")
+b:UInt
+println(f"{b}:{type(b)}:{mut(b)} <- :UInt:Final")
+b = -10
+println(f"{b}:{type(b)}:{mut(b)} <- 0:UInt:Constant")
 
-# =========== constant x ===========
+# ===================== constant x =====================
 
-println("========== c ===========")
-c = 10 # будет UInt:10
-println(f"{c}>{type(c)}>{mut(c)}")
-c = 20 # не будет изменено
-println(f"{c}>{type(c)}>{mut(c)}")
+println("=============== c ================")
+c = 10
+println(f"{c}:{type(c)}:{mut(c)} <- 10:UInt:Constant")
+c = -20
+println(f"{c}:{type(c)}:{mut(c)} <- 10:UInt:Constant")
 
-println("========== d ===========")
-d:UInt = 10 # будет UInt:10
-println(f"{d}>{type(d)}>{mut(d)}")
-d = 20      # не будет изменено
-println(f"{d}>{type(d)}>{mut(d)}")
+println("=============== d ================")
+d:UInt = -10
+println(f"{d}:{type(d)}:{mut(d)} <- 0:UInt:Constant")
+d = 20
+println(f"{d}:{type(d)}:{mut(d)} <- 0:UInt:Constant")
 
-# ========== variable v ==========
+# ==================== variable v ====================
 
-println("========== e ===========")
-e~ = 10 # будет UInt:10
-println(f"{e}>{type(e)}>{mut(e)}")
-e = -20 # будет UInt:0
-println(f"{e}>{type(e)}>{mut(e)}")
+println("=============== e ================")
+e~ = 10
+println(f"{e}:{type(e)}:{mut(e)} <- 10:UInt:Variable")
+e = -20
+println(f"{e}:{type(e)}:{mut(e)} <- 0:UInt:Variable")
 
-println("========== f ===========")
-f~:UInt = 10 # будет UInt:10
-println(f"{f}>{type(f)}>{mut(f)}")
-f = -20      # будет UInt:0
-println(f"{f}>{type(f)}>{mut(f)}")
+println("=============== f ================")
+f~:UInt = -10
+println(f"{f}:{type(f)}:{mut(f)} <- 0:UInt:Variable")
+f = -20
+println(f"{f}:{type(f)}:{mut(f)} <- 0:UInt:Variable")
 
-# ========== dynamic v ==========
+# ==================== dynamic v ====================
 
-println("========== g ===========")
-g~~ = 10 # будет UInt:10
-println(f"{g}>{type(g)}>{mut(g)}")
-g = -20  # будет Int:-20
-println(f"{g}>{type(g)}>{mut(g)}")
+println("=============== g ================")
+g~~ = 10
+println(f"{g}:{type(g)}:{mut(g)} <- 10:UInt:Dynamic")
+g = -20
+println(f"{g}:{type(g)}:{mut(g)} <- -20:Int:Dynamic")
 
-println("========== h ===========")
-h~~:UInt = 10 # будет UInt:10
-println(f"{h}>{type(h)}>{mut(h)}")
-h = -20       # будет Int:-20
-println(f"{h}>{type(h)}>{mut(h)}")
+println("=============== h ================")
+h~~:UInt = 10
+println(f"{h}:{type(h)}:{mut(h)} <- 10:UInt:Dynamic")
+h = -20
+println(f"{h}:{type(h)}:{mut(h)} <- -20:Int:Dynamic")

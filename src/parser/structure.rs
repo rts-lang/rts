@@ -311,6 +311,31 @@ impl ToString for StructureType
     }
   }
 }
+
+pub trait ToTokenType
+{
+  /// Преобразует StructureType в TokenType
+  fn toTokenType(&self) -> TokenType;
+}
+
+impl ToTokenType for StructureType
+{
+  fn toTokenType(&self) -> TokenType
+  {
+    match self
+    {
+      StructureType::UInt => TokenType::UInt,
+      StructureType::Int => TokenType::Int,
+      StructureType::UFloat => TokenType::UFloat,
+      StructureType::Float => TokenType::Float,
+      StructureType::String => TokenType::String,
+      StructureType::Char => TokenType::Char,
+      // StructureType::Rational => TokenType::Rational,
+      // StructureType::Complex => TokenType::Complex,
+      _ => TokenType::None, // todo ?
+    }
+  }
+}
 // Structure =======================================================================================
 /// Свободная структура данных
 #[derive(Clone)]
@@ -427,7 +452,7 @@ impl Structure
   pub fn structureOp(&self, structureLink: Arc<RwLock<Structure>>, op: TokenType, leftPartMutable: StructureMut, leftPart: Vec<Token>, rightPart: Vec<Token>) -> ()
   {
     match op
-    { // Принимаем только определённый список операций
+    { // Принимаем только математические операции
       TokenType::Equals |
       TokenType::PlusEquals |
       TokenType::MinusEquals |
@@ -444,31 +469,35 @@ impl Structure
         // todo должен быть вариант с вложением ?
         // Если нет вложений
 
-        let rightPartValue: Token = self.expression(&mut rightPart.clone());
+        let mut rightPartValue: Token = self.expression(&mut rightPart.clone());
 
         let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
 
-        println!("!!! {}:{} -> {:?} | {:?}",
-          structure.dataType.to_string(),
-          leftPartMutable.to_string(),
-          leftPart.clone(),
-          rightPart.clone()
-        );
-
         // Изменяем тип структуры если он не был указан
-        match structure.dataType
+        match
+          structure.dataType == StructureType::None ||
+          leftPartMutable == StructureMut::Dynamic // Dynamic может изменить dataType просто так
         {
-          StructureType::None =>
+          true =>
           {
             match leftPartMutable != StructureMut::Variable
             { false => {} true =>
             { // Будет присвоено только Final | Dynamic
-                structure.dataType = rightPartValue.getDataType().toStructureType();
-              println!("  !!!");
+              structure.dataType = rightPartValue.getDataType().toStructureType();
             }}
           }
-          _ => {}
+          false =>
+          { // Требуется выполнить преобразование в указанный тип данных
+            rightPartValue.setDataType(structure.dataType.toTokenType());
+          }
         }
+
+        // Изменяем mutable если это был Final
+        match leftPartMutable == StructureMut::Final
+        { false => {} true =>
+        {
+          structure.mutable = StructureMut::Constant;
+        }}
 
         // Приравниваем новое значение структуре
         structure.lines =
@@ -487,6 +516,7 @@ impl Structure
       false =>
       { // Иные операторы, например += -= *= /=
         // получаем левую и правую часть
+        // todo сейчас тут много ошибок
         let leftValue: Token = 
         {
           let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();

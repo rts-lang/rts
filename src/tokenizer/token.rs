@@ -289,7 +289,6 @@ impl ToStructureType for TokenType
     }
   }
 }
-
 // Token ===========================================================================================
 /// Элементарная единица хранения информации
 #[derive(Clone)]
@@ -350,6 +349,7 @@ impl Token
     // что результат будет 0
     match self.data 
     {
+      None => {}
       Some(ref mut data) => 
       {
         match data.chars().nth(0)  
@@ -366,7 +366,6 @@ impl Token
           _ => {}
         }
       }
-      None => {}
     }
   }
 
