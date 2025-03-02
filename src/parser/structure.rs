@@ -42,8 +42,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue.toBool() || rightValue.toBool() 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::Joint => 
@@ -51,8 +51,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue.toBool() && rightValue.toBool() 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::Equals => 
@@ -60,17 +60,17 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue == rightValue 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::NotEquals => 
     { 
       resultType = TokenType::Bool; 
-      match leftValue != rightValue 
+      match leftValue != rightValue
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::GreaterThan => 
@@ -78,8 +78,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue > rightValue 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::LessThan => 
@@ -87,8 +87,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue < rightValue 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::GreaterThanOrEquals => 
@@ -96,8 +96,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue >= rightValue 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     TokenType::LessThanOrEquals => 
@@ -105,8 +105,8 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       resultType = TokenType::Bool; 
       match leftValue <= rightValue 
       {
-        true  => { String::from("1") } 
-        false => { String::from("0") }
+        true  => String::from("1"),
+        false => String::from("0")
       }
     }
     _ => "0".to_string(),
@@ -116,18 +116,19 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   // todo: if -> match
   match resultType != TokenType::Bool 
   {
+    false => {}
     true => 
     {
-      if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String 
-      { 
+      if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
+      {
         resultType = TokenType::String;
       } else
-      if (matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) && 
-          rightTokenDataType == TokenType::Char) 
-      { // 
+      if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
+          rightTokenDataType == TokenType::Char
+      { //
         resultType = leftTokenDataType.clone();
       } else
-      if leftTokenDataType == TokenType::Char 
+      if leftTokenDataType == TokenType::Char
       {
         resultType = TokenType::Char;
       } else
@@ -135,16 +136,15 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       {
         resultType = TokenType::Float;
       } else
-      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat 
+      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
       {
         resultType = TokenType::UFloat;
       } else
       if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int
-      { 
+      {
         resultType = TokenType::Int;
       }
     }
-    false => {}
   }
   // return
   Token::new( resultType, Some(resultValue) )
@@ -195,11 +195,11 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
     {
       match tokenData == "0"
       {
-        true  => { Value::UInt(0) }
-        false => { Value::UInt(1) }
+        true  => Value::UInt(0),
+        false => Value::UInt(1)
       }
     },
-    _ => Value::UInt(0),
+    _ => Value::UInt(0)
   }
 }
 
@@ -456,27 +456,19 @@ impl Structure
         );
 
         // Изменяем тип структуры если он не был указан
-        /*
         match structure.dataType
-        { Some(_) => {} None =>
         {
-          structure.dataType = match leftPartMutable
+          StructureType::None =>
           {
-            StructureMut::Constant => {} // Constant нельзя изменить
-            StructureMut::Final =>
-            {
-            }
-            StructureMut::Variable =>
-            {
-              rightPartValue.getDataType().unwrap_or_default()
-            }
-            StructureMut::Dynamic =>
-            {
-
-            }
+            match leftPartMutable != StructureMut::Variable
+            { false => {} true =>
+            { // Будет присвоено только Final | Dynamic
+                structure.dataType = rightPartValue.getDataType().toStructureType();
+              println!("  !!!");
+            }}
           }
-        }}
-        */
+          _ => {}
+        }
 
         // Приравниваем новое значение структуре
         structure.lines =

@@ -14,14 +14,34 @@ struct Function {}
 impl Function
 {
   // ===============================================================================================
-  /// Возвращает тип данных переданной структуры
+  /// Возвращает тип данных переданной структуры или значения
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
-    match parameters.getExpression(structure,0)
+    match parameters.get(0)
     { None => {} Some(p0) =>
-    {
-      value[i].setDataType( TokenType::String );
-      value[i].setData( Some(p0.getDataType().to_string()) );
+    { // Получаем необработанные параметры
+      let structureName: String = p0.getData().unwrap_or_default();
+      match structureName.is_empty()
+      { false => {} true =>
+      { // Пустые данные не обрабатываем
+       return;
+      }}
+
+      // Проверяем является это структурой или просто значение
+      match structure.getStructureByName(&structureName)
+      {
+        Some(structureLink) =>
+        {
+          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+          value[i].setDataType( TokenType::String );
+          value[i].setData( Some(structure.dataType.to_string()) );
+        }
+        None =>
+        {
+          value[i].setDataType( TokenType::String );
+          value[i].setData( Some(p0.getDataType().to_string()) );
+        }
+      }
     }}
   }
   // ===============================================================================================
