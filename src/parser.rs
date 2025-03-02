@@ -63,7 +63,7 @@ fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure
   }
 
   // Возвращаем успешно или не успешно мы нашли
-  match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Equals
+  match *lineTokens[0].getDataType() == TokenType::Equals
   {
     false => { false } // Это был не результат, идём дальше
     true =>
@@ -130,10 +130,10 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
     false => {}
   }
 
-  let firstTokenType:  TokenType                = lineTokens[0].getDataType().unwrap_or_default(); // тип первого токена в строке
+  let firstTokenType: &TokenType = lineTokens[0].getDataType(); // тип первого токена в строке
   let lineLines: Option< Vec< Arc<RwLock<Line>> > > = line.lines.clone(); // вложенные линии
 
-  if firstTokenType == TokenType::Word
+  if *firstTokenType == TokenType::Word
   { // если мы видим TokenType::Word в начале строки, 
     // это значит, что это либо структура, либо линейная запись
     match lineLines
@@ -145,9 +145,9 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
           None => {}
           Some(newStructureName) => 
           { // получаем имя структуры
-            let mut newStructureResultType: Option<TokenType>    = None; // результат структуры
-            let mut parameters:             Option< Vec<Token> > = None; // параметры структуры
-            match lineTokensLength > 1 && lineTokens[1].getDataType().unwrap_or_default() == TokenType::CircleBracketBegin 
+            let mut newStructureResultType: Option<&TokenType> = None; // результат структуры
+            let mut parameters: Option< Vec<Token> > = None; // параметры структуры
+            match lineTokensLength > 1 && *lineTokens[1].getDataType() == TokenType::CircleBracketBegin
             {
               true => 
               { // если токенов > 1 и 1 токен это TokenType::CircleBracketBegin 
@@ -168,26 +168,26 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 // то значит это результат структуры 
                 // todo: Может быть объединено с блоком ниже
                 match lineTokensLength > 3 && 
-                   lineTokens[2].getDataType().unwrap_or_default() == TokenType::Pointer && 
-                   lineTokens[3].getDataType().unwrap_or_default() != TokenType::None
+                   *lineTokens[2].getDataType() == TokenType::Pointer &&
+                   *lineTokens[3].getDataType() != TokenType::None
                 {
                   false => {} // если результата не было, то просто пропускаем
                   true => 
                   { // в таком случае просто читаем тип результата структуры
-                    newStructureResultType = lineTokens[3].getDataType();
+                    newStructureResultType = Some(lineTokens[3].getDataType());
                   }
                 }
               }  
               false => 
               { // в этом случае это вариант только с результатом структуры
                 match lineTokensLength > 2 && 
-                   lineTokens[1].getDataType().unwrap_or_default() == TokenType::Pointer && 
-                   lineTokens[2].getDataType().unwrap_or_default() != TokenType::None
+                   *lineTokens[1].getDataType() == TokenType::Pointer &&
+                   *lineTokens[2].getDataType() != TokenType::None
                 {
                   false => {} // если результата не было, то просто пропускаем
                   true => 
                   { // в таком случае просто читаем тип результата структуры
-                    newStructureResultType = lineTokens[2].getDataType();
+                    newStructureResultType = Some(lineTokens[2].getDataType());
                   }
                 }
               }
@@ -206,29 +206,27 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             // Ставим модификаторы на структуру и
             // параметры структуры, если они были
             match &parameters 
+            { None => {} Some(parameters) =>
             {
-              None => {}
-              Some(parameters) => 
+              for parameter in parameters
               {
-                for parameter in parameters 
-                {
-                  newStructure.pushStructure(
-                    Structure::new(
-                      parameter.getData(),
-                      StructureMut::Constant,
-                      StructureType::None, // todo не знаю что сюда ставить
-                      None,
-                      None,
-                    )
-                  );
-                }
+                newStructure.pushStructure(
+                  Structure::new(
+                    parameter.getData(),
+                    StructureMut::Constant,
+                    StructureType::None, // todo не знаю что сюда ставить
+                    None,
+                    None,
+                  )
+                );
               }
-            }
+            }}
 
             // Ставим результат структуры, если он есть
             newStructure.result = match newStructureResultType
             {
-              Some(_) => Some( Token::newEmpty(newStructureResultType.clone()) ),
+              Some(newStructureResultType) =>
+                Some( Token::newEmpty(newStructureResultType.clone()) ),
               None    => None,
             };
 
@@ -255,7 +253,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
         for (i, lineToken) in lineTokens.iter().enumerate()
         { // читаем линию, и ищем чтобы TokenType в opType совпал с математическим
           // после чего выходим отсюда и остаётся позиция найденного оператора в opPos
-          opType = lineToken.getDataType().unwrap_or_default().clone();
+          opType = lineToken.getDataType().clone();
           match isMathOperator(opType.clone()) 
           {
             false => {}
@@ -285,51 +283,36 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 match i == 1
                 { false => {} true =>
                 { // Определяем тип модификатора у левой части выражения
-
+                  dataTypeBeginPos += 1;
                   match leftValueTokens[1].getDataType()
-                  { None => {} Some(mutableType) =>
                   {
-                    dataTypeBeginPos += 1;
-                    match mutableType
+                    TokenType::DoubleTilde =>
                     {
-                      TokenType::DoubleTilde =>
-                      {
-                        leftValueMutable = StructureMut::Dynamic;
-                      }
-                      TokenType::Tilde =>
-                      {
-                        leftValueMutable = StructureMut::Variable;
-                      }
-                      _ =>
-                      {
-                        leftValueMutable = StructureMut::Constant;
-                      }
+                      leftValueMutable = StructureMut::Dynamic;
                     }
-                  }}
+                    TokenType::Tilde =>
+                    {
+                      leftValueMutable = StructureMut::Variable;
+                    }
+                    _ =>
+                    {
+                      leftValueMutable = StructureMut::Constant;
+                    }
+                  }
                 }}
                 match i == dataTypeBeginPos // Определяем тип данных у левой части выражения
                 { false => {} true =>
                 { // Если есть 3 токен
 
-                  match leftValueTokens[dataTypeBeginPos].getDataType().unwrap_or_default() == TokenType::Colon
+                  match *leftValueTokens[dataTypeBeginPos].getDataType() == TokenType::Colon
                   { false => {} true =>
                   { // Если это : то следом должен быть тип данных
 
                     match leftValueTokensLength > dataTypeBeginPos
                     { false => {} true =>
                     { // Токен с типом данных существует
-
-                      let dataType:Option<TokenType> = leftValueTokens[dataTypeBeginPos+1].getDataType();
-                      match matches!(dataType.clone().unwrap_or_default(),
-                        TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float |
-                        TokenType::String | TokenType::Char | TokenType::Rational | TokenType::Complex)
-                      { false => {} true =>
-                      { // todo возможно нестабильно
-                        leftValueDataType = StructureType::Custom(
-                          leftValueTokens[dataTypeBeginPos+1].getData().unwrap_or_default()
-                        );
-                        //
-                      }}
+                      let dataType:&TokenType = leftValueTokens[dataTypeBeginPos+1].getDataType();
+                      leftValueDataType = dataType.toStructureType();
                       //
                     }}
                     //
@@ -345,9 +328,9 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               Some(structureName) =>
               { // Это левая часть линейной записи
                 // todo: возможно сократить? это просто один токен из structureName
-                let leftValue:  Option< Vec<Token> > = Some( leftValueTokens );
+                let leftPart:  Option< Vec<Token> > = Some( leftValueTokens );
                 // Это правая (рабочая) запись линейной части
-                let rightValue: Option< Vec<Token> > = Some( lineTokens[opPos..(lineTokensLength)].to_vec() );
+                let rightPart: Option< Vec<Token> > = Some( lineTokens[opPos..(lineTokensLength)].to_vec() );
 
                 // Получаем родительскую структуру
                 
@@ -379,8 +362,9 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                         parent.structureOp(
                           structureLink,
                           opType,
-                          leftValue.unwrap_or(vec![]), // todo лучше будет option ?
-                          rightValue.unwrap_or(vec![]) // todo лучше будет option ?
+                          structureMut,
+                          leftPart.unwrap_or(vec![]), // todo лучше будет option ?
+                          rightPart.unwrap_or(vec![]) // todo лучше будет option ?
                         );
                       }
                     }
@@ -389,7 +373,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   { // Если мы не нашли похожую, то создаём новую
                     // и работаем с правой частью выражения
                     let mut tokens: Option< Vec<Token> > =
-                      match rightValue
+                      match rightPart
                       {
                         None =>
                         { // Если правого выражения не было, то это Final
@@ -455,7 +439,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
   // в том случае, если это не структура и не линейная запись, 
   // мы видим TokenType::Question в начале строки и есть вложения у этой линии, 
   // то это условное вложение
-  if firstTokenType == TokenType::Question && !lineLines.is_none()
+  if *firstTokenType == TokenType::Question && !lineLines.is_none()
   { // условное вложение запускает код внутри себя, в том случае если её условное выражение = true;
     // если условное выражение = false, то условное вложение не запускается, 
     // но может продолжить запускать блоки ниже, если такие там есть.
@@ -487,7 +471,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 None => { break; }
                 Some(tokens) =>
                 {
-                  match tokens[0].getDataType().unwrap_or_default() != TokenType::Question
+                  match *tokens[0].getDataType() != TokenType::Question
                   { // Выходим если в начале линии нет TokenType::Question
                     true  => { break; }
                     false => {}
@@ -646,7 +630,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
             {
               tokens: Some(vec![
                 Token::new( 
-                  Some(TokenType::UInt), 
+                  TokenType::UInt,
                   Some(unsafe{_argc.to_string()}) 
                 )
               ]),
@@ -670,7 +654,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
           {
             tokens: Some(vec![
               Token::new( 
-                Some(TokenType::String), 
+                TokenType::String,
                 Some(String::from(a)) 
               )
             ]),

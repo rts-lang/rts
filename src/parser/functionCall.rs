@@ -20,8 +20,8 @@ impl Function
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
     {
-      value[i].setDataType( Some(TokenType::String) );
-      value[i].setData( Some(p0.getDataType().unwrap_or_default().to_string()) );
+      value[i].setDataType( TokenType::String );
+      value[i].setData( Some(p0.getDataType().to_string()) );
     }}
   }
   // ===============================================================================================
@@ -31,7 +31,7 @@ impl Function
     match parameters.get(0)
     { None => {} Some(p0) =>
     {
-      value[i].setDataType( Some(TokenType::String) );
+      value[i].setDataType( TokenType::String );
       let result: String =
         match p0.getData()
         {
@@ -84,7 +84,7 @@ impl Function
           true  => rand::thread_rng().gen_range(min..=max),
           false => 0
         };
-      value[i].setDataType( Some(TokenType::UInt) );
+      value[i].setDataType( TokenType::UInt );
       value[i].setData    ( Some(randomNumber.to_string()) );
     }
   }
@@ -95,20 +95,20 @@ impl Function
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
     {
-      match p0.getDataType().unwrap_or_default()
+      match *p0.getDataType()
       {
         TokenType::None =>
         { // Результат 0
-          value[i] = Token::new( Some(TokenType::UInt),Some(String::from("0")) );
+          value[i] = Token::new( TokenType::UInt, Some(String::from("0")) );
         }
         TokenType::Char =>
         { // Получаем размер символа
-          value[i] = Token::new( Some(TokenType::UInt),Some(String::from("1")) );
+          value[i] = Token::new( TokenType::UInt, Some(String::from("1")) );
         }
         TokenType::String | TokenType::RawString =>
         { // Получаем размер строки
           value[i] = Token::new(
-            Some(TokenType::UInt),
+            TokenType::UInt,
             Some(
               p0.getData().unwrap_or_default()
                 .chars().count().to_string()
@@ -118,7 +118,7 @@ impl Function
         _ =>
         { // Получаем размер вложений в структуре
           // Результат только в UInt
-          value[i].setDataType( Some(TokenType::UInt) );
+          value[i].setDataType( TokenType::UInt );
           // Получаем значение
           match structure.getStructureByName(&p0.getData().unwrap_or_default())
           {
@@ -156,7 +156,7 @@ impl Function
   fn input(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     // Результат может быть только String
-    value[i].setDataType( Some(TokenType::String) );
+    value[i].setDataType( TokenType::String );
 
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -211,7 +211,7 @@ impl Function
       { false => {} true =>
       { // result
         value[i].setData    ( Some(outputString.trim_end().to_string()) );
-        value[i].setDataType( Some(TokenType::String) );
+        value[i].setDataType( TokenType::String );
       }}
       //
     }}
@@ -240,7 +240,7 @@ impl Function
           .status()
           .expect("Failed to execute process"); // todo: no errors
       value[i].setData    ( Some(status.code().unwrap_or(-1).to_string()) );
-      value[i].setDataType( Some(TokenType::String) );
+      value[i].setDataType( TokenType::String );
     }}
   }
 }
@@ -265,7 +265,7 @@ impl Structure
       // ===========================================================================================
       None =>
       { // Вариант в котором тип токена может быть типом данных => это cast в другой тип;
-        match value[i].getDataType().unwrap_or_default()
+        match *value[i].getDataType()
         {
           TokenType::UInt =>
           { // Получаем значение выражения в типе
@@ -273,7 +273,7 @@ impl Structure
             match parameters.getExpression(self,0)
             { None => {} Some(p0) =>
             {
-              value[i].setDataType( Some(TokenType::UInt ) );
+              value[i].setDataType( TokenType::UInt );
               value[i].setData( Some(p0.getData().unwrap_or_default()) );
             }}
           }
@@ -282,7 +282,7 @@ impl Structure
             match parameters.getExpression(self,0)
             { None => {} Some(p0) =>
             {
-              value[i].setDataType( Some(TokenType::Int ) );
+              value[i].setDataType( TokenType::Int );
               value[i].setData( Some(p0.getData().unwrap_or_default()) );
               //
             }}
@@ -294,7 +294,7 @@ impl Structure
             match parameters.getExpression(self,0)
             { None => {} Some(p0) =>
             {
-              value[i].setDataType( Some(TokenType::String ) );
+              value[i].setDataType( TokenType::String  );
               value[i].setData( Some(p0.getData().unwrap_or_default()) );
               //
             }}
@@ -306,7 +306,7 @@ impl Structure
             match parameters.getExpression(self,0)
             { None => {} Some(p0) =>
             {
-              value[i].setDataType( Some(TokenType::Char) );
+              value[i].setDataType( TokenType::Char );
               value[i].setData(
                 Some(
                   (p0.getData().unwrap_or_default()
@@ -368,7 +368,7 @@ impl Structure
               { // Если результата структуры не было,
                 // значит это была действительно процедура
                 value[i].setData    ( None );
-                value[i].setDataType( None );
+                value[i].setDataType( TokenType::None );
               }
             }
           }}

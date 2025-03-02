@@ -3,6 +3,7 @@
 */
 
 use std::fmt;
+use crate::parser::structure::StructureType;
 
 // TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации
@@ -262,6 +263,33 @@ impl Default for TokenType
   }
 }
 
+pub trait ToStructureType
+{
+  /// Преобразует TokenType в StructureType
+  fn toStructureType(&self) -> StructureType;
+}
+impl ToStructureType for TokenType
+{
+  fn toStructureType(&self) -> StructureType
+  {
+    match self
+    {
+      TokenType::UInt => StructureType::UInt,
+      TokenType::Int => StructureType::Int,
+      TokenType::UFloat => StructureType::UFloat,
+      TokenType::Float => StructureType::Float,
+      TokenType::String => StructureType::String,
+      TokenType::Char => StructureType::Char,
+      // TokenType::Rational => StructureType::Rational,
+      // TokenType::Complex => StructureType::Complex,
+      _ =>
+      { // todo: возможно нестабильно
+        StructureType::Custom(self.to_string())
+      }
+    }
+  }
+}
+
 // Token ===========================================================================================
 /// Элементарная единица хранения информации
 #[derive(Clone)]
@@ -270,7 +298,7 @@ pub struct Token
   /// Данные единицы хранения
   data:       Option< String >,
   /// Тип данных единицы хранения
-  dataType:   Option< TokenType >,
+  dataType:   TokenType,
   /// Набор вложенных единиц хранения
   pub tokens: Option< Vec<Token> >,
 }
@@ -278,7 +306,7 @@ impl Token
 {
   /// Обычное создание
   pub fn new(
-    dataType: Option< TokenType >,
+    dataType: TokenType,
     data:     Option< String >
   ) -> Self
   {
@@ -291,7 +319,7 @@ impl Token
   }
   /// Пустой, но имеет тип данных
   pub fn newEmpty(
-    dataType: Option< TokenType >
+    dataType: TokenType
   ) -> Self 
   {
     Token 
@@ -303,14 +331,14 @@ impl Token
   }
   /// Пустой, но выполняет роль держателя вложения
   pub fn newNesting(
-    tokens: Option< Vec<Token> >
+    tokens: Vec<Token>
   ) -> Self 
   {
     Token 
     {
       data: None,
-      dataType: None,
-      tokens,
+      dataType: TokenType::None,
+      tokens: Some(tokens),
     }
   }
 
@@ -328,7 +356,7 @@ impl Token
         {
           Some('-') => 
           {
-            match self.dataType.clone().unwrap_or_default()
+            match self.dataType.clone()
             {
               TokenType::UInt   => { *data = String::from("0"); }
               TokenType::UFloat => { *data = String::from("0.0"); } // todo: use . (0.0)
@@ -343,12 +371,12 @@ impl Token
   }
 
   /// Получает тип данных
-  pub fn getDataType(&self) -> Option< TokenType >
+  pub fn getDataType(&self) -> &TokenType
   {
-    self.dataType.clone()
+    &self.dataType
   }
   /// Устанавливает тип данных
-  pub fn setDataType(&mut self, newDataType: Option< TokenType >) -> ()
+  pub fn setDataType(&mut self, newDataType: TokenType) -> ()
   {
     self.dataType = newDataType;
     self.convertData();
@@ -378,7 +406,7 @@ impl fmt::Display for Token
       }
       None =>
       {
-        write!(f, "{}", self.getDataType().unwrap_or_default().to_string())
+        write!(f, "{}", self.getDataType().to_string())
       }
     }
   }
@@ -395,7 +423,7 @@ impl fmt::Debug for Token
       }
       None =>
       {
-        write!(f, "{}", self.getDataType().unwrap_or_default().to_string())
+        write!(f, "{}", self.getDataType().to_string())
       }
     }
   }

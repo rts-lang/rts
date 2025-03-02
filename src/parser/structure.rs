@@ -24,10 +24,10 @@ use crate::parser::structure::parameters::Parameters;
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
 {
   // Получаем значение левой части выражения
-  let leftTokenDataType: TokenType = leftToken.getDataType().unwrap_or_default();
+  let leftTokenDataType: TokenType = leftToken.getDataType().clone();
   let leftValue: Value = getValue(leftToken.getData().unwrap_or_default(), &leftTokenDataType);
   // Получаем значение правой части выражения
-  let rightTokenDataType: TokenType = rightToken.getDataType().unwrap_or_default();
+  let rightTokenDataType: TokenType = rightToken.getDataType().clone();
   let rightValue: Value = getValue(rightToken.getData().unwrap_or_default(), &rightTokenDataType);
   // Получаем значение выражения, а также предварительный тип
   let mut resultType: TokenType = TokenType::UInt;
@@ -147,7 +147,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     false => {}
   }
   // return
-  Token::new( Some(resultType), Some(resultValue) )
+  Token::new( resultType, Some(resultValue) )
 }
 /// Зависимость для calculate;
 /// Считает значение левой и правой части выражения
@@ -420,126 +420,77 @@ impl Structure
     }
   }
 
-  /// get structure nesting
-  ///
-  /// todo: описание
-  fn setStructureNesting(&self, structureNesting: &Vec<Token>, structureLines: &Vec< Arc<RwLock<Line>> >, newTokens: Vec<Token>) -> () 
-  {
-    match structureNesting.len()-1 > 1 
-    {
-      true => 
-      { // go next
-        //let nextStructureNesting: &[Token] = &structureNesting[1..];
-        // todo: ?
-      }  
-      false => 
-      {
-        match structureLines.get( 
-          // Получаем номер линии
-          structureNesting[0]
-            .getData().unwrap_or_default()
-            .parse::<usize>().unwrap_or_default()
-        ) 
-        {
-          None => {}
-          Some(nestingLine) => 
-          {
-            match nestingLine.write().unwrap().tokens
-            {
-              None => {}
-              Some(ref mut tokens) =>
-              {
-                *tokens = newTokens;
-              }
-            }
-            //
-          }
-        }
-        //
-      }
-    }
-    //
-  }
-
   /// Выполняет операцию со структурой,
   /// для этого требует левую и правую часть выражения,
   /// кроме того, требует передачи родительской структуры,
   /// чтобы было видно возможные объявления в ней
-  pub fn structureOp(&self, structureLink: Arc<RwLock<Structure>>, op: TokenType, leftValue: Vec<Token>, rightValue: Vec<Token>) -> ()
+  pub fn structureOp(&self, structureLink: Arc<RwLock<Structure>>, op: TokenType, leftPartMutable: StructureMut, leftPart: Vec<Token>, rightPart: Vec<Token>) -> ()
   {
     match op
-    {
-      TokenType::Equals | TokenType::PlusEquals | TokenType::MinusEquals | 
-      TokenType::MultiplyEquals | TokenType::DivideEquals => {},
+    { // Принимаем только определённый список операций
+      TokenType::Equals |
+      TokenType::PlusEquals |
+      TokenType::MinusEquals |
+      TokenType::MultiplyEquals |
+      TokenType::DivideEquals => {},
       _ => return
     }
 
-    // calculate new values
-    /*
-    let rightValue: Token = 
-      if let Some(mut opValueTokens) = rightValue.tokens.clone() 
-      {
-        self.expression(&mut opValueTokens)
-      } else 
-      { // error
-        Token::newEmpty(None)
-      };
-    */
-    // =
     match op == TokenType::Equals 
     {
       true => 
-      { // Если это простое приравнивание к структуре
-        let mut structureNesting: Vec<Token> = Vec::new();
-        println!("!!! {:?} | {:?}",leftValue.clone(),rightValue.clone());
-        for value in leftValue 
-        {
-          match value.getDataType().unwrap_or_default() == TokenType::SquareBracketBegin 
-          { false => {} true =>
-          {
+      { // Приравнивание правой части выражения к левой части выражения
 
-            match value.tokens
-            { None => {} Some(mut valueTokens) =>
-            {
-              structureNesting.push(
-                self.expression(&mut valueTokens)
-              );
-            }}
-          }}
-        }
-        match structureNesting.len() > 0 
+        // todo должен быть вариант с вложением ?
+        // Если нет вложений
+
+        let rightPartValue: Token = self.expression(&mut rightPart.clone());
+
+        let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
+
+        println!("!!! {}:{} -> {:?} | {:?}",
+          structure.dataType.to_string(),
+          leftPartMutable.to_string(),
+          leftPart.clone(),
+          rightPart.clone()
+        );
+
+        // Изменяем тип структуры если он не был указан
+        /*
+        match structure.dataType
+        { Some(_) => {} None =>
         {
-          true => 
-          { // Если есть вложения
-            // todo проверить работу этого варианта
-            match &structureLink.read().unwrap().lines
-            { None => {} Some(lines) =>
+          structure.dataType = match leftPartMutable
+          {
+            StructureMut::Constant => {} // Constant нельзя изменить
+            StructureMut::Final =>
             {
-              self.setStructureNesting(
-                &structureNesting,
-                lines,
-                rightValue
-              );
-            }}
-            //
+            }
+            StructureMut::Variable =>
+            {
+              rightPartValue.getDataType().unwrap_or_default()
+            }
+            StructureMut::Dynamic =>
+            {
+
+            }
           }
-          false => 
-          { // Если нет вложений
-            let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
-            structure.lines = 
-              Some(vec![
-                Arc::new(RwLock::new( 
-                  Line
-                  {
-                    tokens: Some(vec![ self.expression(&mut rightValue.clone()) ]),
-                    indent: None,
-                    lines:  None,
-                    parent: None
-                  }
-                ))
-              ]);
-          }
-        }
+        }}
+        */
+
+        // Приравниваем новое значение структуре
+        structure.lines =
+          Some(vec![
+            Arc::new(RwLock::new(
+              Line
+              {
+                tokens: Some(vec![ rightPartValue ]),
+                indent: None,
+                lines:  None,
+                parent: None
+              }
+            ))
+          ]);
       }  
       false =>
       { // Иные операторы, например += -= *= /=
@@ -549,7 +500,7 @@ impl Structure
           let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
           match &structure.lines
           {
-            None => { Token::newEmpty( Some(TokenType::None) ) }
+            None => { Token::newEmpty(TokenType::None) }
             Some(lines) =>
             {
               match lines.len() > 0
@@ -562,14 +513,14 @@ impl Structure
                       .unwrap_or_default() // todo плохо
                   )
                 }
-                false => { Token::newEmpty( Some(TokenType::None) ) }
+                false => { Token::newEmpty(TokenType::None) }
               }
               //
             }
           }
           //
         };
-        let rightValue: Token = self.expression(&mut rightValue.clone()); // todo: возможно не надо клонировать токены, но скорее надо
+        let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо
 
         // Далее обрабатываем саму операцию
         let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
@@ -581,7 +532,7 @@ impl Structure
               Some(vec![
                 Arc::new(RwLock::new( 
                   Line {
-                    tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightValue) ]),
+                    tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightPart) ]),
                     indent: None,
                     lines:  None,
                     parent: None
@@ -604,8 +555,8 @@ impl Structure
   {
     fn setNone(value: &mut Vec<Token>, index: usize) 
     { // Возвращаем пустое значение
-      value[index].setData    (None);
-      value[index].setDataType(None);
+      value[index].setData(None);
+      value[index].setDataType(TokenType::None);
     }
 
     match value[index].getData() 
@@ -649,8 +600,8 @@ impl Structure
                           .tokens.clone().unwrap_or_default(); // todo плохо
                       linesResult.push( self.expression(tokens) );
                     }
-                    value[index] = Token::newNesting( Some(linesResult) );
-                    value[index].setDataType( Some(TokenType::Link) ); // todo: Речь не о Link, а об Array?
+                    value[index] = Token::newNesting( linesResult );
+                    value[index].setDataType( TokenType::Link ); // todo: Речь не о Link, а об Array?
                   }
                   _ => { setNone(value, index); } // В структуре не было вложений
                 }
@@ -710,7 +661,7 @@ impl Structure
                 { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то;
                   false =>
                   { // В линии нет токенов, нам нечего вычислять
-                    return Token::newEmpty( Some(TokenType::None) );
+                    return Token::newEmpty( TokenType::None );
                   }
                   true =>
                   { // В линии есть хотя бы 1 токен
@@ -739,11 +690,11 @@ impl Structure
                     { // Если это был просто запуск метода, то запускаем его
                       let _ = drop(currentStructure);
 
-                      let mut parametersToken: Token = Token::newNesting( Some(Vec::new()) ); // todo: add parameters
-                      parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
+                      let mut parametersToken: Token = Token::newNesting( Vec::new() ); // todo: add parameters
+                      parametersToken.setDataType( TokenType::CircleBracketBegin );
 
                       let mut expressionTokens: Vec<Token> = vec![
-                        Token::new( Some(TokenType::Word), lineTokens[0].getData() ),
+                        Token::new( TokenType::Word, lineTokens[0].getData() ),
                         parametersToken
                       ];
 
@@ -751,7 +702,7 @@ impl Structure
                         .expression(&mut expressionTokens);
                     } else
                     { // если дальше нет продолжения ссылки
-                      match lineTokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                      match *lineTokens[0].getDataType() == TokenType::Word
                       {
                         false =>
                         { // Если это не слово, то смотрим на результат expression
@@ -764,48 +715,45 @@ impl Structure
                           match currentStructure.getStructureByName(
                             &lineTokens[0].getData().unwrap_or_default()
                           )
+                          { None => {} Some(childStructureLink) =>
                           { // Пробуем проверить что там 1 линия вложена в структуре;
                             // После чего сможем посчитать её значение.
-                            None => {}
-                            Some(childStructureLink) =>
+                            let childStructure: RwLockReadGuard<'_, Structure> = childStructureLink.read().unwrap();
+                            match lines.len() == 1
                             {
-                              let childStructure: RwLockReadGuard<'_, Structure> = childStructureLink.read().unwrap();
-                              match lines.len() == 1
+                              false => {}
+                              true =>
                               {
-                                false => {}
-                                true =>
+                                match &childStructure.lines
                                 {
-                                  match &childStructure.lines
+                                  None => {}
+                                  Some(lines) =>
                                   {
-                                    None => {}
-                                    Some(lines) =>
-                                    {
-                                      match lines.get(0)
-                                      { // По сути это просто 0 линия через expression
-                                        None => {}
-                                        Some(line) =>
-                                        {
-                                          let mut lineTokens: Vec<Token> =
-                                            {
-                                              line.read().unwrap()
-                                                .tokens.clone().unwrap_or_default() // todo плохо
-                                            };
-                                          let _ = drop(childStructure);
-                                          return self.expression(&mut lineTokens);
-                                          //
-                                        }
+                                    match lines.get(0)
+                                    { // По сути это просто 0 линия через expression
+                                      None => {}
+                                      Some(line) =>
+                                      {
+                                        let mut lineTokens: Vec<Token> =
+                                          {
+                                            line.read().unwrap()
+                                              .tokens.clone().unwrap_or_default() // todo плохо
+                                          };
+                                        let _ = drop(childStructure);
+                                        return self.expression(&mut lineTokens);
+                                        //
                                       }
-                                      //
                                     }
+                                    //
                                   }
-                                  //
                                 }
+                                //
                               }
-                              //
                             }
-                          }
+                            //
+                          }}
                           // Если ничего не получилось, значит оставляем ссылку
-                          return Token::new( Some(TokenType::Link), lineTokens[0].getData() );
+                          return Token::new( TokenType::Link, lineTokens[0].getData() );
                         }
                       }
                       //
@@ -904,30 +852,27 @@ impl Structure
                         // В ином случае, это просто ссылка;
                         None =>
                         { // Если это просто ссылка, то оставляем её
-                          return Token::new( Some(TokenType::Link), Some(structure.name.clone().unwrap_or_default()) ); // todo плохо
+                          return Token::new( TokenType::Link, Some(structure.name.clone().unwrap_or_default()) ); // todo плохо
                         }
-                        Some(_) =>
+                        Some(parameters) =>
                         { // Если это был просто запуск метода, то запускаем его
                           let mut parametersToken: Token = Token::newNesting( parameters );
-                          parametersToken.setDataType( Some(TokenType::CircleBracketBegin) );
+                          parametersToken.setDataType( TokenType::CircleBracketBegin );
 
                           let mut expressionTokens: Vec<Token> = vec![
-                            Token::new( Some(TokenType::Word), Some(structure.name.clone().unwrap_or_default()) ), // todo плохо
+                            Token::new( TokenType::Word, Some(structure.name.clone().unwrap_or_default()) ), // todo плохо
                             parametersToken
                           ];
 
                           match structure.parent.clone()
+                          { None => {} Some(structureParent) =>
                           {
-                            None => {}
-                            Some(structureParent) =>
-                            {
-                              let _ = drop(structure);
-                              return structureParent.read().unwrap()
-                                .expression(&mut expressionTokens);
-                            }
-                          }
+                            let _ = drop(structure);
+                            return structureParent.read().unwrap()
+                              .expression(&mut expressionTokens);
+                          }}
 
-                          return Token::newEmpty( Some(TokenType::None) );
+                          return Token::newEmpty(TokenType::None);
                         }
                         //
                       }
@@ -945,7 +890,7 @@ impl Structure
       }
     }
     // если всё было плохо, то просто используем пустой результат
-    Token::newEmpty( Some(TokenType::None) )
+    Token::newEmpty(TokenType::None)
   }
 
   /// Принимает formatQuote типы и получает возможное значение обычной строки;
@@ -1031,11 +976,11 @@ impl Structure
     let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
     for (l, token) in value.iter().enumerate() 
     { // read tokens
-      match token.getDataType().unwrap_or_default() == TokenType::Comma || l+1 == value.len() 
+      match *token.getDataType() == TokenType::Comma || l+1 == value.len()
       {
         true => 
         { // comma or line end
-          match token.getDataType().unwrap_or_default() != TokenType::Comma 
+          match *token.getDataType() != TokenType::Comma
           {
             true  => { expressionBuffer.push( token.clone() ); }
             false => {}
@@ -1069,7 +1014,7 @@ impl Structure
   /// т.е. получает переданные значения через expression
   pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
   {
-    match value.len() < 2 || value[i+1].getDataType().unwrap_or_default() != TokenType::CircleBracketBegin
+    match value.len() < 2 || *value[i+1].getDataType() != TokenType::CircleBracketBegin
     { // Проверяем, что обязательно существует круглая скобка рядом
       false => {}
       true => { return Parameters::new(None); }
@@ -1077,56 +1022,48 @@ impl Structure
 
     let mut result: Vec<Token> = Vec::new();
     match value.get(i+1).map(|v| &v.tokens) 
+    { None => {} Some(tokens) =>
     { // Начинаем читать вложения в круглых скобках
-      None => {}
-      Some(tokens) => 
-      {
-        match tokens
-        {
-          None => {}
-          Some(tokens) => 
-          { // get bracket tokens
-            let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
-            for (l, token) in tokens.iter().enumerate() 
-            { // read tokens
-              match token.getDataType().unwrap_or_default() == TokenType::Comma || l+1 == tokens.len() 
+      match tokens
+      { None => {} Some(tokens) =>
+      { // get bracket tokens
+        let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
+        for (l, token) in tokens.iter().enumerate()
+        { // read tokens
+          match *token.getDataType() == TokenType::Comma || l+1 == tokens.len()
+          {
+            true =>
+            { // comma or line end
+              match *token.getDataType() != TokenType::Comma
               {
-                true => 
-                { // comma or line end
-                  match token.getDataType().unwrap_or_default() != TokenType::Comma 
-                  {
-                    false => {}
-                    true  => { expressionBuffer.push( token.clone() ); }
-                  }
-                  match expressionBuffer.len() > 1
-                  {
-                    true =>
-                    { // Выражение из токенов
-                      result.push( Token::newNesting(Some(expressionBuffer.clone())) );
-                    }
-                    false =>
-                    { // Один токен
-                      result.push( expressionBuffer[0].clone() );
-                    }
-                  }
-                  expressionBuffer.clear();
-                }  
-                false => 
-                { // push new expression token
-                  expressionBuffer.push( token.clone() );
+                false => {}
+                true  => { expressionBuffer.push( token.clone() ); }
+              }
+              match expressionBuffer.len() > 1
+              {
+                true =>
+                { // Выражение из токенов
+                  result.push( Token::newNesting(expressionBuffer.clone()) );
+                }
+                false =>
+                { // Один токен
+                  result.push( expressionBuffer[0].clone() );
                 }
               }
-              //
+              expressionBuffer.clear();
+            }
+            false =>
+            { // push new expression token
+              expressionBuffer.push( token.clone() );
             }
           }
           //
         }
-        // Удаляем скобки
-        value.remove(i+1);
-        *valueLength -= 1;
-      }
-      //
-    }
+      }}
+      // Удаляем скобки
+      value.remove(i+1);
+      *valueLength -= 1;
+    }}
 
     match result.len() == 0 
     {
@@ -1145,65 +1082,61 @@ impl Structure
     // 1 токен
     // todo: возможно стоит сразу проверять что тут не Figure, Square, Circle скобки
     match valueLength == 1
-    {
-      false => {}
-      true =>
-      { // Если это выражение с 1 токеном, то
-        match value[0].getDataType().unwrap_or_default()
-        { // Проверяем возможные варианты
-          TokenType::Link =>
-          { // Если это TokenType::Link, то
-            let data: String = value[0].getData().unwrap_or_default(); // token data
-            let mut link: Vec<String> =
-              data.split('.')
-                .map(|s| s.to_string())
-                .collect();
-            let linkResult: Token  = self.linkExpression(None, &mut link, None); // Получаем результат от data
-            let linkType:   TokenType = linkResult.getDataType().unwrap_or_default(); // Предполагаем изменение dataType
-            match linkType
-            {
-              TokenType::Word =>
-              { // Если это TokenType::Word то теперь это будет TokenType::Link
-                value[0].setDataType( Some(TokenType::Link) );
-              }
-              _ =>
-              { // Если это другие типы, то просто ставим новый dataType
-                value[0].setDataType( linkResult.getDataType() );
-              }
+    { false => {} true =>
+    { // Если это выражение с 1 токеном, то
+      match *value[0].getDataType()
+      { // Проверяем возможные варианты
+        TokenType::Link =>
+        { // Если это TokenType::Link, то
+          let data: String = value[0].getData().unwrap_or_default(); // token data
+          let mut link: Vec<String> =
+            data.split('.')
+              .map(|s| s.to_string())
+              .collect();
+          let linkResult: Token  = self.linkExpression(None, &mut link, None); // Получаем результат от data
+          match *linkResult.getDataType() // Предполагаем изменение dataType
+          {
+            TokenType::Word =>
+            { // Если это TokenType::Word то теперь это будет TokenType::Link
+              value[0].setDataType( TokenType::Link );
             }
-            value[0].setData( linkResult.getData() ); // Ставим новый data
-          }
-          TokenType::Word =>
-          { // Если это TokenType::Word, то
-            let data:       String = value[0].getData().unwrap_or_default();// token data
-            let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
-            value[0].setDataType( linkResult.getDataType() ); // Ставим новый dataType
-            value[0].setData( linkResult.getData() );  // Ставим новый data
-          }
-          TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
-          { // Если это форматные варианты Char, String, RawString
-            match value[0].getData()
-            {
-              None => {}
-              Some(valueData) =>
-              { // Получаем data этого токена и сразу вычисляем его значение
-                value[0].setData( Some(self.formatQuote(valueData)) );
-                // Получаем новый тип без formatted
-                match value[0].getDataType().unwrap_or_default()
-                {
-                  TokenType::FormattedRawString => { value[0].setDataType( Some(TokenType::RawString) ); }
-                  TokenType::FormattedString    => { value[0].setDataType( Some(TokenType::String) ); }
-                  TokenType::FormattedChar      => { value[0].setDataType( Some(TokenType::Char) ); }
-                  _ => { value[0].setDataType( None ); }
-                }
-              }
+            _ =>
+            { // Если это другие типы, то просто ставим новый dataType
+              value[0].setDataType( linkResult.getDataType().clone() );
             }
           }
-          _ => {} // Идём дальше;
+          value[0].setData( linkResult.getData() ); // Ставим новый data
         }
-        return value[0].clone(); // Возвращаем результат в виде одного токена
+        TokenType::Word =>
+        { // Если это TokenType::Word, то
+          let data:       String = value[0].getData().unwrap_or_default();// token data
+          let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
+          value[0].setDataType( linkResult.getDataType().clone() ); // Ставим новый dataType
+          value[0].setData( linkResult.getData() );  // Ставим новый data
+        }
+        TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
+        { // Если это форматные варианты Char, String, RawString
+          match value[0].getData()
+          {
+            None => {}
+            Some(valueData) =>
+            { // Получаем data этого токена и сразу вычисляем его значение
+              value[0].setData( Some(self.formatQuote(valueData)) );
+              // Получаем новый тип без formatted
+              match *value[0].getDataType()
+              {
+                TokenType::FormattedRawString => { value[0].setDataType(TokenType::RawString); }
+                TokenType::FormattedString    => { value[0].setDataType(TokenType::String); }
+                TokenType::FormattedChar      => { value[0].setDataType(TokenType::Char); }
+                _ => { value[0].setDataType(TokenType::None); }
+              }
+            }
+          }
+        }
+        _ => {} // Идём дальше;
       }
-    }
+      return value[0].clone(); // Возвращаем результат в виде одного токена
+    }}
 
     // Если это выражение не из одного токена,
     // то следует проверять каждый токен в цикле и
@@ -1214,7 +1147,7 @@ impl Structure
     { // Проверяем на использование методов,
       // на использование ссылок на структуру,
       // на использование простого выражения в скобках
-      match value[i].getDataType().unwrap_or_default() 
+      match *value[i].getDataType()
       {
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
         { // Если это форматные варианты Char, String, RawString;
@@ -1225,12 +1158,12 @@ impl Structure
             { // Получаем data этого токена и сразу вычисляем его значение
               value[0].setData( Some(self.formatQuote(valueData)) );
               // Получаем новый тип без formatted
-              match value[0].getDataType().unwrap_or_default() 
+              match *value[0].getDataType()
               {
-                TokenType::FormattedRawString => { value[0].setDataType( Some(TokenType::RawString) ); }
-                TokenType::FormattedString    => { value[0].setDataType( Some(TokenType::String) ); }
-                TokenType::FormattedChar      => { value[0].setDataType( Some(TokenType::Char) ); }
-                _ => { value[0].setDataType( None ); }
+                TokenType::FormattedRawString => { value[0].setDataType(TokenType::RawString); }
+                TokenType::FormattedString    => { value[0].setDataType(TokenType::String); }
+                TokenType::FormattedChar      => { value[0].setDataType(TokenType::Char); }
+                _ => { value[0].setDataType(TokenType::None); }
               }
             }
           }
@@ -1254,7 +1187,7 @@ impl Structure
         { // это выражение в круглых скобках, но перед ними отрицание -
           match
             i+1 < valueLength &&
-            value[i+1].getDataType().unwrap_or_default() == TokenType::CircleBracketBegin
+            *value[i+1].getDataType() == TokenType::CircleBracketBegin
           {
             true => 
             { // считаем выражение внутри скобок
@@ -1267,7 +1200,7 @@ impl Structure
                   } 
                   None => 
                   { // если не получилось, то просто None
-                    Token::newEmpty(None)
+                    Token::newEmpty(TokenType::None)
                   }
                 };
               // Удаляем скобки
@@ -1305,13 +1238,13 @@ impl Structure
               } 
               None => 
               { // Если не получилось, то просто None
-                Token::newEmpty(None)
+                Token::newEmpty(TokenType::None)
               }
             }
         }
         _ =>
         { // Это либо метод, либо просто слово-структура
-          match i+1 < valueLength && value[i+1].getDataType().unwrap_or_default() == TokenType::CircleBracketBegin
+          match i+1 < valueLength && *value[i+1].getDataType() == TokenType::CircleBracketBegin
           {
             true =>
             { // Запускает метод; но он может быть либо обычный, либо из ссылки;
@@ -1345,7 +1278,7 @@ impl Structure
                                 true =>
                                 {
                                   // todo: Вообще должна быть проверка на TokenType::Link
-                                  match tokens[0].getDataType().unwrap_or_default() == TokenType::Word
+                                  match *tokens[0].getDataType() == TokenType::Word
                                   {
                                     false => {} // Если этот один токен не был ссылкой, то пропускаем;
                                     true =>
@@ -1384,7 +1317,7 @@ impl Structure
                 }
               }
             }
-            false => match value[i].getDataType().unwrap_or_default()
+            false => match *value[i].getDataType()
             { // Вычисляем значение для struct имени только при типе TokenType::Word
               TokenType::Word =>
               {
@@ -1428,7 +1361,7 @@ impl Structure
       }  
       false => 
       { // Если всё пусто, значит пусто
-        Token::newEmpty(None)
+        Token::newEmpty(TokenType::None)
       }
     }
   }
@@ -1439,7 +1372,7 @@ impl Structure
   {
     let mut i: usize = 0;
     let mut token: Token;
-    let mut tokenType: TokenType;
+    let mut tokenType: &TokenType;
 
     while i < *valueLength 
     { // Проверка на логические операции
@@ -1455,12 +1388,12 @@ impl Structure
       }
 
       token = value[i].clone();
-      tokenType = token.getDataType().unwrap_or_default();
-      match i+1 < *valueLength && operations.contains(&tokenType)
+      tokenType = token.getDataType();
+      match i+1 < *valueLength && operations.contains(tokenType)
       {
         true => 
         {
-          value[i-1] = calculate(&tokenType, &value[i-1], &value[i+1]);
+          value[i-1] = calculate(tokenType, &value[i-1], &value[i+1]);
           
           value.remove(i); // remove op
           value.remove(i); // remove right value
@@ -1468,7 +1401,7 @@ impl Structure
           continue;
         } 
         // value -value2
-        false => match matches!(tokenType, TokenType::Int | TokenType::Float)
+        false => match matches!(*tokenType, TokenType::Int | TokenType::Float)
         {
           false => {}
           true =>

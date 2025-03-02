@@ -110,11 +110,11 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   // next return
   match (rational, dot, negative) 
   { // rational, dot, negative
-    (true, _, _)     => Token::new( Some(TokenType::Rational), Some(result) ),
-    (_, true, true)  => Token::new( Some(TokenType::Float),    Some(result) ),
-    (_, true, false) => Token::new( Some(TokenType::UFloat),   Some(result) ),
-    (_, false, true) => Token::new( Some(TokenType::Int),      Some(result) ),
-    _                => Token::new( Some(TokenType::UInt),     Some(result) ),
+    (true, _, _)     => Token::new( TokenType::Rational, Some(result) ),
+    (_, true, true)  => Token::new( TokenType::Float,    Some(result) ),
+    (_, true, false) => Token::new( TokenType::UFloat,   Some(result) ),
+    (_, false, true) => Token::new( TokenType::Int,      Some(result) ),
+    _                => Token::new( TokenType::UInt,     Some(result) ),
   }
 }
 
@@ -169,21 +169,21 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   {
     true =>
     {
-      Token::new( Some(TokenType::Link), Some(result.clone()) )
+      Token::new( TokenType::Link, Some(result.clone()) )
     }  
     false =>
     {
       match result.as_str()
       {
-        "true"     => Token::new( Some(TokenType::Bool), Some(String::from("1")) ),
-        "false"    => Token::new( Some(TokenType::Bool), Some(String::from("0")) ),
+        "true"     => Token::new( TokenType::Bool, Some(String::from("1")) ),
+        "false"    => Token::new( TokenType::Bool, Some(String::from("0")) ),
         //
-        "UInt"     => Token::newEmpty( Some(TokenType::UInt) ),
-        "Int"      => Token::newEmpty( Some(TokenType::Int) ),
-        "String"   => Token::newEmpty( Some(TokenType::String) ),
-        "Char"     => Token::newEmpty( Some(TokenType::Char) ),
+        "UInt"     => Token::newEmpty(TokenType::UInt),
+        "Int"      => Token::newEmpty(TokenType::Int),
+        "String"   => Token::newEmpty(TokenType::String),
+        "Char"     => Token::newEmpty(TokenType::Char),
         //
-        _          => Token::new( Some(TokenType::Word), Some(result) ),
+        _          => Token::new( TokenType::Word, Some(result) ),
       }
     }
   }
@@ -211,7 +211,7 @@ fn getQuotes(buffer: &[u8], index: &mut usize) -> Token
     {
       // Возврат строки не возможен, поскольку она может выйти за скобки и т.п. 
       // если он достиг конца строки уже;
-      b'\n' => { return Token::newEmpty(None); }
+      b'\n' => { return Token::newEmpty(TokenType::None); }
       // Если мы нашли символ похожий на первый, значит закрываем,
       // но возможно это экранированная кавычка, и не закрываем.
       byte if byte == byte1 =>
@@ -250,13 +250,13 @@ fn getQuotes(buffer: &[u8], index: &mut usize) -> Token
     { // Одинарные кавычки должны содержать только один символ
       match result.len() 
       {
-        1 => { Token::new(Some(TokenType::Char), Some(result)) }
-        _ => { Token::newEmpty(None) }
+        1 => { Token::new(TokenType::Char, Some(result)) }
+        _ => { Token::newEmpty(TokenType::None) }
       } 
     }
-    b'"' => Token::new(Some(TokenType::String), Some(result)),
-    b'`' => Token::new(Some(TokenType::RawString), Some(result)),
-    _ => Token::newEmpty(None),
+    b'"' => Token::new(TokenType::String, Some(result)),
+    b'`' => Token::new(TokenType::RawString, Some(result)),
+    _ => Token::newEmpty(TokenType::None),
   }
 }
 
@@ -282,106 +282,106 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::PlusEquals) ) }
-        b'+' => { increment(2); Token::newEmpty( Some(TokenType::UnaryPlus) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Plus) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::PlusEquals) }
+        b'+' => { increment(2); Token::newEmpty(TokenType::UnaryPlus) }
+        _    => { increment(1); Token::newEmpty(TokenType::Plus) }
       }
     }
     b'-' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::MinusEquals) ) }
-        b'-' => { increment(2); Token::newEmpty( Some(TokenType::UnaryMinus) ) }
-        b'>' => { increment(2); Token::newEmpty( Some(TokenType::Pointer) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Minus) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::MinusEquals) }
+        b'-' => { increment(2); Token::newEmpty(TokenType::UnaryMinus) }
+        b'>' => { increment(2); Token::newEmpty(TokenType::Pointer) }
+        _    => { increment(1); Token::newEmpty(TokenType::Minus) }
       }
     }
     b'*' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::MultiplyEquals) ) }
-        b'*' => { increment(2); Token::newEmpty( Some(TokenType::UnaryMultiply) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Multiply) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::MultiplyEquals) }
+        b'*' => { increment(2); Token::newEmpty(TokenType::UnaryMultiply) }
+        _    => { increment(1); Token::newEmpty(TokenType::Multiply) }
       }
     }
     b'/' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::DivideEquals) ) }
-        b'/' => { increment(2); Token::newEmpty( Some(TokenType::UnaryDivide) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Divide) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::DivideEquals) }
+        b'/' => { increment(2); Token::newEmpty(TokenType::UnaryDivide) }
+        _    => { increment(1); Token::newEmpty(TokenType::Divide) }
       }
     }
     b'%' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::Modulo) ) } // todo: add new type in Token
-        b'%' => { increment(2); Token::newEmpty( Some(TokenType::Modulo) ) } // todo: add new type in Token
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Modulo) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::Modulo) } // todo: add new type in Token
+        b'%' => { increment(2); Token::newEmpty(TokenType::Modulo) } // todo: add new type in Token
+        _    => { increment(1); Token::newEmpty(TokenType::Modulo) }
       }
     }
     b'^' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::Exponent) ) } // todo: add new type in Token
-        b'^' => { increment(2); Token::newEmpty( Some(TokenType::Exponent) ) } // todo: add new type in Token
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Disjoint) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::Exponent) } // todo: add new type in Token
+        b'^' => { increment(2); Token::newEmpty(TokenType::Exponent) } // todo: add new type in Token
+        _    => { increment(1); Token::newEmpty(TokenType::Disjoint) }
       }
     }
     b'>' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::GreaterThanOrEquals) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::GreaterThan) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::GreaterThanOrEquals) }
+        _    => { increment(1); Token::newEmpty(TokenType::GreaterThan) }
       }
     }
     b'<' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::LessThanOrEquals) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::LessThan) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::LessThanOrEquals) }
+        _    => { increment(1); Token::newEmpty(TokenType::LessThan) }
       }
     }
     b'!' => 
     {
       match nextByte 
       {
-        b'=' => { increment(2); Token::newEmpty( Some(TokenType::NotEquals) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Exclusion) ) }
+        b'=' => { increment(2); Token::newEmpty(TokenType::NotEquals) }
+        _    => { increment(1); Token::newEmpty(TokenType::Exclusion) }
       }
     }
     b'~' =>
     {
       match nextByte
       {
-        b'~' => { increment(2); Token::newEmpty( Some(TokenType::DoubleTilde) ) }
-        _    => { increment(1); Token::newEmpty( Some(TokenType::Tilde) ) }
+        b'~' => { increment(2); Token::newEmpty(TokenType::DoubleTilde) }
+        _    => { increment(1); Token::newEmpty(TokenType::Tilde) }
       }
     }
-    b'&' => { increment(1); Token::newEmpty( Some(TokenType::Joint) ) }
-    b'|' => { increment(1); Token::newEmpty( Some(TokenType::Inclusion) ) }
-    b'=' => { increment(1); Token::newEmpty( Some(TokenType::Equals) ) }
+    b'&' => { increment(1); Token::newEmpty(TokenType::Joint) }
+    b'|' => { increment(1); Token::newEmpty(TokenType::Inclusion) }
+    b'=' => { increment(1); Token::newEmpty(TokenType::Equals) }
     // brackets
-    b'(' => { increment(1); Token::newEmpty( Some(TokenType::CircleBracketBegin) ) }
-    b')' => { increment(1); Token::newEmpty( Some(TokenType::CircleBracketEnd) ) }
-    b'{' => { increment(1); Token::newEmpty( Some(TokenType::FigureBracketBegin) ) }
-    b'}' => { increment(1); Token::newEmpty( Some(TokenType::FigureBracketEnd) ) }
-    b'[' => { increment(1); Token::newEmpty( Some(TokenType::SquareBracketBegin) ) }
-    b']' => { increment(1); Token::newEmpty( Some(TokenType::SquareBracketEnd) ) }
+    b'(' => { increment(1); Token::newEmpty(TokenType::CircleBracketBegin) }
+    b')' => { increment(1); Token::newEmpty(TokenType::CircleBracketEnd) }
+    b'{' => { increment(1); Token::newEmpty(TokenType::FigureBracketBegin) }
+    b'}' => { increment(1); Token::newEmpty(TokenType::FigureBracketEnd) }
+    b'[' => { increment(1); Token::newEmpty(TokenType::SquareBracketBegin) }
+    b']' => { increment(1); Token::newEmpty(TokenType::SquareBracketEnd) }
     // other
-    b';' => { increment(1); Token::newEmpty( Some(TokenType::Endline) ) }
-    b':' => { increment(1); Token::newEmpty( Some(TokenType::Colon) ) }
-    b',' => { increment(1); Token::newEmpty( Some(TokenType::Comma) ) }
-    b'.' => { increment(1); Token::newEmpty( Some(TokenType::Dot) ) }
-    b'?' => { increment(1); Token::newEmpty( Some(TokenType::Question) ) }
-    _ => Token::newEmpty( None ),
+    b';' => { increment(1); Token::newEmpty(TokenType::Endline) }
+    b':' => { increment(1); Token::newEmpty(TokenType::Colon) }
+    b',' => { increment(1); Token::newEmpty(TokenType::Comma) }
+    b'.' => { increment(1); Token::newEmpty(TokenType::Dot) }
+    b'?' => { increment(1); Token::newEmpty(TokenType::Question) }
+    _ => Token::newEmpty(TokenType::None),
   }
 }
 
@@ -415,7 +415,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
   let mut i: usize = 0; // index buffer
   while i < tokensLength 
   { // read tokens
-    match &tokens[i].getDataType().unwrap_or_default() 
+    match tokens[i].getDataType()
     { // compare type
       tokenType if tokenType == beginType =>
       { // if this is the first token
@@ -612,7 +612,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
         { None => {} Some(token) =>
         {
 
-          match token.getDataType().unwrap_or_default() == TokenType::Comment
+          match *token.getDataType() == TokenType::Comment
           { false => {} true =>
           { // Удаляем комментарии
 
@@ -677,7 +677,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
   let tokenCount: usize = tokens.len()-1;
   let mut c: char;
 
-  let mut tokenType: TokenType;
+  let mut tokenType: &TokenType;
   for (i, token) in tokens.iter().enumerate() 
   { // Читаем все токены
 
@@ -690,12 +690,12 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
         false => { '┃' }
       };
 
-    tokenType = token.getDataType().unwrap_or_default(); // Тип токена
+    tokenType = token.getDataType(); // Тип токена
     match token.getData() 
     {
       Some(tokenData) => 
       { // Если токен содержит данные
-        match tokenType 
+        match *tokenType
         { // Проверяем что за токен
           TokenType::Char | TokenType::FormattedChar =>
           { // Если токен это Char | FormattedChar
@@ -910,7 +910,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         if byte == b'#' 
         { // Ставим метку на комментарий в линии, по ним потом будут удалены линии
           deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
-          lineTokens.push( Token::newEmpty( Some(TokenType::Comment) ) );
+          lineTokens.push( Token::newEmpty(TokenType::Comment) );
         } else
         if isDigit(&byte) || (byte == b'-' && index+1 < bufferLength && isDigit(&buffer[index+1])) 
         { // Получаем все возможные численные примитивные типы данных
@@ -923,10 +923,10 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         if matches!(byte, b'\'' | b'"' | b'`') 
         { // Получаем Char, String, RawString
           let mut token: Token = getQuotes(&buffer, &mut index);
-          let tokenType: Option<TokenType> = token.getDataType();
-          match tokenType 
+          let tokenType: TokenType = token.getDataType().clone();
+          match tokenType
           {
-            tokenType if tokenType != None =>
+            tokenType if tokenType != TokenType::None =>
             { // if formatted quotes
               let lineTokensLength: usize = lineTokens.len();
               match lineTokensLength 
@@ -935,22 +935,22 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
                 {
                   let backToken: &Token = &lineTokens[lineTokensLength-1];
                   // todo if -> match
-                  if backToken.getDataType().unwrap_or_default() == TokenType::Word &&
+                  if *backToken.getDataType() == TokenType::Word &&
                      backToken.getData().unwrap_or_default() == "f" 
                   {
-                    match token.getDataType().unwrap_or_default()
+                    match tokenType
                     {
                       TokenType::RawString =>
                       {
-                       token.setDataType( Some(TokenType::FormattedRawString) );
+                       token.setDataType(TokenType::FormattedRawString);
                       }
                       TokenType::String =>
                       { 
-                        token.setDataType( Some(TokenType::FormattedString) );
+                        token.setDataType(TokenType::FormattedString);
                       }
                       TokenType::Char =>
                       { 
-                        token.setDataType( Some(TokenType::FormattedChar) );
+                        token.setDataType(TokenType::FormattedChar);
                       }
                       _ => {}
                     }
@@ -967,15 +967,11 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           }
         } else
         // Получаем возможные двойные и одиночные символы
-        if isSingleChar(&byte) 
+        if isSingleChar(&byte)
         {
           let token: Token = getOperator(&buffer, &mut index, &bufferLength);
-          match token.getDataType()
-          {
-            None => { index += 1; } 
-            _    => { lineTokens.push(token); }
-          }
-        } else 
+          lineTokens.push(token);
+        } else
         { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
           // Поэтому просто идём дальше
           index += 1;
@@ -990,7 +986,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
-  match debugMode 
+  match debugMode
   {
     true => 
     {
