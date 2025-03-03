@@ -86,9 +86,8 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
        savedIndex > 1 && buffer[*index-1] != b'.' // fixed for a.0.1
     { // UFloat
       match rational 
-      {
+      { false => {}
         true => { break; }
-        false => {}
       }
       dot = true;
       result.push(byte1 as char);
@@ -100,10 +99,7 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       rational = true;
       result.push_str("//");
       savedIndex += 2;
-    } else 
-    {
-      break;
-    }
+    } else { break; }
   }
 
   *index = savedIndex;
@@ -144,21 +140,18 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
       result.push(byte1 as char);
       savedIndex += 1;
       match byte1 == b'.' 
+      { false => {} true =>
       { // Только если есть . то мы знаем что это ссылка
-        false => {}
-        true => { isLink = true; }
-      } 
+        isLink = true;
+      }}
     } else
     {
       match isLetter(&byte1)
+      { false => { break; } true =>
       {
-        false => { break; }
-        true =>
-        {
-          result.push(byte1 as char);
-          savedIndex += 1;
-        }
-      }
+        result.push(byte1 as char);
+        savedIndex += 1;
+      }}
       //
     }
   }
@@ -167,10 +160,7 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   // next return
   match isLink 
   {
-    true =>
-    {
-      Token::new( TokenType::Link, Some(result.clone()) )
-    }  
+    true => Token::new( TokenType::Link, Some(result.clone()) ),
     false =>
     {
       match result.as_str()
@@ -250,8 +240,8 @@ fn getQuotes(buffer: &[u8], index: &mut usize) -> Token
     { // Одинарные кавычки должны содержать только один символ
       match result.len() 
       {
-        1 => { Token::new(TokenType::Char, Some(result)) }
-        _ => { Token::newEmpty(TokenType::None) }
+        1 => Token::new(TokenType::Char, Some(result)),
+        _ => Token::newEmpty(TokenType::None)
       } 
     }
     b'"' => Token::new(TokenType::String, Some(result)),
@@ -381,7 +371,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     b',' => { increment(1); Token::newEmpty(TokenType::Comma) }
     b'.' => { increment(1); Token::newEmpty(TokenType::Dot) }
     b'?' => { increment(1); Token::newEmpty(TokenType::Question) }
-    _ => Token::newEmpty(TokenType::None),
+    _ => Token::newEmpty(TokenType::None)
   }
 }
 
@@ -392,14 +382,10 @@ fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &Toke
   for token in tokens.iter_mut() 
   { // Чтение токенов
     match &mut token.tokens
-    {
-      None => {} // Ничего не делаем
-      Some(tokens) =>
-      {
-        // Рекурсия
-        bracketNesting(tokens, beginType, endType);
-      }
-    }
+    { None => {} Some(tokens) =>
+    { // Рекурсия
+      bracketNesting(tokens, beginType, endType);
+    }}
   }
   // Вкладывание
   blockNesting(tokens, beginType, endType);
@@ -423,6 +409,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
       } 
       tokenType if tokenType == endType =>
       { // if this is the last token
+        // todo if -> match
         if let Some(lastBracket) = brackets.pop() 
         { // then delete last bracket
           if !brackets.is_empty() 
@@ -464,23 +451,20 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
       { // nesting tokens to bracket begin
         let savedToken: Token = tokens.remove(i);
         match &mut tokens.get_mut(brackets[brackets.len()-1]) 
+        { None => {} Some(token) =>
         {
-          Some(token) => 
+          match &mut token.tokens
           {
-            match &mut token.tokens 
-            {
-              Some(tokenTokens) => 
-              { // contains tokens 
-                tokenTokens.push(savedToken.clone());
-              }
-              None => 
-              { // no tokens
-                token.tokens = Some( vec![savedToken.clone()] );
-              }
+            Some(tokenTokens) =>
+            { // contains tokens
+              tokenTokens.push(savedToken.clone());
+            }
+            None =>
+            { // no tokens
+              token.tokens = Some(vec![ savedToken.clone() ]);
             }
           }
-          None => {}
-        }
+        }}
 
         // go to next token
         tokensLength -= 1;
@@ -563,45 +547,39 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
       line = linesLinks[index].write().unwrap();
 
       match &mut line.lines
+      { None => {} Some(lineLines) =>
       { // Рекурсивно обрабатываем вложенные линии
-        None => {}
-        Some(lineLines) => { deleteNestedComment(lineLines, 0); }
-      }
+        deleteNestedComment(lineLines, 0);
+      }}
       
       match line.tokens.is_none()
-      {
-        false => {}
-        true => 
-        { // Пропускаем разделители, они нужны для синтаксиса
-          // Если разделитель имеет вложения
-          match &line.lines 
-          { 
-            Some(_) => { break 'exit; } // Выходим из прерывания
-            None => {}
-          } 
+      { false => {} true =>
+      { // Пропускаем разделители, они нужны для синтаксиса
+        // Если разделитель имеет вложения
+        match &line.lines
+        { None => {} Some(_) =>
+        { // Выходим из прерывания
+          break 'exit;
+        }}
 
-          // Проверяем на скопление разделителей
-          match index+1 < linesLinksLength 
-          { // Если есть линия ниже, то мы можем предполагать, что
-            // Она может быть тоже разделителем;
+        // Проверяем на скопление разделителей
+        match index+1 < linesLinksLength
+        { false => {} true =>
+        { // Если есть линия ниже, то мы можем предполагать, что
+          // Она может быть тоже разделителем;
+          match
+            linesLinks[index+1].write().unwrap()
+             .tokens.is_none()
+          { // Если токенов в следующей линии не было, значит точно separator;
+            // Повторение подобных условий оставит 1 separator линию по итогу;
             false => {}
-            true => 
-            {
-              match
-                linesLinks[index+1].write().unwrap()
-                 .tokens.is_none()
-              { // Если токенов в следующей линии не было, значит точно separator;
-                // Повторение подобных условий оставит 1 separator линию по итогу;
-                false => {}
-                true  => { deleteLine = true; }
-              }
-            }
+            true  => { deleteLine = true; }
           }
+        }}
 
-          // Обычный разделитель
-          break 'exit; // Выходим из прерывания
-        }
-      }
+        // Обычный разделитель
+        break 'exit; // Выходим из прерывания
+      }}
 
       match line.tokens
       { None => {} Some(ref mut tokens) =>
@@ -631,10 +609,10 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
                 }
               }}
             }
+            { false => {} true =>
             {
-              false => {}
-              true => { line.lines = None; }
-            }
+              line.lines = None;
+            }}
 
             // Переходим к удалению пустой линии
             match line.tokens.is_none()
@@ -653,16 +631,13 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
     // Когда линия удалена в прерывании,
     // её можно спокойно удалить
     match deleteLine 
+    { false => {} true =>
     {
-      false => {}
-      true => 
-      {
-        drop(line);
-        linesLinks.remove(index);
-        linesLinksLength -= 1;
-        continue;
-      }
-    }
+      drop(line);
+      linesLinks.remove(index);
+      linesLinksLength -= 1;
+      continue;
+    }}
     // Продолжаем чтение
     index += 1;
   }
@@ -755,12 +730,11 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
       }
     } 
 
-    // Если есть вложения у токена, то просто рекурсивно обрабатываем их
     match &token.tokens
-    {
-      None => {}
-      Some(tokens) => { outputTokens(tokens, lineIndent, &(indent+1)); }
-    }
+    { None => {} Some(tokens) =>
+    { // Если есть вложения у токена, то рекурсивно обрабатываем их
+      outputTokens(tokens, lineIndent, &(indent+1));
+    }}
   }
 }
 /// Выводит информацию о линии, а также токены линии
@@ -774,7 +748,6 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
   { // Проходи по линиям через чтение
     line = lineLink.read().unwrap();
     log("parserBegin", &format!("{} {}",identStr1,i));
-
 
     match &line.tokens
     {
@@ -791,14 +764,11 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
     } 
     
     match &line.lines
+    { None => {} Some(lineLines) =>
     { // Заголовок для начала вложенных линий
-      None => {}
-      Some(lineLines) => 
-      {
-        formatPrint(&format!("{}\\b┗ \\fg(#90df91)Lines\\c\n",identStr2));
-        outputLines(lineLines, &(indent+1)); // выводим вложенные линии
-      }
-    }
+      formatPrint(&format!("{}\\b┗ \\fg(#90df91)Lines\\c\n",identStr2));
+      outputLines(lineLines, &(indent+1)); // выводим вложенные линии
+    }}
   }
   //
 }
@@ -987,18 +957,15 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 
   // debug output and return
   match debugMode
+  { false => {} true =>
   {
-    true => 
-    {
-      let endTime:  Instant  = Instant::now();    // Получаем текущее время
-      let duration: Duration = endTime-startTime; // Получаем сколько всего прошло
-      outputLines(&linesLinks,&2); // Выводим полученное AST дерево из линий
-      //
-      println!("     ┃");
-      log("ok",&format!("xDuration: {:?}",duration));
-    }
-    false => {}
-  }
+    let endTime:  Instant  = Instant::now();    // Получаем текущее время
+    let duration: Duration = endTime-startTime; // Получаем сколько всего прошло
+    outputLines(&linesLinks,&2); // Выводим полученное AST дерево из линий
+    //
+    println!("     ┃");
+    log("ok",&format!("xDuration: {:?}",duration));
+  }}
   // Возвращаем готовые ссылки на линии
   linesLinks
 }
