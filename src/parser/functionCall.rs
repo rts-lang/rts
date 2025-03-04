@@ -280,6 +280,7 @@ impl Structure
   pub fn functionCall(&self, value: &mut Vec<Token>, valueLength: &mut usize, i: usize) -> ()
   {
     let parameters: Parameters = self.getCallParameters(value, i, valueLength);
+    println!("  > A1 {}",parameters.getAllExpressions();
     match value[i].getData()
     {
       // ===========================================================================================
@@ -369,30 +370,30 @@ impl Structure
         }
         // =========================================================================================
         // Если код не завершился ранее, то далее идут custom методы;
-        { // Передаём параметры, они также могут быть None
-          self.procedureCall(&structureName, parameters);
-          // После чего решаем какой результат оставить
-          match self.getStructureByName(&structureName)
-          { None => {} Some(structureLink) =>
-          { // По результату структуры, определяем пустой он или нет
-            match
-              &structureLink.read().unwrap()
-                .result
-            {
-              Some(result) =>
-              { // Результат не пустой, значит оставляем его
-                value[i].setData    ( result.getData() );
-                value[i].setDataType( result.getDataType().clone() );
-              }
-              None =>
-              { // Если результата структуры не было,
-                // значит это была действительно процедура
-                value[i].setData    ( None );
-                value[i].setDataType( TokenType::None );
-              }
+
+        // Передаём параметры, они также могут быть None
+        self.procedureCall(&structureName, parameters);
+        // После чего решаем какой результат оставить
+        match self.getStructureByName(&structureName)
+        { None => {} Some(structureLink) =>
+        { // По результату структуры, определяем пустой он или нет
+          match
+            &structureLink.read().unwrap()
+              .result
+          {
+            Some(result) =>
+            { // Результат не пустой, значит оставляем его
+              value[i].setData    ( result.getData() );
+              value[i].setDataType( result.getDataType().clone() );
             }
-          }}
-        }
+            None =>
+            { // Если результата структуры не было,
+              // значит это была действительно процедура
+              value[i].setData    ( None );
+              value[i].setDataType( TokenType::None );
+            }
+          }
+        }}
         //
       }
     }

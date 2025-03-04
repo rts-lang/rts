@@ -134,7 +134,7 @@ impl Structure
   /// todo: вынести все стандартные варианты в отдельный модуль
   pub fn procedureCall(&self, structureName: &str, parameters: Parameters) -> ()
   {
-    if structureName.starts_with(|c: char| c.is_lowercase())
+    if structureName.starts_with(|c: char| c.is_lowercase()) // todo if -> match
     { // Если название в нижнем регистре - то это точно процедура
       match structureName
       { // Проверяем на сходство стандартных функций
@@ -151,7 +151,7 @@ impl Structure
           match self.getStructureByName(&structureName)
           { None => {} Some(calledStructureLink) =>
           { // Запускаем структуру
-            readLines(calledStructureLink.clone());
+            readLines(calledStructureLink);
           }}
         }
         // =========================================================================================

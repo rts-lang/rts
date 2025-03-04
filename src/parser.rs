@@ -780,20 +780,19 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     match !searchStructure(lineLink.clone(), structureLink.clone(), lineIndex)
     { false => {} true =>
     { // Читаем return
+
       match !searchReturn(lineLink.clone(), structureLink.clone())
-      {
-        false => {}
-        true =>
-        { // Ищем линейные выражения
-          let tokens: &mut Vec<Token> =
-            &mut lineLink.read().unwrap()
-              .tokens.clone()
-              .unwrap_or_default(); // todo плохо
-          structureLink.read().unwrap()
-            .expression(tokens);
-          // Клонируем токены, для сохранения возможности повторного запуска
-        }
-      }
+      { false => {} true =>
+      { // Ищем линейные выражения
+
+        let tokens: &mut Vec<Token> =
+          &mut lineLink.read().unwrap()
+            .tokens.clone()
+            .unwrap_or_default(); // todo плохо
+        structureLink.read().unwrap()
+          .expression(tokens);
+        // Клонируем токены, для сохранения возможности повторного запуска
+      }}
     }}
     // Идём дальше
     unsafe{*lineIndex += 1}

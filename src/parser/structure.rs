@@ -397,6 +397,8 @@ impl Structure
   pub fn getStructureByName(&self, name: &str) -> Option< Arc<RwLock<Structure>> > 
   {
     // todo добавить больше комментариев ниже
+
+    // Пытаемся найти в текущей структуре
     match &self.structures 
     { None => {} Some(someStructures) =>
     {
@@ -412,12 +414,19 @@ impl Structure
       }
     }}
 
+    // Пытаемся найти в родительской структуре
+    // todo необходимо правильно определять область видимости
+    /*
     match &self.parent 
     { None => None, Some(parentLink) =>
     { // check the parent structure if it exists
-      parentLink.read().unwrap()
-        .getStructureByName(name)
+      println!("      > F3 {}",self.name.clone().unwrap_or_default());
+      let a = parentLink.read().unwrap();
+      println!("      > F4 {}",a.name.clone().unwrap_or_default());
+      a.getStructureByName(name)
     }}
+    */
+    None
   }
 
   /// Добавляет новую вложенную структуру в текущую структуру
@@ -991,8 +1000,9 @@ impl Structure
     result
   }
 
-  /// Получает параметры при вызове структуры в качестве метода;
-  /// т.е. получает переданные значения через expression
+  /// Получает параметры при вызове структуры в качестве метода
+  ///
+  /// todo типы данных в параметрах
   pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
   {
     match value.len() < 2 || *value[i+1].getDataType() != TokenType::CircleBracketBegin
@@ -1007,19 +1017,19 @@ impl Structure
     { // Начинаем читать вложения в круглых скобках
       match tokens
       { None => {} Some(tokens) =>
-      { // get bracket tokens
-        let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
+      {
+        let mut expressionBuffer: Vec<Token> = Vec::new(); // Текущее выражение
         for (l, token) in tokens.iter().enumerate()
-        { // read tokens
+        {
           match *token.getDataType() == TokenType::Comma || l+1 == tokens.len()
           {
             true =>
             { // comma or line end
               match *token.getDataType() != TokenType::Comma
+              { false => {} true  =>
               {
-                false => {}
-                true  => { expressionBuffer.push( token.clone() ); }
-              }
+                expressionBuffer.push( token.clone() );
+              }}
               match expressionBuffer.len() > 1
               {
                 true =>
