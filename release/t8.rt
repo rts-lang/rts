@@ -10,3 +10,8 @@ a = ab(1)
 println(a)
 println(type(a))
 println(mut(a))
+
+c
+ 10+20
+ 20
+println(c.0,c.1)

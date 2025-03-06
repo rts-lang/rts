@@ -151,6 +151,7 @@ impl Structure
           match self.getStructureByName(&structureName)
           { None => {} Some(calledStructureLink) =>
           { // Запускаем структуру
+            // todo обработка параметров для процедуры
             readLines(calledStructureLink);
           }}
         }

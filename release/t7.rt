@@ -41,16 +41,28 @@ println(f"{f}:{type(f)}:{mut(f)} <- 0:UInt:Variable")
 f = -20
 println(f"{f}:{type(f)}:{mut(f)} <- 0:UInt:Variable")
 
+println("=============== g ================")
+g~:UInt
+println(f"{g}:{type(g)}:{mut(g)} <- :UInt:Variable")
+g = -20
+println(f"{g}:{type(g)}:{mut(g)} <- 0:UInt:Variable")
+
 # ==================== dynamic v ====================
 
-println("=============== g ================")
-g~~ = 10
-println(f"{g}:{type(g)}:{mut(g)} <- 10:UInt:Dynamic")
-g = -20
-println(f"{g}:{type(g)}:{mut(g)} <- -20:Int:Dynamic")
-
 println("=============== h ================")
-h~~:UInt = 10
+h~~ = 10
 println(f"{h}:{type(h)}:{mut(h)} <- 10:UInt:Dynamic")
 h = -20
 println(f"{h}:{type(h)}:{mut(h)} <- -20:Int:Dynamic")
+
+println("=============== i ================")
+i~~:UInt = 10
+println(f"{i}:{type(i)}:{mut(i)} <- 10:UInt:Dynamic")
+i = -20
+println(f"{i}:{type(i)}:{mut(i)} <- -20:Int:Dynamic")
+
+println("=============== j ================")
+j~~:UInt
+println(f"{j}:{type(j)}:{mut(j)} <- :UInt:Dynamic")
+j = -20
+println(f"{j}:{type(j)}:{mut(j)} <- -20:Int:Dynamic")

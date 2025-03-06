@@ -227,7 +227,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             {
               Some(newStructureResultType) =>
                 Some( Token::newEmpty(newStructureResultType.clone()) ),
-              None    => None,
+              None => None,
             };
 
             { // добавляем новую структуру в родителя
@@ -238,10 +238,10 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             // todo: в целом, это можно заменить на чтение при первом обращении к структуре;
             //       сейчас же все структуры читаются (подготавливаются),
             //       если попали на lineIndex указатель.
-            readLines(
-              parentLink.read().unwrap()
-                .getStructureByName(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше
-            );
+//            readLines(
+//              parentLink.read().unwrap()
+//                .getStructureByName(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше
+//            );
             return true;
           }
         }
@@ -251,7 +251,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
         let mut opType: TokenType = TokenType::None; // Математический оператор
         let mut opPos:  usize     = 0;               // Место, где находится оператор
         for (i, lineToken) in lineTokens.iter().enumerate()
-        { // читаем линию, и ищем чтобы TokenType в opType совпал с математическим
+        { // Читаем линию, и ищем чтобы TokenType в opType совпал с математическим,
           // после чего выходим отсюда и остаётся позиция найденного оператора в opPos
           opType = lineToken.getDataType().clone();
           match isMathOperator(opType.clone()) 
@@ -269,7 +269,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             true =>
             { // Это вариант Final, но необходимо проверить, что это не что-то другое
               let lineTokensLen: usize = lineTokens.len();
-              match lineTokensLen == 3
+              match lineTokensLen >= 3 && lineTokensLen <= 5
               {
                 false =>
                 {
@@ -281,7 +281,14 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 }
                 true =>
                 { // Предполагается Final с указанием типа данных
-                  match *lineTokens[1].getDataType() == TokenType::Colon
+                  let colonPos: usize =
+                    match lineTokensLen
+                    {
+                      3 => 1,
+                      4 => 2,
+                      _ => 3
+                    };
+                  match *lineTokens[colonPos].getDataType() == TokenType::Colon
                   {
                     false => return false, // Это что-то другое
                     true => {}
@@ -293,10 +300,10 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
             },
             false => lineTokens[0..opPos-1].to_vec() // Это Constant | Variable | Dynamic
           };
-        let mut leftValueMutable: StructureMut = StructureMut::Constant;
+        let mut leftValueMutable: StructureMut = StructureMut::Final;
         let mut leftValueDataType: StructureType = StructureType::None;
+        let leftValueTokensLength:usize = leftValueTokens.len();
         { // Определяем тип данных и тип модификатора у левой части выражения
-          let leftValueTokensLength:usize = leftValueTokens.len();
           for i in 0..leftValueTokensLength
           {
             match i == 1
@@ -307,7 +314,16 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 {
                   TokenType::DoubleTilde => StructureMut::Dynamic,
                   TokenType::Tilde => StructureMut::Variable,
-                  _ => StructureMut::Constant
+                  _ =>
+                  {
+                    if leftValueTokensLength == lineTokensLength
+                    {
+                      StructureMut::Final
+                    } else
+                    {
+                      StructureMut::Constant
+                    }
+                  }
                 };
             }}
             // Определяем тип данных у левой части выражения
@@ -330,14 +346,13 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
         match lineTokens[0].getData()
         { None => {} Some(structureName) =>
         { // Это левая часть линейной записи
-          // todo: возможно сократить? это просто один токен из structureName
-          let leftPart:  Option< Vec<Token> > = Some( leftValueTokens );
-          // Это правая (рабочая) запись линейной части
+          let leftPart: Option< Vec<Token> > = Some( leftValueTokens );
+          // Это правая часть линейной записи
           let rightPart: Option< Vec<Token> > =
             match opPos == 0
             {
-              true => None, // У Final нет правой части выражения
-              false => // Это Constant | Variable | Dynamic
+              true => None, // У Final | Variable | Dynamic может не быть правой части выражения
+              false => // Это может быть у Constant | Variable | Dynamic
                 Some( lineTokens[opPos..lineTokensLength].to_vec() )
             };
 
@@ -393,8 +408,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                 match rightPart
                 {
                   None =>
-                  { // Если правого выражения не было, то это Final
-                    leftValueMutable = StructureMut::Final;
+                  { // Если правого выражения не было, то это Final | Variable | Dynamic
                     None
                   }
                   Some(rightValue) =>
@@ -403,7 +417,8 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
                   }
                 };
 
-              let calculateRightValueNow: bool = leftValueMutable != StructureMut::Final;
+              // Если правой части не будет, то они будут равны, а значит не вычисляем
+              let calculateRightValueNow: bool = leftValueTokensLength != lineTokensLength;
 
               // Закидываем новую структуру в родительскую структуру
               let mut parentStructure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();

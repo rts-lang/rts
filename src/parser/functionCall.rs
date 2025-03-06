@@ -280,7 +280,6 @@ impl Structure
   pub fn functionCall(&self, value: &mut Vec<Token>, valueLength: &mut usize, i: usize) -> ()
   {
     let parameters: Parameters = self.getCallParameters(value, i, valueLength);
-    println!("  > A1 {}",parameters.getAllExpressions();
     match value[i].getData()
     {
       // ===========================================================================================
@@ -372,6 +371,7 @@ impl Structure
         // Если код не завершился ранее, то далее идут custom методы;
 
         // Передаём параметры, они также могут быть None
+//        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
         self.procedureCall(&structureName, parameters);
         // После чего решаем какой результат оставить
         match self.getStructureByName(&structureName)
