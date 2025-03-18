@@ -1,0 +1,12 @@
+
+# comment
+ comment
+   comment
+a -> UInt
+  println(10) # comment
+   comment
+      comment
+    comment
+	= 20
+
+println(a())

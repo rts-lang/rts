@@ -168,10 +168,15 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         "true"     => Token::new( TokenType::Bool, Some(String::from("1")) ),
         "false"    => Token::new( TokenType::Bool, Some(String::from("0")) ),
         //
-        "UInt"     => Token::newEmpty(TokenType::UInt),
-        "Int"      => Token::newEmpty(TokenType::Int),
-        "String"   => Token::newEmpty(TokenType::String),
-        "Char"     => Token::newEmpty(TokenType::Char),
+        "UInt"     => Token::new( TokenType::UInt, Some(String::from("0")) ),
+        "Int"      => Token::new( TokenType::Int, Some(String::from("0")) ),
+        "UFloat"   => Token::new( TokenType::UFloat, Some(String::from("0.0")) ),
+        "Float"    => Token::new( TokenType::Float, Some(String::from("0.0")) ),
+        //
+        "String"   => Token::new( TokenType::String, Some(String::from("")) ),
+        "Char"     => Token::new( TokenType::Char, Some(String::from("")) ),
+        //
+        "None"     => Token::newEmpty(TokenType::None),
         //
         _          => Token::new( TokenType::Word, Some(result) ),
       }

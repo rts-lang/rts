@@ -152,6 +152,7 @@ impl Structure
           { None => {} Some(calledStructureLink) =>
           { // Запускаем структуру
             // todo обработка параметров для процедуры
+            //      https://github.com/rts-lang/rts/blob/a173ba17e660bf19e9a46c4445f05003f717dd8a/src/parser/structure.rs
             readLines(calledStructureLink);
           }}
         }

@@ -1,0 +1,45 @@
+
+a
+println(type(a))
+println(type(None))
+
+println(type(a) = type(None))
+
+println(a = None)
+println(a = UInt)
+
+println("===")
+
+println(type(UFloat))
+println(UFloat)
+
+println(Int)
+
+println("===")
+
+println(Int = 0)
+println(UInt = 0)
+
+println("===")
+
+println(10+None)
+println(10*None)
+
+println(None+10)
+println(None-10)
+
+println("===")
+
+a
+println(a,":",type(a))
+a = Int
+println(a,":",type(a))
+
+println("===")
+
+println(word)
+println(type(word))
+
+println("===")
+
+println(type(---))

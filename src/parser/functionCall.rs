@@ -8,13 +8,15 @@ use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::Structure;
 use crate::tokenizer::token::{Token, TokenType};
 
-// Procedure =======================================================================================
+// Function =======================================================================================
 /// Это набор базовых функций
 struct Function {}
 impl Function
 {
   // ===============================================================================================
   /// Возвращает тип данных переданной структуры или значения
+  ///
+  /// todo можно передать несколько значений и вернуть список их типов
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.get(0)
@@ -22,24 +24,44 @@ impl Function
     { // Получаем необработанные параметры
       let structureName: String = p0.getData().unwrap_or_default();
       match structureName.is_empty()
-      { false => {} true =>
-      { // Пустые данные не обрабатываем
-       return;
-      }}
-
-      // Проверяем является это структурой или просто значение
-      match structure.getStructureByName(&structureName)
       {
-        Some(structureLink) =>
+        false =>
         {
-          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-          value[i].setDataType( TokenType::String );
-          value[i].setData( Some(structure.dataType.to_string()) );
+          match structure.getStructureByName(&structureName)
+          {
+            Some(structureLink) =>
+            { // Это custom structure
+              let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+              value[i].setDataType( TokenType::String );
+              value[i].setData( Some(structure.dataType.to_string()) );
+            }
+            None =>
+            {
+              value[i].setDataType( TokenType::String );
+              match p0.isPrimitiveType()
+              { // Это примитивное значение
+                true => value[i].setData( Some(p0.to_string()) ),
+                // Это то, чего нет как типа данных
+                false => value[i].setData( Some(String::from("None")) )
+              }
+            }
+          }
         }
-        None =>
+        true =>
         {
-          value[i].setDataType( TokenType::String );
-          value[i].setData( Some(p0.getDataType().to_string()) );
+          match parameters.getExpression(structure, 0)
+          { None => {} // Это пустое значение
+            Some(parameter) =>
+            { // Это тип данных
+              value[i].setDataType( TokenType::String );
+              match parameter.isPrimitiveType()
+              { // Это примитивное значение
+                true => value[i].setData( Some(parameter.to_string()) ),
+                // Это то, чего нет как типа данных
+                false => value[i].setData( Some(String::from("None")) )
+              }
+            }
+          }
         }
       }
     }}

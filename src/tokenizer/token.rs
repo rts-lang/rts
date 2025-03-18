@@ -14,6 +14,8 @@ pub enum TokenType
 // basic
   /// Пустота
   None,
+  /// Любой тип данных
+  Any,
   /// Обычная связка букв
   Word,
   /// ; или \n
@@ -168,6 +170,7 @@ impl ToString for TokenType
     {
       // basic
       TokenType::None    => String::from("None"),
+      TokenType::Any    => String::from("Any"),
       TokenType::Word    => String::from("Word"),
       TokenType::Endline => String::from("\\n"),
       TokenType::Comma   => String::from(","),
@@ -379,6 +382,27 @@ impl Token
   {
     self.dataType = newDataType;
     self.convertData();
+  }
+
+  /// Проверяет примитивный это токен или нет
+  pub fn isPrimitiveType(&self) -> bool
+  {
+    matches!(
+      self.dataType,
+      TokenType::None |
+      TokenType::Any |
+      TokenType::Link |
+      TokenType::UInt |
+      TokenType::Int |
+      TokenType::UFloat |
+      TokenType::Float |
+      TokenType::Char |
+      TokenType::String |
+      TokenType::RawString |
+      TokenType::FormattedChar |
+      TokenType::FormattedString |
+      TokenType::FormattedRawString
+    )
   }
 
   /// Получает данные

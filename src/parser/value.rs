@@ -9,6 +9,7 @@ use crate::parser::uf64::*;
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum Value 
 {
+  None(),
   Int(i64),
   UInt(u64),
   Float(f64),
@@ -23,11 +24,12 @@ impl Value
   {
     match self 
     {
-      Value::Int(v)    => *v!=0,
-      Value::UInt(v)   => *v!=0,
-      Value::Float(v)  => *v!=0.0,
+      Value::None() => false, // todo непонятно что нужно возвращать здесь
+      Value::Int(v) => *v!=0,
+      Value::UInt(v) => *v!=0,
+      Value::Float(v) => *v!=0.0,
       Value::UFloat(v) => *v!=uf64::from(0.0),
-      Value::Char(c)   => *c!='\0',
+      Value::Char(c) => *c!='\0',
       Value::String(s) => !s.is_empty(),
     }
   }
@@ -38,11 +40,12 @@ impl fmt::Display for Value
   {
     match *self 
     {
-      Value::Int   (val)     => write!(f, "{}", val),
-      Value::UInt  (val)     => write!(f, "{}", val),
-      Value::Float (val)     => write!(f, "{}", val),
-      Value::UFloat(val)     => write!(f, "{}", val),
-      Value::Char  (val)     => write!(f, "{}", val),
+      Value::None() => write!(f, "None"), // todo непонятно что нужно возвращать здесь
+      Value::Int(val) => write!(f, "{}", val),
+      Value::UInt(val) => write!(f, "{}", val),
+      Value::Float(val) => write!(f, "{}", val),
+      Value::UFloat(val) => write!(f, "{}", val),
+      Value::Char(val) => write!(f, "{}", val),
       Value::String(ref val) => write!(f, "{}", val),
     }
   }
@@ -56,6 +59,14 @@ impl std::ops::Add for Value
   {
     match (self.clone(), other) 
     {
+      // None
+      // None + None обрабатывается в _
+      (Value::None(), Value::Int(y)) => Value::Int(y),
+      (Value::None(), Value::UInt(y)) => Value::UInt(y),
+      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
+      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int   (x+y),
       (Value::Int(x), Value::UInt(y))   => Value::Int   (x+ y as i64),
@@ -134,6 +145,14 @@ impl std::ops::Sub for Value
   {
     match (self.clone(), other) 
     {
+      // None
+      // None + None обрабатывается в _
+      (Value::None(), Value::Int(y)) => Value::Int(y),
+      (Value::None(), Value::UInt(y)) => Value::UInt(y),
+      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
+      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int  (x-y),
       (Value::Int(x), Value::UInt(y))   => Value::Int  (x- y as i64),
@@ -207,6 +226,14 @@ impl std::ops::Mul for Value
   {
     match (self.clone(), other) 
     {
+      // None
+      // None + None обрабатывается в _
+      (Value::None(), Value::Int(y)) => Value::Int(y),
+      (Value::None(), Value::UInt(y)) => Value::UInt(y),
+      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
+      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int  (x*y),
       (Value::Int(x), Value::UInt(y))   => Value::Int  (x* y as i64),
@@ -240,6 +267,14 @@ impl std::ops::Div for Value
   {
     match (self.clone(), other) 
     {
+      // None
+      // None + None обрабатывается в _
+      (Value::None(), Value::Int(y)) => Value::Int(y),
+      (Value::None(), Value::UInt(y)) => Value::UInt(y),
+      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
+      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int  (x/y),
       (Value::Int(x), Value::UInt(y))   => Value::Int  (x/ y as i64),

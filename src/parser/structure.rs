@@ -39,7 +39,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     TokenType::Divide   => (leftValue / rightValue).to_string(),
     TokenType::Inclusion => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue.toBool() || rightValue.toBool() 
       {
         true  => String::from("1"),
@@ -48,7 +48,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::Joint => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue.toBool() && rightValue.toBool() 
       {
         true  => String::from("1"),
@@ -57,7 +57,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::Equals => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue == rightValue 
       {
         true  => String::from("1"),
@@ -66,7 +66,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::NotEquals => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue != rightValue
       {
         true  => String::from("1"),
@@ -75,7 +75,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::GreaterThan => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue > rightValue 
       {
         true  => String::from("1"),
@@ -84,7 +84,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::LessThan => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue < rightValue 
       {
         true  => String::from("1"),
@@ -93,7 +93,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::GreaterThanOrEquals => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue >= rightValue 
       {
         true  => String::from("1"),
@@ -102,7 +102,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
     TokenType::LessThanOrEquals => 
     { 
-      resultType = TokenType::Bool; 
+      resultType = TokenType::Bool;
       match leftValue <= rightValue 
       {
         true  => String::from("1"),
@@ -153,20 +153,25 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
 /// Считает значение левой и правой части выражения
 fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value 
 {
-  match tokenDataType {
-    TokenType::Int    =>
+  match tokenDataType
+  {
+    TokenType::None =>
+    {
+      Value::None()
+    }
+    TokenType::Int =>
     {
       tokenData.parse::<i64>()
         .map(Value::Int)
         .unwrap_or(Value::Int(0))
     },
-    TokenType::UInt   =>
+    TokenType::UInt =>
     {
       tokenData.parse::<u64>()
         .map(Value::UInt)
         .unwrap_or(Value::UInt(0))
     },
-    TokenType::Float  =>
+    TokenType::Float =>
     {
       tokenData.parse::<f64>()
         .map(Value::Float)
@@ -179,7 +184,7 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
         .map(Value::UFloat)
         .unwrap_or(Value::UFloat(uf64::from(0.0)))
     },
-    TokenType::Char  =>
+    TokenType::Char =>
     { // todo: добавить поддержку операций с TokenType::formattedChar
       tokenData.parse::<char>()
         .map(|x| Value::Char(x))
@@ -191,7 +196,7 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
         .map(|x| Value::String(x))
         .unwrap_or(Value::String("".to_string()))
     },
-    TokenType::Bool   =>
+    TokenType::Bool =>
     {
       match tokenData == "0"
       {
@@ -240,6 +245,7 @@ pub enum StructureType
 {
 // primitives
   None,
+  Any,
   Link,
 
   Bool,
@@ -280,6 +286,7 @@ impl ToString for StructureType
     match self
     { // primitives
       StructureType::None => String::from("None"),
+      StructureType::Any => String::from("Any"),
       StructureType::Link => String::from("Link"),
 
       StructureType::Bool => String::from("Bool"),
@@ -639,15 +646,11 @@ impl Structure
   fn linkExpression(&self, currentStructureLink: Option< Arc<RwLock<Structure>> >, link: &mut Vec<String>, parameters: Option< Vec<Token> >) -> Token
   { // Обработка динамического выражение
     match link[0].starts_with('[')
-    {
-      false => {}
-      true => 
-      { // Получаем динамическое выражение между []
-        link[0] = format!("{{{}}}", &link[0][1..link[0].len()-1]);
-        // Получаем новую строку значения из обработки выражения
-        link[0] = self.formatQuote(link[0].clone());
-      }
-    }
+    { false => {} true => { // Получаем динамическое выражение между []
+      link[0] = format!("{{{}}}", &link[0][1..link[0].len()-1]);
+      // Получаем новую строку значения из обработки выражения
+      link[0] = self.formatQuote(link[0].clone());
+    }}
     // Обработка пути
     match link[0].parse::<usize>() 
     { // Проверяем тип
@@ -1077,6 +1080,10 @@ impl Structure
     { // Если это выражение с 1 токеном, то
       match *value[0].getDataType()
       { // Проверяем возможные варианты
+        TokenType::None =>
+        {
+          value[0].setDataType(TokenType::None);
+        }
         TokenType::Link =>
         { // Если это TokenType::Link, то
           let data: String = value[0].getData().unwrap_or_default(); // token data
@@ -1137,6 +1144,10 @@ impl Structure
       // на использование простого выражения в скобках
       match *value[i].getDataType()
       {
+        TokenType::None =>
+        {
+          value[i].setDataType(TokenType::None);
+        }
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
         { // Если это форматные варианты Char, String, RawString;
           match value[0].getData() 
