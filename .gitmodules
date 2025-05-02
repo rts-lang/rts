@@ -1,0 +1,6 @@
+[submodule "release/tests"]
+	path = release/tests
+	url = https://github.com/rts-lang/rts-tests.git
+[submodule "release/examples"]
+	path = release/examples
+	url = https://github.com/rts-lang/rts-examples.git
