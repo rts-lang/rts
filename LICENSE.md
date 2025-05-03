@@ -1,95 +1,136 @@
 ## Free Contribution License
-#### Version 24.02.2025
+#### Version 03.05.2025
+#### https://realtime.su/en/licenses
 
-Copyright (c) Anatoly Sergeev (miruji) <miruji@protonmail.com>
+Copyright (c) 
+ - Anatoly Sergeev (miruji) <miruji@protonmail.com> 
+ - and RTS contributors
 
-Hereinafter, hereinafter simply 'Software' or 'Project' refers to the source code
-of the current project, the libraries created for it, documentation, and compiled
-files distributed by the licensor.
+---
 
-The Free Contribution License, hereinafter simply simply 'License', is the main
-document for this software. The licensor grants the right to others to participate
-in the development and modernization of the project, distribute it and exploit it,
-subject to the rules of this license.
+#### Introduction
 
-This License uses the date as its current version. However, only the License that
-accompanied the distribution applies to this software. Therefore, this software
-is distributed under this License. In case of using newer versions of software,
-the accompanying newer available license should be specified. It also means that
-previous licenses are independent of subsequent Licenses and continue to operate
-independently of each other, but do not allow use of newer versions of this software.
+Hereinafter, the term "Software" or "Project" refers to the entire project,
+including its source code, libraries, documentation, and compiled files,
+all of which are distributed by the licensor and licensed under the terms
+of this License.
 
-** It is possible to mix software of one version with another, but in this case you
-will have to strictly follow clause 4 of the Terms of Use, and you will also have
-to indicate all related licenses similar to this paragraph.
+The Free Contribution License, hereinafter referred to as the "License",
+is the primary document governing this Software. The Licensor grants others
+the right to participate in the development and modernization of the Project,
+distribute it, and make use of it, subject to the terms of this License.
 
-This software cannot be used and distributed in any form if the terms of use and
-distribution are violated. Additionally, no other licenses can be applied to this
-software except the current one.
+This License is identified by its version, determined by the date of its release.
+If a newer version of this License is applied to the Project, the Project shall
+be governed by the new License, while previous versions remain valid and continue
+to apply to the corresponding earlier versions of the Project.
 
-In the event that you contribute to the development of this project, changing it,
-adding new code, then a License is applied to it at your discretion, this doesn't
-change the current License in any way and it should still remain with the current
-distribution. This means that you must specify which parts of the code you are
-using under your License. In other words, you need to explicitly state the division
-between what is covered by the current License and what is not. If no other licenses
-are specified, then the current License will apply to all code, where you will be the
-licensor for your portion of the code.
+This License may not be modified, altered, or republished under the same or
+similar name. Any use of this License must preserve its complete and unmodified
+text, including its version and reference link. Only the original author or 
+designated maintainers of the License may release updated versions.
 
-The software is provided "as is", without warranty of any kind, express or implied,
-including but not limited to the warranties of merchantability, fitness for a
-particular purpose and noninfringement. in no event shall the authors or copyright
-holders be liable for any claim, damages or other liability, whether in an action
-of contract, tort or otherwise, arising from, out of or in connection with the
-software or the use or other dealings in the software.
+This Software may not be used or distributed in any form if the terms of use or
+distribution are violated. No other license may be applied to this Software
+except the one currently in effect.
 
-Neither the developer of this software nor the names of its contributors may
-be used to endorse or promote products derived from this software without their
-specific prior written permission.
+The Software is provided "as is", without warranty of any kind, express or implied, 
+including but not limited to the warranties of merchantability, fitness for a particular 
+purpose, and noninfringement. The Licensor shall not be responsible for any indirect or 
+consequential damages arising from the use of the Software.
 
-Terms of Use:
+Neither the name of the developer nor the names of the contributors may be used
+to endorse or promote products derived from this Software without specific prior
+written permission.
 
-  1. This software is provided to you free of charge, and you may freely distribute
-     it in source or binary form, including all documentation and other source files
-     included with this project.
+---
 
-  2. When distributing this software in either source or binary form,
-     you are obligated to retain the License for distributing the source code.
+#### Contributing
 
-     This can also be done using comments, headers in the file or other suitable
-     means. You must refer to the text of this License together with the current
-     version of it, and therefore explicitly provide it. It should be clear what this
-     license is tied to.
+By contributing to the development of this Project, you grant the Licensor and 
+other recipients the right to use, modify, and distribute your contribution under 
+the terms of this License, including the right to combine it with other works.
 
-  3. If you use this software with modifications for commercial purposes, you need
-     written permission from the author of this License. You can only ignore this
-     restriction if you are willing to publish all of your changes, subsequent source
-     code, and other files related to the modification of this project freely under
-     this License.
+You further certify that:
 
-     You may simply use the software without modification for commercial purposes,
-     subject to the terms of this license.
+  1. The contribution was created by you, in whole or in part, and you have the 
+     legal right to submit it under the terms of this License; or
 
-     To request written permission for commercial use, please contact the author
-     via email, and provide a detailed description of your intended use.
+  2. The contribution is based on prior work, and to the best of your knowledge, 
+     it is covered by a compatible open source license, and you have the right 
+     to submit it with or without modifications; or
 
-  4. Any changes made to the source code of this software must be documented and
-     specified in their respective locations. This documentation can take the form
-     of comments within the code, files containing descriptions of the changes, or
-     other means that provide a comprehensive and clear description
-     of the modifications made.
+  3. The contribution was provided to you by someone who certified either (1) or (2), 
+     and you have not modified it beyond what is permitted; and
 
-     This does not apply to new authoring code, which does not change the source code,
-     but is an addition to it. In this case, as stated above, you do it yourself as
-     you wish.
+  4. You understand and agree that your contribution and any associated metadata 
+     may be publicly stored, displayed, and redistributed under this License.  
+     
+     You retain authorship of your contribution, but the licensing of the overall 
+     Project, including your contribution, is governed solely by this License.
 
-  5. This License does not grant you any rights to patents, trademarks, or other
-     intellectual property associated with this software.
+If you intend to combine different versions of this Project, the more recent version
+of the License must apply to the combined work.
 
-  6. In the event of a breach of any of the terms of this License, your right
-     to use, modify, and distribute this software is terminated.
+---
 
-If you have any questions, concerns, or requests related to this software or
-its licensing terms, please feel free to contact the author, miruji, via email
-at miruji@protonmail.com. We value feedback and are here to assist you with
-any inquiries or clarifications.
+#### Terms of Use
+
+  1. This Software is provided to you free of charge. You may freely distribute it 
+     in source or binary form, including all documentation and other source files 
+     that are part of this Project.
+
+  2. When distributing this Software, whether in source or binary form, you must retain a
+     copy of this License along with the Software itself, clearly stating the version of 
+     this License.  
+
+     This can be done using comments, file headers, or other appropriate methods. 
+     You must provide a reference to this License text along with the corresponding 
+     version. It must be clear which components of the distribution are covered by it.
+
+  3. If you use this Software with modifications for commercial purposes, you must obtain 
+     prior written permission from the Licensor. This requirement is waived only if you are 
+     willing to publish all your changes, derived source code, and relevant files freely 
+     under this License.  
+     
+     All published modifications must preserve the original copyright statement and may not 
+     replace or obscure the attribution to the original author(s). Additional attribution 
+     for your own contributions is permitted but not required.  
+     
+     You may use the Software without modification for commercial purposes, provided you 
+     comply with all the terms of this License. However, any modifications or derivative 
+     works intended for commercial use require prior written permission from the Licensor.  
+     
+     To request written permission, please contact the Licensor via email, providing 
+     a detailed description of your intended commercial use.
+
+  4. Any modifications made to the source code must be properly documented and clearly 
+     indicated. This includes inline comments, change logs, or other appropriate forms of 
+     documentation to ensure transparency in alterations.  
+
+     This does not apply to entirely new code that does not alter existing source code 
+     but instead extends it. In such cases, you may document it at your discretion.
+
+  5. This License does not grant any rights to patents, trademarks, or other intellectual 
+     property associated with this Software, except if specifically stated otherwise.
+
+  6. If you violate any provision of this License, your rights to use, modify, and 
+     distribute this Software are immediately and automatically terminated.
+
+---
+
+#### Additional Terms
+
+Below this section, additional terms may be added that do not alter the fundamental structure
+or intent of the License. These may include, but are not limited to, clarifications or additional
+conditions regarding patents, trademarks, or other intellectual property concerns.
+
+---
+
+#### Contact Information
+
+For questions, suggestions, or additional information, please contact the community. 
+We are committed to supporting your understanding and use of the Project.  
+
+For legal matters or inquiries requiring special attention, you may contact the author 
+directly.
