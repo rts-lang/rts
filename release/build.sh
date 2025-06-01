@@ -12,7 +12,7 @@ echo -n "[build] "
 # x86-64
 if [ "$1" == "64" ]; then
 	builded=true
-	script -q -e -c 'cargo build --release' ./log > /dev/null 2>&1
+	script -q -e -c 'cargo build' ./log > /dev/null 2>&1
 	if [ $? -ne 0 ]; then
 		builded=false
 	fi
@@ -33,7 +33,7 @@ if [ "$1" == "64" ]; then
 # x86-32
 elif [ "$1" == "32" ]; then
 	builded=true
-	script -q -e -c 'cargo build --release --target=i686-unknown-linux-gnu' ./log > /dev/null 2>&1
+	script -q -e -c 'cargo buil --target=i686-unknown-linux-gnu' ./log > /dev/null 2>&1
 	if [ $? -ne 0 ]; then
 		builded=false
 	fi
@@ -69,9 +69,9 @@ else
 fi
 echo "Everything is fine [linux-x86-$1]"
 #
-outputPath="target/release/rts"
+outputPath="target/debug/rts"
 if [ "$1" == "32" ]; then
-	outputPath="target/i686-unknown-linux-gnu/release/rts"
+	outputPath="target/i686-unknown-linux-gnu/debug/rts"
 fi
 if [ -e "$outputPath" ]; then
 	# optimize
