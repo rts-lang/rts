@@ -3,6 +3,7 @@
   что позволяет запускать получившиеся структуры.
 */
 
+pub mod bytes;
 pub mod value;
 pub mod uf64;
 pub mod structure;
@@ -13,7 +14,8 @@ use crate::{
   logger::*,
   _argc, _argv, _debugMode, _exit,
   parser::structure::*,
-  tokenizer::{token::*, line::*}
+  tokenizer::{token::*, line::*},
+  parser::bytes::Bytes
 };
 
 use std::{
@@ -140,7 +142,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
     {
       Some(lineLine) =>
       { // Если в линии есть вложение, то это структура с вложением
-        match lineTokens[0].getData() 
+        match lineTokens[0].getData().toString()
         { // первый токен - имя структуры
           None => {}
           Some(newStructureName) => 
@@ -212,7 +214,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               {
                 newStructure.pushStructure(
                   Structure::new(
-                    parameter.getData(),
+                    parameter.getData().toString(),
                     StructureMut::Constant, // todo не знаю что сюда ставить
                     StructureType::None, // todo не знаю что сюда ставить
                     None,
@@ -343,7 +345,7 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
         }
 
         // Получаем имя первого токена, чтобы знать с кем мы работаем
-        match lineTokens[0].getData()
+        match lineTokens[0].getData().toString()
         { None => {} Some(structureName) =>
         { // Это левая часть линейной записи
           let leftPart: Option< Vec<Token> > = Some( leftValueTokens );
@@ -557,7 +559,8 @@ fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure
               { // получаем string ответ от expression, true/false
                 let expressionResult: Option<String> =
                   parentLink.read().unwrap() // для этого берём родительскую линию;
-                    .expression(&mut conditionTokens).getData(); // и её токены.
+                    .expression(&mut conditionTokens)
+                    .getData().toString(); // и её токены.
                 // итоговый boolean результат
                 match expressionResult
                 {
@@ -666,7 +669,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
               tokens: Some(vec![
                 Token::new( 
                   TokenType::UInt,
-                  Some(unsafe{_argc.to_string()}) 
+                  Bytes::new( unsafe{_argc.to_string()} )
                 )
               ]),
               indent: None,
@@ -690,7 +693,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
             tokens: Some(vec![
               Token::new( 
                 TokenType::String,
-                Some(String::from(a)) 
+                Bytes::new( String::from(a) ) 
               )
             ]),
             indent: None,
