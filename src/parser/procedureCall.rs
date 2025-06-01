@@ -27,7 +27,7 @@ impl Procedure
     {
       for p in parameters.iter()
       {
-        formatPrint(&format!("{}", p.getData().unwrap_or_default()));
+        formatPrint(&format!("{}", p.getData().toString().unwrap_or_default()));
         io::stdout().flush().unwrap();
       }
     }}
@@ -95,7 +95,7 @@ impl Procedure
     {
       let valueNumber: u64 =
         p0
-          .getData().unwrap_or_default()
+          .getData().toString().unwrap_or_default()
           .parse::<u64>().unwrap_or_default(); // todo: depends on Value.rs ?
       match valueNumber > 0
       {
@@ -116,7 +116,7 @@ impl Procedure
       _exit = true;
       _exitCode =
         p0
-          .getData().unwrap_or_default()
+          .getData().toString().unwrap_or_default()
           .parse::<i32>().unwrap_or(1);
     }}
   }

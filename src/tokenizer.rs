@@ -106,11 +106,11 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   // next return
   match (rational, dot, negative) 
   { // rational, dot, negative
-    (true, _, _)     => Token::new( TokenType::Rational, Some(result) ),
-    (_, true, true)  => Token::new( TokenType::Float,    Some(result) ),
-    (_, true, false) => Token::new( TokenType::UFloat,   Some(result) ),
-    (_, false, true) => Token::new( TokenType::Int,      Some(result) ),
-    _                => Token::new( TokenType::UInt,     Some(result) ),
+    (true, _, _)     => Token::new( TokenType::Rational, result ),
+    (_, true, true)  => Token::new( TokenType::Float,    result ),
+    (_, true, false) => Token::new( TokenType::UFloat,   result ),
+    (_, false, true) => Token::new( TokenType::Int,      result ),
+    _                => Token::new( TokenType::UInt,     result ),
   }
 }
 
@@ -160,25 +160,25 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   // next return
   match isLink 
   {
-    true => Token::new( TokenType::Link, Some(result.clone()) ),
+    true => Token::new( TokenType::Link, result.clone() ),
     false =>
     {
       match result.as_str()
       {
-        "true"     => Token::new( TokenType::Bool, Some(String::from("1")) ),
-        "false"    => Token::new( TokenType::Bool, Some(String::from("0")) ),
+        "true"     => Token::new( TokenType::Bool, String::from("1") ),
+        "false"    => Token::new( TokenType::Bool, String::from("0") ),
         //
-        "UInt"     => Token::new( TokenType::UInt, Some(String::from("0")) ),
-        "Int"      => Token::new( TokenType::Int, Some(String::from("0")) ),
-        "UFloat"   => Token::new( TokenType::UFloat, Some(String::from("0.0")) ),
-        "Float"    => Token::new( TokenType::Float, Some(String::from("0.0")) ),
+        "UInt"     => Token::new( TokenType::UInt, String::from("0") ),
+        "Int"      => Token::new( TokenType::Int, String::from("0") ),
+        "UFloat"   => Token::new( TokenType::UFloat, String::from("0.0") ),
+        "Float"    => Token::new( TokenType::Float, String::from("0.0") ),
         //
-        "String"   => Token::new( TokenType::String, Some(String::from("")) ),
-        "Char"     => Token::new( TokenType::Char, Some(String::from("")) ),
+        "String"   => Token::new( TokenType::String, String::from("") ),
+        "Char"     => Token::new( TokenType::Char, String::from("") ),
         //
         "None"     => Token::newEmpty(TokenType::None),
         //
-        _          => Token::new( TokenType::Word, Some(result) ),
+        _          => Token::new( TokenType::Word, result ),
       }
     }
   }
@@ -245,12 +245,12 @@ fn getQuotes(buffer: &[u8], index: &mut usize) -> Token
     { // Одинарные кавычки должны содержать только один символ
       match result.len() 
       {
-        1 => Token::new(TokenType::Char, Some(result)),
+        1 => Token::new(TokenType::Char, result),
         _ => Token::newEmpty(TokenType::None)
       } 
     }
-    b'"' => Token::new(TokenType::String, Some(result)),
-    b'`' => Token::new(TokenType::RawString, Some(result)),
+    b'"' => Token::new(TokenType::String, result),
+    b'`' => Token::new(TokenType::RawString, result),
     _ => Token::newEmpty(TokenType::None),
   }
 }
@@ -671,7 +671,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
       };
 
     tokenType = token.getDataType(); // Тип токена
-    match token.getData() 
+    match token.getData().toString()
     {
       Some(tokenData) => 
       { // Если токен содержит данные
@@ -911,7 +911,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
                   let backToken: &Token = &lineTokens[lineTokensLength-1];
                   // todo if -> match
                   if *backToken.getDataType() == TokenType::Word &&
-                     backToken.getData().unwrap_or_default() == "f" 
+                     backToken.getData().toString().unwrap_or_default() == "f"
                   {
                     match tokenType
                     {

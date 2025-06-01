@@ -4,6 +4,7 @@
 
 use std::fmt;
 use crate::parser::structure::StructureType;
+use crate::parser::bytes::Bytes;
 
 // TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации
@@ -298,7 +299,7 @@ impl ToStructureType for TokenType
 pub struct Token 
 {
   /// Данные единицы хранения
-  data:       Option< String >,
+  data:       Bytes,
   /// Тип данных единицы хранения
   dataType:   TokenType,
   /// Набор вложенных единиц хранения
@@ -307,18 +308,17 @@ pub struct Token
 impl Token 
 {
   /// Обычное создание
-  pub fn new(
+  pub fn new<T: Into<Bytes>>(
     dataType: TokenType,
-    data:     Option< String >
-  ) -> Self
-  {
-    Token
-    {
-      data,
+    data:     T,
+  ) -> Self {
+    Token {
+      data: data.into(),
       dataType,
       tokens: None,
     }
   }
+  
   /// Пустой, но имеет тип данных
   pub fn newEmpty(
     dataType: TokenType
@@ -326,7 +326,7 @@ impl Token
   {
     Token 
     {
-      data: None,
+      data: Bytes::empty(),
       dataType,
       tokens: None,
     }
@@ -338,13 +338,14 @@ impl Token
   {
     Token 
     {
-      data: None,
+      data: Bytes::empty(),
       dataType: TokenType::None,
       tokens: Some(tokens),
     }
   }
 
   // convert data
+  /*
   fn convertData(&mut self) -> ()
   { // todo: фиг его знает что это за ерунда,
     // но смысл такой, что если тип был Int или Float, 
@@ -371,6 +372,7 @@ impl Token
       }
     }
   }
+  */
 
   /// Получает тип данных
   pub fn getDataType(&self) -> &TokenType
@@ -381,7 +383,7 @@ impl Token
   pub fn setDataType(&mut self, newDataType: TokenType) -> ()
   {
     self.dataType = newDataType;
-    self.convertData();
+    // self.convertData(); todo
   }
 
   /// Проверяет примитивный это токен или нет
@@ -406,26 +408,26 @@ impl Token
   }
 
   /// Получает данные
-  pub fn getData(&self) -> Option< String >
+  pub fn getData(&self) -> Bytes
   {
     self.data.clone()
   }
   /// Устанавливает данные
-  pub fn setData(&mut self, newData: Option< String >) -> ()
+  pub fn setData<T: Into<Bytes>>(&mut self, newData: T) 
   {
-    self.data = newData;
-    self.convertData();
+    self.data = newData.into();
+    // self.convertData(); todo
   }
 }
 impl fmt::Display for Token 
 { // todo: debug only ?
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
   {
-    match &self.data 
+    match self.data.getAll() 
     {
       Some(data) =>
       {
-        write!(f, "{}", data)
+        write!(f, "{:?}", data)
       }
       None =>
       {
@@ -438,11 +440,11 @@ impl fmt::Debug for Token
 { // todo: debug only ?
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result 
   {
-    match &self.data 
+    match self.data.getAll() 
     {
       Some(data) =>
       {
-        write!(f, "{}", data)
+        write!(f, "{:?}", data)
       }
       None =>
       {

@@ -15,8 +15,6 @@ use std::{
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
-use rand::Rng;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::parser::structure::parameters::Parameters;
 
 // Addition for Structure ==========================================================================
@@ -25,10 +23,10 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
 {
   // Получаем значение левой части выражения
   let leftTokenDataType: TokenType = leftToken.getDataType().clone();
-  let leftValue: Value = getValue(leftToken.getData().unwrap_or_default(), &leftTokenDataType);
+  let leftValue: Value = getValue(leftToken.getData().toString().unwrap_or_default(), &leftTokenDataType);
   // Получаем значение правой части выражения
   let rightTokenDataType: TokenType = rightToken.getDataType().clone();
-  let rightValue: Value = getValue(rightToken.getData().unwrap_or_default(), &rightTokenDataType);
+  let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
   // Получаем значение выражения, а также предварительный тип
   let mut resultType: TokenType = TokenType::UInt;
   let resultValue: String = match *op 
@@ -147,7 +145,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     }
   }
   // return
-  Token::new( resultType, Some(resultValue) )
+  Token::new(resultType, resultValue)
 }
 /// Зависимость для calculate;
 /// Считает значение левой и правой части выражения
@@ -586,7 +584,7 @@ impl Structure
       value[index].setDataType(TokenType::None);
     }
 
-    match value[index].getData() 
+    match value[index].getData().toString() 
     {
       None => { setNone(value, index); } // Ошибка имени структуры
       Some(structureName) => 
@@ -685,11 +683,11 @@ impl Structure
                 { // В линии есть хотя бы 1 токен
                   if link.len() != 0
                   { // Если дальше есть продолжение ссылки
-                    link.insert(0, lineTokens[0].getData().unwrap_or_default());
+                    link.insert(0, lineTokens[0].getData().toString().unwrap_or_default());
 
                     // То мы сначала проверяем что такая структура есть во внутреннем пространстве
                     match currentStructure.getStructureByName(
-                      &lineTokens[0].getData().unwrap_or_default()
+                      &lineTokens[0].getData().toString().unwrap_or_default()
                     )
                     { None => {} Some(_) =>
                     {
@@ -728,7 +726,7 @@ impl Structure
                         // Либо это структура с одиночным вложением и мы можем его забрать сейчас.
 
                         match currentStructure.getStructureByName(
-                          &lineTokens[0].getData().unwrap_or_default()
+                          &lineTokens[0].getData().toString().unwrap_or_default()
                         )
                         { None => {} Some(childStructureLink) =>
                         { // Пробуем проверить что там 1 линия вложена в структуре;
@@ -849,7 +847,7 @@ impl Structure
                       // В ином случае, это просто ссылка;
                       None =>
                       { // Если это просто ссылка, то оставляем её
-                        return Token::new( TokenType::Link, Some(structure.name.clone().unwrap_or_default()) ); // todo плохо
+                        return Token::new( TokenType::Link, structure.name.clone().unwrap_or_default() ); // todo плохо
                       }
                       Some(parameters) =>
                       { // Если это был просто запуск метода, то запускаем его
@@ -857,7 +855,7 @@ impl Structure
                         parametersToken.setDataType( TokenType::CircleBracketBegin );
 
                         let mut expressionTokens: Vec<Token> = vec![
-                          Token::new( TokenType::Word, Some(structure.name.clone().unwrap_or_default()) ), // todo плохо
+                          Token::new( TokenType::Word, structure.name.clone().unwrap_or_default() ), // todo плохо
                           parametersToken
                         ];
 
@@ -929,7 +927,7 @@ impl Structure
               .unwrap_or_default() // todo плохо
           };
           // Отправляем все токены линии как выражение
-          match self.expression(&mut expressionBufferTokens).getData() 
+          match self.expression(&mut expressionBufferTokens).getData().toString() 
           { None => {} Some(expressionData) =>
           { // Записываем результат посчитанный между {}
             result += &expressionData;
@@ -1086,7 +1084,7 @@ impl Structure
         }
         TokenType::Link =>
         { // Если это TokenType::Link, то
-          let data: String = value[0].getData().unwrap_or_default(); // token data
+          let data: String = value[0].getData().toString().unwrap_or_default(); // token data
           let mut link: Vec<String> =
             data.split('.')
               .map(|s| s.to_string())
@@ -1107,17 +1105,17 @@ impl Structure
         }
         TokenType::Word =>
         { // Если это TokenType::Word, то
-          let data:       String = value[0].getData().unwrap_or_default();// token data
+          let data:       String = value[0].getData().toString().unwrap_or_default();// token data
           let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
           value[0].setDataType( linkResult.getDataType().clone() ); // Ставим новый dataType
           value[0].setData( linkResult.getData() );  // Ставим новый data
         }
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
         { // Если это форматные варианты Char, String, RawString
-          match value[0].getData()
+          match value[0].getData().toString()
           { None => {} Some(valueData) =>
           { // Получаем data этого токена и сразу вычисляем его значение
-            value[0].setData( Some(self.formatQuote(valueData)) );
+            value[0].setData( self.formatQuote(valueData) );
             // Получаем новый тип без formatted
             match *value[0].getDataType()
             {
@@ -1150,10 +1148,10 @@ impl Structure
         }
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
         { // Если это форматные варианты Char, String, RawString;
-          match value[0].getData() 
+          match value[0].getData().toString() 
           { None => {} Some(valueData) =>
           { // Получаем data этого токена и сразу вычисляем его значение
-            value[0].setData( Some(self.formatQuote(valueData)) );
+            value[0].setData( self.formatQuote(valueData) );
             // Получаем новый тип без formatted
             match *value[0].getDataType()
             {
@@ -1168,7 +1166,7 @@ impl Structure
         { // Это ссылка на структуру, может выдать значение, запустить метод и т.д;
           let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
-          let     data: String = value[i].getData().unwrap_or_default();
+          let     data: String = value[i].getData().toString().unwrap_or_default();
           let mut link: Vec<String> =
             data.split('.')
               .map(|s| s.to_string())
@@ -1202,19 +1200,19 @@ impl Structure
             value.remove(i+1); // remove UInt
             valueLength -= 1;
             // Меняем отрицание
-            let tokenData: String = value[i].getData().unwrap_or_default();
+            let tokenData: String = value[i].getData().toString().unwrap_or_default();
             match tokenData.starts_with(|c: char| c == '-')
             {
               true =>
               { // Если это было отрицательное выражение, то делаем его положительным
                 value[i].setData(
-                  Some( tokenData.chars().skip(1).collect() )
+                  tokenData.chars().skip(1).collect::<String>()
                 );
               }
               false =>
               { // Если это не было отрицательным выражением, то делаем его отрицательным
                 value[i].setData(
-                  Some( format!("-{}", tokenData) )
+                  format!("-{}", tokenData)
                 );
               }
             }
@@ -1241,7 +1239,7 @@ impl Structure
           {
             true =>
             { // Запускает метод; но он может быть либо обычный, либо из ссылки;
-              let structureName:String = value[i].getData().unwrap_or_default();
+              let structureName:String = value[i].getData().toString().unwrap_or_default();
               let mut runBasicMethod: bool = true;
               match self.getStructureByName(&structureName)
               {
@@ -1277,7 +1275,7 @@ impl Structure
                                     self.linkExpression(
                                       None,
                                       &mut [
-                                        tokens[0].getData().unwrap_or_default()
+                                        tokens[0].getData().toString().unwrap_or_default()
                                       ].to_vec(),
                                       Some(vec![]) // todo: Передать параметры функции
                                     );

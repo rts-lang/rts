@@ -22,7 +22,7 @@ impl Function
     match parameters.get(0)
     { None => {} Some(p0) =>
     { // Получаем необработанные параметры
-      let structureName: String = p0.getData().unwrap_or_default();
+      let structureName: String = p0.getData().toString().unwrap_or_default();
       match structureName.is_empty()
       {
         false =>
@@ -33,16 +33,16 @@ impl Function
             { // Это custom structure
               let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
               value[i].setDataType( TokenType::String );
-              value[i].setData( Some(structure.dataType.to_string()) );
+              value[i].setData( structure.dataType.to_string() );
             }
             None =>
             {
               value[i].setDataType( TokenType::String );
               match p0.isPrimitiveType()
               { // Это примитивное значение
-                true => value[i].setData( Some(p0.to_string()) ),
+                true => value[i].setData( p0.getData() ),
                 // Это то, чего нет как типа данных
-                false => value[i].setData( Some(String::from("None")) )
+                false => value[i].setData( String::from("None") )
               }
             }
           }
@@ -56,9 +56,9 @@ impl Function
               value[i].setDataType( TokenType::String );
               match parameter.isPrimitiveType()
               { // Это примитивное значение
-                true => value[i].setData( Some(parameter.to_string()) ),
+                true => value[i].setData( parameter.to_string() ),
                 // Это то, чего нет как типа данных
-                false => value[i].setData( Some(String::from("None")) )
+                false => value[i].setData( String::from("None") )
               }
             }
           }
@@ -75,7 +75,7 @@ impl Function
     {
       value[i].setDataType( TokenType::String );
       let result: String =
-        match p0.getData()
+        match p0.getData().toString()
         {
           None => String::from(""),
           Some(structureName) =>
@@ -91,7 +91,7 @@ impl Function
             }
           }
         };
-      value[i].setData( Some(result) );
+      value[i].setData(result);
     }}
   }
   // ===============================================================================================
@@ -104,7 +104,7 @@ impl Function
         match parameters.getExpression(structure,0)
         { None => 0, Some(p0) =>
         {
-          match p0.getData()
+          match p0.getData().toString()
           {
             Some(expressionData) => expressionData.parse::<usize>().unwrap_or_default(),
             None => 0
@@ -114,7 +114,7 @@ impl Function
         match parameters.getExpression(structure,1)
         { None => 0, Some(p1) =>
         {
-          match p1.getData()
+          match p1.getData().toString()
           {
             Some(expressionData) => expressionData.parse::<usize>().unwrap_or_default(),
             None => 0
@@ -127,7 +127,7 @@ impl Function
           false => 0
         };
       value[i].setDataType( TokenType::UInt );
-      value[i].setData    ( Some(randomNumber.to_string()) );
+      value[i].setData( randomNumber.to_string() );
     }
   }
   // ===============================================================================================
@@ -141,20 +141,18 @@ impl Function
       {
         TokenType::None =>
         { // Результат 0
-          value[i] = Token::new( TokenType::UInt, Some(String::from("0")) );
+          value[i] = Token::new( TokenType::UInt, String::from("0") );
         }
         TokenType::Char =>
         { // Получаем размер символа
-          value[i] = Token::new( TokenType::UInt, Some(String::from("1")) );
+          value[i] = Token::new( TokenType::UInt, String::from("1") );
         }
         TokenType::String | TokenType::RawString =>
         { // Получаем размер строки
           value[i] = Token::new(
             TokenType::UInt,
-            Some(
-              p0.getData().unwrap_or_default()
-                .chars().count().to_string()
-            )
+            p0.getData().toString().unwrap_or_default()
+              .chars().count().to_string()
           );
         }
         _ =>
@@ -162,29 +160,27 @@ impl Function
           // Результат только в UInt
           value[i].setDataType( TokenType::UInt );
           // Получаем значение
-          match structure.getStructureByName(&p0.getData().unwrap_or_default())
+          match structure.getStructureByName( &p0.getData().toString().unwrap_or_default() )
           {
             Some(structureLink) =>
             {
               value[i].setData(
-                Some(
-                  // Получаем количество линий структуры
-                  match &structureLink.read().unwrap().lines
+                // Получаем количество линий структуры
+                match &structureLink.read().unwrap().lines
+                {
+                  None => String::from("0"),
+                  Some(lines) =>
                   {
-                    None => String::from("0"),
-                    Some(lines) =>
-                    {
-                      lines.len().to_string()
-                    }
-                    //
+                    lines.len().to_string()
                   }
-                )
+                  //
+                }
                 //
               );
             }
             None =>
             { // Результат 0 т.к. не нашли такой структуры
-              value[i].setData( Some(String::from("0")) );
+              value[i].setData( String::from("0") );
             }
           }
           //
@@ -203,7 +199,7 @@ impl Function
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
     {
-      match p0.getData()
+      match p0.getData().toString()
       { None => {} Some(data) =>
       { // Это может быть выведено перед вводом;
         // todo: возможно потом это лучше убрать,
@@ -220,12 +216,12 @@ impl Function
       Ok(_) =>
       { // Успешно ввели и записали
         value[i].setData(
-          Some( valueBuffer.trim_end().to_string() )
+          valueBuffer.trim_end().to_string()
         );
       }
       Err(_) =>
       { // Не удалось ввести, пустая строка
-        value[i].setData( Some(String::new()) );
+        value[i].setData(None);
       }
     }
   }
@@ -236,7 +232,7 @@ impl Function
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
     {
-      let data: String = p0.getData().unwrap_or_default();
+      let data: String = p0.getData().toString().unwrap_or_default();
       let mut parts: SplitWhitespace<'_> = data.split_whitespace();
 
       let command: &str      = parts.next().expect("No command found in parameters"); // todo: no errors
@@ -252,7 +248,7 @@ impl Function
       match !outputString.is_empty()
       { false => {} true =>
       { // result
-        value[i].setData    ( Some(outputString.trim_end().to_string()) );
+        value[i].setData( outputString.trim_end().to_string() );
         value[i].setDataType( TokenType::String );
       }}
       //
@@ -268,7 +264,7 @@ impl Function
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
     {
-      let data: String = p0.getData().unwrap_or_default();
+      let data: String = p0.getData().toString().unwrap_or_default();
       let mut parts: SplitWhitespace<'_> = data.split_whitespace();
 
       let command: &str      = parts.next().expect("No command found in expression"); // todo: no errors
@@ -281,7 +277,7 @@ impl Function
           .stderr(std::process::Stdio::null())
           .status()
           .expect("Failed to execute process"); // todo: no errors
-      value[i].setData    ( Some(status.code().unwrap_or(-1).to_string()) );
+      value[i].setData( status.code().unwrap_or(-1).to_string() );
       value[i].setDataType( TokenType::String );
     }}
   }
@@ -302,7 +298,7 @@ impl Structure
   pub fn functionCall(&self, value: &mut Vec<Token>, valueLength: &mut usize, i: usize) -> ()
   {
     let parameters: Parameters = self.getCallParameters(value, i, valueLength);
-    match value[i].getData()
+    match value[i].getData().toString()
     {
       // ===========================================================================================
       None =>
@@ -316,7 +312,7 @@ impl Structure
             { None => {} Some(p0) =>
             {
               value[i].setDataType( TokenType::UInt );
-              value[i].setData( Some(p0.getData().unwrap_or_default()) );
+              value[i].setData( p0.getData().toString().unwrap_or_default() );
             }}
           }
           TokenType::Int =>
@@ -325,7 +321,7 @@ impl Structure
             { None => {} Some(p0) =>
             {
               value[i].setDataType( TokenType::Int );
-              value[i].setData( Some(p0.getData().unwrap_or_default()) );
+              value[i].setData( p0.getData().toString().unwrap_or_default() );
               //
             }}
             //
@@ -337,7 +333,7 @@ impl Structure
             { None => {} Some(p0) =>
             {
               value[i].setDataType( TokenType::String  );
-              value[i].setData( Some(p0.getData().unwrap_or_default()) );
+              value[i].setData( p0.getData().toString().unwrap_or_default() );
               //
             }}
             //
@@ -350,11 +346,9 @@ impl Structure
             {
               value[i].setDataType( TokenType::Char );
               value[i].setData(
-                Some(
-                  (p0.getData().unwrap_or_default()
-                    .parse::<u8>().unwrap() as char
-                  ).to_string()
-                )
+                (p0.getData().toString().unwrap_or_default()
+                  .parse::<u8>().unwrap() as char
+                ).to_string()
               );
               //
             }}
@@ -411,7 +405,7 @@ impl Structure
             None =>
             { // Если результата структуры не было,
               // значит это была действительно процедура
-              value[i].setData    ( None );
+              value[i].setData(None);
               value[i].setDataType( TokenType::None );
             }
           }
