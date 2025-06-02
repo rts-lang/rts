@@ -151,7 +151,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
               true => 
               { // если токенов > 1 и 1 токен это TokenType::CircleBracketBegin 
                 // значит это вариант параметры + возможно результат
-                /* todo dataMutability
+                /* todo fixTokenNesting
                 match lineTokens[1].tokens.clone() 
                 {
                   Some(mut lineTokens) => 

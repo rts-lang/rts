@@ -18,7 +18,8 @@ impl Procedure
 {
   // ===============================================================================================
   /// Выводит несколько значений
-  fn print(structure: &Structure, parameters: &Parameters)
+  /// Выводит несколько значений и \n в конце
+  fn print(structure: &Structure, parameters: &Parameters, newline: bool)
   {
     match parameters.getAllExpressions(structure)
     { None => {} Some(parameters) =>
@@ -26,16 +27,14 @@ impl Procedure
       for p in parameters.iter()
       {
         formatPrint( p.getData().toString().unwrap_or_default().as_str() );
+        match newline
+        {
+          false => {},
+          true => formatPrint("\n")
+        }
         io::stdout().flush().unwrap();
       }
     }}
-  }
-  // ===============================================================================================
-  /// Выводит несколько значений и \n в конце
-  fn println(structure: &Structure, parameters: &Parameters)
-  {
-    Self::print(structure, parameters);
-    formatPrint("\n");
   }
   // ===============================================================================================
   /// Отчищаем вывод
@@ -136,8 +135,8 @@ impl Structure
     { // Если название в нижнем регистре - то это точно процедура
       match structureName
       { // Проверяем на сходство стандартных функций
-        "println" => Procedure::println(self, &parameters),
-        "print" => Procedure::print(self, &parameters),
+        "println" => Procedure::print(self, &parameters, true),
+        "print" => Procedure::print(self, &parameters, false),
         "clear" => Procedure::clear(),
         "go" => Procedure::go(self),
         "sleep" => Procedure::sleep(self, &parameters),

@@ -19,6 +19,7 @@ impl Function
   /// todo можно передать несколько значений и вернуть список их типов
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
+    /*
     match parameters.get(0)
     { None => {} Some(p0) =>
     { // Получаем необработанные параметры
@@ -65,11 +66,13 @@ impl Function
         }
       }
     }}
+    */
   }
   // ===============================================================================================
   /// Возвращает уровень модификации переданной структуры
   fn _mut(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
+    /*
     match parameters.get(0)
     { None => {} Some(p0) =>
     {
@@ -93,6 +96,7 @@ impl Function
         };
       value[i].setData(result);
     }}
+    */
   }
   // ===============================================================================================
   /// Возвращаем случайное число типа UInt от min до max

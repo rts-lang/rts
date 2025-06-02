@@ -384,7 +384,7 @@ fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 /// до закрывающей; Её особенность в рекурсивном вызове себя для дочерних токенов
 fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
 {
-  /* todo dataMutability
+  /* todo Эта часть помогала пройти вложения, чтобы () [] {} видно было друг в друге
   for token in tokens.iter_mut()
   { // Чтение токенов
     match &mut token.tokens
@@ -396,7 +396,6 @@ fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &Toke
   }
   */
   // Вкладывание
-  println!("========================================");
   blockNesting(tokens, beginType, endType);
 }
 /// Эта функция является дочерней bracketNesting
@@ -829,12 +828,14 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
             &TokenType::CircleBracketBegin,
             &TokenType::CircleBracketEnd
           );
+          /* todo Вырезано, пока не используется
           bracketNesting(
             &mut lineTokens,
             &TokenType::SquareBracketBegin,
             &TokenType::SquareBracketEnd
           );
-          // todo FigureBracketBegin и FigureBracketEnd
+          */
+          // todo FigureBracketBegin и FigureBracketEnd ?
           // это остаётся всё ещё здесь только потому,
           // что может быть нужным для реализации использования
           // подобных структур:
