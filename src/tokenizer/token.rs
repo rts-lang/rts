@@ -3,8 +3,10 @@
 */
 
 use std::fmt;
+use std::io::Lines;
 use crate::parser::structure::StructureType;
 use crate::parser::bytes::Bytes;
+use crate::tokenizer::line::Line;
 
 // TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации
@@ -303,7 +305,7 @@ pub struct Token
   /// Тип данных единицы хранения
   dataType:   TokenType,
   /// Набор вложенных единиц хранения
-  pub tokens: Option< Vec<Token> >,
+  pub lines: Option< Vec<Line> >,
 }
 impl Token 
 {
@@ -315,7 +317,7 @@ impl Token
     Token {
       data: data.into(),
       dataType,
-      tokens: None,
+      lines: None,
     }
   }
   
@@ -328,19 +330,19 @@ impl Token
     {
       data: Bytes::empty(),
       dataType,
-      tokens: None,
+      lines: None,
     }
   }
   /// Пустой, но выполняет роль держателя вложения
   pub fn newNesting(
-    tokens: Vec<Token>
-  ) -> Self 
+    lines: Vec<Line>
+  ) -> Self
   {
-    Token 
+    Token
     {
       data: Bytes::empty(),
       dataType: TokenType::None,
-      tokens: Some(tokens),
+      lines: Some(lines),
     }
   }
 
@@ -419,35 +421,37 @@ impl Token
     // self.convertData(); todo
   }
 }
-impl fmt::Display for Token 
+
+impl fmt::Display for Token
 { // todo: debug only ?
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
   {
-    match self.data.getAll() 
+    match self.data.getAll()
     {
       Some(data) =>
-      {
-        write!(f, "{:?}", data)
+      { // Есть данные - печатаем как символы
+        write!(f, "{}", std::str::from_utf8(&data).unwrap_or_default())
       }
       None =>
-      {
+      { // Данных нет - печатаем тип
         write!(f, "{}", self.getDataType().to_string())
       }
     }
   }
 }
-impl fmt::Debug for Token 
+
+impl fmt::Debug for Token
 { // todo: debug only ?
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result 
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
   {
-    match self.data.getAll() 
+    match self.data.getAll()
     {
       Some(data) =>
-      {
-        write!(f, "{:?}", data)
+      { // Есть данные - печатаем как символы
+        write!(f, "{}", std::str::from_utf8(&data).unwrap_or_default())
       }
       None =>
-      {
+      { // Данных нет - печатаем тип
         write!(f, "{}", self.getDataType().to_string())
       }
     }
