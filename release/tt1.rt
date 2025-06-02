@@ -1,0 +1,11 @@
+
+a
+println(mut(a))
+a = 10
+println(mut(a))
+
+println("\n#")
+b = 10
+println(mut(b))
+b = 20
+println(mut(b))

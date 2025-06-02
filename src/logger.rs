@@ -197,7 +197,7 @@ pub fn formatString(string: &str) -> String
       }
       _i += 1;
     }
-    return _result.clone();
+    _result.clone()
   }
 }
 // separator log

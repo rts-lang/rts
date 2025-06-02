@@ -216,9 +216,9 @@ pub enum StructureMut
   Final,
   /// Не может быть изменена, присваивается в момент создания
   Constant,
-  /// Может изменять только значение, (зависит от наблюдателя => может меняться со временем)
+  /// Может изменять только значение
   Variable,
-  /// Может изменять и значение и тип данных, (зависит от наблюдателя => может меняться со временем)
+  /// Может изменять и значение и тип данных
   Dynamic
 }
 impl ToString for StructureMut
@@ -356,7 +356,7 @@ pub struct Structure
   pub lines: Option< Vec< Arc<RwLock<Line>> > >,
 
   /// Входные параметры
-  /// todo не используется в коде
+  /// todo Не используется в коде
   pub parameters: Parameters,
 
   /// Выходной результат
@@ -370,7 +370,7 @@ pub struct Structure
   /// Ссылка на родителя
   pub parent: Option< Arc<RwLock<Structure>> >,
 
-  /// todo comment
+  /// todo Комментарий + возможно не нужно т.к. можно лучше
   pub lineIndex: usize,
 }
 impl Structure 
