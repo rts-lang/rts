@@ -623,9 +623,17 @@ impl Structure
                         .tokens.clone().unwrap_or_default(); // todo плохо
                     linesResult.push( self.expression(tokens) );
                   }
-                  /* todo dataMutability
-                  value[index] = Token::newNesting( linesResult );
-                  */
+                  value[index] = Token::newNesting(
+                    vec![
+                      Line
+                      {
+                        tokens: Some(linesResult),
+                        indent: None,
+                        lines: None,
+                        parent: None
+                      }
+                    ]
+                  );
                   value[index].setDataType( TokenType::Link ); // todo: Речь не о Link, а об Array?
                 }
                 _ => { setNone(value, index); } // В структуре не было вложений
@@ -853,8 +861,17 @@ impl Structure
                       }
                       Some(parameters) =>
                       { // Если это был просто запуск метода, то запускаем его
-                        /* todo dataMutability
-                        let mut parametersToken: Token = Token::newNesting( parameters );
+                        let mut parametersToken: Token = Token::newNesting(
+                          vec![
+                            Line
+                            {
+                              tokens: Some(parameters),
+                              indent: None,
+                              lines: None,
+                              parent: None
+                            }
+                          ]
+                        );
                         parametersToken.setDataType( TokenType::CircleBracketBegin );
 
                         let mut expressionTokens: Vec<Token> = vec![
@@ -869,7 +886,6 @@ impl Structure
                           return structureParent.read().unwrap()
                             .expression(&mut expressionTokens);
                         }}
-                        */
 
                         return Token::newEmpty(TokenType::None);
                       }
@@ -1010,65 +1026,31 @@ impl Structure
   /// todo типы данных в параметрах
   pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
   {
-    /* todo dataMutability
-    match value.len() < 2 || *value[i+1].getDataType() != TokenType::CircleBracketBegin
-    { false => {} true =>
-    { // Проверяем, что обязательно существует круглая скобка рядом
-      return Parameters::new(None);
-    }}
+    let mut result: Option< Vec<Line> > = None;
 
-    let mut result: Vec<Token> = Vec::new();
-    match value.get(i+1).map(|v| &v.tokens) 
-    { None => {} Some(tokens) =>
-    { // Начинаем читать вложения в круглых скобках
-      match tokens
-      { None => {} Some(tokens) =>
-      {
-        let mut expressionBuffer: Vec<Token> = Vec::new(); // Текущее выражение
-        for (l, token) in tokens.iter().enumerate()
-        {
-          match *token.getDataType() == TokenType::Comma || l+1 == tokens.len()
-          {
-            true =>
-            { // comma or line end
-              match *token.getDataType() != TokenType::Comma
-              { false => {} true  =>
-              {
-                expressionBuffer.push( token.clone() );
-              }}
-              match expressionBuffer.len() > 1
-              {
-                true =>
-                { // Выражение из токенов
-                  result.push( Token::newNesting(expressionBuffer.clone()) );
-                }
-                false =>
-                { // Один токен
-                  result.push( expressionBuffer[0].clone() );
-                }
-              }
-              expressionBuffer.clear();
-            }
-            false =>
-            { // push new expression token
-              expressionBuffer.push( token.clone() );
-            }
-          }
-          //
-        }
-      }}
-      // Удаляем скобки
-      value.remove(i+1);
-      *valueLength -= 1;
-    }}
-
-    match result.len() == 0 
+    // Проверка и получение скобки
+    let bracketToken: Option<&Token> = value.get(i+1);
+    match bracketToken
+    { None => {} Some(bracketToken) =>
     {
-      true  => { Parameters::new(Some(vec![])) }
-      false => { Parameters::new(Some(result)) }
-    }
-    */
-    Parameters::new(Some(vec![]))
+
+      // Проверка, что это круглая скобка
+      match bracketToken.getDataType() != &TokenType::CircleBracketBegin
+      {
+        false => {}
+        true => return Parameters::new(None)
+      }
+
+      // Получаем линии
+      result = bracketToken.lines.clone(); // todo Тут точно клонирование?
+      println!("getCallParameters {:?}", value);
+      for line in result.clone().unwrap_or_default()
+      {
+        println!("getCallParameters2 {:?}", line.tokens);
+      }
+    }}
+
+    Parameters::new(result)
   }
 
   /// Основная функция, которая получает результат выражения состоящего из токенов;
@@ -1186,24 +1168,29 @@ impl Structure
         } 
         TokenType::Minus =>
         { // это выражение в круглых скобках, но перед ними отрицание -
-          /* todo dataMutability
           match
             i+1 < valueLength &&
             *value[i+1].getDataType() == TokenType::CircleBracketBegin
           { false => {} true =>
           { // считаем выражение внутри скобок
             value[i] =
-              match value[i+1].tokens.clone()
+            {
+              match &value[i+1].lines
               {
-                Some(mut tokenTokens) =>
-                { // если получилось то оставляем его
-                  self.expression(&mut tokenTokens)
+                None => Token::newEmpty(TokenType::None),
+                Some(lines) => match lines[0].tokens.clone() // todo Может быть не 0
+                {
+                  Some(mut tokenTokens) =>
+                  { // если получилось то оставляем его
+                    self.expression(&mut tokenTokens)
+                  }
+                  None =>
+                  { // если не получилось, то просто None
+                    Token::newEmpty(TokenType::None)
+                  }
                 }
-                None =>
-                { // если не получилось, то просто None
-                  Token::newEmpty(TokenType::None)
-                }
-              };
+              }
+            };
             // Удаляем скобки
             value.remove(i+1); // remove UInt
             valueLength -= 1;
@@ -1225,23 +1212,27 @@ impl Structure
               }
             }
           }}
-          */
         }
-        TokenType::CircleBracketBegin => 
+        TokenType::CircleBracketBegin =>
         { // Это просто выражение в круглых скобках
-          /* todo dataMutability
-          value[i] = match value[i].tokens.clone()
+          value[i] =
           {
-            Some(mut tokenTokens) =>
-            { // Если получилось то оставляем его
-              self.expression(&mut tokenTokens)
+            match &value[i].lines
+            {
+              None => Token::newEmpty(TokenType::None),
+              Some(lines) => match lines[0].tokens.clone() // todo Может быть не 0
+              {
+                Some(mut tokenTokens) =>
+                { // Если получилось то оставляем его
+                  self.expression(&mut tokenTokens)
+                }
+                None =>
+                { // Если не получилось, то просто None
+                  Token::newEmpty(TokenType::None)
+                }
+              }
             }
-            None =>
-            { // Если не получилось, то просто None
-              Token::newEmpty(TokenType::None)
-            }
-          }
-          */
+          };
         }
         _ =>
         { // Это либо метод, либо просто слово-структура
