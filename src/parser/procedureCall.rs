@@ -18,8 +18,6 @@ impl Procedure
 {
   // ===============================================================================================
   /// Выводит несколько значений
-  ///
-  /// todo есть какая-то ошибка вывода последнего print(mut(a))
   fn print(structure: &Structure, parameters: &Parameters)
   {
     match parameters.getAllExpressions(structure)
@@ -27,7 +25,7 @@ impl Procedure
     {
       for p in parameters.iter()
       {
-        formatPrint(&format!("{}", p.getData().toString().unwrap_or_default()));
+        formatPrint( p.getData().toString().unwrap_or_default().as_str() );
         io::stdout().flush().unwrap();
       }
     }}
@@ -42,7 +40,7 @@ impl Procedure
   // ===============================================================================================
   /// Отчищаем вывод
   ///
-  /// todo можно выдавать результат boolean при ошибке
+  /// todo Можно выдавать результат boolean при ошибке
   fn clear()
   {
     let _ = Command::new("clear")
@@ -51,7 +49,7 @@ impl Procedure
   // ===============================================================================================
   /// Запускаем линию выше заново
   ///
-  /// todo по идее должна принимать количество на которое поднимает наверх
+  /// todo Должна принимать количество на которое поднимает наверх
   fn go(structure: &Structure)
   {
     match &structure.parent
@@ -69,7 +67,7 @@ impl Procedure
         // Используем линию parent а также сам parent для нового запуска
         let _ = drop(parent);
         searchStructure(
-          lineLink.clone(),
+          &lineLink.read().unwrap(),
           parentLink.clone(),
           &mut lineIndex,
         );

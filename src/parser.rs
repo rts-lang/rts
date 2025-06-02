@@ -45,11 +45,11 @@ fn isMathOperator(dataType: TokenType) -> bool
 
 /// Эта функция ищет return для структур `= value`;
 /// Видно, что это не просто валяющееся значение
-fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure>>) -> bool 
+fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structure>>) -> bool
 {
   let mut lineTokens: Vec<Token> = 
   { // Читаемая линия, на которой мы сейчас находимся
-    match lineLink.read().unwrap().tokens.clone()
+    match line.tokens.clone()
     {
       None => return false, // Если в линии нет токенов, то мы её не читаем
       Some(tokens) =>
@@ -114,11 +114,8 @@ fn searchReturn(lineLink: Arc<RwLock<Line>>, structureLink: Arc<RwLock<Structure
 /// - Вложенная структура (array/vector/list ...)
 /// - Линейное выражение (a = 10)
 /// - Условный блок (if/elif/else)
-fn searchStructure(lineLink: Arc<RwLock<Line>>, parentLink: Arc<RwLock<Structure>>, lineIndex: *mut usize) -> bool
+fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structure>>, lineIndex: *mut usize) -> bool
 {
-  // todo: line можно вынести, чтобы потом не было .read().unwrap();
-  //       для этого надо сразу забрать все нужные значения здесь.
-  let line: RwLockReadGuard<'_, Line> = lineLink.read().unwrap(); // Текущая линия
   let lineTokens: &Vec<Token> = // Ссылка на токены линии
     match &line.tokens
     {
@@ -774,7 +771,8 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   // Выполнение программы происходит до тех пор,
   // пока не будет всё прочитано, либо 
   // пока не будет вызван _exitCode на true
-  let mut lineLink: Arc<RwLock<Line>>;
+  let mut lineLink: Arc< RwLock<Line> >;
+
   while unsafe{_exit == false} && unsafe{*lineIndex < linesLength}
   { // Если мы читаем строки, то создаём сразу ссылку на текущую линию
     lineLink = 
@@ -784,10 +782,9 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
       let lines: &Vec< Arc<RwLock<Line>> > = structure.lines.as_ref().unwrap();
       lines[unsafe { *lineIndex }].clone() // Клонируем нужную линию по индексу
     };
+    let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
     // После чего проверяем, если линия пустая на токены, то не читаем и идём дальше
-    match
-      lineLink.read().unwrap()
-        .tokens.is_none()
+    match line.tokens.is_none()
     { false => {} true =>
     {
       unsafe{*lineIndex += 1}
@@ -795,21 +792,20 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     }}
     // Если всё хорошо, то начинаем читать через специальные функции;
     // Ищем структуры
-    match !searchStructure(lineLink.clone(), structureLink.clone(), lineIndex)
+    match !searchStructure(&line, structureLink.clone(), lineIndex)
     { false => {} true =>
     { // Читаем return
 
-      match !searchReturn(lineLink.clone(), structureLink.clone())
+      match !searchReturn(&line, structureLink.clone())
       { false => {} true =>
       { // Ищем линейные выражения
-
+        
         let tokens: &mut Vec<Token> =
-          &mut lineLink.read().unwrap()
-            .tokens.clone()
+          &mut line
+            .tokens.clone() // Клонируем токены, для сохранения возможности повторного запуска
             .unwrap_or_default(); // todo плохо
         structureLink.read().unwrap()
           .expression(tokens);
-        // Клонируем токены, для сохранения возможности повторного запуска
       }}
     }}
     // Идём дальше
