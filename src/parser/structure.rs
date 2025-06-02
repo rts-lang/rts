@@ -1043,13 +1043,13 @@ impl Structure
 
       // Получаем линии
       result = bracketToken.lines.clone(); // todo Тут точно клонирование?
-      println!("getCallParameters {:?}", value);
-      for line in result.clone().unwrap_or_default()
-      {
-        println!("getCallParameters2 {:?}", line.tokens);
-      }
     }}
+    
+    // Удаление скобки
+    value.remove(i+1);
+    *valueLength -= 1;
 
+    //
     Parameters::new(result)
   }
 
@@ -1173,7 +1173,7 @@ impl Structure
             *value[i+1].getDataType() == TokenType::CircleBracketBegin
           { false => {} true =>
           { // считаем выражение внутри скобок
-            value[i] =
+            value[i+1] =
             {
               match &value[i+1].lines
               {
@@ -1191,26 +1191,29 @@ impl Structure
                 }
               }
             };
-            // Удаляем скобки
-            value.remove(i+1); // remove UInt
-            valueLength -= 1;
             // Меняем отрицание
-            let tokenData: String = value[i].getData().toString().unwrap_or_default();
+            let tokenData: String = value[i+1].getData().toString().unwrap_or_default();
             match tokenData.starts_with(|c: char| c == '-')
             {
               true =>
               { // Если это было отрицательное выражение, то делаем его положительным
-                value[i].setData(
+                value[i+1].setData(
                   tokenData.chars().skip(1).collect::<String>()
                 );
+                value[i].setDataType(TokenType::Plus);
               }
               false =>
               { // Если это не было отрицательным выражением, то делаем его отрицательным
-                value[i].setData(
-                  format!("-{}", tokenData)
+                //value[i+1].setData(
+                //  format!("-{}", tokenData)
+                //);
+                value[i+1].setData(
+                  format!("{}", tokenData)
                 );
               }
             }
+
+            i += 1; // Мы уже посчитали скобку
           }}
         }
         TokenType::CircleBracketBegin =>
@@ -1318,21 +1321,23 @@ impl Structure
     }
 
     // Далее идут варианты математических и логических операций
-
     // Проверка на логические операции 1
-    self.expressionOp(value, &mut valueLength,
-      &[TokenType::Equals, TokenType::NotEquals,
-        TokenType::GreaterThan, TokenType::LessThan,
-        TokenType::GreaterThanOrEquals, TokenType::LessThanOrEquals]
-    );
+    // todo Работало за другие операторы (преждевременно + или -)
+    //self.expressionOp(value, &mut valueLength,
+    //  &[TokenType::Equals, TokenType::NotEquals,
+    //    TokenType::GreaterThan, TokenType::LessThan,
+    //    TokenType::GreaterThanOrEquals, TokenType::LessThanOrEquals]
+    //);
 
     // Проверка на логические операции 2
-    self.expressionOp(value, &mut valueLength,
-      &[TokenType::Inclusion, TokenType::Joint]
-    );
+    // todo Работало за другие операторы (преждевременно + или -)
+    //self.expressionOp(value, &mut valueLength,
+    //  &[TokenType::Inclusion, TokenType::Joint]
+    //);
 
     // Проверка * и /
-    self.expressionOp(value, &mut valueLength, &[TokenType::Multiply, TokenType::Divide]);
+    // todo Работало за другие операторы (преждевременно + или -)
+    //self.expressionOp(value, &mut valueLength, &[TokenType::Multiply, TokenType::Divide]);
 
     // Проверка + и -
     self.expressionOp(value, &mut valueLength, &[TokenType::Plus, TokenType::Minus]);
