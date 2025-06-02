@@ -2,6 +2,7 @@
 # 10
 #a(1+1,b.[0])
 
-println(1-(10))
+println(20-(10))
+println(20-(-10))
 
 println(123,321)
