@@ -33,6 +33,7 @@ impl Parameters
   /// вычисляет его значение его выражения
   pub fn getExpression(&self, structure: &Structure, index: usize) -> Option<Token>
   {
+    /* todo dataMutability
     match self.get(index)
     {
       None => None, // Элемента не было
@@ -57,17 +58,19 @@ impl Parameters
       }
       //
     }
+    */
+    return None;
   }
 
   /// Возвращает все параметры, если они есть
-  pub fn getAll(&self) -> Option<&Vec<Token>>
+  pub fn getAll(&self) -> Option< &Vec<Token> >
   {
     self.values.as_ref()
   }
 
   /// Возвращает все параметры, если они есть и
   /// вычисляет для них значения их выражений
-  pub fn getAllExpressions(&self, structure: &Structure) -> Option<Vec<Token>>
+  pub fn getAllExpressions(&self, structure: &Structure) -> Option< Vec<Token> >
   {
     let mut tokens: Vec<Token> = Vec::new();
 

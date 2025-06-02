@@ -623,7 +623,9 @@ impl Structure
                         .tokens.clone().unwrap_or_default(); // todo плохо
                     linesResult.push( self.expression(tokens) );
                   }
+                  /* todo dataMutability
                   value[index] = Token::newNesting( linesResult );
+                  */
                   value[index].setDataType( TokenType::Link ); // todo: Речь не о Link, а об Array?
                 }
                 _ => { setNone(value, index); } // В структуре не было вложений
@@ -851,6 +853,7 @@ impl Structure
                       }
                       Some(parameters) =>
                       { // Если это был просто запуск метода, то запускаем его
+                        /* todo dataMutability
                         let mut parametersToken: Token = Token::newNesting( parameters );
                         parametersToken.setDataType( TokenType::CircleBracketBegin );
 
@@ -866,6 +869,7 @@ impl Structure
                           return structureParent.read().unwrap()
                             .expression(&mut expressionTokens);
                         }}
+                        */
 
                         return Token::newEmpty(TokenType::None);
                       }
@@ -1006,6 +1010,7 @@ impl Structure
   /// todo типы данных в параметрах
   pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
   {
+    /* todo dataMutability
     match value.len() < 2 || *value[i+1].getDataType() != TokenType::CircleBracketBegin
     { false => {} true =>
     { // Проверяем, что обязательно существует круглая скобка рядом
@@ -1062,6 +1067,8 @@ impl Structure
       true  => { Parameters::new(Some(vec![])) }
       false => { Parameters::new(Some(result)) }
     }
+    */
+    Parameters::new(Some(vec![]))
   }
 
   /// Основная функция, которая получает результат выражения состоящего из токенов;
@@ -1179,6 +1186,7 @@ impl Structure
         } 
         TokenType::Minus =>
         { // это выражение в круглых скобках, но перед ними отрицание -
+          /* todo dataMutability
           match
             i+1 < valueLength &&
             *value[i+1].getDataType() == TokenType::CircleBracketBegin
@@ -1217,21 +1225,23 @@ impl Structure
               }
             }
           }}
-        } 
+          */
+        }
         TokenType::CircleBracketBegin => 
         { // Это просто выражение в круглых скобках
-          value[i] = 
-            match value[i].tokens.clone() 
-            {
-              Some(mut tokenTokens) => 
-              { // Если получилось то оставляем его
-                self.expression(&mut tokenTokens)
-              } 
-              None => 
-              { // Если не получилось, то просто None
-                Token::newEmpty(TokenType::None)
-              }
+          /* todo dataMutability
+          value[i] = match value[i].tokens.clone()
+          {
+            Some(mut tokenTokens) =>
+            { // Если получилось то оставляем его
+              self.expression(&mut tokenTokens)
             }
+            None =>
+            { // Если не получилось, то просто None
+              Token::newEmpty(TokenType::None)
+            }
+          }
+          */
         }
         _ =>
         { // Это либо метод, либо просто слово-структура
@@ -1319,32 +1329,32 @@ impl Structure
     // Далее идут варианты математических и логических операций
 
     // Проверка на логические операции 1
-    self.expressionOp(value, &mut valueLength, 
-      &[TokenType::Equals, TokenType::NotEquals, 
+    self.expressionOp(value, &mut valueLength,
+      &[TokenType::Equals, TokenType::NotEquals,
         TokenType::GreaterThan, TokenType::LessThan,
         TokenType::GreaterThanOrEquals, TokenType::LessThanOrEquals]
     );
 
     // Проверка на логические операции 2
-    self.expressionOp(value, &mut valueLength, 
+    self.expressionOp(value, &mut valueLength,
       &[TokenType::Inclusion, TokenType::Joint]
     );
-    
+
     // Проверка * и /
     self.expressionOp(value, &mut valueLength, &[TokenType::Multiply, TokenType::Divide]);
-    
+
     // Проверка + и -
     self.expressionOp(value, &mut valueLength, &[TokenType::Plus, TokenType::Minus]);
 
     // Конец чтения выражения
-    match valueLength != 0 
+    match valueLength != 0
     {
-      true => 
+      true =>
       { // В том случае, если мы имеем всё ещё значение,
         // значит просто вернём 0 элемент, чтобы избавиться от него
         value[0].clone()
-      }  
-      false => 
+      }
+      false =>
       { // Если всё пусто, значит пусто
         Token::newEmpty(TokenType::None)
       }
@@ -1353,20 +1363,20 @@ impl Structure
 
   /// Получает значение операции по левому и правому выражению; Это зависимость для expression.
   /// Кроме того, может обрабатывать отрицание при использовании TokenType::Minus
-  fn expressionOp(&self, value: &mut Vec<Token>, valueLength: &mut usize, operations: &[TokenType]) 
+  fn expressionOp(&self, value: &mut Vec<Token>, valueLength: &mut usize, operations: &[TokenType])
   {
     let mut i: usize = 0;
     let mut token: Token;
     let mut tokenType: &TokenType;
 
-    while i < *valueLength 
+    while i < *valueLength
     { // Проверка на логические операции
-      match *valueLength == 1 
+      match *valueLength == 1
       { false => {} true =>
       {
         break;
       }}
-      match i == 0 
+      match i == 0
       { false => {} true =>
       {
         i += 1; continue;
@@ -1376,15 +1386,15 @@ impl Structure
       tokenType = token.getDataType();
       match i+1 < *valueLength && operations.contains(tokenType)
       {
-        true => 
+        true =>
         {
           value[i-1] = calculate(tokenType, &value[i-1], &value[i+1]);
-          
+
           value.remove(i); // remove op
           value.remove(i); // remove right value
           *valueLength -= 2;
           continue;
-        } 
+        }
         // value -value2
         false => match matches!(*tokenType, TokenType::Int | TokenType::Float)
         { false => {} true =>

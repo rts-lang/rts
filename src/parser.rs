@@ -151,18 +151,20 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
               true => 
               { // если токенов > 1 и 1 токен это TokenType::CircleBracketBegin 
                 // значит это вариант параметры + возможно результат
+                /* todo dataMutability
                 match lineTokens[1].tokens.clone() 
                 {
                   Some(mut lineTokens) => 
                   { // берём вложенные токены в TokenType::CircleBracketBegin 
                     // получаем параметры из этих токенов, давая доступ к родительским структурам
-                    parameters = Some( 
+                    parameters = Some(
                       parentLink.read().unwrap() // читаем родительскую структуру
                         .getStructureParameters(&mut lineTokens) 
                     );
                   }
                   None => {}
                 }
+                */
                 // если > 3 (т.е name () -> result)
                 // то значит это результат структуры 
                 // todo: Может быть объединено с блоком ниже
@@ -303,11 +305,36 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
         let mut leftValueDataType: StructureType = StructureType::None;
         let leftValueTokensLength:usize = leftValueTokens.len();
         { // Определяем тип данных и тип модификатора у левой части выражения
+          println!("A0 {}:{:?}",leftValueTokensLength,leftValueTokens);
+          /*
+          leftValueMutable = match leftValueTokens[1].getDataType()
+          {
+            TokenType::DoubleTilde => StructureMut::Dynamic,
+            TokenType::Tilde => StructureMut::Variable,
+            _ =>
+            {
+              println!("A2");
+              if leftValueTokensLength == lineTokensLength
+              {
+                StructureMut::Final
+              } else
+              {
+                StructureMut::Constant
+              }
+            }
+          };
+          */
+
+          // todo Разделение по токену есть в Structure.rs
+          //      -- Здесь следует использовать на : и получить левую и правую часть
+
+          /*
           for i in 0..leftValueTokensLength
           {
-            match i == 1
+            match i == 0
             { false => {} true =>
             { // Определяем тип модификатора у левой части выражения
+              println!("A1");
               leftValueMutable =
                 match leftValueTokens[1].getDataType()
                 {
@@ -315,6 +342,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
                   TokenType::Tilde => StructureMut::Variable,
                   _ =>
                   {
+                    println!("A2");
                     if leftValueTokensLength == lineTokensLength
                     {
                       StructureMut::Final
@@ -338,6 +366,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
             }}
             //
           }
+          */
           //
         }
 
@@ -354,6 +383,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
               false => // Это может быть у Constant | Variable | Dynamic
                 Some( lineTokens[opPos..lineTokensLength].to_vec() )
             };
+          print!("! {:?} ",rightPart);
 
           // Получаем родительскую структуру;
           // Ищем в родительской структуре, есть ли там похожая на structureName
@@ -775,7 +805,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
 
   while unsafe{_exit == false} && unsafe{*lineIndex < linesLength}
   { // Если мы читаем строки, то создаём сразу ссылку на текущую линию
-    lineLink = 
+    lineLink =
     { // Получаем её через чтение текущей структуры;
       // Берём линию по индексу линии (она точно будет, поскольку выше мы это проверили)
       let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
@@ -799,7 +829,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
       match !searchReturn(&line, structureLink.clone())
       { false => {} true =>
       { // Ищем линейные выражения
-        
+
         let tokens: &mut Vec<Token> =
           &mut line
             .tokens.clone() // Клонируем токены, для сохранения возможности повторного запуска
