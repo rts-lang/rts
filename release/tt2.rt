@@ -1,8 +1,8 @@
-#b
-# 10
-#a(1+1,b.[0])
+b
+ 10
+println(1+1,b.[0]) # 2 10
 
-println(20-(10))
-println(20-(-10))
+println(20-(10)) # 10
+println(20-(-10)) # 30
 
-println(123,321)
+println(123,321) # 123 321
