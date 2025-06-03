@@ -234,23 +234,28 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       // Закидываем новую структуру в родительскую структуру
       let mut parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
 
-      // Вычисляем правое выражение сразу?
+      // Вычисляем правое выражение?
       match structureMutability == StructureMut::Final
       { true => {} false =>
-      { // Только для константной структуры значение определяется сразу
+      { 
         let hasTokens: bool = rightValue.is_none();
         let mut value: Token = parentStructure.expression(&mut rightValue.unwrap());
         match structureType == StructureType::None
         {
           true =>
-          { // Тип вычисляется только если он не был изначально определён;
+          { // Тип вычисляется если он не был изначально определён;
             // Вычисляется он по типу из результата правой части выражения
             structureType = value.getDataType().toStructureType();
           }
           false =>
-          { // Требуется выполнить преобразование в указанный тип данных
-            value.setDataType( structureType.toTokenType() );
-          }
+            match structureMutability == StructureMut::Dynamic
+            {
+              // Тип вычисляется, если флаг изменяемости Dynamic
+              // Вычисляется он по типу из результата правой части выражения
+              true => structureType = value.getDataType().toStructureType(),
+              // Требуется выполнить преобразование в указанный тип данных
+              false => value.setDataType( structureType.toTokenType() )
+            }
         }
         //
         rightValue = match hasTokens
