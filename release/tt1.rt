@@ -20,7 +20,14 @@ println("\n# c")
 c~:UInt = -10
 println(c,type(c),mut(c)) # 10 Variable
 
+println("\n# cc")
+c = 10
+println(c,type(c),mut(c)) # 10 Variable
+
 println("\n# d")
 d~~:UInt = -10
 println(d,type(d),mut(d)) # 10 Dynamic
-# todo проверить изменность типа
+
+println("\n# dd")
+d = 10
+println(d,type(d),mut(d)) # 10 Dynamic
