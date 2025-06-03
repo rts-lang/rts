@@ -1,21 +1,26 @@
 # Проверка на изменяемость
 
 a:UInt
-println(a,mut(a)) # _ Final
+println(a,type(a),mut(a)) # _ Final
 
-println("\n#")
+println("\n# a")
 a = 20
 a = 30
-println(a,mut(a)) # 20 Constant
+println(a,type(a),mut(a)) # 20 Constant
 
-println("\n#")
+println("\n# b")
 b:UInt = 10
-println(b,mut(b)) # 10 Constant
+println(b,type(b),mut(b)) # 10 Constant
 
-println("\n#")
-c~:UInt = 10
-println(c,mut(c)) # 10 Variable
+println("\n# bb")
+bb = -10
+println(bb,type(bb),mut(bb)) # 10 Constant
 
-println("\n#")
-d~~:UInt = 10
-println(d,mut(d)) # 10 Dynamic
+println("\n# c")
+c~:UInt = -10
+println(c,type(c),mut(c)) # 10 Variable
+
+println("\n# d")
+d~~:UInt = -10
+println(d,type(d),mut(d)) # 10 Dynamic
+# todo проверить изменность типа

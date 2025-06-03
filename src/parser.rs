@@ -249,7 +249,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
           }
           false =>
           { // Требуется выполнить преобразование в указанный тип данных
-            value.setDataType(structureType.toTokenType());
+            value.setDataType( structureType.toTokenType() );
           }
         }
         //
