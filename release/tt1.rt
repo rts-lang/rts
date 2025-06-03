@@ -1,6 +1,7 @@
 # Проверка на изменяемость
 
 a:UInt
+println(a,mut(a))
 a = 10
 a:UInt = 10
 a~:UInt = 10

@@ -472,7 +472,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
   }
 }
 
-// Проверка на вхождение в срез
+/// Проверка на вхождение в срез
 macro_rules! matchesIn 
 {
   ($value:expr, $slice:expr) => 
