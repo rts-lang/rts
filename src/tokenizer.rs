@@ -644,7 +644,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
 {
   let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
   let identString:      String = " ".repeat(indent*2+1);     // Отступ для вложения токенов
-
+  
   let tokenCount: usize = tokens.len()-1;
   let mut c: char;
 
@@ -865,12 +865,17 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           */
 
           // Добавляем новую линию и пушим ссылку на неё
+          let lineTokens: Vec<Token> = std::mem::take(&mut lineTokens); // Пустой вектор для следующей
           linesLinks.push(
             Arc::new(RwLock::new(
               Line
               {
-                tokens: Some(std::mem::take(&mut lineTokens)), // Забираем все токены в линию,
-                                                         // оставляя пустой вектор для следующей
+                tokens:
+                  match lineTokens.is_empty()
+                  { // Забираем все токены в линию
+                    true => None,
+                    false => Some(lineTokens)
+                  },
                 indent: Some(lineIndent),
                 lines:  None, // В данный момент у неё нет вложенных линий, будет чуть ниже
                 parent: None  // Также у неё нет родителя, это тоже будет ниже при вложении
