@@ -22,6 +22,7 @@ use std::{
   time::{Instant, Duration},
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
+use crate::tokenizer::splitByType;
 
 /// Проверяет, что переданный dataType является математическим оператором
 fn isMathOperator(dataType: TokenType) -> bool 
@@ -107,6 +108,256 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
       true
     }
   }
+}
+
+/// Читает линейную запись
+fn linearStructure(lineTokens: &Vec<Token>) -> () 
+{
+  let opType: TokenType = lineTokens.iter().find_map(|token| 
+  {
+    match isMathOperator( token.getDataType().clone() ) 
+    {
+      true => Some(token.getDataType().clone()),
+      false => None,
+    }
+  }).unwrap_or(TokenType::None);
+  
+  println!("MEMORY ==============================");
+  
+  // Получаем левую и правую часть
+  let (leftValue, rightValue): (Vec<Token>, Option< Vec<Token> >) = 
+  {
+    println!("OP: {:?}",opType.to_string());
+    match opType == TokenType::None
+    { 
+      false => 
+      {// Операция есть
+        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType.clone()]); // todo: Тут точно клонирование ?
+        (std::mem::take(&mut parts[0].tokens).unwrap(), std::mem::take(&mut parts[1].tokens))
+      }
+      true => 
+      { // Операции не было
+        (std::mem::take(&mut lineTokens.clone()), None) // todo: Тут точно клонирование ?
+      }
+    }
+  };
+  println!("Begin> {:?}",lineTokens);
+  println!("L> {:?}",leftValue);
+  println!("R> {:?}",rightValue);
+  
+  { // Определяем тип данных у левой части выражения
+    let (structureNameTokens, structureTypeTokens): (Vec<Token>, Option< Vec<Token> >) = 
+    {
+      let mut parts: Vec<Line> = splitByType(leftValue.clone(), &[TokenType::Colon]);
+      match parts.len() == 2 
+      {
+        false => (std::mem::take(&mut parts[0].tokens).unwrap(), None),
+        true => (std::mem::take(&mut parts[0].tokens).unwrap(), std::mem::take(&mut parts[1].tokens))
+      }
+    };
+    println!("SName> {:?}",structureNameTokens);
+    println!("SType> {:?}",structureTypeTokens);
+
+
+    // Определяем тип изменяемости у левой части выражения
+    let structureMutabilityType: StructureMut = match structureNameTokens.get(1) 
+    { 
+      None => match rightValue
+      { // Если нет флага изменяемости и правой части
+        None => StructureMut::Final,
+        Some(_) => StructureMut::Constant
+      } 
+      Some(mutabilityType) => 
+      { // Если есть флаг изменяемости
+        match mutabilityType.getDataType() 
+        {
+          TokenType::DoubleTilde => StructureMut::Dynamic,
+          TokenType::Tilde => StructureMut::Variable,
+          _ => { StructureMut::Constant } // todo Тут должно быть пусто
+        }
+      }
+    };
+    println!("SMut> {:?}",structureMutabilityType.to_string());
+
+    // todo Разделение по токену есть в Structure.rs
+    //      -- Здесь следует использовать на : и получить левую и правую часть
+
+    /*
+    for i in 0..leftValueTokensLength
+    {
+      match i == 0
+      { false => {} true =>
+      { // Определяем тип модификатора у левой части выражения
+        println!("A1");
+        leftValueMutable =
+          match leftValueTokens[1].getDataType()
+          {
+            TokenType::DoubleTilde => StructureMut::Dynamic,
+            TokenType::Tilde => StructureMut::Variable,
+            _ =>
+            {
+              println!("A2");
+              if leftValueTokensLength == lineTokensLength
+              {
+                StructureMut::Final
+              } else
+              {
+                StructureMut::Constant
+              }
+            }
+          };
+      }}
+      // Определяем тип данных у левой части выражения
+      match *leftValueTokens[i].getDataType() == TokenType::Colon
+      { false => {} true =>
+      { // Если это : то следом должен быть тип данных
+        match leftValueTokensLength > i
+        { false => {} true =>
+        { // Токен с типом данных существует
+          let dataType:&TokenType = leftValueTokens[i+1].getDataType();
+          leftValueDataType = dataType.toStructureType();
+        }}
+      }}
+      //
+    }
+    */
+    //
+  }
+
+  /*
+  // Получаем имя первого токена, чтобы знать с кем мы работаем
+  match lineTokens[0].getData().toString()
+  { None => {} Some(structureName) =>
+  { // Это левая часть линейной записи
+    let leftPart: Option< Vec<Token> > = Some( leftValueTokens );
+    // Это правая часть линейной записи
+    let rightPart: Option< Vec<Token> > =
+      match opPos == 0
+      {
+        true => None, // У Final | Variable | Dynamic может не быть правой части выражения
+        false => // Это может быть у Constant | Variable | Dynamic
+          Some( lineTokens[opPos..lineTokensLength].to_vec() )
+      };
+    println!("! {:?} ",rightPart);
+
+    // Получаем родительскую структуру;
+    // Ищем в родительской структуре, есть ли там похожая на structureName
+    let structureLink: Option< Arc<RwLock<Structure>> > =
+    {
+      parentLink.read().unwrap()
+        .getStructureByName(&structureName)
+    };
+    match structureLink
+    {
+      // todo проверка на opType, потому что может быть неправильное выражение
+      //      и его даже не следует обрабатывать
+      Some(structureLink) =>
+      { // Если мы нашли такую, то значит работаем уже с существующей структурой
+        let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+
+        let structureMut: StructureMut =
+        {
+          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+          structure.mutable.clone()
+        };
+
+        match structureMut
+        {
+          StructureMut::Constant => {} // Константные структуры изменить нельзя
+          StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
+          { // Всё остальное изменить можно
+            match (leftPart, rightPart)
+            {
+              (Some(leftPart), Some(rightPart)) =>
+              {
+                parent.structureOp(
+                  structureLink,
+                  opType,
+                  structureMut,
+                  leftPart,
+                  rightPart
+                );
+              }
+              _ => {}
+            }
+            //
+          }
+        }
+        //
+      }
+      None =>
+      { // Если мы не нашли похожую, то создаём новую
+        // и работаем с правой частью выражения
+        let mut tokens: Option< Vec<Token> > =
+          match rightPart
+          {
+            None =>
+            { // Если правого выражения не было, то это Final | Variable | Dynamic
+              None
+            }
+            Some(rightValue) =>
+            { // Если правое выражение существует
+              Some(rightValue) // Constant | Variable | Dynamic
+            }
+          };
+
+        // Если правой части не будет, то они будут равны, а значит не вычисляем
+        let calculateRightValueNow: bool = leftValueTokensLength != lineTokensLength;
+
+        // Закидываем новую структуру в родительскую структуру
+        let mut parentStructure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
+
+        // Вычисляем правое выражение сразу?
+        match calculateRightValueNow
+        { false => {} true =>
+        { // Только для константной структуры значение определяется сразу
+          let hasTokens: bool = tokens.is_none();
+          let mut value: Token = parentStructure.expression(&mut tokens.unwrap());
+          match leftValueDataType == StructureType::None
+          {
+            true =>
+            { // Тип вычисляется только если он не был изначально определён;
+              // Вычисляется он по типу из результата правой части выражения
+              leftValueDataType = value.getDataType().toStructureType();
+            }
+            false =>
+            { // Требуется выполнить преобразование в указанный тип данных
+              value.setDataType(leftValueDataType.toTokenType());
+            }
+          }
+          //
+          tokens =
+            match hasTokens
+            { true => None, false =>
+            {
+              Some(vec![ value ])
+            }}
+        }}
+
+        // Создаём структуру
+        parentStructure.pushStructure(
+          Structure::new(
+            Some(structureName),
+            leftValueMutable,
+            leftValueDataType,
+            Some(vec![
+              Arc::new(RwLock::new(
+              Line {
+                tokens: tokens,
+                indent: None,
+                lines:  None,
+                parent: None
+              }
+              ))
+            ]),
+            None
+          )
+        );
+      }
+    } //
+    return true;
+  }}
+  */
 }
 /// Эта функция ищет структуры;
 ///
@@ -249,260 +500,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
       }
       None =>
       { // Это линейная запись
-        let mut opType: TokenType = TokenType::None; // Математический оператор
-        let mut opPos:  usize     = 0;               // Место, где находится оператор
-        for (i, lineToken) in lineTokens.iter().enumerate()
-        { // Читаем линию, и ищем чтобы TokenType в opType совпал с математическим,
-          // после чего выходим отсюда и остаётся позиция найденного оператора в opPos
-          opType = lineToken.getDataType().clone();
-          match isMathOperator(opType.clone()) 
-          { false => {} true =>
-          {
-            opPos = i+1;
-            break;
-          }}
-        }
-
-        // Получаем mutable и dataType для структуры
-        let leftValueTokens: Vec<Token> =
-          match opPos == 0
-          {
-            true =>
-            { // Это вариант Final, но необходимо проверить, что это не что-то другое
-              let lineTokensLen: usize = lineTokens.len();
-              match lineTokensLen >= 3 && lineTokensLen <= 5
-              {
-                false =>
-                {
-                  match lineTokensLen == 1
-                  {
-                    false => return false, // Это что-то другое
-                    true => {} // Это Final без указания типа данных
-                  }
-                }
-                true =>
-                { // Предполагается Final с указанием типа данных
-                  let colonPos: usize =
-                    match lineTokensLen
-                    {
-                      3 => 1,
-                      4 => 2,
-                      _ => 3
-                    };
-                  match *lineTokens[colonPos].getDataType() == TokenType::Colon
-                  {
-                    false => return false, // Это что-то другое
-                    true => {}
-                  }
-                  // todo наверное здесь нужно ещё проверять 2 токен, что там за тип ?
-                }
-              }
-              lineTokens.to_vec()
-            },
-            false => lineTokens[0..opPos-1].to_vec() // Это Constant | Variable | Dynamic
-          };
-        let mut leftValueMutable: StructureMut = StructureMut::Final;
-        let mut leftValueDataType: StructureType = StructureType::None;
-        let leftValueTokensLength:usize = leftValueTokens.len();
-        { // Определяем тип данных и тип модификатора у левой части выражения
-          println!("A0 {}:{:?}",leftValueTokensLength,leftValueTokens);
-          /*
-          leftValueMutable = match leftValueTokens[1].getDataType()
-          {
-            TokenType::DoubleTilde => StructureMut::Dynamic,
-            TokenType::Tilde => StructureMut::Variable,
-            _ =>
-            {
-              println!("A2");
-              if leftValueTokensLength == lineTokensLength
-              {
-                StructureMut::Final
-              } else
-              {
-                StructureMut::Constant
-              }
-            }
-          };
-          */
-
-          // todo Разделение по токену есть в Structure.rs
-          //      -- Здесь следует использовать на : и получить левую и правую часть
-
-          /*
-          for i in 0..leftValueTokensLength
-          {
-            match i == 0
-            { false => {} true =>
-            { // Определяем тип модификатора у левой части выражения
-              println!("A1");
-              leftValueMutable =
-                match leftValueTokens[1].getDataType()
-                {
-                  TokenType::DoubleTilde => StructureMut::Dynamic,
-                  TokenType::Tilde => StructureMut::Variable,
-                  _ =>
-                  {
-                    println!("A2");
-                    if leftValueTokensLength == lineTokensLength
-                    {
-                      StructureMut::Final
-                    } else
-                    {
-                      StructureMut::Constant
-                    }
-                  }
-                };
-            }}
-            // Определяем тип данных у левой части выражения
-            match *leftValueTokens[i].getDataType() == TokenType::Colon
-            { false => {} true =>
-            { // Если это : то следом должен быть тип данных
-              match leftValueTokensLength > i
-              { false => {} true =>
-              { // Токен с типом данных существует
-                let dataType:&TokenType = leftValueTokens[i+1].getDataType();
-                leftValueDataType = dataType.toStructureType();
-              }}
-            }}
-            //
-          }
-          */
-          //
-        }
-
-        // Получаем имя первого токена, чтобы знать с кем мы работаем
-        match lineTokens[0].getData().toString()
-        { None => {} Some(structureName) =>
-        { // Это левая часть линейной записи
-          let leftPart: Option< Vec<Token> > = Some( leftValueTokens );
-          // Это правая часть линейной записи
-          let rightPart: Option< Vec<Token> > =
-            match opPos == 0
-            {
-              true => None, // У Final | Variable | Dynamic может не быть правой части выражения
-              false => // Это может быть у Constant | Variable | Dynamic
-                Some( lineTokens[opPos..lineTokensLength].to_vec() )
-            };
-          print!("! {:?} ",rightPart);
-
-          // Получаем родительскую структуру;
-          // Ищем в родительской структуре, есть ли там похожая на structureName
-          let structureLink: Option< Arc<RwLock<Structure>> > =
-          {
-            parentLink.read().unwrap()
-              .getStructureByName(&structureName)
-          };
-          match structureLink
-          {
-            // todo проверка на opType, потому что может быть неправильное выражение
-            //      и его даже не следует обрабатывать
-            Some(structureLink) =>
-            { // Если мы нашли такую, то значит работаем уже с существующей структурой
-              let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
-
-              let structureMut: StructureMut =
-              {
-                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-                structure.mutable.clone()
-              };
-
-              match structureMut
-              {
-                StructureMut::Constant => {} // Константные структуры изменить нельзя
-                StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
-                { // Всё остальное изменить можно
-                  match (leftPart, rightPart)
-                  {
-                    (Some(leftPart), Some(rightPart)) =>
-                    {
-                      parent.structureOp(
-                        structureLink,
-                        opType,
-                        structureMut,
-                        leftPart,
-                        rightPart
-                      );
-                    }
-                    _ => {}
-                  }
-                  //
-                }
-              }
-              //
-            }
-            None =>
-            { // Если мы не нашли похожую, то создаём новую
-              // и работаем с правой частью выражения
-              let mut tokens: Option< Vec<Token> > =
-                match rightPart
-                {
-                  None =>
-                  { // Если правого выражения не было, то это Final | Variable | Dynamic
-                    None
-                  }
-                  Some(rightValue) =>
-                  { // Если правое выражение существует
-                    Some(rightValue) // Constant | Variable | Dynamic
-                  }
-                };
-
-              // Если правой части не будет, то они будут равны, а значит не вычисляем
-              let calculateRightValueNow: bool = leftValueTokensLength != lineTokensLength;
-
-              // Закидываем новую структуру в родительскую структуру
-              let mut parentStructure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
-
-              // Вычисляем правое выражение сразу?
-              match calculateRightValueNow
-              { false => {} true =>
-              { // Только для константной структуры значение определяется сразу
-                let hasTokens: bool = tokens.is_none();
-                let mut value: Token = parentStructure.expression(&mut tokens.unwrap());
-                match leftValueDataType == StructureType::None
-                {
-                  true =>
-                  { // Тип вычисляется только если он не был изначально определён;
-                    // Вычисляется он по типу из результата правой части выражения
-                    leftValueDataType = value.getDataType().toStructureType();
-                  }
-                  false =>
-                  { // Требуется выполнить преобразование в указанный тип данных
-                    value.setDataType(leftValueDataType.toTokenType());
-                  }
-                }
-                //
-                tokens =
-                  match hasTokens
-                  { true => None, false =>
-                  {
-                    Some(vec![ value ])
-                  }}
-              }}
-
-              // Создаём структуру
-              parentStructure.pushStructure(
-                Structure::new(
-                  Some(structureName),
-                  leftValueMutable,
-                  leftValueDataType,
-                  Some(vec![
-                    Arc::new(RwLock::new(
-                    Line {
-                      tokens: tokens,
-                      indent: None,
-                      lines:  None,
-                      parent: None
-                    }
-                    ))
-                  ]),
-                  None
-                )
-              );
-            }
-          } //
-          return true;
-        }}
-        //
+        linearStructure(lineTokens);
       }
     }
   } else 

@@ -1,12 +1,19 @@
 # Проверка на изменяемость
 
-a
-println(mut(a))
+a:UInt
 a = 10
-println(mut(a))
+a:UInt = 10
+a~:UInt = 10
+a~~:UInt = 10
 
-println("\n#")
-b = 10
-println(mut(b))
-b = 20
-println(mut(b))
+#
+  a
+  println(mut(a))
+  a = 10
+  println(mut(a))
+  
+  println("\n#")
+  b = 10
+  println(mut(b))
+  b = 20
+  println(mut(b))
