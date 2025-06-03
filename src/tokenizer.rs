@@ -524,9 +524,9 @@ fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
 }
 
 /// Удаляет возможные вложенные комментарии по меткам;
-/// Это такие комментарии, которые имеют вложения
+/// Это такие комментарии, которые имеют вложения.
 ///
-/// todo не удаляет комментарии во вложенных блоках ?
+/// Кроме того, создаёт линии разделители (separator).
 fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usize) -> ()
 {
   let mut linesLinksLength: usize = linesLinks.len(); // Количество ссылок строк
@@ -549,13 +549,14 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
         deleteNestedComment(lineLines, 0);
       }}
 
+      // Логика для разделителей
       match line.tokens.is_none()
       { false => {} true =>
       { // Пропускаем разделители, они нужны для синтаксиса
         // Если разделитель имеет вложения
         match &line.lines
         { None => {} Some(_) =>
-        { // Выходим из прерывания
+        { // Выходим из прерывания, т.к это безымянный блок
           break 'exit;
         }}
 
@@ -570,7 +571,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
           { // Если токенов в следующей линии не было, значит точно separator;
             // Повторение подобных условий оставит 1 separator линию по итогу;
             false => {}
-            true  => { deleteLine = true; }
+            true  => deleteLine = true
           }
         }}
 
@@ -578,10 +579,11 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
         break 'exit; // Выходим из прерывания
       }}
 
+      // Логика для комментариев
       match line.tokens
       { None => {} Some(ref mut tokens) =>
       {
-        lastTokenIndex = tokens.len();// -1; todo
+        lastTokenIndex = tokens.len() -1;
         match tokens.get(lastTokenIndex)
         { None => {} Some(token) =>
         {
@@ -591,32 +593,33 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
           { // Удаляем комментарии
 
             tokens.remove(lastTokenIndex);
-            match
-            { // Проверяем если есть вложенные линии,
-              // а также, что комментарий не удалится весь
-              // и продолжается на вложенные линии
-              match &line.lines
-              { None => false, Some(_) =>
-              {
-                match lastTokenIndex
-                {
-                  0 => { false }
-                  _ => { true }
-                }
-              }}
-            }
-            { false => {} true =>
+            // Проверяем если есть вложенные линии,
+            // что комментарий не удалится весь
+            // и продолжается на вложенные линии
+            match &line.lines
+            { None => {}, Some(_) =>
             {
-              line.lines = None;
+              line.lines = None
             }}
 
             // Переходим к удалению пустой линии
-            match line.tokens.is_none()
-            { false => {} true =>
+            match &line.tokens
             {
-              deleteLine = true; // Линия была удалена
-              break 'exit;       // Выходим из прерывания
-            }}
+              Some(tokens) =>
+              { // Пустой массив
+                match tokens.is_empty()
+                { false => {} true =>
+                {
+                  deleteLine = true; // Линия была удалена
+                  break 'exit;       // Выходим из прерывания
+                }}
+              }
+              None =>
+              { // Просто пустой
+                deleteLine = true; // Линия была удалена
+                break 'exit;       // Выходим из прерывания
+              }
+            }
           }}
           //
         }}
