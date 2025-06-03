@@ -165,16 +165,16 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     {
       match result.as_str()
       {
-        "true"     => Token::new( TokenType::Bool, String::from("1") ),
-        "false"    => Token::new( TokenType::Bool, String::from("0") ),
+        "true"     => Token::newEmpty( TokenType::Bool ),
+        "false"    => Token::newEmpty( TokenType::Bool ),
         //
-        "UInt"     => Token::new( TokenType::UInt, String::from("0") ),
-        "Int"      => Token::new( TokenType::Int, String::from("0") ),
-        "UFloat"   => Token::new( TokenType::UFloat, String::from("0.0") ),
-        "Float"    => Token::new( TokenType::Float, String::from("0.0") ),
+        "UInt"     => Token::newEmpty( TokenType::UInt ),
+        "Int"      => Token::newEmpty( TokenType::Int ),
+        "UFloat"   => Token::newEmpty( TokenType::UFloat ),
+        "Float"    => Token::newEmpty( TokenType::Float ),
         //
-        "String"   => Token::new( TokenType::String, String::from("") ),
-        "Char"     => Token::new( TokenType::Char, String::from("") ),
+        "String"   => Token::newEmpty( TokenType::String ),
+        "Char"     => Token::newEmpty( TokenType::Char ),
         //
         "None"     => Token::newEmpty(TokenType::None),
         //
@@ -402,6 +402,8 @@ fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &Toke
 /// Занимается вложением линий в токены;
 /// От начальной скобки до закрывающей;
 /// Делит токены через запятую.
+///
+/// todo может использовать split
 fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
 {
   let mut isReadData: bool = false; // Читаем данные в буфер?
@@ -469,6 +471,55 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
     }
   }
 }
+
+// Проверка на вхождение в срез
+macro_rules! matchesIn 
+{
+  ($value:expr, $slice:expr) => 
+  {
+    $slice.contains(&$value)
+  };
+}
+
+/// Разделяет токены по типу токена-разделителя
+pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line>
+{
+  let mut lines: Vec<Line> = Vec::new();
+  let mut buffer: Vec<Token> = Vec::new();
+
+  for token in tokens.into_iter()
+  {
+    if matchesIn!(token.getDataType(), separatorTypes) 
+    {
+      lines.push(Line
+      {
+        tokens: Some(buffer),
+        indent: None,
+        lines: None,
+        parent: None,
+      });
+      buffer = Vec::new();
+    }
+    else
+    {
+      buffer.push(token);
+    }
+  }
+
+  if !buffer.is_empty()
+  {
+    lines.push(Line
+    {
+      tokens: Some(buffer),
+      indent: None,
+      lines: None,
+      parent: None,
+    });
+  }
+
+  lines
+}
+
 /// Вкладывает линии токенов друг в друга
 fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
 {
@@ -717,13 +768,25 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
       }
       _ =>
       { // Если это токен только с типом, то выводим тип как символ
-        formatPrint(&format!(
-          "{}\\b{}\\c{}{}\n",
-          lineIndentString,
-          c,
-          identString,
-          tokenType.to_string()
-        ));
+        match token.isPrimitive()
+        {
+          true =>
+            log("parserToken",&format!(
+              "{}\\b{}\\c{}|{}",
+              lineIndentString,
+              c,
+              identString,
+              tokenType.to_string()
+            )),
+          false =>
+            formatPrint(&format!(
+              "{}\\b{}\\c{}{}\n",
+              lineIndentString,
+              c,
+              identString,
+              tokenType.to_string()
+            ))
+        }
       }
     }
 

@@ -3,7 +3,6 @@
 */
 
 use std::fmt;
-use std::io::Lines;
 use crate::parser::structure::StructureType;
 use crate::parser::bytes::Bytes;
 use crate::tokenizer::line::Line;
@@ -389,7 +388,7 @@ impl Token
   }
 
   /// Проверяет примитивный это токен или нет
-  pub fn isPrimitiveType(&self) -> bool
+  pub fn isPrimitive(&self) -> bool
   {
     matches!(
       self.dataType,
