@@ -123,13 +123,10 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     }
   }).unwrap_or(TokenType::None);
   
-  println!("MEMORY ==============================");
-  
   // Получаем левую и правую часть
   let leftValue: Vec<Token>;
   let mut rightValue: Option< Vec<Token> > = None;
   {
-    println!("OP: {:?}",opType.to_string());
     match opType == TokenType::None
     { 
       false => 
@@ -145,8 +142,6 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       }
     }
   }
-  println!("Begin> {:?}",lineTokens);
-  println!("R> {:?}",rightValue);
   
   let structureName: String;
   let structureMutability: StructureMut;
@@ -194,10 +189,6 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
   
   drop(leftValue);
 
-  println!("Name> {}",structureName);
-  println!("Mut> {}",structureMutability.to_string());
-  println!("Type> {}",structureType.to_string());
-
   // Получаем родительскую структуру;
   // Ищем в родительской структуре, есть ли там похожая на structureName
   let structureLink: Option< Arc<RwLock<Structure>> > =
@@ -206,18 +197,38 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       .getStructureByName(&structureName)
   };
   
-  println!("structureLink {:?}",structureLink.is_none());
-
   match structureLink
   {
     Some(structureLink) =>
-    { // Если мы нашли такую, то значит работаем уже с существующей структурой
-      // todo
+    { // Если мы нашли структуру, то значит работаем уже с существующей структурой
+      let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+
+      let structureMut: StructureMut =
+      {
+        let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+        structure.mutable.clone()
+      };
+
+      match structureMut
+      {
+        StructureMut::Constant => {} // Константные структуры изменить нельзя
+        StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
+        { // Всё остальное изменить можно
+          parent.structureOp(
+            structureLink,
+            opType,
+            structureMut,
+            rightValue.unwrap_or_default()
+          );
+          //
+        }
+      }
       
+      //
       return true;
     }
     None =>
-    { // Если мы не нашли похожую, то создаём новую
+    { // Если мы не нашли структуру, то создаём новую
       // и работаем с правой частью выражения
 
       // Закидываем новую структуру в родительскую структуру
@@ -261,7 +272,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
                 tokens: rightValue,
                 indent: None,
                 lines:  None,
-                parent: None
+                parent: None // todo Назначить родителя?
               }
             ))
           ]),
@@ -269,146 +280,12 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
         )
       );
       
+      //
       return true;
     }
   }
   
   false
-
-  /*
-  // Получаем имя первого токена, чтобы знать с кем мы работаем
-  match lineTokens[0].getData().toString()
-  { None => {} Some(structureName) =>
-  { // Это левая часть линейной записи
-    let leftPart: Option< Vec<Token> > = Some( leftValueTokens );
-    // Это правая часть линейной записи
-    let rightPart: Option< Vec<Token> > =
-      match opPos == 0
-      {
-        true => None, // У Final | Variable | Dynamic может не быть правой части выражения
-        false => // Это может быть у Constant | Variable | Dynamic
-          Some( lineTokens[opPos..lineTokensLength].to_vec() )
-      };
-    println!("! {:?} ",rightPart);
-
-    // Получаем родительскую структуру;
-    // Ищем в родительской структуре, есть ли там похожая на structureName
-    let structureLink: Option< Arc<RwLock<Structure>> > =
-    {
-      parentLink.read().unwrap()
-        .getStructureByName(&structureName)
-    };
-    match structureLink
-    {
-      // todo проверка на opType, потому что может быть неправильное выражение
-      //      и его даже не следует обрабатывать
-      Some(structureLink) =>
-      { // Если мы нашли такую, то значит работаем уже с существующей структурой
-        let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
-
-        let structureMut: StructureMut =
-        {
-          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-          structure.mutable.clone()
-        };
-
-        match structureMut
-        {
-          StructureMut::Constant => {} // Константные структуры изменить нельзя
-          StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
-          { // Всё остальное изменить можно
-            match (leftPart, rightPart)
-            {
-              (Some(leftPart), Some(rightPart)) =>
-              {
-                parent.structureOp(
-                  structureLink,
-                  opType,
-                  structureMut,
-                  leftPart,
-                  rightPart
-                );
-              }
-              _ => {}
-            }
-            //
-          }
-        }
-        //
-      }
-      None =>
-      { // Если мы не нашли похожую, то создаём новую
-        // и работаем с правой частью выражения
-        let mut tokens: Option< Vec<Token> > =
-          match rightPart
-          {
-            None =>
-            { // Если правого выражения не было, то это Final | Variable | Dynamic
-              None
-            }
-            Some(rightValue) =>
-            { // Если правое выражение существует
-              Some(rightValue) // Constant | Variable | Dynamic
-            }
-          };
-
-        // Если правой части не будет, то они будут равны, а значит не вычисляем
-        let calculateRightValueNow: bool = leftValueTokensLength != lineTokensLength;
-
-        // Закидываем новую структуру в родительскую структуру
-        let mut parentStructure: RwLockWriteGuard<'_, Structure> = parentLink.write().unwrap();
-
-        // Вычисляем правое выражение сразу?
-        match calculateRightValueNow
-        { false => {} true =>
-        { // Только для константной структуры значение определяется сразу
-          let hasTokens: bool = tokens.is_none();
-          let mut value: Token = parentStructure.expression(&mut tokens.unwrap());
-          match leftValueDataType == StructureType::None
-          {
-            true =>
-            { // Тип вычисляется только если он не был изначально определён;
-              // Вычисляется он по типу из результата правой части выражения
-              leftValueDataType = value.getDataType().toStructureType();
-            }
-            false =>
-            { // Требуется выполнить преобразование в указанный тип данных
-              value.setDataType(leftValueDataType.toTokenType());
-            }
-          }
-          //
-          tokens =
-            match hasTokens
-            { true => None, false =>
-            {
-              Some(vec![ value ])
-            }}
-        }}
-
-        // Создаём структуру
-        parentStructure.pushStructure(
-          Structure::new(
-            Some(structureName),
-            leftValueMutable,
-            leftValueDataType,
-            Some(vec![
-              Arc::new(RwLock::new(
-              Line {
-                tokens: tokens,
-                indent: None,
-                lines:  None,
-                parent: None
-              }
-              ))
-            ]),
-            None
-          )
-        );
-      }
-    } //
-    return true;
-  }}
-  */
 }
 /// Эта функция ищет структуры;
 ///

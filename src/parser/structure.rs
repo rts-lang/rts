@@ -458,7 +458,7 @@ impl Structure
   /// для этого требует левую и правую часть выражения,
   /// кроме того, требует передачи родительской структуры,
   /// чтобы было видно возможные объявления в ней
-  pub fn structureOp(&self, structureLink: Arc<RwLock<Structure>>, op: TokenType, leftPartMutable: StructureMut, leftPart: Vec<Token>, rightPart: Vec<Token>) -> ()
+  pub fn structureOp(&self, structureLink: Arc<RwLock<Structure>>, op: TokenType, leftPartMutable: StructureMut, rightPart: Vec<Token>) -> ()
   {
     match op
     { // Принимаем только математические операции

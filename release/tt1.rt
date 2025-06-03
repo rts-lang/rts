@@ -1,20 +1,21 @@
 # Проверка на изменяемость
 
 a:UInt
-println(a,mut(a))
-a = 10
-a:UInt = 10
-a~:UInt = 10
-a~~:UInt = 10
+println(a,mut(a)) # _ Final
 
-#
-  a
-  println(mut(a))
-  a = 10
-  println(mut(a))
-  
-  println("\n#")
-  b = 10
-  println(mut(b))
-  b = 20
-  println(mut(b))
+println("\n#")
+a = 20
+a = 30
+println(a,mut(a)) # 20 Constant
+
+println("\n#")
+b:UInt = 10
+println(b,mut(b)) # 10 Constant
+
+println("\n#")
+c~:UInt = 10
+println(c,mut(c)) # 10 Variable
+
+println("\n#")
+d~~:UInt = 10
+println(d,mut(d)) # 10 Dynamic
