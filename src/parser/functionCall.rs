@@ -16,7 +16,7 @@ impl Function
   // ===============================================================================================
   /// Возвращает тип данных переданной структуры или значения
   ///
-  /// todo можно передать несколько значений и вернуть список их типов
+  /// todo Может проверять несколько параметров и возвращать список
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     /*
@@ -70,33 +70,46 @@ impl Function
   }
   // ===============================================================================================
   /// Возвращает уровень модификации переданной структуры
+  /// 
+  /// todo Может проверять несколько параметров и возвращать список
   fn _mut(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
-    /*
     match parameters.get(0)
     { None => {} Some(p0) =>
-    {
-      value[i].setDataType( TokenType::String );
-      let result: String =
-        match p0.getData().toString()
-        {
-          None => String::from(""),
-          Some(structureName) =>
-          { // Получили название структуры
-            match structure.getStructureByName(&structureName)
-            {
-              None => String::from(""),
-              Some(structureLink) =>
+    { // Получаем 0 параметр
+      
+      match &p0.tokens 
+      { None => {} Some(tokens) => 
+      { // Получаем список токенов
+
+        match tokens.get(0)
+        { None => {} Some(token) =>
+        { // Получаем 0 токен
+          
+          value[i].setDataType( TokenType::String );
+          let result: String = match token.getData().toString()
+          {
+            None => String::from(""),
+            Some(structureName) =>
+            { // Получили название структуры
+              match structure.getStructureByName(&structureName)
+              {
+                None => String::from(""),
+                Some(structureLink) =>
                 { // Получили ссылку на структуру
                   let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
                   structure.mutable.to_string()
                 }
+              }
             }
-          }
-        };
-      value[i].setData(result);
+          };
+          value[i].setData(result);
+        }};
+        //
+      }}
+      //
     }}
-    */
+    //
   }
   // ===============================================================================================
   /// Возвращаем случайное число типа UInt от min до max
