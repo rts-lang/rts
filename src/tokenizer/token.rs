@@ -346,16 +346,16 @@ impl Token
   }
 
   // convert data
-  /*
+  // todo: фиг его знает что это за ерунда,
+  // но смысл такой, что если тип был Int или Float, 
+  // а ожидается UInt или UFloat, то понятно,
+  // что результат будет 0
   fn convertData(&mut self) -> ()
-  { // todo: фиг его знает что это за ерунда,
-    // но смысл такой, что если тип был Int или Float, 
-    // а ожидается UInt или UFloat, то понятно,
-    // что результат будет 0
-    match self.data 
+  {
+    match self.data.toString()
     {
       None => {}
-      Some(ref mut data) => 
+      Some(data) => 
       {
         match data.chars().nth(0)  
         {
@@ -363,9 +363,9 @@ impl Token
           {
             match self.dataType.clone()
             {
-              TokenType::UInt   => { *data = String::from("0"); }
-              TokenType::UFloat => { *data = String::from("0.0"); } // todo: use . (0.0)
-              _ => {}
+              TokenType::UInt   => { self.data = Bytes::from(String::from("0")); }
+              TokenType::UFloat => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
+              _ => { }
             }
           }
           _ => {}
@@ -373,7 +373,6 @@ impl Token
       }
     }
   }
-  */
 
   /// Получает тип данных
   pub fn getDataType(&self) -> &TokenType
@@ -384,7 +383,7 @@ impl Token
   pub fn setDataType(&mut self, newDataType: TokenType) -> ()
   {
     self.dataType = newDataType;
-    // self.convertData(); todo
+    self.convertData();
   }
 
   /// Проверяет примитивный это токен или нет
@@ -417,7 +416,7 @@ impl Token
   pub fn setData<T: Into<Bytes>>(&mut self, newData: T) 
   {
     self.data = newData.into();
-    // self.convertData(); todo
+    self.convertData();
   }
 }
 

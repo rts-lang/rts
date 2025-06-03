@@ -19,54 +19,63 @@ impl Function
   /// todo Может проверять несколько параметров и возвращать список
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
-    /*
     match parameters.get(0)
     { None => {} Some(p0) =>
-    { // Получаем необработанные параметры
-      let structureName: String = p0.getData().toString().unwrap_or_default();
-      match structureName.is_empty()
-      {
-        false =>
+    { // Получаем 0 параметр
+
+      match &p0.tokens
+      { None => {} Some(tokens) =>
+      { // Получаем список токенов
+
+        let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
+        
+        let structureName: String = token.getData().toString().unwrap_or_default();
+        match structureName.is_empty()
         {
-          match structure.getStructureByName(&structureName)
+          false =>
           {
-            Some(structureLink) =>
-            { // Это custom structure
-              let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-              value[i].setDataType( TokenType::String );
-              value[i].setData( structure.dataType.to_string() );
-            }
-            None =>
+            match structure.getStructureByName(&structureName)
             {
-              value[i].setDataType( TokenType::String );
-              match p0.isPrimitiveType()
-              { // Это примитивное значение
-                true => value[i].setData( p0.getData() ),
-                // Это то, чего нет как типа данных
-                false => value[i].setData( String::from("None") )
+              Some(structureLink) =>
+              { // Это custom structure
+                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+                value[i].setDataType( TokenType::String );
+                value[i].setData( structure.dataType.to_string() );
+              }
+              None =>
+              {
+                value[i].setDataType( TokenType::String );
+                match token.isPrimitive()
+                { // Это примитивное значение
+                  true => value[i].setData( token.getData() ),
+                  // Это то, чего нет как типа данных
+                  false => value[i].setData( String::from("None") )
+                }
+              }
+            }
+          }
+          true =>
+          {
+            match parameters.getExpression(structure, 0)
+            { None => {} // Это пустое значение
+              Some(parameter) =>
+              { // Это тип данных
+                value[i].setDataType( TokenType::String );
+                match parameter.isPrimitive()
+                { // Это примитивное значение
+                  true => value[i].setData( parameter.to_string() ),
+                  // Это то, чего нет как типа данных
+                  false => value[i].setData( String::from("None") )
+                }
               }
             }
           }
         }
-        true =>
-        {
-          match parameters.getExpression(structure, 0)
-          { None => {} // Это пустое значение
-            Some(parameter) =>
-            { // Это тип данных
-              value[i].setDataType( TokenType::String );
-              match parameter.isPrimitiveType()
-              { // Это примитивное значение
-                true => value[i].setData( parameter.to_string() ),
-                // Это то, чего нет как типа данных
-                false => value[i].setData( String::from("None") )
-              }
-            }
-          }
-        }
-      }
+        //
+      }}
+      //
     }}
-    */
+    //
   }
   // ===============================================================================================
   /// Возвращает уровень модификации переданной структуры
