@@ -398,13 +398,12 @@ fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &Toke
   // Вкладывание
   blockNesting(tokens, beginType, endType);
 }
-/// Эта функция является дочерней bracketNesting
-/// и занимается только вложением токенов
-/// от начальной скобки до закрывающей
+/// Эта функция является дочерней bracketNesting;
+/// Занимается вложением линий в токены;
+/// От начальной скобки до закрывающей;
+/// Делит токены через запятую.
 fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
 {
-  let mut tokensLength: usize = tokens.len(); // tokens length
-
   let mut isReadData: bool = false; // Читаем данные в буфер?
   let mut readData: Vec<Token> = Vec::new(); // Буфер токенов
   let mut readDataLines: Vec<Line> = Vec::new(); // Линии из токенов
@@ -439,10 +438,11 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
         } else
         {
           // Вложенный блок
+          let before: usize = tokens.len();
           blockNesting(tokens, beginType, endType);
           // Сдвиг текущего списка
-          tokensLength = tokens.len();
-          i = tokensLength-1;
+          let removed: usize = before - tokens.len();
+          i = i - removed;
           //
           readData.insert(0, tokens.remove(i));
         }
@@ -461,12 +461,10 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
           }
         );
       }
-      _ =>
+      _ => match  isReadData
       { // Чтение данных в буфер
-        if isReadData
-        {
-          readData.insert(0, tokens.remove(i));
-        }
+        false => {}
+        true => readData.insert(0, tokens.remove(i))
       }
     }
   }
