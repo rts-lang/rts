@@ -82,29 +82,26 @@ impl Function
       { None => {} Some(tokens) => 
       { // Получаем список токенов
 
-        match tokens.get(0)
-        { None => {} Some(token) =>
-        { // Получаем 0 токен
-          
-          value[i].setDataType( TokenType::String );
-          let result: String = match token.getData().toString()
-          {
-            None => String::from(""),
-            Some(structureName) =>
-            { // Получили название структуры
-              match structure.getStructureByName(&structureName)
-              {
-                None => String::from(""),
-                Some(structureLink) =>
-                { // Получили ссылку на структуру
-                  let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-                  structure.mutable.to_string()
-                }
+        let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
+        
+        value[i].setDataType( TokenType::String );
+        let result: String = match token.getData().toString()
+        {
+          None => String::from(""),
+          Some(structureName) =>
+          { // Получили название структуры
+            match structure.getStructureByName(&structureName)
+            {
+              None => String::from(""),
+              Some(structureLink) =>
+              { // Получили ссылку на структуру
+                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+                structure.mutable.to_string()
               }
             }
-          };
-          value[i].setData(result);
-        }};
+          }
+        };
+        value[i].setData(result);
         //
       }}
       //
