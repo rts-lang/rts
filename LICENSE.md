@@ -1,6 +1,6 @@
 ## Free Contribution License
-#### Version 03.05.2025
-#### https://realtime.su/en/licenses
+#### Version 09.06.2025
+#### [Licenses](https://realtime.su/en/licenses)
 
 Copyright (c) 
  - Anatoly Sergeev (miruji) <miruji@protonmail.com> 
@@ -8,7 +8,7 @@ Copyright (c)
 
 ---
 
-#### Introduction
+### Introduction
 
 Hereinafter, the term "Software" or "Project" refers to the entire project,
 including its source code, libraries, documentation, and compiled files,
@@ -45,7 +45,7 @@ written permission.
 
 ---
 
-#### Contributing
+### Contributing
 
 By contributing to the development of this Project, you grant the Licensor and 
 other recipients the right to use, modify, and distribute your contribution under 
@@ -74,7 +74,7 @@ of the License must apply to the combined work.
 
 ---
 
-#### Terms of Use
+### Terms of Use
 
   1. This Software is provided to you free of charge. You may freely distribute it 
      in source or binary form, including all documentation and other source files 
@@ -119,7 +119,7 @@ of the License must apply to the combined work.
 
 ---
 
-#### Additional Terms
+### Additional Terms
 
 Below this section, additional terms may be added that do not alter the fundamental structure
 or intent of the License. These may include, but are not limited to, clarifications or additional
@@ -127,7 +127,7 @@ conditions regarding patents, trademarks, or other intellectual property concern
 
 ---
 
-#### Contact Information
+### Contact Information
 
 For questions, suggestions, or additional information, please contact the community. 
 We are committed to supporting your understanding and use of the Project.  
