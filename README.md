@@ -23,7 +23,7 @@
 
 - **Dynamic Scripting:** No need to rebuild your program multiple times - run scripts in real time!
 
-- **Freedom of Data Structures:** Create data structures tailored to your needs with full customization of their behavior.
+- **Free Data Structures:** Create data structures tailored to your needs with full customization of their behavior.
 
 - **Package Management:** Built-in package manager provides streamlined global storage and simple versioning using the Hot Stable Versions approach.
 
