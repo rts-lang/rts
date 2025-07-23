@@ -11,7 +11,6 @@ use crate::{
 };
 
 use std::{
-  io::{Write},
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 

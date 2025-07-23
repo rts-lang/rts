@@ -1,4 +1,4 @@
 /.idea
 /target
 /release/rts
-Cargo.lock
+/Cargo.lock

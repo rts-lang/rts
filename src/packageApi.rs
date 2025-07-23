@@ -3,6 +3,7 @@
   todo: Переделать if -> match
 */
 
+/*
 use std::{
   fs::{self, ReadDir, DirEntry, Metadata},
   io::{self, Write},
@@ -10,9 +11,10 @@ use std::{
 };
 
 use crate::{log, logExit};
+*/
 
-use reqwest::Error;
-use serde_json::Value;
+//use reqwest::Error;
+//use serde_json::Value;
 
 /*
 async fn fetchPackage(packageId: &str) -> Result<Value, Error> {
@@ -43,6 +45,7 @@ async fn packageInstall(values: &Vec<String>) -> () {
 */
 
 // основная функция для обращения ко всем остальным
+/*
 pub async fn packageApi(values: &Vec<String>, valuesLength: usize) -> () 
 { // check values length
   let valuesLength: usize = values.len();
@@ -309,3 +312,4 @@ fn packageLocalDelete(packageName: &str) -> usize
       }
     }
 }
+*/

@@ -584,7 +584,7 @@ lazy_static!
 { /// Основная структура; В неё вкладываются остальные;
   /// В эту структуру будут переданы стартовые параметры;
   /// Неизменяемая; Действует во время всей жизни программы;
-  static ref _main: Arc<RwLock<Structure>> = Arc::new(
+  pub static ref _main: Arc<RwLock<Structure>> = Arc::new(
     RwLock::new(
       Structure::new(
         Some(String::from("main")),

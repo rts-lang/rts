@@ -1,39 +1,13 @@
-/* /main
-  RTS init file
+// /main
 
-  Несколько моментов о коде:
-  
-  - match быстрее if; matches! быстрее простой проверки if
-    при множествах значениях на одну проверку; match охватывает
-    варианты ветвления более подробно
-    
-  - .len() == 0 быстрее is_empty()
-  
-  - Использование ссылок на данные быстрее клонирования,
-    но не означает, что всегда нужно использовать ссылки;
-    
-  - Использование Arc+RwLock позволяет нескольким потокам 
-    управлять чем-то без клонирования его самого;
-    
-  - На RwLock следует вовремя использовать drop(),
-    не создавать переменные на них, а также использовать в
-    замкнутых временных блоках.
-    
-  - Следует избегать флагов mut;
-  
-  - Следует указывать типы везде, где это возможно;
-  
-  - Объявление данных следует выносить за циклы.
-  
-  - Следует использовать временные блоки, чтобы оставались 
-    только необходимые данные.
-*/
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
-#[macro_use]
-extern crate lazy_static;
+#[allow(improper_ctypes)]
+
+include!("prelude.rs");
+// =================================================================================================
 
 use std::{
   time::{Instant,Duration},
@@ -42,23 +16,6 @@ use std::{
   fs::File
 };
 
-use crate::logger::*;
-
-mod logger;
-mod tokenizer;
-mod parser;
-mod packageApi;
-// other globals
-pub static mut _filePath: String = String::new(); // run file path
-pub static mut _debugMode: bool = false;          // debug flag
-// input & output
-pub static mut _argc: usize       = 0;            // arhuments count
-pub static mut _argv: Vec<String> = Vec::new();   // arguments vector
-
-pub static mut _exitCode: i32 = 0;      // Значение которое вернёт программа при завершении;
-pub static mut _exit:     bool = false; // Завершилась ли программа ?
-// version
-pub static _version: &str = "231206.0";
 // help
 fn help() -> ()
 {
@@ -87,7 +44,7 @@ async fn main() -> io::Result<()>
   //
   use crate::tokenizer::*;
   use crate::parser::*;
-  use crate::packageApi::packageApi;
+  // use crate::packageApi::packageApi; todo
 
   // args to key-values
   let mut args: (String, Vec<String>) = (String::new(), Vec::new());
@@ -126,7 +83,7 @@ async fn main() -> io::Result<()>
         "help" => help(),
         "package" =>
         { // package
-          packageApi(&args.1,valuesLength).await;
+          // packageApi(&args.1,valuesLength).await; todo
           logExit(0);
         },
         _ if (key == "run" || key == "drun") && valuesLength >= 1 =>
