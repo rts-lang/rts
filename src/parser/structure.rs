@@ -397,40 +397,60 @@ impl Structure
     }
   }
 
-  /// Ищет структуру по имени и возвращает либо None, либо ссылку на неё
-  pub fn getStructureByName(&self, name: &str) -> Option< Arc<RwLock<Structure>> > 
+  /// Ищет структуру по имени (даже если это ссылка)
+  ///
+  /// Пример: "parent.child.grandchild" будет искать:
+  ///   1. "parent" в корневых структурах
+  ///   2. "child" в дочерних структурах "parent"
+  ///   3. "grandchild" в дочерних структурах "child"
+  /// 
+  /// todo Не смотрит выше self. Должен ли?
+  pub fn getStructureByName(&self, name: &str) -> Option<Arc<RwLock<Structure>>>
   {
-    // todo добавить больше комментариев ниже
+    // Разбиваем имя на части по разделителю '.'
+    let segments: Vec<String> = name.split('.')
+      .map(|s| s.to_string())
+      .collect();
 
-    // Пытаемся найти в текущей структуре
-    match &self.structures 
-    { None => {} Some(someStructures) =>
-    {
-      for childStructureLink in someStructures
-      {
-        match
-          name == childStructureLink.read().unwrap()
-            .name.clone().unwrap_or_default() // todo плохо
-        { false => {} true  =>
-        {
-          return Some( childStructureLink.clone() );
-        }}
+    if segments.is_empty() {
+      return None;
+    }
+
+    let mut current_structure: Option<Arc<RwLock<Structure>>> = None;
+
+    for segment in segments.iter() {
+      let children_opt: Option<Vec<Arc<RwLock<Structure>>>> = match &current_structure {
+        None => self.structures.clone(), // Клонируем Arc, нет проблем с временем жизни
+        Some(structure) => {
+          let structure_guard = structure.read().unwrap();
+          structure_guard.structures.clone() // Клонируем внутренний вектор
+        }
+      };
+
+      let mut found = false;
+      let mut next_structure: Option<Arc<RwLock<Structure>>> = None;
+
+      if let Some(children) = children_opt {
+        for child in children {
+          let child_guard = child.read().unwrap();
+          if let Some(child_name) = &child_guard.name {
+            if child_name == segment {
+              found = true;
+              next_structure = Some(child.clone());
+              break;
+            }
+          }
+        }
       }
-    }}
 
-    // Пытаемся найти в родительской структуре
-    // todo необходимо правильно определять область видимости
-    /*
-    match &self.parent 
-    { None => None, Some(parentLink) =>
-    { // check the parent structure if it exists
-      println!("      > F3 {}",self.name.clone().unwrap_or_default());
-      let a = parentLink.read().unwrap();
-      println!("      > F4 {}",a.name.clone().unwrap_or_default());
-      a.getStructureByName(name)
-    }}
-    */
-    None
+      if !found {
+        return None;
+      }
+
+      current_structure = next_structure;
+    }
+
+    current_structure
   }
 
   /// Добавляет новую вложенную структуру в текущую структуру
@@ -650,7 +670,7 @@ impl Structure
 
   /// Получает значение из ссылки на структуру;
   /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
-  fn linkExpression(&self, currentStructureLink: Option< Arc<RwLock<Structure>> >, link: &mut Vec<String>, parameters: Option< Vec<Token> >) -> Token
+  pub fn linkExpression(&self, currentStructureLink: Option< Arc<RwLock<Structure>> >, link: &mut Vec<String>, parameters: Option< Vec<Token> >) -> Token
   { // Обработка динамического выражение
     match link[0].starts_with('[')
     { false => {} true => { // Получаем динамическое выражение между []
@@ -1093,8 +1113,8 @@ impl Structure
         }
         TokenType::Word =>
         { // Если это TokenType::Word, то
-          let data:       String = value[0].getData().toString().unwrap_or_default();// token data
-          let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
+          let data:       String = value[0].getData().toString().unwrap_or_default(); // token data
+          let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
           value[0].setDataType( linkResult.getDataType().clone() ); // Ставим новый dataType
           value[0].setData( linkResult.getData() );  // Ставим новый data
         }

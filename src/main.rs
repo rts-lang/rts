@@ -4,8 +4,6 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
-#[allow(improper_ctypes)]
-
 include!("prelude.rs");
 // =================================================================================================
 
@@ -36,8 +34,7 @@ fn help() -> ()
   logExit(0);
 }
 // main
-#[tokio::main]
-async fn main() -> io::Result<()> 
+fn main() -> io::Result<()> 
 {
   let startTime: Instant = Instant::now();
 

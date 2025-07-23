@@ -1,33 +1,33 @@
 # Проверка на изменяемость
 
 a:UInt
-println(a,type(a),mut(a)) # _ Final
+println(a,type(a),mut(a)) # _ UInt Final
 
 println("\n# a")
 a = 20
 a = 30
-println(a,type(a),mut(a)) # 20 Constant
+println(a,type(a),mut(a)) # 20 UInt Constant
 
 println("\n# b")
 b:UInt = 10
-println(b,type(b),mut(b)) # 10 Constant
+println(b,type(b),mut(b)) # 10 UInt Constant
 
 println("\n# bb")
 bb = -10
-println(bb,type(bb),mut(bb)) # 10 Constant
+println(bb,type(bb),mut(bb)) # -10 Int Constant
 
 println("\n# c")
 c~:UInt = -10
-println(c,type(c),mut(c)) # 10 Variable
+println(c,type(c),mut(c)) # 0 UInt Variable
 
 println("\n# cc")
 c = 10
-println(c,type(c),mut(c)) # 10 Variable
+println(c,type(c),mut(c)) # 10 UInt Variable
 
 println("\n# d")
 d~~:UInt = -10
-println(d,type(d),mut(d)) # 10 Dynamic
+println(d,type(d),mut(d)) # -10 Int Dynamic
 
 println("\n# dd")
 d = 10
-println(d,type(d),mut(d)) # 10 Dynamic
+println(d,type(d),mut(d)) # 10 UInt Dynamic

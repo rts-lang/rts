@@ -17,6 +17,8 @@ impl Function
   /// Возвращает тип данных переданной структуры или значения
   ///
   /// todo Может проверять несколько параметров и возвращать список
+  /// 
+  /// todo Struct type != Token type
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.get(0)
@@ -26,7 +28,7 @@ impl Function
       match &p0.tokens
       { None => {} Some(tokens) =>
       { // Получаем список токенов
-
+    
         let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
         
         let structureName: String = token.getData().toString().unwrap_or_default();
@@ -57,7 +59,11 @@ impl Function
           true =>
           {
             match parameters.getExpression(structure, 0)
-            { None => {} // Это пустое значение
+            { None => 
+              { // Это пустое значение
+                value[i].setDataType( TokenType::String );
+                value[i].setData( String::from("None") )
+              } 
               Some(parameter) =>
               { // Это тип данных
                 value[i].setDataType( TokenType::String );
@@ -99,6 +105,7 @@ impl Function
           None => String::from(""),
           Some(structureName) =>
           { // Получили название структуры
+            println!(">>> {:?}",structureName);
             match structure.getStructureByName(&structureName)
             {
               None => String::from(""),
