@@ -12,7 +12,9 @@ use crate::bytes::Bytes;
 use crate::line::Line;
 use crate::structure::{Structure, StructureMut, StructureType};
 use crate::token::{Token};
+// =================================================================================================
 
+/// Основная структура-прокладка для создания оболочки между RTS-lib и другим проектом;
 pub struct RTS 
 {
   namespace: String,
@@ -84,7 +86,7 @@ impl RTS
   /// Запускает код
   pub fn run(&self, script: &str) 
   {
-    unsafe{_debugMode = true;}
+    // unsafe{_debugMode = true;}
     let buffer: Vec<u8> = script.as_bytes().to_vec();
     parseLines( readTokens(buffer, unsafe{_debugMode}) );
   }
@@ -93,7 +95,7 @@ impl RTS
   {
     let ptr: *const () = method as *const ();
     let rawBytes: Vec<u8> = (ptr as usize).to_le_bytes().to_vec();
-    println!("raw bytes ({}): {:?}", rawBytes.len(), rawBytes);
+    //println!("raw bytes ({}): {:?}", rawBytes.len(), rawBytes);
     Bytes::new(rawBytes)
   }
 }

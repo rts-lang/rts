@@ -2,8 +2,8 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="logo-light.svg">
-    <img alt=""
-         src="logo.svg"
+    <img alt="Real-Time Script logo"
+         src="logo-dark.svg"
          width="20%">
   </picture>
 

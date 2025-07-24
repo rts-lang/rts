@@ -523,7 +523,7 @@ impl Structure
 
         let mut rightPartValue: Token = self.expression(&mut rightPart.clone());
 
-        let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
+        let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
 
         // Изменяем тип структуры если он не был указан
         match
@@ -570,7 +570,7 @@ impl Structure
         // todo сейчас тут много ошибок
         let leftValue: Token = 
         {
-          let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
           match &structure.lines
           {
             None => Token::newEmpty(TokenType::None),
@@ -591,7 +591,7 @@ impl Structure
         let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо
 
         // Далее обрабатываем саму операцию
-        let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
+        let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
         match op 
         { // Определяем тип операции
           TokenType::PlusEquals => 
@@ -637,7 +637,7 @@ impl Structure
           None => { setNone(value, index); } // Не нашли структуру
           Some(structureLink) => 
           {
-            let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+            let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
             // Если это просто обращение к имени структуры
             match &structure.lines
             { None => {} Some(lines) =>
@@ -713,7 +713,7 @@ impl Structure
         if let Some(ref currentStructureLock) = currentStructureLink 
         { // Это структура, которая была передана предыдущем уровнем ссылки;
           // Только в ней мы можем найти нужную линию
-          let currentStructure: RwLockReadGuard<'_, Structure> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок
+          let currentStructure: RwLockReadGuard<Structure> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок
 
           match &currentStructure.lines
           { None => {} Some(lines) =>
@@ -784,7 +784,7 @@ impl Structure
                         { None => {} Some(childStructureLink) =>
                         { // Пробуем проверить что там 1 линия вложена в структуре;
                           // После чего сможем посчитать её значение.
-                          let childStructure: RwLockReadGuard<'_, Structure> = childStructureLink.read().unwrap();
+                          let childStructure: RwLockReadGuard<Structure> = childStructureLink.read().unwrap();
                           match lines.len() == 1
                           { false => {} true =>
                           {
@@ -834,7 +834,7 @@ impl Structure
             None => self.getStructureByName(&link[0]),
             Some(currentStructureLink) => 
             { // Если есть в локальном окружении
-              let structure: RwLockReadGuard<'_, Structure> = currentStructureLink.read().unwrap();
+              let structure: RwLockReadGuard<Structure> = currentStructureLink.read().unwrap();
               let hasLines: bool = 
               {
                 let childStructureLink: Option< Arc<RwLock<Structure>> > = structure.getStructureByName(&link[0]);
@@ -878,7 +878,7 @@ impl Structure
               }  
               true =>
               { // Если это конец, то берём последнюю структуру и работаем с ней
-                let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
                 match &structure.lines
                 { None => {} Some(lines) =>
                 {
@@ -1317,7 +1317,7 @@ impl Structure
                 None => {} // Если структуры не было, то пропускаем;
                 Some(structureLink) =>
                 { // Мы должны проверить, что структура имеет только одно вложение;
-                  let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+                  let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
                   match &structure.lines
                   {
                     None => {} // Если линий нет, то пропускаем
@@ -1328,7 +1328,7 @@ impl Structure
                         false => {} // Если вложений больше 1, то пропускаем;
                         true =>
                         {
-                          let line: RwLockReadGuard<'_, Line> = lines[0].read().unwrap();
+                          let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
                           match &line.tokens
                           { None => {} Some(tokens) =>
                           {

@@ -548,7 +548,7 @@ fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
             .parent = Some( linesLinks[index].clone() );
         }
         // push nesting
-        let mut currentLine: RwLockWriteGuard<'_, Line> = linesLinks[index].write().unwrap();
+        let mut currentLine: RwLockWriteGuard<Line> = linesLinks[index].write().unwrap();
         match &mut currentLine.lines
         {
           Some(lineLines) =>
@@ -583,7 +583,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
   // Это может быть либо последний токен, либо первый токен в большом комментарии;
 
   let mut deleteLine: bool;
-  let mut line: RwLockWriteGuard<'_, Line>;
+  let mut line: RwLockWriteGuard<Line>;
 
   while index < linesLinksLength
   {
@@ -811,7 +811,7 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
   let identStr1: String = " ".repeat(indent*2);   // Это отступ для главной строки
   let identStr2: String = format!("{} ", identStr1); // Это для дочерних токенов
 
-  let mut line: RwLockReadGuard<'_, Line>;
+  let mut line: RwLockReadGuard<Line>;
   for (i, lineLink) in linesLinks.iter().enumerate()
   { // Проходи по линиям через чтение
     line = lineLink.read().unwrap();

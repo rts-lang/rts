@@ -41,7 +41,7 @@ mod packageApi;
 pub use logger::*;
 pub use tokenizer::*;
 pub use parser::*;
-pub use packageApi::*;
+// pub use packageApi::*; todo
 
 // =================================================================================================
 
@@ -51,7 +51,7 @@ pub static mut _filePath: String = String::new();
 pub static mut _debugMode: bool = false;
 
 /// // arhuments count
-pub static mut _argc: usize       = 0;
+pub static mut _argc: usize = 0;
 /// // arguments vector
 pub static mut _argv: Vec<String> = Vec::new();
 
@@ -60,4 +60,4 @@ pub static mut _exitCode: i32 = 0;
 /// // Завершилась ли программа?
 pub static mut _exit: bool = false;
 /// version
-pub static _version: &str = "231206.0";
+pub static _version: &str = "241206";

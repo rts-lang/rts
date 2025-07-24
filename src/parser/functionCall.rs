@@ -152,7 +152,7 @@ impl Function
       let randomNumber: usize =
         match min < max
         {
-          true  => rand::thread_rng().gen_range(min..=max),
+          true  => rand::rng().random_range(min..=max),
           false => 0
         };
       value[i].setDataType( TokenType::UInt );

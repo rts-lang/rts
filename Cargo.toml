@@ -2,16 +2,21 @@
 name = "rts"
 edition = "2021"
 authors = ["miruji <miruji@protonmail.com>"]
-description = "Reactive Scripting Language of Free Data Structures"
-license-file = "LICENCE"
+description = "Real-Time Programming Language of Free Data Structures"
+license-file = "LICENCE.md"
 readme = "README.md"
+
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
 publish = false
 
 [dependencies]
 termion = "4.0.5"
 lazy_static = "1.5.0"
 rand = "0.9.2"
-log = "0.4.27"
 
 [lib]
 name = "rts"

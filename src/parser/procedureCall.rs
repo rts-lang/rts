@@ -54,7 +54,7 @@ impl Procedure
     match &structure.parent
     { None => {} Some(parentLink) =>
     { // Получаем ссылку на линию
-      let parent: RwLockReadGuard<'_, Structure> = parentLink.read().unwrap();
+      let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
       let lineIndexBuffer: usize = parent.lineIndex;
 
       match &parent.lines
@@ -88,7 +88,7 @@ impl Procedure
   fn sleep(structure: &Structure, parameters: &Parameters)
   {
     match parameters.getExpression(structure, 0)
-    { None => {} Some(p0) => unsafe
+    { None => {} Some(p0) => 
     {
       let valueNumber: u64 =
         p0

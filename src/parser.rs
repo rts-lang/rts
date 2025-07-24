@@ -77,11 +77,11 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
       // Редактируемый родитель, поскольку мы собираемся присвоить значение его result
       let newResultData: Token =
       { // Используем expression, чтобы получить результат выражения;
-        let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+        let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
         structure.expression(&mut lineTokens)
       };
 
-      let mut structure: RwLockWriteGuard<'_, Structure> = structureLink.write().unwrap();
+      let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
 
       // Структура ожидает какой-то тип в результате,
       // либо это может быть TokenType:None. Но мы просто будем менять data
@@ -466,7 +466,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
             // это будет означать, что мы нашли все возможные условные блоки.
             let lineBottomLink: Arc<RwLock<Line>> = lines[i].clone(); // ссылка на нижнюю линию
             { // берём нижнюю линию на чтение
-              let bottomLine: RwLockReadGuard<'_, Line> = lineBottomLink.read().unwrap();
+              let bottomLine: RwLockReadGuard<Line> = lineBottomLink.read().unwrap();
               match &bottomLine.tokens
               { // Выходим если линия пустая
                 None => { break; }
@@ -499,7 +499,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
     for conditionLink in &mut conditions 
     { // итак, мы читает ссылки на условия в цикле;
       // после чего мы берём само условие на чтение
-      let condition: RwLockReadGuard<'_, Line> = conditionLink.read().unwrap();
+      let condition: RwLockReadGuard<Line> = conditionLink.read().unwrap();
       match &condition.tokens
       { None => {} Some(tokens) =>
       {
@@ -608,7 +608,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }}
 
   { // Присваиваем в главную структуру
-    let mut main: RwLockWriteGuard<'_, Structure> = _main.write().unwrap();
+    let mut main: RwLockWriteGuard<Structure> = _main.write().unwrap();
 
     // Присваиваем линии от Tokenizer
     main.lines = Some(tokenizerLinesLinks);
@@ -713,7 +713,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   // а также индекс чтения строк (у каждой структуры он свой, чтобы не путать чтение)
   let (lineIndex, linesLength): (*mut usize, usize) = 
   {
-    let structure: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap(); // Читаем структуру
+    let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap(); // Читаем структуру
     (
       { &structure.lineIndex as *const usize as *mut usize }, // Возвращаем ссылку на этот индекс
       match &structure.lines
