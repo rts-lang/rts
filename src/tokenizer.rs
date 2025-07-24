@@ -697,6 +697,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
   let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
   let identString:      String = " ".repeat(indent*2+1);     // Отступ для вложения токенов
   
+  if tokens.len() == 0 { return; }
   let tokenCount: usize = tokens.len()-1;
   let mut c: char;
 

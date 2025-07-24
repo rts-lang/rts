@@ -8,19 +8,21 @@ include!("prelude.rs");
 // =================================================================================================
 
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
+use crate::bytes::Bytes;
 use crate::line::Line;
 use crate::structure::{Structure, StructureMut, StructureType};
 use crate::token::{Token};
 
-//type Method = Arc<dyn Fn(Vec<Structure>) -> Structure + Send + Sync>;
-
-pub struct RTS {
+pub struct RTS 
+{
   namespace: String,
 }
 
-impl RTS {
+impl RTS 
+{
   /// Создаёт namespace структуру и RTS оболочку
-  pub fn new(name: String) -> Self {
+  pub fn new(name: String) -> Self 
+  {
     // 
     let mut main: RwLockWriteGuard<Structure> = _main.write().unwrap();
     main.pushStructure(
@@ -51,7 +53,8 @@ impl RTS {
   }
   
   /// Добавляет структуру в namespace структуру
-  pub fn newStructure(&self, structureName: String, structureMut: StructureMut, structureType: StructureType, structureTokens: Vec<Token>) {
+  pub fn newStructure(&self, structureName: String, structureMut: StructureMut, structureType: StructureType, structureTokens: Vec<Token>) 
+  {
     //
     let mainStructure: RwLockWriteGuard<Structure> = _main.write().unwrap();
     let namespaceStructureLink: Arc<RwLock<Structure>> = mainStructure.getStructureByName(self.namespace.as_str()).unwrap();
@@ -79,9 +82,18 @@ impl RTS {
   }
 
   /// Запускает код
-  pub fn run(&self, script: &str) {
+  pub fn run(&self, script: &str) 
+  {
     unsafe{_debugMode = true;}
     let buffer: Vec<u8> = script.as_bytes().to_vec();
     parseLines( readTokens(buffer, unsafe{_debugMode}) );
+  }
+  
+  pub fn getNative(method: extern "C" fn(args: &[Token])) -> Bytes 
+  {
+    let ptr: *const () = method as *const ();
+    let rawBytes: Vec<u8> = (ptr as usize).to_le_bytes().to_vec();
+    println!("raw bytes ({}): {:?}", rawBytes.len(), rawBytes);
+    Bytes::new(rawBytes)
   }
 }

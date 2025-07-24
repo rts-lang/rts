@@ -105,7 +105,6 @@ impl Function
           None => String::from(""),
           Some(structureName) =>
           { // Получили название структуры
-            println!(">>> {:?}",structureName);
             match structure.getStructureByName(&structureName)
             {
               None => String::from(""),

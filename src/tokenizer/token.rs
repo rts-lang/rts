@@ -136,6 +136,9 @@ pub enum TokenType
 
   /// Ссылка на структуру
   Link,
+  
+  /// Что-то нативное
+  Native,
 
 // words
   /// Integer
@@ -243,6 +246,8 @@ impl ToString for TokenType
       TokenType::DoubleTilde => String::from("~~"),
 
       TokenType::Link => String::from("Link"),
+
+      TokenType::Native => String::from("Native"),
       
       // words
       TokenType::Int      => String::from("Int"),

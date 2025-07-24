@@ -13,7 +13,7 @@ use crate::{
 use std::{
   sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
-
+use crate::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
 
 // Addition for Structure ==========================================================================
@@ -405,52 +405,76 @@ impl Structure
   ///   3. "grandchild" в дочерних структурах "child"
   /// 
   /// todo Не смотрит выше self. Должен ли?
-  pub fn getStructureByName(&self, name: &str) -> Option<Arc<RwLock<Structure>>>
+  pub fn getStructureByName(&self, name: &str) -> Option<Arc<RwLock<Structure>>> 
   {
-    // Разбиваем имя на части по разделителю '.'
-    let segments: Vec<String> = name.split('.')
-      .map(|s| s.to_string())
+    // "a.b.c" -> ["a", "b", "c"]
+    let segments: Vec<String> = name
+      .split('.')
+      .map(|segment: &str| segment.to_string())
       .collect();
 
-    if segments.is_empty() {
-      return None;
+    // Если имя пустое - нечего искать
+    match segments.is_empty() 
+    {
+      false => (),
+      true => return None
     }
 
-    let mut current_structure: Option<Arc<RwLock<Structure>>> = None;
+    // Начинаем с корневого уровня (None)
+    let mut currentStructure: Option<Arc<RwLock<Structure>>> = None;
 
-    for segment in segments.iter() {
-      let children_opt: Option<Vec<Arc<RwLock<Structure>>>> = match &current_structure {
-        None => self.structures.clone(), // Клонируем Arc, нет проблем с временем жизни
-        Some(structure) => {
-          let structure_guard = structure.read().unwrap();
-          structure_guard.structures.clone() // Клонируем внутренний вектор
+    // Пошагово проходим по каждому сегменту имени
+    for segment in segments.iter() 
+    {
+      // Определяем список структур для поиска на текущем уровне:
+      // если currentStructure = None, это означает корневой уровень self.structures
+      // иначе — получаем дочерние структуры текущей найденной структуры
+      let childrenOpt: Option<Vec<Arc<RwLock<Structure>>>> = match &currentStructure {
+        None => self.structures.clone(), // Корневые структуры
+        Some(structureRef) => {
+          let structureGuard: RwLockReadGuard<Structure> = structureRef.read().unwrap();
+          structureGuard.structures.clone() // Дочерние структуры текущей
         }
       };
 
-      let mut found = false;
-      let mut next_structure: Option<Arc<RwLock<Structure>>> = None;
+      // Флаг найденной структуры
+      let mut found: bool = false;
+      // Следующая структура, если сегмент найден
+      let mut nextStructure: Option<Arc<RwLock<Structure>>> = None;
 
-      if let Some(children) = children_opt {
-        for child in children {
-          let child_guard = child.read().unwrap();
-          if let Some(child_name) = &child_guard.name {
-            if child_name == segment {
+      // Обрабатываем наличие дочерних структур
+      match childrenOpt 
+      { None => {} Some(children) => 
+      {
+        for child in children 
+        {
+          let childGuard: RwLockReadGuard<Structure> = child.read().unwrap();
+          match &childGuard.name 
+          {
+            Some(childName) if childName == segment => 
+            {
               found = true;
-              next_structure = Some(child.clone());
+              nextStructure = Some(child.clone());
               break;
             }
+            _ => ()
           }
         }
+      }}
+
+      // Если не найдено соответствие текущему сегменту - путь невалиден
+      match found
+      {
+        true => (),
+        false => return None
       }
 
-      if !found {
-        return None;
-      }
-
-      current_structure = next_structure;
+      // Переходим на следующий уровень структуры
+      currentStructure = nextStructure;
     }
 
-    current_structure
+    // После успешного прохождения всех сегментов возвращаем найденную структуру
+    currentStructure
   }
 
   /// Добавляет новую вложенную структуру в текущую структуру
@@ -1172,18 +1196,42 @@ impl Structure
         }
         TokenType::Link =>
         { // Это ссылка на структуру, может выдать значение, запустить метод и т.д;
-          let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
+          // todo
+          //let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
           let     data: String = value[i].getData().toString().unwrap_or_default();
           let mut link: Vec<String> =
             data.split('.')
               .map(|s| s.to_string())
               .collect();
-
-          // todo вернуть обратно
-          //let linkResult: Token = self.linkExpression(None, &mut link, parameters.getAll());
-          //value[i].setDataType( linkResult.getDataType() );
-          //value[i].setData( linkResult.getData() );
+          
+          let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));//parameters.getAll()); todo
+          value[i].setDataType( linkResult.getDataType().clone() );
+          value[i].setData( linkResult.getData() );
+          
+          // native method
+          if value[i].getDataType() == &TokenType::Native 
+          {
+            // Создаём массив нужного размера (разные usize могут быть)
+            let mut array = [0u8; size_of::<usize>()];
+            {
+              let data: Bytes = value[0].getData();
+              let all: Option<&[u8]> = data.getAll();
+              let bytes: &[u8] = all.unwrap();
+              array.copy_from_slice(bytes);
+            }
+  
+            //
+            let addr: usize = usize::from_le_bytes(array);
+            let fnPtr: *const () = addr as *const ();
+            let func: extern "C" fn(args: &[Token]) = unsafe { std::mem::transmute(fnPtr) };
+            
+            // Собираем параметры
+            let bracket: &Token = &value[1];
+            let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
+            let parameters: Parameters = Parameters::new( Some(bracketLines.to_vec()) );
+            func( &parameters.getAllExpressions(self).unwrap() );
+          }
         } 
         TokenType::Minus =>
         { // это выражение в круглых скобках, но перед ними отрицание -
