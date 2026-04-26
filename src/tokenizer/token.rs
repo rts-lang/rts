@@ -3,8 +3,8 @@
 */
 
 use std::fmt;
-use crate::parser::structure::StructureType;
 use crate::parser::bytes::Bytes;
+use crate::parser::structure::structure::StructureType;
 use crate::tokenizer::line::Line;
 
 // TokenType =======================================================================================
@@ -310,6 +310,10 @@ pub struct Token
   dataType:   TokenType,
   /// Набор вложенных единиц хранения
   pub lines: Option< Vec<Line> >,
+  #[cfg(feature = "analyzer")]
+  pub start: usize,
+  #[cfg(feature = "analyzer")]
+  pub end: usize
 }
 impl Token 
 {
@@ -322,6 +326,10 @@ impl Token
       data: data.into(),
       dataType,
       lines: None,
+      #[cfg(feature = "analyzer")]
+      start: 0,
+      #[cfg(feature = "analyzer")]
+      end: 0
     }
   }
   
@@ -335,6 +343,10 @@ impl Token
       data: Bytes::empty(),
       dataType,
       lines: None,
+      #[cfg(feature = "analyzer")]
+      start: 0,
+      #[cfg(feature = "analyzer")]
+      end: 0
     }
   }
   /// Пустой, но выполняет роль держателя вложения
@@ -347,6 +359,10 @@ impl Token
       data: Bytes::empty(),
       dataType: TokenType::None,
       lines: Some(lines),
+      #[cfg(feature = "analyzer")]
+      start: 0,
+      #[cfg(feature = "analyzer")]
+      end: 0
     }
   }
 

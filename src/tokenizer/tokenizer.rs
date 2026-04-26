@@ -1,19 +1,18 @@
-/* /tokenizer
-*/
-
-pub mod token;
-pub mod line;
-
-use crate::{
-  logger::*,
-  tokenizer::token::*,
-  tokenizer::line::*
-};
-
 use std::{
-  time::{Instant,Duration},
-  sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}
+  time::Instant,
+  sync::{Arc, RwLock, RwLockWriteGuard}
 };
+#[cfg(not(feature = "analyzer"))]
+use std::{
+  time::Duration,
+  sync::RwLockReadGuard,
+};
+use crate::tokenizer::line::Line;
+use crate::tokenizer::token::{Token, TokenType};
+#[cfg(not(feature = "analyzer"))]
+use crate::logger::logger::{formatPrint, log, logSeparator};
+// =================================================================================================
+// /tokenizer
 
 /// Проверяет buffer по index и так пропускаем возможные комментарии;
 /// Потом они будут удалены по меткам
@@ -692,6 +691,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
 }
 
 /// Выводит токен, его тип данных
+#[cfg(not(feature = "analyzer"))]
 pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> ()
 {
   let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
@@ -806,6 +806,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
   }
 }
 /// Выводит информацию о линии, а также токены линии
+#[cfg(not(feature = "analyzer"))]
 pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
 {
   let identStr1: String = " ".repeat(indent*2);   // Это отступ для главной строки
@@ -846,6 +847,7 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
 /// предварительные базовые типы данных
 pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 {
+  #[cfg(not(feature = "analyzer"))]
   match debugMode
   {
     true =>
@@ -1031,6 +1033,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
+  #[cfg(not(feature = "analyzer"))]
   match debugMode
   { false => {} true =>
   {

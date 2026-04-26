@@ -3,10 +3,11 @@ use std::io::Write;
 use std::process::{Command, ExitStatus, Output};
 use std::str::SplitWhitespace;
 use std::sync::RwLockReadGuard;
-use rand::Rng;
 use crate::parser::structure::parameters::Parameters;
-use crate::parser::structure::Structure;
+use crate::parser::structure::structure::Structure;
 use crate::tokenizer::token::{Token, TokenType};
+#[cfg(not(feature = "analyzer"))]
+use rand::Rng;
 
 // Function =======================================================================================
 /// Это набор базовых функций
@@ -127,6 +128,7 @@ impl Function
   /// Возвращаем случайное число типа UInt от min до max
   fn randUInt(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
+    #[cfg(not(feature = "analyzer"))]
     if !parameters.isNone() // todo оставить либо это, либо снизу нули
     {
       let min: usize =

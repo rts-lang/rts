@@ -1,20 +1,16 @@
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::parser::bytes::Bytes;
+use crate::parser::structure::parameters::Parameters;
+use crate::parser::uf64::uf64;
+use crate::parser::value::Value;
+use crate::tokenizer::line::Line;
+use crate::tokenizer::token::{ToStructureType, Token, TokenType};
+use crate::tokenizer::tokenizer::readTokens;
+// =================================================================================================
 /* /parser/structure
   структура, которая представляет свободную ячейку данных в памяти;
   имеет свои настройки, место хранения.
 */
-
-pub mod parameters;
-
-use crate::{
-  tokenizer::{line::*, token::*, readTokens},
-  parser::{value::*, uf64::*},
-};
-
-use std::{
-  sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
-use crate::bytes::Bytes;
-use crate::parser::structure::parameters::Parameters;
 
 // Addition for Structure ==========================================================================
 /// Вычисляет по математической операции значение и тип нового токена из двух
