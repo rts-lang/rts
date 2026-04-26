@@ -1,10 +1,9 @@
 use std::{
-  time::Instant,
   sync::{Arc, RwLock, RwLockWriteGuard}
 };
 #[cfg(not(feature = "analyzer"))]
 use std::{
-  time::Duration,
+  time::{Instant, Duration},
   sync::RwLockReadGuard,
 };
 use crate::tokenizer::line::Line;
@@ -102,6 +101,7 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   }
 
   *index = savedIndex;
+  
   // next return
   match (rational, dot, negative) 
   { // rational, dot, negative
@@ -111,6 +111,7 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     (_, false, true) => Token::new( TokenType::Int,      result ),
     _                => Token::new( TokenType::UInt,     result ),
   }
+  //
 }
 
 /// Проверяет что байт является буквой a-z A-Z
@@ -156,6 +157,7 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   }
 
   *index = savedIndex;
+  
   // next return
   match isLink 
   {
@@ -179,8 +181,10 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         //
         _          => Token::new( TokenType::Word, result ),
       }
+      //
     }
   }
+  //
 }
 
 /// Проверяет buffer по index и так находит возможные
@@ -842,6 +846,21 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
   //
 }
 
+// =================================================================================================
+
+/// Вспомогательный макрос для добавления токенов start/end
+#[cfg(feature = "analyzer")]
+macro_rules! pushLineToken 
+{
+  ($token:expr, $lineTokens:expr, $start:expr, $end:expr) => {
+    {
+      $token.start = $start;
+      $token.end = $end;
+      $lineTokens.push($token);
+    }
+  };
+}
+
 /// Основная функция для чтения токенов и получения чистых линий из них;
 /// Токены в этот момент не только сгруппированы в линии, но и имеют
 /// предварительные базовые типы данных
@@ -858,13 +877,13 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     }
     false => {}
   }
+  #[cfg(not(feature = "analyzer"))]
+  let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
   let mut      index: usize = 0;               // Основной индекс чтения
   let   bufferLength: usize = buffer.len();    // Размер буфера байтов
   let mut lineIndent: usize = 0;               // Текущий отступ линии
   let mut lineTokens: Vec<Token> = Vec::new(); // Прочитанные токены текущей линии
-
-  let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
   let mut linesLinks:     Vec< Arc<RwLock<Line>> > = Vec::new(); // Ссылки на готовые линии
   let mut readLineIndent: bool                     = true;       // Флаг на проверку есть ли indent сейчас
@@ -872,7 +891,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   let mut byte: u8;
   while index < bufferLength
   { // Читаем байты
-    byte = buffer[index]; // текущий байт
+    byte = buffer[index]; // Текущий байт
 
     // Проверяем отступы, они могут быть указаны пробелами,
     // либо readLineIndent будет true после конца строки предыдущей линии
@@ -885,7 +904,9 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
       }
       false =>
       {
+        let start: usize = index; // Начало токена
         readLineIndent = false;
+        
         // Смотрим является ли это endline
         if byte == b'\n' || byte == b';'
         { // Если это действительно конец строки,
@@ -957,15 +978,30 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         if byte == b'#'
         { // Ставим метку на комментарий в линии, по ним потом будут удалены линии
           deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
-          lineTokens.push( Token::newEmpty(TokenType::Comment) );
+          let mut token: Token = Token::newEmpty(TokenType::Comment);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
+          lineTokens.push(token);
         } else
         if isDigit(&byte) || (byte == b'-' && index+1 < bufferLength && isDigit(&buffer[index+1]))
         { // Получаем все возможные численные примитивные типы данных
-          lineTokens.push( getNumber(&buffer, &mut index, &bufferLength) );
+          let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
+          lineTokens.push(token);
         } else
         if isLetter(&byte)
         { // Получаем все возможные и зарезервированные слова
-          lineTokens.push( getWord(&buffer, &mut index, &bufferLength) );
+          let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
+          lineTokens.push(token);
         } else
         if matches!(byte, b'\'' | b'"' | b'`')
         { // Получаем Char, String, RawString
@@ -985,6 +1021,9 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
                   if *backToken.getDataType() == TokenType::Word &&
                      backToken.getData().toString().unwrap_or_default() == "f"
                   {
+                    #[cfg(feature = "analyzer")]
+                    let startF = backToken.start; // Запоминаем начало f-токена
+                    //
                     match tokenType
                     {
                       TokenType::RawString =>
@@ -1001,13 +1040,28 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
                       }
                       _ => {}
                     }
+                    // Устанавливаем позиции для форматированного токена
+                    #[cfg(feature = "analyzer")]
+                    {
+                      token.start = startF;
+                      token.end = index;   // index уже за закрывающей кавычкой
+                    }
+                    //
                     lineTokens[lineTokensLength-1] = token; // replace the last token in place
                   } else
                   { // basic quote
+                    #[cfg(feature = "analyzer")]
+                    pushLineToken!(token, lineTokens, start, index);
+                    #[cfg(not(feature = "analyzer"))]
                     lineTokens.push(token);
                   }
                 }
-                _ => { lineTokens.push(token); } // basic quote
+                _ => { // basic quote
+                  #[cfg(feature = "analyzer")]
+                  pushLineToken!(token, lineTokens, start, index);
+                  #[cfg(not(feature = "analyzer"))]
+                  lineTokens.push(token);
+                }
               }
             }
             _ => { index += 1; } // skip
@@ -1016,7 +1070,11 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         // Получаем возможные двойные и одиночные символы
         if isSingleChar(&byte)
         {
-          let token: Token = getOperator(&buffer, &mut index, &bufferLength);
+          let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
           lineTokens.push(token);
         } else
         { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
@@ -1024,6 +1082,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           index += 1;
         }
       }
+      //
     }
   }
 
@@ -1047,3 +1106,5 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   // Возвращаем готовые ссылки на линии
   linesLinks
 }
+
+// =================================================================================================

@@ -1,51 +1,86 @@
-
-use crate::tokenizer::token::TokenType;
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard};
 use std::sync::Arc;
+use wasm_bindgen::prelude::wasm_bindgen;
+use serde::Serialize;
+use serde_json::to_string;
 use crate::tokenizer::line::Line;
+use crate::tokenizer::token::Token;
 use crate::tokenizer::tokenizer::readTokens;
+// =================================================================================================
 
-#[derive(Clone)]
-pub struct AnalyzeToken {
+/// Выходная сериализуемая структура
+#[derive(Serialize, Clone)]
+pub struct AnalyzeToken 
+{
   pub start: usize,
   pub end: usize,
-  pub kind: TokenType,
+  pub kind: String,
 }
 
 /// Плоский список токенов с абсолютными позициями.
 /// Используется для подсветки, LSP, WASM, IDE ...
-pub fn tokenize(code: &str) -> Vec<AnalyzeToken> {
-  let buffer = code.as_bytes().to_vec();
-  // false = без debug-вывода в консоль
-  let lines = readTokens(buffer, false);
-
-  let mut result = Vec::new();
-  flatten_lines(&lines, &mut result, 0);
-  result
+#[wasm_bindgen]
+pub fn tokenize(code: &str) -> String
+{
+  let buffer: Vec<u8> = code.as_bytes().to_vec();
+  let lines: Vec< Arc<RwLock<Line>> > = readTokens(buffer, false);
+  let mut result: Vec<AnalyzeToken> = Vec::new();
+  flattenLines(&lines, &mut result);
+  to_string(&result).unwrap_or_else(|_| "[]".to_string())
 }
 
-/// Рекурсивно разворачиваем дерево линий в плоский список
-fn flatten_lines(
-  lines: &[Arc<RwLock<Line>>],
-  out: &mut Vec<AnalyzeToken>,
-  offset: usize,
-) {
-  for line_link in lines {
-    let line = line_link.read().unwrap();
+/// Рекурсивно собираем все токены из дерева линий (с поддержкой вложенных f‑строк)
+fn flattenLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzeToken>) 
+{
+  for linLink in lines 
+  {
+    let line: RwLockReadGuard<Line> = linLink.read().unwrap();
 
-    // Добавляем токены текущей линии
+    // токены текущей линии
     if let Some(tokens) = &line.tokens {
-      for token in tokens.iter() {
-        // Здесь важно: текущий токенайзер не хранит абсолютные позиции.
-        // Ниже покажу минимальную правку в tokenizer.rs, чтобы это работало.
-        // Пока используем заглушку: позиции нужно будет пробросить из readTokens.
-      }
+      flattenTokens(tokens, out);
     }
 
-    // Рекурсия по вложенным линиям
+    // вложенные линии (например, тело функции, блоки)
     if let Some(nested) = &line.lines {
-      // offset += line_length + 1; // упрощённо
-      flatten_lines(nested, out, offset);
+      flattenLines(nested, out);
     }
   }
+  //
 }
+
+/// Обход списка токенов, включая их внутренние линии (f‑строки)
+fn flattenTokens(tokens: &[Token], out: &mut Vec<AnalyzeToken>) 
+{
+  for token in tokens 
+  {
+    // Добавляем сам токен
+    #[cfg(feature = "analyzer")]
+    out.push(AnalyzeToken {
+      start: token.start,
+      end: token.end,
+      kind: token.getDataType().to_string(),
+    });
+
+    // Если у токена есть вложенные линии
+    if let Some(lines) = &token.lines 
+    {
+      for line in lines 
+      {
+        // У каждой такой Line свои токены
+        if let Some(tokens) = &line.tokens 
+        {
+          flattenTokens(tokens, out);
+        }
+        // Если внутри ещё есть вложенные линии
+        if let Some(nested) = &line.lines {
+          flattenLines(nested, out);
+        }
+      }
+      //
+    }
+  }
+  //
+}
+
+// =================================================================================================

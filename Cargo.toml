@@ -19,11 +19,16 @@ lazy_static = "1.5.0"
 termion = { version = "4.0.5", optional = true }
 rand = { version = "0.9.2", optional = true }
 wasm-bindgen = {  version = "0.2", optional = true }
+serde_json = { version = "1.0.149", optional = true }
+serde = { version = "1.0.228", features = ["derive"], optional = true }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ['-Oz', '--enable-bulk-memory'] # Нужно было для билда wasm с opt
 
 [lib]
 name = "rts"
 path = "src/lib.rs"
-crate-type = ["cdylib", "rlib"]  # cdylib → WASM/FFI, rlib → внутреннее использование
+crate-type = ["cdylib", "rlib"] # cdylib → WASM/FFI, rlib → внутреннее использование
 
 [[bin]]
 name = "rts"
@@ -50,6 +55,6 @@ incremental = true
 [features]
 # cargo build
 default = ["termion","rand"]
-# debug: cargo build --target wasm32-unknown-unknown --features analyzer --no-default-features
+# debug: cargo build --lib --target wasm32-unknown-unknown --features analyzer --no-default-features
 # release: wasm-pack build --target web --features analyzer --no-default-features
-analyzer = ["wasm-bindgen"]
+analyzer = ["wasm-bindgen","serde_json","serde"]
