@@ -642,36 +642,55 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
 
           match *token.getDataType() == TokenType::Comment
           { false => {} true =>
-          { // Удаляем комментарии
-
-            tokens.remove(lastTokenIndex);
-            // Проверяем если есть вложенные линии,
-            // что комментарий не удалится весь
-            // и продолжается на вложенные линии
-            match &line.lines
-            { None => {}, Some(_) =>
-            {
-              line.lines = None
-            }}
-
-            // Переходим к удалению пустой линии
-            match &line.tokens
-            {
-              Some(tokens) =>
-              { // Пустой массив
-                match tokens.is_empty()
-                { false => {} true =>
-                {
+          {
+            #[cfg(feature = "analyzer")]
+            { // Вместо удаления собираем все токены в один комментарий
+              let mut fullText: String = String::new();
+              let start: usize = tokens[0].start;
+              let end: usize = tokens.last().unwrap().end;
+              for token in tokens.iter() {
+                fullText.push_str(&format!("{}", token));
+              }
+              let mut comment: Token = Token::new(TokenType::Comment, fullText);
+              comment.start = start;
+              comment.end = end;
+              *tokens = vec![comment];
+              // Удаляем вложенные линии, если они есть
+              line.lines = None;
+              break 'exit;   // выходим из блока 'exit, чтобы не удалять строку
+            }
+            #[cfg(not(feature = "analyzer"))]
+            { // Удаляем комментарии
+              tokens.remove(lastTokenIndex);
+              // Проверяем если есть вложенные линии,
+              // что комментарий не удалится весь
+              // и продолжается на вложенные линии
+              match &line.lines
+              { None => {}, Some(_) =>
+              {
+                line.lines = None
+              }}
+  
+              // Переходим к удалению пустой линии
+              match &line.tokens
+              {
+                Some(tokens) =>
+                { // Пустой массив
+                  match tokens.is_empty()
+                  { false => {} true =>
+                  {
+                    deleteLine = true; // Линия была удалена
+                    break 'exit;       // Выходим из прерывания
+                  }}
+                }
+                None =>
+                { // Просто пустой
                   deleteLine = true; // Линия была удалена
                   break 'exit;       // Выходим из прерывания
-                }}
-              }
-              None =>
-              { // Просто пустой
-                deleteLine = true; // Линия была удалена
-                break 'exit;       // Выходим из прерывания
+                }
               }
             }
+            //
           }}
           //
         }}

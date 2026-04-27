@@ -25,7 +25,7 @@ lazy_static!
 
 // =================================================================================================
 
-/// Выходная сериализуемая структура
+/// Выходной токен
 #[derive(Serialize, Clone)]
 pub struct AnalyzeToken 
 {
@@ -34,51 +34,53 @@ pub struct AnalyzeToken
   pub kind: String,
 }
 
-/// Плоский список токенов с абсолютными позициями.
-/// Используется для подсветки, LSP, WASM, IDE ...
+/// Выходная линия
+#[derive(Serialize)]
+pub struct AnalyzedLine 
+{
+  pub indent: usize,
+  pub tokens: Vec<AnalyzeToken>,
+}
+
+// =================================================================================================
+
 #[wasm_bindgen]
-pub fn tokenize(code: &str) -> String
+pub fn analyzeLines(code: &str) -> String 
 {
   let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  // Добавляем перевод строки, если его нет в конце
   if buffer.last() != Some(&b'\n') {
     buffer.push(b'\n');
   }
-  
-  //
   let lines: Vec< Arc<RwLock<Line>> > = readTokens(buffer, false);
-  let mut result: Vec<AnalyzeToken> = Vec::new();
-  flattenLines(&lines, &mut result);
+  let mut result: Vec<AnalyzedLine> = Vec::new();
+  collectLines(&lines, &mut result);
   to_string(&result).unwrap_or_else(|_| "[]".to_string())
 }
 
-/// Рекурсивно собираем все токены из дерева линий (с поддержкой вложенных f‑строк)
-fn flattenLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzeToken>) 
+fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
 {
-  for linLink in lines 
+  for linLink in lines
   {
     let line: RwLockReadGuard<Line> = linLink.read().unwrap();
-
-    // токены текущей линии
-    if let Some(tokens) = &line.tokens {
-      flattenTokens(tokens, out);
+    let indent: usize = line.indent.unwrap_or(0);
+    let mut tokens: Vec<AnalyzeToken> = Vec::new();
+    if let Some(lineTokens) = &line.tokens {
+      flattenTokensTo(lineTokens, &mut tokens);
     }
+    out.push(AnalyzedLine { indent, tokens });
 
-    // вложенные линии (например, тело функции, блоки)
+    // recursively process nested lines (indented blocks)
     if let Some(nested) = &line.lines {
-      flattenLines(nested, out);
+      collectLines(nested, out);
     }
   }
-  //
 }
 
-/// Обход списка токенов, включая их внутренние линии
-fn flattenTokens(tokens: &[Token], out: &mut Vec<AnalyzeToken>) 
+fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>) 
 {
   for token in tokens 
   {
-    // Определяем kind, возможно заменяя Word на BuiltinProcedure
-    let mut kind = token.getDataType().to_string();
+    let mut kind: String = token.getDataType().to_string();
     if token.getDataType() == &TokenType::Word 
     {
       if let Some(data) = token.getData().toString() 
@@ -90,28 +92,18 @@ fn flattenTokens(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
         //
       }
     }
-    
-    // Добавляем сам токен
-    #[cfg(feature = "analyzer")]
     out.push(AnalyzeToken {
       start: token.start,
       end: token.end,
-      kind
+      kind,
     });
-
-    // Если у токена есть вложенные линии
     if let Some(lines) = &token.lines 
     {
       for line in lines 
       {
-        // У каждой такой Line свои токены
-        if let Some(tokens) = &line.tokens 
+        if let Some(toks) = &line.tokens 
         {
-          flattenTokens(tokens, out);
-        }
-        // Если внутри ещё есть вложенные линии
-        if let Some(nested) = &line.lines {
-          flattenLines(nested, out);
+          flattenTokensTo(toks, out);
         }
       }
       //
