@@ -13,6 +13,7 @@ use crate::logger::logger::{formatPrint, log, logSeparator};
 // =================================================================================================
 // /tokenizer
 
+#[cfg(not(feature = "analyzer"))]
 /// Проверяет buffer по index и так пропускаем возможные комментарии;
 /// Потом они будут удалены по меткам
 fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
@@ -22,6 +23,48 @@ fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
   {
     *index += 1;
   }
+}
+
+#[cfg(feature = "analyzer")]
+// todo desk
+fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> ()
+{
+  // 1. Пропускаем первую строку комментария до конца строки или буфера
+  while *index < *bufferLength && buffer[*index] != b'\n' {
+    *index += 1;
+  }
+
+  // 2. Проверяем последующие строки на условие продолжения
+  loop {
+    if *index >= *bufferLength { break; }
+
+    let newline_pos = *index; // Запоминаем позицию символа переноса
+    *index += 1;              // Пропускаем '\n'
+    if *index >= *bufferLength { break; }
+
+    let mut next_indent = 0;
+    // Считаем пробелы в начале следующей строки
+    while *index < *bufferLength && buffer[*index] == b' ' {
+      next_indent += 1;
+      *index += 1;
+    }
+
+    // 3. Логика продолжения: читаем дальше только если отступ строго больше
+    if next_indent > *startIndent {
+      while *index < *bufferLength && buffer[*index] != b'\n' {
+        *index += 1;
+      }
+    } else {
+      // 4. Отступ <= стартового, комментарий закончился.
+      // Возвращаем указатель на '\n', чтобы основной цикл корректно
+      // обработал конец строки, сбросил lineIndent и выставил readLineIndent = true.
+      *index = newline_pos;
+      break;
+    }
+  }
+
+  // Фиксируем итоговую позицию. Она укажет ровно на '\n' последней строки комментария.
+  *index = *index;
 }
 
 /// Проверяет что байт является одиночным знаком доступным для синтаксиса
@@ -578,60 +621,6 @@ fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
   }
 }
 
-#[cfg(feature = "analyzer")]
-/// Объединяет последовательные строки комментариев, где отступ следующей строки больше
-/// отступа текущей (комментария). Результат — одна строка с расширенным набором токенов.
-/// 
-/// todo add desc, types, camel
-pub fn mergeMultilineComments(linesLinks: &mut Vec<Arc<RwLock<Line>>>) {
-  let mut i = 0;
-  while i < linesLinks.len() {
-    let is_comment = {
-      let line = linesLinks[i].read().unwrap();
-      if let Some(tokens) = &line.tokens {
-        tokens.iter().any(|t| *t.getDataType() == TokenType::Comment)
-      } else {
-        false
-      }
-    };
-
-    if is_comment {
-      let current_indent = linesLinks[i].read().unwrap().indent.unwrap_or(0);
-      let mut j = i + 1;
-      while j < linesLinks.len() {
-        let next_indent = {
-          let next_line = linesLinks[j].read().unwrap();
-          next_line.indent.unwrap_or(0)
-        };
-        // Присоединяем только строки с бОльшим отступом
-        if next_indent > current_indent {
-          // Берём блокировку на запись для текущей строки
-          let mut curr_line = linesLinks[i].write().unwrap();
-          let next_line = linesLinks[j].read().unwrap();
-
-          // Добавляем токены следующей строки в текущую
-          if let Some(curr_tokens) = &mut curr_line.tokens {
-            if let Some(next_tokens) = &next_line.tokens {
-              curr_tokens.extend(next_tokens.clone());
-            }
-          } else {
-            curr_line.tokens = next_line.tokens.clone();
-          }
-          // Отступ не меняем — остаётся от первой строки комментария
-          drop(curr_line);
-          drop(next_line);
-          // Удаляем присоединённую строку
-          linesLinks.remove(j);
-          // Не увеличиваем j — проверяем новую строку на том же индексе
-        } else {
-          break;
-        }
-      }
-    }
-    i += 1;
-  }
-}
-
 /// Удаляет возможные вложенные комментарии по меткам;
 /// Это такие комментарии, которые имеют вложения.
 ///
@@ -702,23 +691,13 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
           { false => {} true =>
           {
             #[cfg(feature = "analyzer")]
-            { // Вместо удаления собираем все токены в один комментарий
-              let mut fullText: String = String::new();
-              let start: usize = tokens[0].start;
-              let end: usize = tokens.last().unwrap().end;
-              for token in tokens.iter() {
-                fullText.push_str(&format!("{}", token));
-              }
+            {
+              // Для анализатора НЕ объединяем токены в один.
+              // Оставляем структуру линии нетронутой, чтобы подсветка синтаксиса работала корректно.
               if hadNested {
-                fullText.push_str(" /* TODO: nested lines removed */ ");
+                line.lines = None;
               }
-              let mut comment: Token = Token::new(TokenType::Comment, fullText);
-              comment.start = start;
-              comment.end = end;
-              *tokens = vec![comment];
-              // Удаляем вложенные линии, если они есть
-              line.lines = None;
-              break 'exit;   // выходим из блока 'exit, чтобы не удалять строку
+              break 'exit; // Прерываем блок, чтобы строка не удалилась и токены остались
             }
             #[cfg(not(feature = "analyzer"))]
             { // Удаляем комментарии
@@ -1057,6 +1036,9 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         } else
         if byte == b'#'
         { // Ставим метку на комментарий в линии, по ним потом будут удалены линии
+          #[cfg(feature = "analyzer")]
+          deleteComments(&buffer, &mut index, &bufferLength, &lineIndent); // Пропускает комментарии
+          #[cfg(not(feature = "analyzer"))]
           deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
           let mut token: Token = Token::newEmpty(TokenType::Comment);
           //
@@ -1169,8 +1151,6 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   // Вкладываем линии
   #[cfg(not(feature = "analyzer"))]
   lineNesting(&mut linesLinks);
-  #[cfg(feature = "analyzer")]
-  mergeMultilineComments(&mut linesLinks);
   // Удаляем возможные вложенные комментарии по меткам
   deleteNestedComment(&mut linesLinks, 0);
 
