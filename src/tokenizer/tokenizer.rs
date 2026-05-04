@@ -438,6 +438,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
       { // Начало чтения
         if !isReadData
         {
+          #[cfg(not(feature = "analyzer"))]
           tokens.remove(i);
           isReadData = true;
         } else
@@ -454,6 +455,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
       }
       TokenType::Comma =>
       { // Разделение буфера на линии
+        #[cfg(not(feature = "analyzer"))]
         tokens.remove(i);
         readDataLines.insert(
         0,
@@ -523,6 +525,7 @@ pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line
   lines
 }
 
+#[cfg(not(feature = "analyzer"))]
 /// Вкладывает линии токенов друг в друга
 fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
 {
@@ -572,6 +575,60 @@ fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
         nextIndex = index+1;
       }
     }
+  }
+}
+
+#[cfg(feature = "analyzer")]
+/// Объединяет последовательные строки комментариев, где отступ следующей строки больше
+/// отступа текущей (комментария). Результат — одна строка с расширенным набором токенов.
+/// 
+/// todo add desc, types, camel
+pub fn mergeMultilineComments(linesLinks: &mut Vec<Arc<RwLock<Line>>>) {
+  let mut i = 0;
+  while i < linesLinks.len() {
+    let is_comment = {
+      let line = linesLinks[i].read().unwrap();
+      if let Some(tokens) = &line.tokens {
+        tokens.iter().any(|t| *t.getDataType() == TokenType::Comment)
+      } else {
+        false
+      }
+    };
+
+    if is_comment {
+      let current_indent = linesLinks[i].read().unwrap().indent.unwrap_or(0);
+      let mut j = i + 1;
+      while j < linesLinks.len() {
+        let next_indent = {
+          let next_line = linesLinks[j].read().unwrap();
+          next_line.indent.unwrap_or(0)
+        };
+        // Присоединяем только строки с бОльшим отступом
+        if next_indent > current_indent {
+          // Берём блокировку на запись для текущей строки
+          let mut curr_line = linesLinks[i].write().unwrap();
+          let next_line = linesLinks[j].read().unwrap();
+
+          // Добавляем токены следующей строки в текущую
+          if let Some(curr_tokens) = &mut curr_line.tokens {
+            if let Some(next_tokens) = &next_line.tokens {
+              curr_tokens.extend(next_tokens.clone());
+            }
+          } else {
+            curr_line.tokens = next_line.tokens.clone();
+          }
+          // Отступ не меняем — остаётся от первой строки комментария
+          drop(curr_line);
+          drop(next_line);
+          // Удаляем присоединённую строку
+          linesLinks.remove(j);
+          // Не увеличиваем j — проверяем новую строку на том же индексе
+        } else {
+          break;
+        }
+      }
+    }
+    i += 1;
   }
 }
 
@@ -632,6 +689,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
       }}
 
       // Логика для комментариев
+      let hadNested = line.lines.is_some();
       match line.tokens
       { None => {} Some(ref mut tokens) =>
       {
@@ -650,6 +708,9 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
               let end: usize = tokens.last().unwrap().end;
               for token in tokens.iter() {
                 fullText.push_str(&format!("{}", token));
+              }
+              if hadNested {
+                fullText.push_str(" /* TODO: nested lines removed */ ");
               }
               let mut comment: Token = Token::new(TokenType::Comment, fullText);
               comment.start = start;
@@ -1106,7 +1167,10 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   }
 
   // Вкладываем линии
+  #[cfg(not(feature = "analyzer"))]
   lineNesting(&mut linesLinks);
+  #[cfg(feature = "analyzer")]
+  mergeMultilineComments(&mut linesLinks);
   // Удаляем возможные вложенные комментарии по меткам
   deleteNestedComment(&mut linesLinks, 0);
 
