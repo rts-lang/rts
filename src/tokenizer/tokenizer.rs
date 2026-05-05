@@ -859,6 +859,20 @@ macro_rules! pushLineToken
 /// предварительные базовые типы данных
 pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 {
+  // Требуем обязательно \n в конце для правильного чтения;
+  // Получаем buffer без mut.
+  let buffer: Vec<u8> = 
+    if buffer.last() == Some(&b'\n') 
+    { // Если есть, значит оставляем старый
+      buffer
+    } else 
+    { // Если нет, получаем новый
+      let mut newBuffer: Vec<u8> = buffer.clone();
+      newBuffer.push(b'\n');
+      newBuffer
+    };
+  
+  //
   #[cfg(not(feature = "analyzer"))]
   match debugMode
   {

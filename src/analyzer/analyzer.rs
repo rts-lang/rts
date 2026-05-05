@@ -47,10 +47,7 @@ pub struct AnalyzedLine
 #[wasm_bindgen]
 pub fn analyzeLines(code: &str) -> String 
 {
-  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  if buffer.last() != Some(&b'\n') {
-    buffer.push(b'\n');
-  }
+  let buffer: Vec<u8> = code.as_bytes().to_vec();
   let lines: Vec< Arc<RwLock<Line>> > = readTokens(buffer, false);
   let mut result: Vec<AnalyzedLine> = Vec::new();
   collectLines(&lines, &mut result);

@@ -208,20 +208,6 @@ fn main() -> io::Result<()>
     }
   }
 
-  // проверяем что в конце был \n, если нет, то добавляем его
-  match buffer.last() 
-  {
-    None => {}
-    Some(&lastByte) => 
-    {
-      match lastByte != b'\n' 
-      {
-        false => {}
-        true  => { buffer.push(b'\n'); }
-      }
-    }
-  }
-
   // Начинаем чтение кода
   parseLines( readTokens(buffer, unsafe{_debugMode}) );
   
