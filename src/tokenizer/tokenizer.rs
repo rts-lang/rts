@@ -240,7 +240,7 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 
 /// Проверяет buffer по index и так находит возможные
 /// Char, String, RawString
-fn getQuotes(buffer: &[u8], index: &mut usize) -> Token 
+fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token 
 {
   let byte1: u8 = buffer[*index]; // Начальный символ кавычки
   let mut result: String = String::new();
@@ -296,12 +296,16 @@ fn getQuotes(buffer: &[u8], index: &mut usize) -> Token
   match byte1 
   {
     b'\'' => 
-    { // Одинарные кавычки должны содержать только один символ
-      match result.len() 
-      {
-        1 => Token::new(TokenType::Char, result),
-        _ => Token::newEmpty(TokenType::None)
-      } 
+    { 
+      if formatted || result.len() == 1 
+      { // Одинарные кавычки должны содержать только один символ - если не formatted
+        Token::new(
+          if formatted { TokenType::FormattedChar } else { TokenType::Char },
+          result,
+        )
+      } else {
+        Token::newEmpty(TokenType::None)
+      }
     }
     b'"' => Token::new(TokenType::String, result),
     b'`' => Token::new(TokenType::RawString, result),
@@ -1073,68 +1077,50 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           #[cfg(not(feature = "analyzer"))]
           lineTokens.push(token);
         } else
-        if matches!(byte, b'\'' | b'"' | b'`')
-        { // Получаем Char, String, RawString
-          let mut token: Token = getQuotes(&buffer, &mut index);
-          let tokenType: TokenType = token.getDataType().clone();
-          match tokenType
+        if matches!(byte, b'\'' | b'"' | b'`') {
+          // Проверяем, есть ли перед кавычкой токен `f`
+          let isFormatted: bool = !lineTokens.is_empty()
+            && lineTokens.last().unwrap().getDataType() == &TokenType::Word
+            && lineTokens.last().unwrap().getData().toString().unwrap_or_default() == "f";
+
+          let startPos: usize = index; // Начало кавычки (для обычного токена)
+
+          if isFormatted 
           {
-            tokenType if tokenType != TokenType::None =>
-            { // if formatted quotes
-              let lineTokensLength: usize = lineTokens.len();
-              match lineTokensLength
-              {
-                lineTokensLength if lineTokensLength > 0 =>
-                {
-                  let backToken: &Token = &lineTokens[lineTokensLength-1];
-                  // todo if -> match
-                  if *backToken.getDataType() == TokenType::Word &&
-                     backToken.getData().toString().unwrap_or_default() == "f"
-                  {
-                    #[cfg(feature = "analyzer")]
-                    let startF = backToken.start; // Запоминаем начало f-токена
-                    //
-                    match tokenType
-                    {
-                      TokenType::RawString =>
-                      {
-                       token.setDataType(TokenType::FormattedRawString);
-                      }
-                      TokenType::String =>
-                      {
-                        token.setDataType(TokenType::FormattedString);
-                      }
-                      TokenType::Char =>
-                      {
-                        token.setDataType(TokenType::FormattedChar);
-                      }
-                      _ => {}
-                    }
-                    // Устанавливаем позиции для форматированного токена
-                    #[cfg(feature = "analyzer")]
-                    {
-                      token.start = startF;
-                      token.end = index;   // index уже за закрывающей кавычкой
-                    }
-                    //
-                    lineTokens[lineTokensLength-1] = token; // replace the last token in place
-                  } else
-                  { // basic quote
-                    #[cfg(feature = "analyzer")]
-                    pushLineToken!(token, lineTokens, start, index);
-                    #[cfg(not(feature = "analyzer"))]
-                    lineTokens.push(token);
-                  }
-                }
-                _ => { // basic quote
-                  #[cfg(feature = "analyzer")]
-                  pushLineToken!(token, lineTokens, start, index);
-                  #[cfg(not(feature = "analyzer"))]
-                  lineTokens.push(token);
-                }
-              }
+            // Удаляем токен `f`
+            let fToken: Token = lineTokens.pop().unwrap();
+            #[cfg(feature = "analyzer")]
+            let startF: usize = fToken.start;
+
+            let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
+
+            // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
+            let tokenType = match byte {
+              b'\'' => TokenType::FormattedChar,
+              b'"' => TokenType::FormattedString,
+              b'`' => TokenType::FormattedRawString,
+              _ => unreachable!(),
+            };
+            token.setDataType(tokenType);
+
+            #[cfg(feature = "analyzer")]
+            {
+              token.start = startF;
+              token.end = index;
             }
-            _ => { index += 1; } // skip
+            lineTokens.push(token);
+          } else 
+          {
+            let mut token: Token = getQuotes(&buffer, &mut index, false);
+            let tokenType: TokenType = token.getDataType().clone();
+            if tokenType != TokenType::None {
+              #[cfg(feature = "analyzer")]
+              pushLineToken!(token, lineTokens, startPos, index);
+              #[cfg(not(feature = "analyzer"))]
+              lineTokens.push(token);
+            } else {
+              index += 1;
+            }
           }
         } else
         // Получаем возможные двойные и одиночные символы
