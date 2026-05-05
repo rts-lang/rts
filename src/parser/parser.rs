@@ -1,28 +1,22 @@
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use lazy_static::lazy_static;
+use crate::{_argc, _argv, _exit};
+use crate::parser::bytes::Bytes;
+use crate::parser::structure::structure::{Structure, StructureMut, StructureType, ToTokenType};
+use crate::tokenizer::line::Line;
+use crate::tokenizer::token::{ToStructureType, Token, TokenType};
+use crate::tokenizer::tokenizer::splitByType;
+#[cfg(not(feature = "analyzer"))]
+use crate::_debugMode;
+#[cfg(not(feature = "analyzer"))]
+use crate::logger::logger::{log, logSeparator};
+#[cfg(not(feature = "analyzer"))]
+use std::time::{Duration, Instant};
+// =================================================================================================
 /* /parser
   предоставляет механизмы для парсинга токенов,
   что позволяет запускать получившиеся структуры.
 */
-
-pub mod bytes;
-pub mod value;
-pub mod uf64;
-pub mod structure;
-mod procedureCall;
-mod functionCall;
-
-use crate::{
-  logger::*,
-  _argc, _argv, _debugMode, _exit,
-  parser::structure::*,
-  tokenizer::{token::*, line::*},
-  parser::bytes::Bytes
-};
-
-use std::{
-  time::{Instant, Duration},
-  sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-};
-use crate::tokenizer::splitByType;
 
 /// Проверяет, что переданный dataType является математическим оператором
 fn isMathOperator(dataType: TokenType) -> bool 
@@ -298,7 +292,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
 /// - Вложенная структура (array/vector/list ...)
 /// - Линейное выражение (a = 10)
 /// - Условный блок (if/elif/else)
-fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structure>>, lineIndex: *mut usize) -> bool
+pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structure>>, lineIndex: *mut usize) -> bool
 {
   let lineTokens: &Vec<Token> = // Ссылка на токены линии
     match &line.tokens
@@ -329,7 +323,7 @@ fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structur
           Some(newStructureName) => 
           { // получаем имя структуры
             let mut newStructureResultType: Option<&TokenType> = None; // результат структуры
-            let mut parameters: Option< Vec<Token> > = None; // параметры структуры
+            let parameters: Option< Vec<Token> > = None; // параметры структуры
             match lineTokensLength > 1 && *lineTokens[1].getDataType() == TokenType::CircleBracketBegin
             {
               true => 
@@ -601,6 +595,7 @@ lazy_static!
 /// Она разделена на подготовительную часть, и часть запуска readLine()
 pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 { // Начинается подготовка к запуску
+  #[cfg(not(feature = "analyzer"))]
   match unsafe{_debugMode} 
   { false => {} true  =>
   {
@@ -673,6 +668,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Выводим arch & argv
+  #[cfg(not(feature = "analyzer"))]
   unsafe
   {
     match _debugMode
@@ -688,15 +684,19 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Подготовка закончена, читаем линии
+  #[cfg(not(feature = "analyzer"))]
   let startTime: Instant = Instant::now(); // Получаем текущее время для debug замера
-  match unsafe{_debugMode} 
+  #[cfg(not(feature = "analyzer"))]
+  match unsafe{ _debugMode }
   { false => {} true  =>
   {
     logSeparator("Interpretation");
   }}
+  
   // Передаём ссылку на структуру и запускаем
   readLines(_main.clone());
   // Далее идут debug замеры
+  #[cfg(not(feature = "analyzer"))]
   match unsafe{_debugMode} 
   { false => {} true =>
   {

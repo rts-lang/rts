@@ -28,21 +28,6 @@
     только необходимые данные.
 */
 
-#[macro_use]
-extern crate lazy_static;
-
-// =================================================================================================
-
-mod logger;
-mod tokenizer;
-mod parser;
-mod packageApi;
-
-pub use logger::*;
-pub use tokenizer::*;
-pub use parser::*;
-// pub use packageApi::*; todo
-
 // =================================================================================================
 
 /// run file path

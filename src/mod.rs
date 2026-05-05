@@ -1,0 +1,12 @@
+#[cfg(feature = "analyzer")]
+mod analyzer;
+
+mod tokenizer;
+#[cfg(not(feature = "analyzer"))]
+mod parser;
+
+#[cfg(not(feature = "analyzer"))]
+mod logger;
+
+#[cfg(not(feature = "analyzer"))]
+mod packages;

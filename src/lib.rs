@@ -1,4 +1,5 @@
 // /lib
+// =================================================================================================
 
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
@@ -8,10 +9,22 @@ include!("prelude.rs");
 // =================================================================================================
 
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
-use crate::bytes::Bytes;
-use crate::line::Line;
-use crate::structure::{Structure, StructureMut, StructureType};
-use crate::token::{Token};
+use crate::parser::bytes::Bytes;
+use crate::parser::parser::{_main, parseLines};
+use crate::parser::structure::structure::{Structure, StructureMut, StructureType};
+use crate::tokenizer::line::Line;
+use crate::tokenizer::token::Token;
+use crate::tokenizer::tokenizer::readTokens;
+
+mod tokenizer;
+mod parser;
+#[cfg(not(feature = "analyzer"))]
+mod logger;
+#[cfg(not(feature = "analyzer"))]
+mod packages;
+#[cfg(feature = "analyzer")]
+mod analyzer;
+
 // =================================================================================================
 
 /// Основная структура-прокладка для создания оболочки между RTS-lib и другим проектом;

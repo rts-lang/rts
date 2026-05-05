@@ -1,20 +1,19 @@
-/* /tokenizer
-*/
-
-pub mod token;
-pub mod line;
-
-use crate::{
-  logger::*,
-  tokenizer::token::*,
-  tokenizer::line::*
-};
-
 use std::{
-  time::{Instant,Duration},
-  sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}
+  sync::{Arc, RwLock, RwLockWriteGuard}
 };
+#[cfg(not(feature = "analyzer"))]
+use std::{
+  time::{Instant, Duration},
+  sync::RwLockReadGuard,
+};
+use crate::tokenizer::line::Line;
+use crate::tokenizer::token::{Token, TokenType};
+#[cfg(not(feature = "analyzer"))]
+use crate::logger::logger::{formatPrint, log, logSeparator};
+// =================================================================================================
+// /tokenizer
 
+#[cfg(not(feature = "analyzer"))]
 /// Проверяет buffer по index и так пропускаем возможные комментарии;
 /// Потом они будут удалены по меткам
 fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
@@ -23,6 +22,56 @@ fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
   while *index < *bufferLength && buffer[*index] != b'\n' 
   {
     *index += 1;
+  }
+}
+
+#[cfg(feature = "analyzer")]
+// todo desk
+fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> () {
+  // 1. Пропускаем первую строку комментария до конца строки или буфера
+  while *index < *bufferLength && buffer[*index] != b'\n' {
+    *index += 1;
+  }
+
+  // Если достигли конца буфера, то комментарий закончился, выходим
+  if *index >= *bufferLength {
+    return;
+  }
+
+  // Теперь *index указывает на '\n' (или конец буфера, но мы проверили)
+  loop {
+    let newline_pos = *index; // позиция '\n'
+    // Пропускаем '\n' только для проверки следующих строк, но не сдвигаем индекс навсегда, если продолжения нет
+    let mut next_idx = *index + 1;
+    if next_idx >= *bufferLength {
+      // Нет следующей строки, оставляем индекс на '\n'
+      *index = newline_pos;
+      break;
+    }
+
+    let mut next_indent = 0;
+    // Считаем пробелы в начале следующей строки
+    while next_idx < *bufferLength && buffer[next_idx] == b' ' {
+      next_indent += 1;
+      next_idx += 1;
+    }
+
+    if next_indent > *startIndent {
+      // Это продолжение комментария: пропускаем всю строку до конца
+      *index = next_idx;
+      while *index < *bufferLength && buffer[*index] != b'\n' {
+        *index += 1;
+      }
+      // Если достигли конца буфера, выходим, иначе продолжаем loop
+      if *index >= *bufferLength {
+        break;
+      }
+      // иначе *index указывает на '\n' следующей строки, продолжим loop
+    } else {
+      // Комментарий закончился, возвращаем индекс на исходный '\n'
+      *index = newline_pos;
+      break;
+    }
   }
 }
 
@@ -103,6 +152,7 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   }
 
   *index = savedIndex;
+  
   // next return
   match (rational, dot, negative) 
   { // rational, dot, negative
@@ -112,6 +162,7 @@ fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     (_, false, true) => Token::new( TokenType::Int,      result ),
     _                => Token::new( TokenType::UInt,     result ),
   }
+  //
 }
 
 /// Проверяет что байт является буквой a-z A-Z
@@ -157,6 +208,7 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   }
 
   *index = savedIndex;
+  
   // next return
   match isLink 
   {
@@ -180,13 +232,15 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         //
         _          => Token::new( TokenType::Word, result ),
       }
+      //
     }
   }
+  //
 }
 
 /// Проверяет buffer по index и так находит возможные
 /// Char, String, RawString
-fn getQuotes(buffer: &[u8], index: &mut usize) -> Token 
+fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token 
 {
   let byte1: u8 = buffer[*index]; // Начальный символ кавычки
   let mut result: String = String::new();
@@ -242,12 +296,16 @@ fn getQuotes(buffer: &[u8], index: &mut usize) -> Token
   match byte1 
   {
     b'\'' => 
-    { // Одинарные кавычки должны содержать только один символ
-      match result.len() 
-      {
-        1 => Token::new(TokenType::Char, result),
-        _ => Token::newEmpty(TokenType::None)
-      } 
+    { 
+      if formatted || result.len() == 1 
+      { // Одинарные кавычки должны содержать только один символ - если не formatted
+        Token::new(
+          if formatted { TokenType::FormattedChar } else { TokenType::Char },
+          result,
+        )
+      } else {
+        Token::newEmpty(TokenType::None)
+      }
     }
     b'"' => Token::new(TokenType::String, result),
     b'`' => Token::new(TokenType::RawString, result),
@@ -435,6 +493,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
       { // Начало чтения
         if !isReadData
         {
+          #[cfg(not(feature = "analyzer"))]
           tokens.remove(i);
           isReadData = true;
         } else
@@ -451,6 +510,7 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
       }
       TokenType::Comma =>
       { // Разделение буфера на линии
+        #[cfg(not(feature = "analyzer"))]
         tokens.remove(i);
         readDataLines.insert(
         0,
@@ -520,6 +580,7 @@ pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line
   lines
 }
 
+#[cfg(not(feature = "analyzer"))]
 /// Вкладывает линии токенов друг в друга
 fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
 {
@@ -629,6 +690,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
       }}
 
       // Логика для комментариев
+      let hadNested = line.lines.is_some();
       match line.tokens
       { None => {} Some(ref mut tokens) =>
       {
@@ -639,36 +701,48 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
 
           match *token.getDataType() == TokenType::Comment
           { false => {} true =>
-          { // Удаляем комментарии
-
-            tokens.remove(lastTokenIndex);
-            // Проверяем если есть вложенные линии,
-            // что комментарий не удалится весь
-            // и продолжается на вложенные линии
-            match &line.lines
-            { None => {}, Some(_) =>
+          {
+            #[cfg(feature = "analyzer")]
             {
-              line.lines = None
-            }}
-
-            // Переходим к удалению пустой линии
-            match &line.tokens
-            {
-              Some(tokens) =>
-              { // Пустой массив
-                match tokens.is_empty()
-                { false => {} true =>
-                {
+              // Для анализатора НЕ объединяем токены в один.
+              // Оставляем структуру линии нетронутой, чтобы подсветка синтаксиса работала корректно.
+              if hadNested {
+                line.lines = None;
+              }
+              break 'exit; // Прерываем блок, чтобы строка не удалилась и токены остались
+            }
+            #[cfg(not(feature = "analyzer"))]
+            { // Удаляем комментарии
+              tokens.remove(lastTokenIndex);
+              // Проверяем если есть вложенные линии,
+              // что комментарий не удалится весь
+              // и продолжается на вложенные линии
+              match &line.lines
+              { None => {}, Some(_) =>
+              {
+                line.lines = None
+              }}
+  
+              // Переходим к удалению пустой линии
+              match &line.tokens
+              {
+                Some(tokens) =>
+                { // Пустой массив
+                  match tokens.is_empty()
+                  { false => {} true =>
+                  {
+                    deleteLine = true; // Линия была удалена
+                    break 'exit;       // Выходим из прерывания
+                  }}
+                }
+                None =>
+                { // Просто пустой
                   deleteLine = true; // Линия была удалена
                   break 'exit;       // Выходим из прерывания
-                }}
-              }
-              None =>
-              { // Просто пустой
-                deleteLine = true; // Линия была удалена
-                break 'exit;       // Выходим из прерывания
+                }
               }
             }
+            //
           }}
           //
         }}
@@ -692,6 +766,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
 }
 
 /// Выводит токен, его тип данных
+#[cfg(not(feature = "analyzer"))]
 pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> ()
 {
   let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
@@ -806,6 +881,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
   }
 }
 /// Выводит информацию о линии, а также токены линии
+#[cfg(not(feature = "analyzer"))]
 pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
 {
   let identStr1: String = " ".repeat(indent*2);   // Это отступ для главной строки
@@ -841,11 +917,27 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
   //
 }
 
+// =================================================================================================
+
+/// Вспомогательный макрос для добавления токенов start/end
+#[cfg(feature = "analyzer")]
+macro_rules! pushLineToken 
+{
+  ($token:expr, $lineTokens:expr, $start:expr, $end:expr) => {
+    {
+      $token.start = $start;
+      $token.end = $end;
+      $lineTokens.push($token);
+    }
+  };
+}
+
 /// Основная функция для чтения токенов и получения чистых линий из них;
 /// Токены в этот момент не только сгруппированы в линии, но и имеют
 /// предварительные базовые типы данных
 pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 {
+  #[cfg(not(feature = "analyzer"))]
   match debugMode
   {
     true =>
@@ -856,13 +948,13 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     }
     false => {}
   }
+  #[cfg(not(feature = "analyzer"))]
+  let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
   let mut      index: usize = 0;               // Основной индекс чтения
   let   bufferLength: usize = buffer.len();    // Размер буфера байтов
   let mut lineIndent: usize = 0;               // Текущий отступ линии
   let mut lineTokens: Vec<Token> = Vec::new(); // Прочитанные токены текущей линии
-
-  let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
   let mut linesLinks:     Vec< Arc<RwLock<Line>> > = Vec::new(); // Ссылки на готовые линии
   let mut readLineIndent: bool                     = true;       // Флаг на проверку есть ли indent сейчас
@@ -870,7 +962,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   let mut byte: u8;
   while index < bufferLength
   { // Читаем байты
-    byte = buffer[index]; // текущий байт
+    byte = buffer[index]; // Текущий байт
 
     // Проверяем отступы, они могут быть указаны пробелами,
     // либо readLineIndent будет true после конца строки предыдущей линии
@@ -883,7 +975,9 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
       }
       false =>
       {
+        let start: usize = index; // Начало токена
         readLineIndent = false;
+        
         // Смотрим является ли это endline
         if byte == b'\n' || byte == b';'
         { // Если это действительно конец строки,
@@ -954,67 +1048,89 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         } else
         if byte == b'#'
         { // Ставим метку на комментарий в линии, по ним потом будут удалены линии
+          #[cfg(feature = "analyzer")]
+          deleteComments(&buffer, &mut index, &bufferLength, &lineIndent); // Пропускает комментарии
+          #[cfg(not(feature = "analyzer"))]
           deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
-          lineTokens.push( Token::newEmpty(TokenType::Comment) );
+          let mut token: Token = Token::newEmpty(TokenType::Comment);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
+          lineTokens.push(token);
         } else
         if isDigit(&byte) || (byte == b'-' && index+1 < bufferLength && isDigit(&buffer[index+1]))
         { // Получаем все возможные численные примитивные типы данных
-          lineTokens.push( getNumber(&buffer, &mut index, &bufferLength) );
+          let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
+          lineTokens.push(token);
         } else
         if isLetter(&byte)
         { // Получаем все возможные и зарезервированные слова
-          lineTokens.push( getWord(&buffer, &mut index, &bufferLength) );
+          let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
+          lineTokens.push(token);
         } else
-        if matches!(byte, b'\'' | b'"' | b'`')
-        { // Получаем Char, String, RawString
-          let mut token: Token = getQuotes(&buffer, &mut index);
-          let tokenType: TokenType = token.getDataType().clone();
-          match tokenType
+        if matches!(byte, b'\'' | b'"' | b'`') {
+          // Проверяем, есть ли перед кавычкой токен `f`
+          let isFormatted: bool = !lineTokens.is_empty()
+            && lineTokens.last().unwrap().getDataType() == &TokenType::Word
+            && lineTokens.last().unwrap().getData().toString().unwrap_or_default() == "f";
+
+          let startPos: usize = index; // Начало кавычки (для обычного токена)
+
+          if isFormatted 
           {
-            tokenType if tokenType != TokenType::None =>
-            { // if formatted quotes
-              let lineTokensLength: usize = lineTokens.len();
-              match lineTokensLength
-              {
-                lineTokensLength if lineTokensLength > 0 =>
-                {
-                  let backToken: &Token = &lineTokens[lineTokensLength-1];
-                  // todo if -> match
-                  if *backToken.getDataType() == TokenType::Word &&
-                     backToken.getData().toString().unwrap_or_default() == "f"
-                  {
-                    match tokenType
-                    {
-                      TokenType::RawString =>
-                      {
-                       token.setDataType(TokenType::FormattedRawString);
-                      }
-                      TokenType::String =>
-                      {
-                        token.setDataType(TokenType::FormattedString);
-                      }
-                      TokenType::Char =>
-                      {
-                        token.setDataType(TokenType::FormattedChar);
-                      }
-                      _ => {}
-                    }
-                    lineTokens[lineTokensLength-1] = token; // replace the last token in place
-                  } else
-                  { // basic quote
-                    lineTokens.push(token);
-                  }
-                }
-                _ => { lineTokens.push(token); } // basic quote
-              }
+            // Удаляем токен `f`
+            let fToken: Token = lineTokens.pop().unwrap();
+            #[cfg(feature = "analyzer")]
+            let startF: usize = fToken.start;
+
+            let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
+
+            // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
+            let tokenType = match byte {
+              b'\'' => TokenType::FormattedChar,
+              b'"' => TokenType::FormattedString,
+              b'`' => TokenType::FormattedRawString,
+              _ => unreachable!(),
+            };
+            token.setDataType(tokenType);
+
+            #[cfg(feature = "analyzer")]
+            {
+              token.start = startF;
+              token.end = index;
             }
-            _ => { index += 1; } // skip
+            lineTokens.push(token);
+          } else 
+          {
+            let mut token: Token = getQuotes(&buffer, &mut index, false);
+            let tokenType: TokenType = token.getDataType().clone();
+            if tokenType != TokenType::None {
+              #[cfg(feature = "analyzer")]
+              pushLineToken!(token, lineTokens, startPos, index);
+              #[cfg(not(feature = "analyzer"))]
+              lineTokens.push(token);
+            } else {
+              index += 1;
+            }
           }
         } else
         // Получаем возможные двойные и одиночные символы
         if isSingleChar(&byte)
         {
-          let token: Token = getOperator(&buffer, &mut index, &bufferLength);
+          let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
+          //
+          #[cfg(feature = "analyzer")]
+          pushLineToken!(token, lineTokens, start, index);
+          #[cfg(not(feature = "analyzer"))]
           lineTokens.push(token);
         } else
         { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
@@ -1022,15 +1138,18 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           index += 1;
         }
       }
+      //
     }
   }
 
   // Вкладываем линии
+  #[cfg(not(feature = "analyzer"))]
   lineNesting(&mut linesLinks);
   // Удаляем возможные вложенные комментарии по меткам
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
+  #[cfg(not(feature = "analyzer"))]
   match debugMode
   { false => {} true =>
   {
@@ -1044,3 +1163,5 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   // Возвращаем готовые ссылки на линии
   linesLinks
 }
+
+// =================================================================================================

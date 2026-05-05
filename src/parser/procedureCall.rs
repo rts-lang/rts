@@ -1,15 +1,18 @@
-use std::io;
-use std::io::Write;
 use std::process::Command;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use std::thread::sleep;
 use std::time::Duration;
 use crate::{_exit, _exitCode};
-use crate::logger::formatPrint;
-use crate::parser::{readLines, searchStructure};
+use crate::parser::parser::{readLines, searchStructure};
 use crate::parser::structure::parameters::Parameters;
-use crate::parser::structure::Structure;
+use crate::parser::structure::structure::Structure;
 use crate::tokenizer::line::Line;
+#[cfg(not(feature = "analyzer"))]
+use std::io;
+#[cfg(not(feature = "analyzer"))]
+use std::io::Write;
+#[cfg(not(feature = "analyzer"))]
+use crate::logger::logger::formatPrint;
 
 // Procedure =======================================================================================
 /// Это набор базовых процедур
@@ -21,6 +24,7 @@ impl Procedure
   /// Выводит несколько значений и \n в конце
   fn print(structure: &Structure, parameters: &Parameters, newline: bool)
   {
+    #[cfg(not(feature = "analyzer"))]
     match parameters.getAllExpressions(structure)
     { None => {} Some(parameters) =>
     {

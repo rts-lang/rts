@@ -1,8 +1,12 @@
+// =================================================================================================
 // /main
 
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
+
+#[cfg(feature = "analyzer")]
+compile_error!("This binary cannot be compiled with the 'analyzer' feature enabled. Please build the library crate instead.");
 
 include!("prelude.rs");
 // =================================================================================================
@@ -13,6 +17,15 @@ use std::{
   io::{self, Read},
   fs::File
 };
+use crate::logger::logger::{log, logExit, logSeparator};
+use crate::parser::parser::parseLines;
+use crate::tokenizer::tokenizer::readTokens;
+
+mod tokenizer;
+mod parser;
+mod logger;
+mod packages;
+
 // =================================================================================================
 
 // help
@@ -41,11 +54,6 @@ fn help() -> ()
 fn main() -> io::Result<()> 
 {
   let startTime: Instant = Instant::now();
-
-  //
-  use crate::tokenizer::*;
-  use crate::parser::*;
-  // use crate::packageApi::packageApi; todo
 
   // args to key-values
   let mut args: (String, Vec<String>) = (String::new(), Vec::new());
