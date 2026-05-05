@@ -149,8 +149,8 @@ pub enum TokenType
   Float,
   /// Unsigned float
   UFloat,
-  /// Rational
-  Rational,
+  /// Rational 
+  //Rational, // todo Rational пока что нет как типа
   /// Complex
   Complex,
 
@@ -254,7 +254,7 @@ impl ToString for TokenType
       TokenType::UInt     => String::from("UInt"),
       TokenType::Float    => String::from("Float"),
       TokenType::UFloat   => String::from("UFloat"),
-      TokenType::Rational => String::from("Rational"),
+      //TokenType::Rational => String::from("Rational"), // todo Rational пока что нет как типа
       TokenType::Complex  => String::from("Complex"),
 
       TokenType::Bool      => String::from("Bool"),
