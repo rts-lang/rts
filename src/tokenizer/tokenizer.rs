@@ -27,44 +27,52 @@ fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
 
 #[cfg(feature = "analyzer")]
 // todo desk
-fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> ()
-{
+fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> () {
   // 1. Пропускаем первую строку комментария до конца строки или буфера
   while *index < *bufferLength && buffer[*index] != b'\n' {
     *index += 1;
   }
 
-  // 2. Проверяем последующие строки на условие продолжения
-  loop {
-    if *index >= *bufferLength { break; }
+  // Если достигли конца буфера, то комментарий закончился, выходим
+  if *index >= *bufferLength {
+    return;
+  }
 
-    let newline_pos = *index; // Запоминаем позицию символа переноса
-    *index += 1;              // Пропускаем '\n'
-    if *index >= *bufferLength { break; }
+  // Теперь *index указывает на '\n' (или конец буфера, но мы проверили)
+  loop {
+    let newline_pos = *index; // позиция '\n'
+    // Пропускаем '\n' только для проверки следующих строк, но не сдвигаем индекс навсегда, если продолжения нет
+    let mut next_idx = *index + 1;
+    if next_idx >= *bufferLength {
+      // Нет следующей строки, оставляем индекс на '\n'
+      *index = newline_pos;
+      break;
+    }
 
     let mut next_indent = 0;
     // Считаем пробелы в начале следующей строки
-    while *index < *bufferLength && buffer[*index] == b' ' {
+    while next_idx < *bufferLength && buffer[next_idx] == b' ' {
       next_indent += 1;
-      *index += 1;
+      next_idx += 1;
     }
 
-    // 3. Логика продолжения: читаем дальше только если отступ строго больше
     if next_indent > *startIndent {
+      // Это продолжение комментария: пропускаем всю строку до конца
+      *index = next_idx;
       while *index < *bufferLength && buffer[*index] != b'\n' {
         *index += 1;
       }
+      // Если достигли конца буфера, выходим, иначе продолжаем loop
+      if *index >= *bufferLength {
+        break;
+      }
+      // иначе *index указывает на '\n' следующей строки, продолжим loop
     } else {
-      // 4. Отступ <= стартового, комментарий закончился.
-      // Возвращаем указатель на '\n', чтобы основной цикл корректно
-      // обработал конец строки, сбросил lineIndent и выставил readLineIndent = true.
+      // Комментарий закончился, возвращаем индекс на исходный '\n'
       *index = newline_pos;
       break;
     }
   }
-
-  // Фиксируем итоговую позицию. Она укажет ровно на '\n' последней строки комментария.
-  *index = *index;
 }
 
 /// Проверяет что байт является одиночным знаком доступным для синтаксиса
