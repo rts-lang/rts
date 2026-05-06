@@ -88,7 +88,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::getTokensFromBuffer;
+  use crate::tokenizer::read::tests::{checkThroughOthers, checkValues, getTokensFromBuffer};
   use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
@@ -97,7 +97,7 @@ mod tests
   #[test]
   fn values()
   {
-    for (src, expectedType) in vec![
+    checkValues([
       // UInt
       ("0", TokenType::UInt),
       ("1", TokenType::UInt),
@@ -121,25 +121,7 @@ mod tests
       
       // Rational
       //("1//2", TokenType::Rational), // todo Rational пока что нет как типа
-    ] {
-      let tokens: Vec<Token> = getTokensFromBuffer(src);
-      
-      // Должен быть 1 токен
-      let tokensLen: usize = tokens.len();
-      assert_eq!(tokensLen, 1,
-                 "Байты '{}' должны были создать 1 токен, а создали {}:{:?}", src, tokensLen, tokens);
-      
-      // Тип должен совпадать
-      let tokenType: String = tokens[0].getDataType().to_string();
-      let expectedTokenType: String = expectedType.to_string();
-      assert_eq!(tokenType, expectedTokenType, 
-                 "Байты '{}' должны были вернуть тип '{}', а вернули '{}'", src, expectedTokenType, tokenType);
-      
-      // Значение должно совпадать с изначальным
-      let tokenData: String = tokens[0].to_string();
-      assert_eq!(tokenData, src, 
-                 "Ожидались исходные байты '{}', а получили '{}'", src, tokenData);
-    }
+    ]);
   }
   
   /// Проверяет разделение пробелами
@@ -195,41 +177,15 @@ mod tests
   
   /// Проверяет через несколько токенов
   #[test]
-  fn throughOthers()
+  fn throughOthers() -> ()
   {
-    let cases: [(&str, &str, &str, TokenType); 4] = [
+    checkThroughOthers([
       ("a=10", "a", "=", TokenType::UInt),
       ("b=-20", "b", "=", TokenType::Int),
       ("c=3.14", "c", "=", TokenType::UFloat),
       ("d=-2.5", "d", "=", TokenType::Float),
       // ("e=1//2", "e", "=", TokenType::Rational) // todo Rational пока что нет как типа
-    ];
-
-    for (input, name, op, typ) in cases
-    {
-      let tokens: Vec<Token> = getTokensFromBuffer(input);
-
-      //
-      let tokensLen: usize = tokens.len();
-      assert_eq!(tokensLen, 3,
-                 "Байты '{}' должны были создать 3 токена, а создали {}", input, tokensLen);
-
-      //
-      let t0: String = tokens[0].to_string();
-      assert_eq!(t0, name,
-                 "Байты '{}' должны были создать в первом токене '{}', а создали '{}'", input, name, t0);
-
-      //
-      let t1: String = tokens[1].to_string();
-      assert_eq!(t1, op,
-                 "Байты '{}' должны были создать во втором токене '{}', а создали '{}'", input, op, t1);
-
-      //
-      let t2: String = tokens[2].getDataType().to_string();
-      let expectedT2Type: String = typ.to_string();
-      assert_eq!(t2, expectedT2Type,
-                 "Байты '{}' должны были создать из третьего токена '{}', а создали '{}'", input, expectedT2Type, t2);
-    }
+    ]);
   }
 
   // ===============================================================================================

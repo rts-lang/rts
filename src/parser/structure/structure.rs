@@ -191,10 +191,10 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
     },
     TokenType::Bool =>
     {
-      match tokenData == "0"
+      match tokenData == "true"
       {
-        true  => Value::UInt(0),
-        false => Value::UInt(1)
+        true  => Value::UInt(1),
+        false => Value::UInt(0)
       }
     },
     _ => Value::UInt(0)

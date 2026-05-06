@@ -52,13 +52,13 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   // next return
   match isLink
   {
-    true => Token::new(TokenType::Link, result.clone()),
+    true => Token::new(TokenType::Link, result),
     false =>
     {
       match result.as_str()
       {
-        "true"  => Token::newEmpty(TokenType::Bool),
-        "false" => Token::newEmpty(TokenType::Bool),
+        "true"  => Token::new(TokenType::Bool, result),
+        "false" => Token::new(TokenType::Bool, result),
         //
         "UInt"   => Token::newEmpty(TokenType::UInt),
         "Int"    => Token::newEmpty(TokenType::Int),
@@ -69,9 +69,9 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         "String"    => Token::newEmpty(TokenType::String),
         "RawString" => Token::newEmpty(TokenType::RawString),
         //
-        "FormattedChar"      => Token::newEmpty( TokenType::FormattedChar),
-        "FormattedString"    => Token::newEmpty( TokenType::FormattedString),
-        "FormattedRawString" => Token::newEmpty( TokenType::FormattedRawString),
+        "FormattedChar"      => Token::newEmpty(TokenType::FormattedChar),
+        "FormattedString"    => Token::newEmpty(TokenType::FormattedString),
+        "FormattedRawString" => Token::newEmpty(TokenType::FormattedRawString),
         //
         "None" => Token::newEmpty(TokenType::None),
         //
@@ -88,7 +88,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::getTokensFromBuffer;
+  use crate::tokenizer::read::tests::{checkThroughOthers, checkValues, getTokensFromBuffer};
   use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
@@ -97,7 +97,7 @@ mod tests
   #[test]
   fn reservedTypes()
   {
-    for (src, expectedType) in vec![
+    checkValues([
       // Bool
       ("true", TokenType::Bool),
       ("false", TokenType::Bool),
@@ -120,11 +120,7 @@ mod tests
 
       // None
       ("None", TokenType::None),
-    ] {
-      let tokens: Vec<Token> = getTokensFromBuffer(src);
-
-      // todo
-    }
+    ]);
   }
 
   /* todo
@@ -186,7 +182,7 @@ mod tests
   #[test]
   fn throughOthers()
   {
-    let cases: [(&str, &str, &str, TokenType); 13] = [
+    checkThroughOthers([
       ("a=true", "a", "=", TokenType::Bool),
       ("b=false", "b", "=", TokenType::Bool),
 
@@ -204,33 +200,7 @@ mod tests
       ("l:FormattedRawString", "l", ":", TokenType::FormattedRawString),
 
       ("m=None", "m", "=", TokenType::None)
-    ];
-
-    for (input, name, op, typ) in cases 
-    {
-      let tokens: Vec<Token> = getTokensFromBuffer(input);
-
-      //
-      let tokensLen: usize = tokens.len();
-      assert_eq!(tokensLen, 3, 
-                 "Байты '{}' должны были создать 3 токена, а создали {}", input, tokensLen);
-      
-      //
-      let t0: String = tokens[0].to_string();
-      assert_eq!(t0, name, 
-                 "Байты '{}' должны были создать в первом токене '{}', а создали '{}'", input, name, t0);
-      
-      //
-      let t1: String = tokens[1].to_string();
-      assert_eq!(t1, op, 
-                 "Байты '{}' должны были создать во втором токене '{}', а создали '{}'", input, op, t1);
-      
-      //
-      let t2: String = tokens[2].getDataType().to_string();
-      let expectedT2Type: String = typ.to_string();
-      assert_eq!(t2, expectedT2Type, 
-                 "Байты '{}' должны были создать из третьего токена '{}', а создали '{}'", input, expectedT2Type, t2);
-    }
+    ]);
   }
 
   // ===============================================================================================

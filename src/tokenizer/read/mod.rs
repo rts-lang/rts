@@ -12,10 +12,12 @@ mod tests
   use std::mem;
   use std::sync::{Arc, RwLock, RwLockWriteGuard};
   use crate::tokenizer::types::line::Line;
-  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::token::{Token, TokenType};
 
+  // ===============================================================================================
+  
   /// Получает bytes -> выдает token types для проверки в тестах
-  pub fn getTokensFromBuffer(src: &str) -> Vec<Token>
+  pub(super) fn getTokensFromBuffer(src: &str) -> Vec<Token>
   {
     let buffer: Vec<u8> = src.as_bytes().to_vec();
     let lines: Vec< Arc<RwLock<Line>> > = crate::tokenizer::tokenizer::readTokens(buffer, false);
@@ -37,6 +39,67 @@ mod tests
 
     types
   }
+
+  // ===============================================================================================
+
+  /// Проверяем тип и значение
+  pub(super) fn checkValues<const N: usize>(cases: [(&str, TokenType); N])
+  {
+    for (src, expectedType) in cases
+    {
+      let tokens: Vec<Token> = getTokensFromBuffer(src);
+
+      // Должен быть 1 токен
+      let tokensLen: usize = tokens.len();
+      assert_eq!(tokensLen, 1,
+                 "Байты '{}' должны были создать 1 токен, а создали {}:{:?}", src, tokensLen, tokens);
+
+      // Тип должен совпадать
+      let tokenType: String = tokens[0].getDataType().to_string();
+      let expectedTokenType: String = expectedType.to_string();
+      assert_eq!(tokenType, expectedTokenType,
+                 "Байты '{}' должны были вернуть тип '{}', а вернули '{}'", src, expectedTokenType, tokenType);
+
+      // Значение должно совпадать с изначальным
+      let tokenData: String = tokens[0].to_string();
+      assert_eq!(tokenData, src,
+                 "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokens[0].getDataType().to_string());
+    }
+  }
+
+  // ===============================================================================================
+
+  /// Проверяет через несколько токенов
+  pub(super) fn checkThroughOthers<const N: usize>(cases: [(&str, &str, &str, TokenType); N]) 
+  {
+    for (input, name, op, typ) in cases
+    {
+      let tokens: Vec<Token> = getTokensFromBuffer(input);
+
+      //
+      let tokensLen: usize = tokens.len();
+      assert_eq!(tokensLen, 3,
+                 "Байты '{}' должны были создать 3 токена, а создали {}", input, tokensLen);
+
+      //
+      let t0: String = tokens[0].to_string();
+      assert_eq!(t0, name,
+                 "Байты '{}' должны были создать в первом токене '{}', а создали '{}'", input, name, t0);
+
+      //
+      let t1: String = tokens[1].to_string();
+      assert_eq!(t1, op,
+                 "Байты '{}' должны были создать во втором токене '{}', а создали '{}'", input, op, t1);
+
+      //
+      let t2: String = tokens[2].getDataType().to_string();
+      let expectedT2Type: String = typ.to_string();
+      assert_eq!(t2, expectedT2Type,
+                 "Байты '{}' должны были создать из третьего токена '{}', а создали '{}'", input, expectedT2Type, t2);
+    }
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================
