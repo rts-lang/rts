@@ -2,9 +2,8 @@
   A line is a structure made up of consecutive Tokens
 */
 
-use crate::tokenizer::token::*;
-
 use std::sync::{Arc, RwLock};
+use crate::tokenizer::types::token::Token;
 
 /// Это последовательный набор токенов
 #[derive(Clone)]

@@ -5,11 +5,9 @@ use std::str::SplitWhitespace;
 use std::sync::RwLockReadGuard;
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
-use crate::tokenizer::token::{Token, TokenType};
+use crate::tokenizer::types::token::{Token, TokenType};
 #[cfg(not(feature = "analyzer"))]
 use rand::Rng;
-use crate::{_exit, _exitCode};
-
 // =================================================================================================
 /// Это набор базовых функций
 struct Function;

@@ -5,7 +5,7 @@
 use std::fmt;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::StructureType;
-use crate::tokenizer::line::Line;
+use crate::tokenizer::types::line::Line;
 
 // TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации

@@ -1,5 +1,4 @@
-use crate::tokenizer::token::{Token, TokenType};
-
+use crate::tokenizer::types::token::{Token, TokenType};
 // =================================================================================================
 
 /// Проверяет что байт является числом
@@ -24,7 +23,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 
   let mut      dot: bool = false; // dot check
   let mut negative: bool = false; // negative check
-  let mut rational: bool = false; // rational check
+  let rational: bool = false; // rational check
 
   let mut byte1: u8; // Текущий символ
   let mut byte2: u8; // Следующий символ
@@ -91,9 +90,9 @@ mod tests
 {
   use std::mem;
   use std::sync::{Arc, RwLock, RwLockWriteGuard};
-  use crate::tokenizer::line::Line;
-  use crate::tokenizer::token::{Token, TokenType};
   use crate::tokenizer::tokenizer::readTokens;
+  use crate::tokenizer::types::line::Line;
+  use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
   

@@ -3,9 +3,9 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::uf64::uf64;
 use crate::parser::value::Value;
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{ToStructureType, Token, TokenType};
 use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::{ToStructureType, Token, TokenType};
 // =================================================================================================
 /* /parser/structure
   структура, которая представляет свободную ячейку данных в памяти;

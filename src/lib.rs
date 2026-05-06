@@ -12,9 +12,9 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::parser::{_main, parseLines};
 use crate::parser::structure::structure::{Structure, StructureMut, StructureType};
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::Token;
 use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::Token;
 
 mod tokenizer;
 mod parser;

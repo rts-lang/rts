@@ -5,9 +5,9 @@ use lazy_static::lazy_static;
 use wasm_bindgen::prelude::wasm_bindgen;
 use serde::Serialize;
 use serde_json::to_string;
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{Token, TokenType};
 use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::{Token, TokenType};
 // =================================================================================================
 
 lazy_static!

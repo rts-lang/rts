@@ -3,8 +3,8 @@ use lazy_static::lazy_static;
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::{Structure, StructureMut, StructureType, ToTokenType};
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{ToStructureType, Token, TokenType};
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::{ToStructureType, Token, TokenType};
 use crate::tokenizer::tokenizer::splitByType;
 #[cfg(not(feature = "analyzer"))]
 use crate::_debugMode;

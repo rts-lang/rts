@@ -6,14 +6,13 @@ use crate::{_exit, _exitCode};
 use crate::parser::parser::{readLines, searchStructure};
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
-use crate::tokenizer::line::Line;
+use crate::tokenizer::types::line::Line;
 #[cfg(not(feature = "analyzer"))]
 use std::io;
 #[cfg(not(feature = "analyzer"))]
 use std::io::Write;
 #[cfg(not(feature = "analyzer"))]
 use crate::logger::logger::formatPrint;
-
 // =================================================================================================
 
 /// Это набор базовых процедур
