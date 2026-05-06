@@ -69,6 +69,39 @@ mod tests
 
   // ===============================================================================================
 
+  /// Проверяет разделение пробелами на несколько токенов
+  pub(super) fn checkSplit(cases: &[(&str, &[TokenType])]) 
+  {
+    for (input, expected_types) in cases 
+    {
+      let tokens: Vec<Token> = getTokensFromBuffer(input);
+      assert_eq!(
+        tokens.len(),
+        expected_types.len(),
+        "Байты '{}' должны были создать {} токенов, а создали {}",
+        input,
+        expected_types.len(),
+        tokens.len()
+      );
+
+      for (i, (token, expectedType)) in tokens.iter().zip(expected_types.iter()).enumerate() 
+      {
+        let tokenType: String = token.getDataType().to_string();
+        let expectedType: String = expectedType.to_string();
+        assert_eq!(
+          tokenType,
+          expectedType,
+          "Байты '{}' создали токен {} с типом {:?}, а ожидался {:?}",
+          input, i, tokenType, expectedType
+        );
+        //
+      }
+    }
+    //
+  }
+
+  // ===============================================================================================
+
   /// Проверяет через несколько токенов
   pub(super) fn checkThroughOthers<const N: usize>(cases: [(&str, &str, &str, TokenType); N]) 
   {

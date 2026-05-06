@@ -57,6 +57,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     {
       match result.as_str()
       {
+        "Bool"  => Token::newEmpty(TokenType::Bool), // todo Важно: оно не имеет значения, что спорно
         "true"  => Token::new(TokenType::Bool, result),
         "false" => Token::new(TokenType::Bool, result),
         //
@@ -64,6 +65,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         "Int"    => Token::newEmpty(TokenType::Int),
         "UFloat" => Token::newEmpty(TokenType::UFloat),
         "Float"  => Token::newEmpty(TokenType::Float),
+        //"Rational"  => Token::newEmpty(TokenType::Rational), // todo Rational пока что нет как типа
         //
         "Char"      => Token::newEmpty(TokenType::Char),
         "String"    => Token::newEmpty(TokenType::String),
@@ -88,8 +90,8 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::{checkThroughOthers, checkValues, getTokensFromBuffer};
-  use crate::tokenizer::types::token::{Token, TokenType};
+  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues};
+  use crate::tokenizer::types::token::{TokenType};
 
   // ===============================================================================================
 
@@ -153,30 +155,43 @@ mod tests
       assert_eq!(tokens[0].getDataType().to_string(), expectedType.to_string(), "Ожидался тип {:?}", expectedType.to_string());
       assert_eq!(tokens[0].to_string(), src, "Значение должно совпадать с '{}'", src);
     }
-  }
+  }*/
 
-  /// Проверяет разделение пробелами
+  /// Проверяет разделение пробелами на несколько токенов
   #[test]
   fn split()
   {
-    let tokens: Vec<Token> = getTokensFromBuffer("a b c");
-    assert_eq!(tokens.len(), 3);
-    for token in &tokens {
-      assert_eq!(token.getDataType().to_string(), TokenType::Word.to_string(), "Все токены должны быть Word");
-    }
-
-    let tokens: Vec<Token> = getTokensFromBuffer("UInt Int String");
-    assert_eq!(tokens.len(), 3);
-    for (i, expected) in vec![TokenType::UInt, TokenType::Int, TokenType::String].iter() {
-      assert_eq!(tokens[i].getDataType(), *expected, "Токен {} должен быть {:?}", i, expected);
-    }
-
-    let tokens: Vec<Token> = getTokensFromBuffer("a.name b.prop");
-    assert_eq!(tokens.len(), 2);
-    for token in &tokens {
-      assert_eq!(token.getDataType().to_string(), TokenType::Link.to_string(), "Все токены должны быть Link");
-    }
-  }*/
+    checkSplit(&[
+      // Простейшие custom слова
+      ("a b c", &[TokenType::Word, TokenType::Word, TokenType::Word]),
+      // Длинные custom слова
+      ("hello world", &[TokenType::Word, TokenType::Word]),
+      // Все типы
+      ("Bool UInt Int UFloat Float Char String RawString FormattedChar FormattedString FormattedRawString None", 
+       &[
+         TokenType::Bool, 
+         //
+         TokenType::UInt, 
+         TokenType::Int, 
+         TokenType::UFloat, 
+         TokenType::Float, 
+         // TokenType::Rational, // todo Rational пока что нет как типа
+         //
+         TokenType::Char, 
+         TokenType::String,
+         TokenType::RawString,
+         //
+         TokenType::FormattedChar,
+         TokenType::FormattedString,
+         TokenType::FormattedRawString,
+         //
+         TokenType::None
+       ]
+      ),
+      // Статические ссылки (динамические здесь не должны проверяться)
+      ("a.name b.prop", &[TokenType::Link, TokenType::Link]),
+    ]);
+  }
 
   /// Проверяет через несколько токенов
   #[test]

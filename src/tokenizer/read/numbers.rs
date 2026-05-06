@@ -88,7 +88,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::{checkThroughOthers, checkValues, getTokensFromBuffer};
+  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues, getTokensFromBuffer};
   use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
@@ -123,46 +123,56 @@ mod tests
       //("1//2", TokenType::Rational), // todo Rational пока что нет как типа
     ]);
   }
-  
-  /// Проверяет разделение пробелами
+
+  /// Проверяет разделение пробелами на несколько токенов
   #[test]
   fn split()
   {
-    // UInt
-    let tokens: Vec<Token> = getTokensFromBuffer("1 2 3");
-    assert_eq!(tokens.len(), 3);
-    assert_eq!(tokens[0].getDataType().to_string(), TokenType::UInt.to_string());
-    assert_eq!(tokens[1].getDataType().to_string(), TokenType::UInt.to_string());
-    assert_eq!(tokens[2].getDataType().to_string(), TokenType::UInt.to_string());
+    checkSplit(&[
+      // UInt
+      ("1 2 3", &[
+        TokenType::UInt,
+        TokenType::UInt,
+        TokenType::UInt,
+      ]),
 
-    // Int
-    let tokens: Vec<Token> = getTokensFromBuffer("-1 -2 -3");
-    assert_eq!(tokens.len(), 3);
-    assert_eq!(tokens[0].getDataType().to_string(), TokenType::Int.to_string());
-    assert_eq!(tokens[1].getDataType().to_string(), TokenType::Int.to_string());
-    assert_eq!(tokens[2].getDataType().to_string(), TokenType::Int.to_string());
+      // Int
+      ("-1 -2 -3", &[
+        TokenType::Int,
+        TokenType::Int,
+        TokenType::Int,
+      ]),
 
-    // UFloat
-    let tokens: Vec<Token> = getTokensFromBuffer("1.1 2.2 3.3");
-    assert_eq!(tokens.len(), 3);
-    assert_eq!(tokens[0].getDataType().to_string(), TokenType::UFloat.to_string());
-    assert_eq!(tokens[1].getDataType().to_string(), TokenType::UFloat.to_string());
-    assert_eq!(tokens[2].getDataType().to_string(), TokenType::UFloat.to_string());
+      // UFloat
+      ("1.1 2.2 3.3", &[
+        TokenType::UFloat,
+        TokenType::UFloat,
+        TokenType::UFloat,
+      ]),
 
-    // Float
-    let tokens: Vec<Token> = getTokensFromBuffer("-1.1 -2.2 -3.3");
-    assert_eq!(tokens.len(), 3);
-    assert_eq!(tokens[0].getDataType().to_string(), TokenType::Float.to_string());
-    assert_eq!(tokens[1].getDataType().to_string(), TokenType::Float.to_string());
-    assert_eq!(tokens[2].getDataType().to_string(), TokenType::Float.to_string());
+      // Float
+      ("-1.1 -2.2 -3.3", &[
+        TokenType::Float,
+        TokenType::Float,
+        TokenType::Float,
+      ]),
 
-    // Rational
-    // todo Rational пока что нет как типа
-    //let tokens: Vec<Token> = getTokensFromBuffer("1//2 3//4 5//6");
-    //assert_eq!(tokens.len(), 3);
-    //assert_eq!(tokens[0].getDataType().to_string(), TokenType::Rational.to_string());
-    //assert_eq!(tokens[1].getDataType().to_string(), TokenType::Rational.to_string());
-    //assert_eq!(tokens[2].getDataType().to_string(), TokenType::Rational.to_string());
+      // Rational
+      // todo Rational пока что нет как типа
+      // ("1//2 3//4 5//6", &[
+      //   TokenType::Rational,
+      //   TokenType::Rational,
+      //   TokenType::Rational,
+      // ]),
+
+      // Все числовые типы
+      ("1 -1 1.1 -1.1", &[ // todo Rational пока что нет как типа
+        TokenType::UInt,
+        TokenType::Int,
+        TokenType::UFloat,
+        TokenType::Float,
+      ]),
+    ]);
   }
 
   /// Проверяет максимальный размер
