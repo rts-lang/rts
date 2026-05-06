@@ -147,8 +147,13 @@ fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
         "UFloat"   => Token::newEmpty( TokenType::UFloat ),
         "Float"    => Token::newEmpty( TokenType::Float ),
         //
-        "String"   => Token::newEmpty( TokenType::String ),
         "Char"     => Token::newEmpty( TokenType::Char ),
+        "String"   => Token::newEmpty( TokenType::String ),
+        "RawString"=> Token::newEmpty( TokenType::RawString ),
+        //
+        "FormattedChar"     => Token::newEmpty( TokenType::FormattedChar ),
+        "FormattedString"   => Token::newEmpty( TokenType::FormattedString ),
+        "FormattedRawString"=> Token::newEmpty( TokenType::FormattedRawString ),
         //
         "None"     => Token::newEmpty(TokenType::None),
         //
