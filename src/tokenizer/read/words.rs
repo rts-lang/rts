@@ -52,35 +52,188 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   // next return
   match isLink
   {
-    true => Token::new( TokenType::Link, result.clone() ),
+    true => Token::new(TokenType::Link, result.clone()),
     false =>
     {
       match result.as_str()
       {
-        "true"     => Token::newEmpty( TokenType::Bool ),
-        "false"    => Token::newEmpty( TokenType::Bool ),
+        "true"  => Token::newEmpty(TokenType::Bool),
+        "false" => Token::newEmpty(TokenType::Bool),
         //
-        "UInt"     => Token::newEmpty( TokenType::UInt ),
-        "Int"      => Token::newEmpty( TokenType::Int ),
-        "UFloat"   => Token::newEmpty( TokenType::UFloat ),
-        "Float"    => Token::newEmpty( TokenType::Float ),
+        "UInt"   => Token::newEmpty(TokenType::UInt),
+        "Int"    => Token::newEmpty(TokenType::Int),
+        "UFloat" => Token::newEmpty(TokenType::UFloat),
+        "Float"  => Token::newEmpty(TokenType::Float),
         //
-        "Char"     => Token::newEmpty( TokenType::Char ),
-        "String"   => Token::newEmpty( TokenType::String ),
-        "RawString"=> Token::newEmpty( TokenType::RawString ),
+        "Char"      => Token::newEmpty(TokenType::Char),
+        "String"    => Token::newEmpty(TokenType::String),
+        "RawString" => Token::newEmpty(TokenType::RawString),
         //
-        "FormattedChar"     => Token::newEmpty( TokenType::FormattedChar ),
-        "FormattedString"   => Token::newEmpty( TokenType::FormattedString ),
-        "FormattedRawString"=> Token::newEmpty( TokenType::FormattedRawString ),
+        "FormattedChar"      => Token::newEmpty( TokenType::FormattedChar),
+        "FormattedString"    => Token::newEmpty( TokenType::FormattedString),
+        "FormattedRawString" => Token::newEmpty( TokenType::FormattedRawString),
         //
-        "None"     => Token::newEmpty(TokenType::None),
+        "None" => Token::newEmpty(TokenType::None),
         //
-        _          => Token::new( TokenType::Word, result ),
+        _ => Token::new(TokenType::Word, result),
       }
       //
     }
   }
   //
+}
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use crate::tokenizer::read::tests::getTokensFromBuffer;
+  use crate::tokenizer::types::token::{Token, TokenType};
+
+  // ===============================================================================================
+
+  /// Проверяем зарезервированные типы и слова
+  #[test]
+  fn reservedTypes()
+  {
+    for (src, expectedType) in vec![
+      // Bool
+      ("true", TokenType::Bool),
+      ("false", TokenType::Bool),
+
+      // Numbers
+      ("UInt", TokenType::UInt),
+      ("Int", TokenType::Int),
+      ("UFloat", TokenType::UFloat),
+      ("Float", TokenType::Float),
+
+      // Strings
+      ("Char", TokenType::Char),
+      ("String", TokenType::String),
+      ("RawString", TokenType::RawString),
+
+      // Formatted strings
+      ("FormattedChar", TokenType::FormattedChar),
+      ("FormattedString", TokenType::FormattedString),
+      ("FormattedRawString", TokenType::FormattedRawString),
+
+      // None
+      ("None", TokenType::None),
+    ] {
+      let tokens: Vec<Token> = getTokensFromBuffer(src);
+
+      // todo
+    }
+  }
+
+  /* todo
+  /// Проверяем обычные слова (идентификаторы)
+  #[test]
+  fn words()
+  {
+    for src in vec!["a", "variable", "myVar123", "_underscore", "CamelCase"] {
+      let tokens: Vec<Token> = getTokensFromBuffer(src);
+
+      assert_eq!(tokens.len(), 1, "Байты '{}' должны были создать ровно 1 токен", src);
+      assert_eq!(tokens[0].getDataType().to_string(), TokenType::Word.to_string(), "Ожидался тип Word");
+      assert_eq!(tokens[0].to_string(), src, "Значение должно совпадать с '{}'", src);
+    }
+  }
+
+  /// Проверяем ссылки (dot notation)
+  #[test]
+  fn links()
+  {
+    for (src, expectedType) in vec![
+      ("a.", TokenType::Link),
+      ("variable.name", TokenType::Link),
+      ("myVar[0]", TokenType::Link),
+      ("obj.property", TokenType::Link),
+    ] {
+      let tokens: Vec<Token> = getTokensFromBuffer(src);
+
+      assert_eq!(tokens.len(), 1, "Байты '{}' должны были создать ровно 1 токен", src);
+      assert_eq!(tokens[0].getDataType().to_string(), expectedType.to_string(), "Ожидался тип {:?}", expectedType.to_string());
+      assert_eq!(tokens[0].to_string(), src, "Значение должно совпадать с '{}'", src);
+    }
+  }
+
+  /// Проверяет разделение пробелами
+  #[test]
+  fn split()
+  {
+    let tokens: Vec<Token> = getTokensFromBuffer("a b c");
+    assert_eq!(tokens.len(), 3);
+    for token in &tokens {
+      assert_eq!(token.getDataType().to_string(), TokenType::Word.to_string(), "Все токены должны быть Word");
+    }
+
+    let tokens: Vec<Token> = getTokensFromBuffer("UInt Int String");
+    assert_eq!(tokens.len(), 3);
+    for (i, expected) in vec![TokenType::UInt, TokenType::Int, TokenType::String].iter() {
+      assert_eq!(tokens[i].getDataType(), *expected, "Токен {} должен быть {:?}", i, expected);
+    }
+
+    let tokens: Vec<Token> = getTokensFromBuffer("a.name b.prop");
+    assert_eq!(tokens.len(), 2);
+    for token in &tokens {
+      assert_eq!(token.getDataType().to_string(), TokenType::Link.to_string(), "Все токены должны быть Link");
+    }
+  }*/
+
+  /// Проверяет через несколько токенов
+  #[test]
+  fn throughOthers()
+  {
+    let cases: [(&str, &str, &str, TokenType); 13] = [
+      ("a=true", "a", "=", TokenType::Bool),
+      ("b=false", "b", "=", TokenType::Bool),
+
+      ("c:UInt", "c", ":", TokenType::UInt),
+      ("d:Int", "d", ":", TokenType::Int),
+      ("e:UFloat", "e", ":", TokenType::UFloat),
+      ("f:Float", "f", ":", TokenType::Float),
+
+      ("g:Char", "g", ":", TokenType::Char),
+      ("h:String", "h", ":", TokenType::String),
+      ("i:RawString", "i", ":", TokenType::RawString),
+
+      ("j:FormattedChar", "j", ":", TokenType::FormattedChar),
+      ("k:FormattedString", "k", ":", TokenType::FormattedString),
+      ("l:FormattedRawString", "l", ":", TokenType::FormattedRawString),
+
+      ("m=None", "m", "=", TokenType::None)
+    ];
+
+    for (input, name, op, typ) in cases 
+    {
+      let tokens: Vec<Token> = getTokensFromBuffer(input);
+
+      //
+      let tokensLen: usize = tokens.len();
+      assert_eq!(tokensLen, 3, 
+                 "Байты '{}' должны были создать 3 токена, а создали {}", input, tokensLen);
+      
+      //
+      let t0: String = tokens[0].to_string();
+      assert_eq!(t0, name, 
+                 "Байты '{}' должны были создать в первом токене '{}', а создали '{}'", input, name, t0);
+      
+      //
+      let t1: String = tokens[1].to_string();
+      assert_eq!(t1, op, 
+                 "Байты '{}' должны были создать во втором токене '{}', а создали '{}'", input, op, t1);
+      
+      //
+      let t2: String = tokens[2].getDataType().to_string();
+      let expectedT2Type: String = typ.to_string();
+      assert_eq!(t2, expectedT2Type, 
+                 "Байты '{}' должны были создать из третьего токена '{}', а создали '{}'", input, expectedT2Type, t2);
+    }
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================
