@@ -95,7 +95,7 @@ mod tests
 
   /// Проверяем тип и значение
   #[test]
-  fn values()
+  fn values() -> ()
   {
     checkValues([
       // UInt
@@ -120,13 +120,13 @@ mod tests
       ("-100.1000", TokenType::Float),
       
       // Rational
-      //("1//2", TokenType::Rational), // todo Rational пока что нет как типа
-    ]);
+      //("1//2", TokenType::Rational) // todo Rational пока что нет как типа
+    ], true);
   }
 
   /// Проверяет разделение пробелами на несколько токенов
   #[test]
-  fn split()
+  fn split() -> ()
   {
     checkSplit(&[
       // UInt
@@ -177,7 +177,7 @@ mod tests
 
   /// Проверяет максимальный размер
   #[test]
-  fn maxSize()
+  fn maxSize() -> ()
   {
     // todo В целом это логика не tokenizer, а value;
     //  Но пока что не известно будут ли лимиты на типы данных, 

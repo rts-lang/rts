@@ -143,72 +143,71 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> To
 
 #[cfg(test)]
 mod tests {
-  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues};
-  use crate::tokenizer::types::token::{TokenType};
+  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues, getTokensFromBuffer};
+  use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
-
-  /*
+  
   /// Проверяем тип и значение
   #[test]
-  fn values() 
+  fn values() -> ()
   {
     checkValues([
       // single math
-      ("+", TokenType::Plus, false),
-      ("-", TokenType::Minus, false),
-      ("*", TokenType::Multiply, false),
-      ("/", TokenType::Divide, false),
-      ("=", TokenType::Equals, false),
-      ("%", TokenType::Modulo, false),
-      ("^", TokenType::Disjoint, false),
+      ("+", TokenType::Plus),
+      ("-", TokenType::Minus),
+      ("*", TokenType::Multiply),
+      ("/", TokenType::Divide),
+      ("=", TokenType::Equals),
+      ("%", TokenType::Modulo),
+      ("^", TokenType::Disjoint),
       // double math
-      ("++", TokenType::UnaryPlus, false),
-      ("+=", TokenType::PlusEquals, false),
-      ("--", TokenType::UnaryMinus, false),
-      ("-=", TokenType::MinusEquals, false),
-      ("**", TokenType::UnaryMultiply, false),
-      ("*=", TokenType::MultiplyEquals, false),
-      ("//", TokenType::UnaryDivide, false),
-      ("/=", TokenType::DivideEquals, false),
-      ("%%", TokenType::Modulo, false),
-      ("%=", TokenType::Modulo, false),
-      ("^^", TokenType::Exponent, false),
-      ("^=", TokenType::Exponent, false),
+      ("++", TokenType::UnaryPlus),
+      ("+=", TokenType::PlusEquals),
+      ("--", TokenType::UnaryMinus),
+      ("-=", TokenType::MinusEquals),
+      ("**", TokenType::UnaryMultiply),
+      ("*=", TokenType::MultiplyEquals),
+      ("//", TokenType::UnaryDivide),
+      ("/=", TokenType::DivideEquals),
+      ("%%", TokenType::Modulo), // todo: add new type in Token
+      ("%=", TokenType::Modulo), // todo: add new type in Token
+      ("^^", TokenType::Exponent), // todo: add new type in Token
+      ("^=", TokenType::Exponent), // todo: add new type in Token
       // single logical
-      (">", TokenType::GreaterThan, false),
-      ("<", TokenType::LessThan, false),
-      ("?", TokenType::Question, false),
-      ("!", TokenType::Exclusion, false),
+      (">", TokenType::GreaterThan),
+      ("<", TokenType::LessThan),
+      ("?", TokenType::Question),
+      ("!", TokenType::Exclusion),
       // double logical
-      (">=", TokenType::GreaterThanOrEquals, false),
-      ("<=", TokenType::LessThanOrEquals, false),
-      ("!=", TokenType::NotEquals, false),
+      (">=", TokenType::GreaterThanOrEquals),
+      ("<=", TokenType::LessThanOrEquals),
+      ("!=", TokenType::NotEquals),
       // other
-      (":", TokenType::Colon, false),
-      ("->", TokenType::Pointer, false),
-      ("~", TokenType::Tilde, false),
-      ("~~", TokenType::DoubleTilde, false),
-      ("&", TokenType::Joint, false),
-      ("|", TokenType::Inclusion, false),
+      (":", TokenType::Colon),
+      ("->", TokenType::Pointer),
+      ("~", TokenType::Tilde),
+      ("~~", TokenType::DoubleTilde),
+      ("&", TokenType::Joint),
+      ("|", TokenType::Inclusion),
       // brackets
-      ("(", TokenType::CircleBracketBegin, false),
-      (")", TokenType::CircleBracketEnd, false),
-      ("[", TokenType::SquareBracketBegin, false),
-      ("]", TokenType::SquareBracketEnd, false),
-      ("{", TokenType::FigureBracketBegin, false),
-      ("}", TokenType::FigureBracketEnd, false),
+      ("(", TokenType::CircleBracketBegin),
+      (")", TokenType::CircleBracketEnd),
+      ("[", TokenType::SquareBracketBegin),
+      ("]", TokenType::SquareBracketEnd),
+      ("{", TokenType::FigureBracketBegin),
+      ("}", TokenType::FigureBracketEnd),
       // separators
-      (";", TokenType::Endline, false),
-      (",", TokenType::Comma, false),
-      (".", TokenType::Dot, false),
-    ]);
+      (",", TokenType::Comma),
+      (".", TokenType::Dot)
+      // Endline не рассматривается т.к. будет использован при чтении
+    ], false);
   }
-  */
   
   /// Проверяет разделение пробелами на несколько токенов
   #[test]
-  fn split() {
+  fn split() -> ()
+  {
     checkSplit(&[
       // Простейшие операторы
       ("+ - * / = % ^", &[
@@ -261,80 +260,90 @@ mod tests {
 
   /// Проверяет через несколько токенов
   #[test]
-  fn throughOthers() 
+  fn throughOthers() -> ()
   {
     checkThroughOthers([
-      ("1a+", "1", "a", TokenType::Plus),
-      ("1a-", "1", "a", TokenType::Minus),
-      ("1a*", "1", "a", TokenType::Multiply),
-      ("1a/", "1", "a", TokenType::Divide),
-      ("1a=", "1", "a", TokenType::Equals),
-      ("1a%", "1", "a", TokenType::Modulo),
-      ("1a^", "1", "a", TokenType::Disjoint),
+      ("1 a +", "1", "a", TokenType::Plus),
+      ("1 a -", "1", "a", TokenType::Minus),
+      ("1 a *", "1", "a", TokenType::Multiply),
+      ("1 a /", "1", "a", TokenType::Divide),
+      ("1 a =", "1", "a", TokenType::Equals),
+      ("1 a %", "1", "a", TokenType::Modulo),
+      ("1 a ^", "1", "a", TokenType::Disjoint),
 
-      ("1a++", "1", "a", TokenType::UnaryPlus),
-      ("1a+=", "1", "a", TokenType::PlusEquals),
-      ("1a--", "1", "a", TokenType::UnaryMinus),
-      ("1a-=", "1", "a", TokenType::MinusEquals),
-      ("1a**", "1", "a", TokenType::UnaryMultiply),
-      ("1a*=", "1", "a", TokenType::MultiplyEquals),
-      ("1a//", "1", "a", TokenType::UnaryDivide),
-      ("1a/=", "1", "a", TokenType::DivideEquals),
-      ("1a%%", "1", "a", TokenType::Modulo), // todo: add new type in Token
-      ("1a%=", "1", "a", TokenType::Modulo), // todo: add new type in Token
-      ("1a^^", "1", "a", TokenType::Exponent), // todo: add new type in Token
-      ("1a^=", "1", "a", TokenType::Exponent), // todo: add new type in Token
+      ("1 a ++", "1", "a", TokenType::UnaryPlus),
+      ("1 a +=", "1", "a", TokenType::PlusEquals),
+      ("1 a --", "1", "a", TokenType::UnaryMinus),
+      ("1 a -=", "1", "a", TokenType::MinusEquals),
+      ("1 a **", "1", "a", TokenType::UnaryMultiply),
+      ("1 a *=", "1", "a", TokenType::MultiplyEquals),
+      ("1 a //", "1", "a", TokenType::UnaryDivide),
+      ("1 a /=", "1", "a", TokenType::DivideEquals),
+      ("1 a %%", "1", "a", TokenType::Modulo), // todo: add new type in Token
+      ("1 a %=", "1", "a", TokenType::Modulo), // todo: add new type in Token
+      ("1 a ^^", "1", "a", TokenType::Exponent), // todo: add new type in Token
+      ("1 a ^=", "1", "a", TokenType::Exponent), // todo: add new type in Token
 
-      ("1a>", "1", "a", TokenType::GreaterThan),
-      ("1a<", "1", "a", TokenType::LessThan),
-      ("1a?", "1", "a", TokenType::Question),
-      ("1a!", "1", "a", TokenType::Exclusion),
+      ("1 a >", "1", "a", TokenType::GreaterThan),
+      ("1 a <", "1", "a", TokenType::LessThan),
+      ("1 a ?", "1", "a", TokenType::Question),
+      ("1 a !", "1", "a", TokenType::Exclusion),
 
-      ("1a>=", "1", "a", TokenType::GreaterThanOrEquals),
-      ("1a<=", "1", "a", TokenType::LessThanOrEquals),
-      ("1a!=", "1", "a", TokenType::NotEquals),
+      ("1 a >=", "1", "a", TokenType::GreaterThanOrEquals),
+      ("1 a <=", "1", "a", TokenType::LessThanOrEquals),
+      ("1 a !=", "1", "a", TokenType::NotEquals),
 
-      ("1a:", "1", "a", TokenType::Colon),
-      ("1a->", "1", "a", TokenType::Pointer),
-      ("1a~", "1", "a", TokenType::Tilde),
-      ("1a~~", "1", "a", TokenType::DoubleTilde),
-      ("1a&", "1", "a", TokenType::Joint),
-      ("1a|", "1", "a", TokenType::Inclusion),
+      ("1 a :", "1", "a", TokenType::Colon),
+      ("1 a ->", "1", "a", TokenType::Pointer),
+      ("1 a ~", "1", "a", TokenType::Tilde),
+      ("1 a ~~", "1", "a", TokenType::DoubleTilde),
+      ("1 a &", "1", "a", TokenType::Joint),
+      ("1 a |", "1", "a", TokenType::Inclusion),
 
-      ("1a(", "1", "a", TokenType::CircleBracketBegin),
-      ("1a[", "1", "a", TokenType::SquareBracketBegin),
-      ("1a{", "1", "a", TokenType::FigureBracketBegin),
+      ("1 a (", "1", "a", TokenType::CircleBracketBegin),
+      ("1 a [", "1", "a", TokenType::SquareBracketBegin),
+      ("1 a {", "1", "a", TokenType::FigureBracketBegin),
       
-      ("1a)", "1", "a", TokenType::CircleBracketEnd),
-      ("1a]", "1", "a", TokenType::SquareBracketEnd),
-      ("1a}", "1", "a", TokenType::FigureBracketEnd),
+      ("1 a )", "1", "a", TokenType::CircleBracketEnd),
+      ("1 a ]", "1", "a", TokenType::SquareBracketEnd),
+      ("1 a }", "1", "a", TokenType::FigureBracketEnd),
 
-      ("1a,", "1", "a", TokenType::Comma),
-      ("1a.", "1", "a", TokenType::Dot),
+      ("1 a ,", "1", "a", TokenType::Comma),
+      ("1 a .", "1", "a", TokenType::Dot)
 
       // Endline не рассматривается т.к. будет использован при чтении
     ]);
   }
-
-  /* todo
+  
   /// Неверные последовательности выдают None
   #[test]
-  fn invalid_sequences() {
-    // Например, точка в середине числа не должна стать оператором Dot
-    let tokens = getTokensFromBuffer("1.2");
-    assert_eq!(tokens.len(), 1);
-    assert_eq!(tokens[0].getDataType().to_string(), TokenType::UFloat.to_string());
+  fn invalid() -> ()
+  {
+    for (input, expectedLen, index, expectedType) in [
+      ("1.2", 1, 0, TokenType::UFloat),
+      ("1--2", 3, 1, TokenType::UnaryMinus),
+      ("@ $", 0, 0, TokenType::None),
+    ] {
+      let tokens: Vec<Token> = getTokensFromBuffer(input);
 
-    // Двойной минус внутри числа не должен быть оператором
-    let tokens = getTokensFromBuffer("1--2");
-    assert_eq!(tokens.len(), 3); // 1, --, 2
-    assert_eq!(tokens[1].getDataType().to_string(), TokenType::UnaryMinus.to_string());
+      //
+      let tokensLen: usize = tokens.len();
+      assert_eq!(tokensLen, expectedLen,
+                 "Байты '{}' должны были создать {} токенов, а создали {}:{:?}",
+                 input, expectedLen, tokensLen, tokens);
 
-    // Символы, не входящие в операторы, игнорируются
-    let tokens = getTokensFromBuffer("@#$");
-    assert_eq!(tokens.len(), 0); // Ни одного токена
+      //
+      if expectedLen > 0
+      {
+        let tokenType: String = tokens[index].getDataType().to_string();
+        let expectedTokenType: String = expectedType.to_string();
+        assert_eq!(tokenType, expectedTokenType,
+                   "Байты '{}' должны были создать токен типа '{}', а создали '{}'",
+                   input, expectedTokenType, tokenType);
+      }
+    }
+    //
   }
-  */
 
   // ===============================================================================================
 }

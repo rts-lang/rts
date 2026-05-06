@@ -43,7 +43,7 @@ mod tests
   // ===============================================================================================
 
   /// Проверяем тип и значение
-  pub(super) fn checkValues<const N: usize>(cases: [(&str, TokenType); N])
+  pub(super) fn checkValues<const N: usize>(cases: [(&str, TokenType); N], checkData: bool)
   {
     for (src, expectedType) in cases
     {
@@ -60,11 +60,14 @@ mod tests
       assert_eq!(tokenType, expectedTokenType,
                  "Байты '{}' должны были вернуть тип '{}', а вернули '{}'", src, expectedTokenType, tokenType);
 
-      // Значение должно совпадать с изначальным
-      let tokenData: String = tokens[0].to_string();
-      assert_eq!(tokenData, src,
-                 "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokenType);
+      if checkData 
+      { // Значение должно совпадать с изначальным
+        let tokenData: String = tokens[0].to_string();
+        assert_eq!(tokenData, src,
+                   "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokenType);
+      }
     }
+    //
   }
 
   // ===============================================================================================

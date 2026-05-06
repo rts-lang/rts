@@ -97,7 +97,7 @@ mod tests
 
   /// Проверяем тип и значение
   #[test]
-  fn values()
+  fn values() -> ()
   {
     checkValues([
       // Bool
@@ -121,13 +121,13 @@ mod tests
       ("FormattedRawString", TokenType::FormattedRawString),
 
       // None
-      ("None", TokenType::None),
-    ]);
+      ("None", TokenType::None)
+    ], true);
   }
 
   /// Проверяем ссылки - статические и динамические
   #[test]
-  fn links()
+  fn links() -> ()
   {
     for (src, expectedType) in vec![
       ("a.",        TokenType::Link),
@@ -156,7 +156,7 @@ mod tests
 
   /// Проверяет разделение пробелами на несколько токенов
   #[test]
-  fn split()
+  fn split() -> ()
   {
     checkSplit(&[
       // Простейшие custom слова
@@ -192,7 +192,7 @@ mod tests
 
   /// Проверяет через несколько токенов
   #[test]
-  fn throughOthers()
+  fn throughOthers() -> ()
   {
     checkThroughOthers([
       ("a=true", "a", "=", TokenType::Bool),
