@@ -90,14 +90,14 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues};
-  use crate::tokenizer::types::token::{TokenType};
+  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues, getTokensFromBuffer};
+  use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
 
-  /// Проверяем зарезервированные типы и слова
+  /// Проверяем тип и значение
   #[test]
-  fn reservedTypes()
+  fn values()
   {
     checkValues([
       // Bool
@@ -125,37 +125,38 @@ mod tests
     ]);
   }
 
-  /* todo
-  /// Проверяем обычные слова (идентификаторы)
-  #[test]
-  fn words()
-  {
-    for src in vec!["a", "variable", "myVar123", "_underscore", "CamelCase"] {
-      let tokens: Vec<Token> = getTokensFromBuffer(src);
-
-      assert_eq!(tokens.len(), 1, "Байты '{}' должны были создать ровно 1 токен", src);
-      assert_eq!(tokens[0].getDataType().to_string(), TokenType::Word.to_string(), "Ожидался тип Word");
-      assert_eq!(tokens[0].to_string(), src, "Значение должно совпадать с '{}'", src);
-    }
-  }
-
-  /// Проверяем ссылки (dot notation)
+  /// Проверяем ссылки - статические и динамические
   #[test]
   fn links()
   {
-    for (src, expectedType) in vec![
-      ("a.", TokenType::Link),
-      ("variable.name", TokenType::Link),
-      ("myVar[0]", TokenType::Link),
-      ("obj.property", TokenType::Link),
-    ] {
-      let tokens: Vec<Token> = getTokensFromBuffer(src);
+    // Корректные ссылки (один токен типа Link)
+    let valid_cases = vec![
+      ("a.",        TokenType::Link),
+      ("var.name",  TokenType::Link),
+      ("obj.prop[0]", TokenType::Link),
+      ("data.list[1].value", TokenType::Link),
+    ];
 
-      assert_eq!(tokens.len(), 1, "Байты '{}' должны были создать ровно 1 токен", src);
-      assert_eq!(tokens[0].getDataType().to_string(), expectedType.to_string(), "Ожидался тип {:?}", expectedType.to_string());
-      assert_eq!(tokens[0].to_string(), src, "Значение должно совпадать с '{}'", src);
+    for (src, expectedType) in valid_cases 
+    {
+      let tokens: Vec<Token> = getTokensFromBuffer(src);
+      
+      //
+      assert_eq!(tokens.len(), 1,
+                 "Байты '{}' должны были создать ровно 1 токен, а создали {}", src, tokens.len());
+      
+      //
+      let tokenType: String = tokens[0].getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
+      assert_eq!(tokenType, expectedType,
+                 "Байты '{}' должны были создать токен {:?}, а создали {:?}", src, expectedType, tokenType);
+      
+      //
+      let tokenData: String = tokens[0].to_string();
+      assert_eq!(tokenData, src,
+                 "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokenType);
     }
-  }*/
+  }
 
   /// Проверяет разделение пробелами на несколько токенов
   #[test]
@@ -205,6 +206,7 @@ mod tests
       ("d:Int", "d", ":", TokenType::Int),
       ("e:UFloat", "e", ":", TokenType::UFloat),
       ("f:Float", "f", ":", TokenType::Float),
+      //("xxx:Rational", "g", ":", TokenType::Float), // todo Rational пока что нет как типа
 
       ("g:Char", "g", ":", TokenType::Char),
       ("h:String", "h", ":", TokenType::String),

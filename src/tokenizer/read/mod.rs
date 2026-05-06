@@ -63,7 +63,7 @@ mod tests
       // Значение должно совпадать с изначальным
       let tokenData: String = tokens[0].to_string();
       assert_eq!(tokenData, src,
-                 "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokens[0].getDataType().to_string());
+                 "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokenType);
     }
   }
 
