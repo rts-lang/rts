@@ -78,10 +78,11 @@ mod tests
       assert_eq!(
         tokens.len(),
         expected_types.len(),
-        "Байты '{}' должны были создать {} токенов, а создали {}",
+        "Байты '{}' должны были создать {} токенов, а создали {}:{:?}",
         input,
         expected_types.len(),
-        tokens.len()
+        tokens.len(),
+        tokens
       );
 
       for (i, (token, expectedType)) in tokens.iter().zip(expected_types.iter()).enumerate() 
@@ -91,7 +92,7 @@ mod tests
         assert_eq!(
           tokenType,
           expectedType,
-          "Байты '{}' создали токен {} с типом {:?}, а ожидался {:?}",
+          "Байты '{}' создали токен '{}' с типом '{}', а ожидался '{}'",
           input, i, tokenType, expectedType
         );
         //
@@ -112,7 +113,7 @@ mod tests
       //
       let tokensLen: usize = tokens.len();
       assert_eq!(tokensLen, 3,
-                 "Байты '{}' должны были создать 3 токена, а создали {}", input, tokensLen);
+                 "Байты '{}' должны были создать 3 токена, а создали {}:{:?}", input, tokensLen, tokens);
 
       //
       let t0: String = tokens[0].to_string();

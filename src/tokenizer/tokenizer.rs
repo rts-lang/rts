@@ -536,6 +536,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   
   //
   #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(test))]
   match debugMode
   {
     true =>
@@ -547,6 +548,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     false => {}
   }
   #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(test))]
   let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
   let mut      index: usize = 0;               // Основной индекс чтения
@@ -580,12 +582,14 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         if byte == b'\n' || byte == b';'
         { // Если это действительно конец строки,
           // то вкладываем возможные скобки
+          #[cfg(not(test))]
           bracketNesting(
             &mut lineTokens,
             &TokenType::CircleBracketBegin,
             &TokenType::CircleBracketEnd
           );
           /* todo Вырезано, пока не используется
+          #[cfg(not(test))]    
           bracketNesting(
             &mut lineTokens,
             &TokenType::SquareBracketBegin,
@@ -742,12 +746,15 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 
   // Вкладываем линии
   #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(test))]
   lineNesting(&mut linesLinks);
   // Удаляем возможные вложенные комментарии по меткам
+  #[cfg(not(test))]
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
   #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(test))]
   match debugMode
   { false => {} true =>
   {

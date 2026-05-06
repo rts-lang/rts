@@ -23,10 +23,10 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   while savedIndex < *bufferLength
   {
     byte1 = buffer[savedIndex]; // Значение текущего символа
-
+    
     // todo: use match case
     if (isDigit(&byte1) || byte1 == b'.') || // Либо число, либо . как ссылка
-      (isLink && byte1 == b'[' || byte1 == b']') // В случае ссылки мы можем читать динамические []
+      (isLink && (byte1 == b'[' || byte1 == b']')) // В случае ссылки мы можем читать динамические []
     {
       result.push(byte1 as char);
       savedIndex += 1;
@@ -129,16 +129,12 @@ mod tests
   #[test]
   fn links()
   {
-    // Корректные ссылки (один токен типа Link)
-    let valid_cases = vec![
+    for (src, expectedType) in vec![
       ("a.",        TokenType::Link),
       ("var.name",  TokenType::Link),
       ("obj.prop[0]", TokenType::Link),
       ("data.list[1].value", TokenType::Link),
-    ];
-
-    for (src, expectedType) in valid_cases 
-    {
+    ] {
       let tokens: Vec<Token> = getTokensFromBuffer(src);
       
       //
@@ -200,21 +196,21 @@ mod tests
   {
     checkThroughOthers([
       ("a=true", "a", "=", TokenType::Bool),
-      ("b=false", "b", "=", TokenType::Bool),
+      ("a=false", "a", "=", TokenType::Bool),
 
-      ("c:UInt", "c", ":", TokenType::UInt),
-      ("d:Int", "d", ":", TokenType::Int),
-      ("e:UFloat", "e", ":", TokenType::UFloat),
-      ("f:Float", "f", ":", TokenType::Float),
+      ("a:UInt", "a", ":", TokenType::UInt),
+      ("a:Int", "a", ":", TokenType::Int),
+      ("a:UFloat", "a", ":", TokenType::UFloat),
+      ("a:Float", "a", ":", TokenType::Float),
       //("xxx:Rational", "g", ":", TokenType::Float), // todo Rational пока что нет как типа
 
-      ("g:Char", "g", ":", TokenType::Char),
-      ("h:String", "h", ":", TokenType::String),
-      ("i:RawString", "i", ":", TokenType::RawString),
+      ("a:Char", "a", ":", TokenType::Char),
+      ("a:String", "a", ":", TokenType::String),
+      ("a:RawString", "a", ":", TokenType::RawString),
 
-      ("j:FormattedChar", "j", ":", TokenType::FormattedChar),
-      ("k:FormattedString", "k", ":", TokenType::FormattedString),
-      ("l:FormattedRawString", "l", ":", TokenType::FormattedRawString),
+      ("a:FormattedChar", "a", ":", TokenType::FormattedChar),
+      ("a:FormattedString", "a", ":", TokenType::FormattedString),
+      ("a:FormattedRawString", "a", ":", TokenType::FormattedRawString),
 
       ("m=None", "m", "=", TokenType::None)
     ]);
