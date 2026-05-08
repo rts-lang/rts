@@ -114,7 +114,7 @@ mod tests
   #[test]
   fn value() 
   {
-    for (keyword, expected_type) in keywords.iter() 
+    for (keyword, expectedType) in keywords.iter() 
     {
       let buffer: &[u8] = keyword.as_bytes();
       let bufferLength: usize = buffer.len();
@@ -122,28 +122,31 @@ mod tests
       let token: Token = getWord(buffer, &mut index, &bufferLength);
 
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expected_type.to_string(),
-        "Ключевое слово '{}' должно давать тип {}, получен {}",
+        tokenType,
+        expectedType,
+        "Для '{}' ожидался тип {}, получен {}",
         keyword,
-        expected_type.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
 
       //
-      let expected_data = if *keyword == "true" || *keyword == "false" {
+      let tokenData: String = token.getData().toString().unwrap_or_default();
+      let expectedData: String = if *keyword == "true" || *keyword == "false" {
         keyword.to_string()
       } else {
         String::new()
       };
       assert_eq!(
-        token.getData().toString().unwrap_or_default(),
-        expected_data,
+        tokenData,
+        expectedData,
         "Ключевое слово '{}' должно иметь значение '{}', получено '{}'",
         keyword,
-        expected_data,
-        token.getData().toString().unwrap_or_default()
+        expectedData,
+        tokenData
       );
 
       //
@@ -180,23 +183,26 @@ mod tests
       let token: Token = getWord(buffer, &mut index, &bufferLength);
 
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expectedType.to_string(),
+        tokenType,
+        expectedType,
         "Для '{}' ожидался тип {}, получен {}",
         input,
-        expectedType.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
 
       //
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
-        token.getData().toString().unwrap_or_default(),
+        tokenData,
         expectedData,
         "Для '{}' ожидалось значение '{}', получено '{}'",
         input,
         expectedData,
-        token.getData().toString().unwrap_or_default()
+        tokenData
       );
 
       //
@@ -226,25 +232,28 @@ mod tests
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
       let token: Token = getWord(buffer, &mut index, &bufferLength);
+      
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expectedType.to_string(),
+        tokenType,
+        expectedType,
         "Для '{}' ожидался тип {}, получен {}",
         input,
-        expectedType.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
 
       //
-      let actual_data = token.getData().toString().unwrap_or_default();
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
-        actual_data,
+        tokenData,
         expectedWord,
         "Для '{}' ожидалось слово '{}', получено '{}'",
         input,
         expectedWord,
-        actual_data
+        tokenData
       );
 
       //

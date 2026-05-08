@@ -128,26 +128,29 @@ mod tests
       let token: Token = getNumber(buffer, &mut index, &bufferLength);
 
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expectedType.to_string(),
+        tokenType,
+        expectedType,
         "Для '{}' ожидался тип {}, получен {}",
         input,
-        expectedType.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
       
       //
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
-        token.getData().toString().unwrap_or_default(),
+        tokenData,
         input,
         "Для '{}' значение '{}' не совпало",
         input,
-        token.getData().toString().unwrap_or_default()
+        tokenData
       );
       
       //
-      assert_eq!(index, buffer.len(), "Индекс не дошел до конца для '{}'", input);
+      assert_eq!(index, bufferLength, "Индекс не дошел до конца для '{}'", input);
     }
     //
   }
@@ -169,23 +172,26 @@ mod tests
       let token: Token = getNumber(buffer, &mut index, &bufferLength);
 
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expectedType.to_string(),
+        tokenType,
+        expectedType,
         "Для '{}' ожидался тип {}, получен {}",
         input,
-        expectedType.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
 
       //
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
-        token.getData().toString().unwrap(),
+        tokenData,
         expectedValue,
         "Для '{}' ожидалось значение '{}', получено '{}'",
         input,
         expectedValue,
-        token.getData().toString().unwrap()
+        tokenData
       );
 
       //

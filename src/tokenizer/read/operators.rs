@@ -108,22 +108,25 @@ mod tests
       let token: Token = getOperator(buffer, &mut index, &bufferLength);
 
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expectedType.to_string(),
-        "Оператор '{}' должен давать тип {}, получен {}",
+        tokenType,
+        expectedType,
+        "Для '{}' ожидался тип {}, получен {}",
         pat,
-        expectedType.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
 
       // Для операторов значение всегда пустое
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
-        token.getData().toString().unwrap_or_default(),
+        tokenData,
         "",
         "Оператор '{}' должен иметь пустое значение, получено '{}'",
         pat,
-        token.getData().toString().unwrap_or_default()
+        tokenData
       );
 
       //
@@ -156,22 +159,25 @@ mod tests
       let token: Token = getOperator(buffer, &mut index, &bufferLength);
 
       //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
       assert_eq!(
-        token.getDataType().to_string(),
-        expectedType.to_string(),
+        tokenType,
+        expectedType,
         "Для '{}' ожидался тип {}, получен {}",
         input,
-        expectedType.to_string(),
-        token.getDataType().to_string()
+        expectedType,
+        tokenType
       );
 
       // Для операторов значение всегда пустое
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
-        token.getData().toString().unwrap_or_default(),
+        tokenData,
         "",
         "Оператор '{}' должен иметь пустое значение, получено '{}'",
         input,
-        token.getData().toString().unwrap_or_default()
+        tokenData
       );
 
       //
