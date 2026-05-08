@@ -88,114 +88,114 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues};
-  use crate::tokenizer::types::token::{TokenType};
+  use crate::tokenizer::read::numbers::getNumber;
+  use crate::tokenizer::types::token::{Token, TokenType};
 
   // ===============================================================================================
 
-  /// Проверяем тип и значение
+  /// todo desk
   #[test]
-  fn values() -> ()
+  fn value() 
   {
-    checkValues([
+    for (input, expectedType) in [
       // UInt
       ("0", TokenType::UInt),
       ("1", TokenType::UInt),
       ("1234567890", TokenType::UInt),
-      
+
       // Int
       ("-0", TokenType::Int),
       ("-1", TokenType::Int),
       ("-987654321", TokenType::Int),
-      
+
       // UFloat
       ("3.14", TokenType::UFloat),
       //("3.", TokenType::UFloat), // todo Сейчас нет реализации 3. = 3.0
       //(".14", TokenType::UFloat), // todo Сейчас нет реализации .14 = 0.14
       //(".", TokenType::UInt), // todo Сейчас нет реализации . = 0.0
-      
+
       // UInt
       ("-14.3", TokenType::Float),
       ("-2.5", TokenType::Float),
       ("-100.1000", TokenType::Float),
-      
+
       // Rational
       //("1//2", TokenType::Rational) // todo Rational пока что нет как типа
-    ], true);
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      let token: Token = getNumber(buffer, &mut index, &bufferLength);
+
+      //
+      assert_eq!(
+        token.getDataType().to_string(),
+        expectedType.to_string(),
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedType.to_string(),
+        token.getDataType().to_string()
+      );
+      
+      //
+      assert_eq!(
+        token.getData().toString().unwrap_or_default(),
+        input,
+        "Для '{}' значение '{}' не совпало",
+        input,
+        token.getData().toString().unwrap_or_default()
+      );
+      
+      //
+      assert_eq!(index, buffer.len(), "Индекс не дошел до конца для '{}'", input);
+    }
+    //
   }
 
-  /// Проверяет разделение пробелами на несколько токенов
+  /// todo desk
   #[test]
-  fn split() -> ()
+  fn index()
   {
-    checkSplit(&[
-      // UInt
-      ("1 2 3", &[
-        TokenType::UInt,
-        TokenType::UInt,
-        TokenType::UInt,
-      ]),
+    for (input, expectedType, expectedValue, expectedIndex) in [
+      ("123 ", TokenType::UInt, "123", 3),
+      ("-42x", TokenType::Int, "-42", 3),
+      ("3.14+", TokenType::UFloat, "3.14", 4),
+      ("-5.5abc", TokenType::Float, "-5.5", 4),
+      ("100500\n", TokenType::UInt, "100500", 6),
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      let token: Token = getNumber(buffer, &mut index, &bufferLength);
 
-      // Int
-      ("-1 -2 -3", &[
-        TokenType::Int,
-        TokenType::Int,
-        TokenType::Int,
-      ]),
+      //
+      assert_eq!(
+        token.getDataType().to_string(),
+        expectedType.to_string(),
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedType.to_string(),
+        token.getDataType().to_string()
+      );
 
-      // UFloat
-      ("1.1 2.2 3.3", &[
-        TokenType::UFloat,
-        TokenType::UFloat,
-        TokenType::UFloat,
-      ]),
+      //
+      assert_eq!(
+        token.getData().toString().unwrap(),
+        expectedValue,
+        "Для '{}' ожидалось значение '{}', получено '{}'",
+        input,
+        expectedValue,
+        token.getData().toString().unwrap()
+      );
 
-      // Float
-      ("-1.1 -2.2 -3.3", &[
-        TokenType::Float,
-        TokenType::Float,
-        TokenType::Float,
-      ]),
-
-      // Rational
-      // todo Rational пока что нет как типа
-      // ("1//2 3//4 5//6", &[
-      //   TokenType::Rational,
-      //   TokenType::Rational,
-      //   TokenType::Rational,
-      // ]),
-
-      // Все числовые типы
-      ("1 -1 1.1 -1.1", &[ // todo Rational пока что нет как типа
-        TokenType::UInt,
-        TokenType::Int,
-        TokenType::UFloat,
-        TokenType::Float,
-      ]),
-    ]);
-  }
-
-  /// Проверяет максимальный размер
-  #[test]
-  fn maxSize() -> ()
-  {
-    // todo В целом это логика не tokenizer, а value;
-    //  Но пока что не известно будут ли лимиты на типы данных, 
-    //  следует ли их проверять заранее - поэтому пока что оно останется тут.
-    //  Хотя лимитов не должно быть у примитивов.
-  }
-  
-  /// Проверяет через несколько токенов
-  #[test]
-  fn throughOthers() -> ()
-  {
-    checkThroughOthers([
-      ("a=10", "a", "=", TokenType::UInt),
-      ("b=-20", "b", "=", TokenType::Int),
-      ("c=3.14", "c", "=", TokenType::UFloat),
-      ("d=-2.5", "d", "=", TokenType::Float),
-      // ("e=1//2", "e", "=", TokenType::Rational) // todo Rational пока что нет как типа
-    ]);
+      //
+      assert_eq!(
+        index, expectedIndex,
+        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        input, expectedIndex, index
+      );
+    }
+    //
   }
 
   // ===============================================================================================

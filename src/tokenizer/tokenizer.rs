@@ -1,11 +1,10 @@
 use std::{
   sync::{Arc, RwLock, RwLockWriteGuard}
 };
+#[cfg(all(not(feature = "analyzer"), not(test)))]
+use std::time::{Instant, Duration};
 #[cfg(not(feature = "analyzer"))]
-use std::{
-  time::{Instant, Duration},
-  sync::RwLockReadGuard,
-};
+use std::sync::RwLockReadGuard;
 #[cfg(not(feature = "analyzer"))]
 use crate::logger::logger::{formatPrint, log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
@@ -575,6 +574,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
       }
       false =>
       {
+        #[cfg(feature = "analyzer")]
         let start: usize = index; // Начало токена
         readLineIndent = false;
         
@@ -714,7 +714,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           } else 
           {
             let mut token: Token = getQuotes(&buffer, &mut index, false);
-            let tokenType: TokenType = token.getDataType().clone();
+            let tokenType: TokenType = *token.getDataType();
             if tokenType != TokenType::None {
               #[cfg(feature = "analyzer")]
               pushLineToken!(token, lineTokens, startPos, index);

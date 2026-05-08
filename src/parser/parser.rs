@@ -110,9 +110,9 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
   // Получаем тип операции
   let opType: TokenType = lineTokens.iter().find_map(|token| 
   {
-    match isMathOperator( token.getDataType().clone() ) 
+    match isMathOperator( *token.getDataType() ) 
     {
-      true => Some(token.getDataType().clone()),
+      true => Some(*token.getDataType()),
       false => None,
     }
   }).unwrap_or(TokenType::None);
@@ -125,7 +125,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     { 
       false => 
       {// Операция есть
-        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType.clone()]); // todo: Тут точно клонирование ?
+        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType]); // todo: Тут точно клонирование ?
 
         leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
         rightValue = std::mem::take(&mut parts[1].tokens);
@@ -405,7 +405,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             newStructure.result = match newStructureResultType
             {
               Some(newStructureResultType) =>
-                Some( Token::newEmpty(newStructureResultType.clone()) ),
+                Some( Token::newEmpty(*newStructureResultType) ),
               None => None,
             };
 

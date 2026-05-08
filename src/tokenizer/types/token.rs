@@ -10,7 +10,7 @@ use crate::tokenizer::types::line::Line;
 // TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации
 #[derive(PartialEq)]
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum TokenType
 {
 // basic
@@ -382,7 +382,7 @@ impl Token
         {
           Some('-') => 
           {
-            match self.dataType.clone()
+            match self.dataType
             {
               TokenType::UInt   => { self.data = Bytes::from(String::from("0")); }
               TokenType::UFloat => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
@@ -391,8 +391,10 @@ impl Token
           }
           _ => {}
         }
+        //
       }
     }
+    //
   }
 
   /// Получает тип данных
@@ -414,11 +416,15 @@ impl Token
       self.dataType,
       TokenType::None |
       TokenType::Any |
+      //
       TokenType::Link |
+      //
       TokenType::UInt |
       TokenType::Int |
       TokenType::UFloat |
       TokenType::Float |
+      // TokenType::Rational // todo Rational пока что нет как типа
+      //
       TokenType::Char |
       TokenType::String |
       TokenType::RawString |

@@ -10,6 +10,29 @@ pub fn isLetter(c: &u8) -> bool
 
 // =================================================================================================
 
+pub const keywords: &[(&str, TokenType)] = &[
+  ("None", TokenType::None),
+  ("Link", TokenType::Link),
+  ("Any", TokenType::Any),
+  //
+  ("Bool", TokenType::Bool),
+  ("true", TokenType::Bool),
+  ("false", TokenType::Bool),
+  //
+  ("UInt", TokenType::UInt),
+  ("Int", TokenType::Int),
+  ("UFloat", TokenType::UFloat),
+  ("Float", TokenType::Float),
+  //("Rational", TokenType::Rational), // todo Rational пока что нет как типа
+  //
+  ("Char", TokenType::Char),
+  ("String", TokenType::String),
+  ("RawString", TokenType::RawString),
+  ("FormattedChar", TokenType::FormattedChar),
+  ("FormattedString", TokenType::FormattedString),
+  ("FormattedRawString", TokenType::FormattedRawString)
+];
+
 /// Проверяет buffer по index и так находит возможные слова;
 /// Из них также выделяет сразу определяемые зарезервированные
 pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
@@ -55,30 +78,21 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
     true => Token::new(TokenType::Link, result),
     false =>
     {
-      match result.as_str()
+      // Ключевое слово 
+      for (keyword, tokenType) in keywords.iter() 
       {
-        "Bool"  => Token::newEmpty(TokenType::Bool), // todo Важно: оно не имеет значения, что спорно
-        "true"  => Token::new(TokenType::Bool, result),
-        "false" => Token::new(TokenType::Bool, result),
-        //
-        "UInt"   => Token::newEmpty(TokenType::UInt),
-        "Int"    => Token::newEmpty(TokenType::Int),
-        "UFloat" => Token::newEmpty(TokenType::UFloat),
-        "Float"  => Token::newEmpty(TokenType::Float),
-        //"Rational"  => Token::newEmpty(TokenType::Rational), // todo Rational пока что нет как типа
-        //
-        "Char"      => Token::newEmpty(TokenType::Char),
-        "String"    => Token::newEmpty(TokenType::String),
-        "RawString" => Token::newEmpty(TokenType::RawString),
-        //
-        "FormattedChar"      => Token::newEmpty(TokenType::FormattedChar),
-        "FormattedString"    => Token::newEmpty(TokenType::FormattedString),
-        "FormattedRawString" => Token::newEmpty(TokenType::FormattedRawString),
-        //
-        "None" => Token::newEmpty(TokenType::None),
-        //
-        _ => Token::new(TokenType::Word, result),
+        if result == *keyword {
+          // todo true и false – особые случаи ?
+          return if result == "true" || result == "false" {
+            Token::new(*tokenType, result)
+          } else {
+            Token::newEmpty(*tokenType)
+          };
+          //
+        }
       }
+      // Обычное слово (идентификатор)
+      Token::new(TokenType::Word, result)
       //
     }
   }
@@ -90,130 +104,157 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::tests::{checkSplit, checkThroughOthers, checkValues, getTokensFromBuffer};
+  use crate::tokenizer::read::operators::getOperator;
+  use crate::tokenizer::read::words::{getWord, keywords};
   use crate::tokenizer::types::token::{Token, TokenType};
-
+  
   // ===============================================================================================
 
-  /// Проверяем тип и значение
+  /// todo desk
   #[test]
-  fn values() -> ()
+  fn value() 
   {
-    checkValues([
-      // Bool
-      ("true", TokenType::Bool),
-      ("false", TokenType::Bool),
+    for (keyword, expected_type) in keywords.iter() 
+    {
+      let buffer: &[u8] = keyword.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      let token: Token = getWord(buffer, &mut index, &bufferLength);
 
-      // Numbers
-      ("UInt", TokenType::UInt),
-      ("Int", TokenType::Int),
-      ("UFloat", TokenType::UFloat),
-      ("Float", TokenType::Float),
-
-      // Strings
-      ("Char", TokenType::Char),
-      ("String", TokenType::String),
-      ("RawString", TokenType::RawString),
-
-      // Formatted strings
-      ("FormattedChar", TokenType::FormattedChar),
-      ("FormattedString", TokenType::FormattedString),
-      ("FormattedRawString", TokenType::FormattedRawString),
-
-      // None
-      ("None", TokenType::None)
-    ], true);
-  }
-
-  /// Проверяем ссылки - статические и динамические
-  #[test]
-  fn links() -> ()
-  {
-    for (src, expectedType) in vec![
-      ("a.",        TokenType::Link),
-      ("var.name",  TokenType::Link),
-      ("obj.prop[0]", TokenType::Link),
-      ("data.list[1].value", TokenType::Link),
-    ] {
-      let tokens: Vec<Token> = getTokensFromBuffer(src);
-      
       //
-      assert_eq!(tokens.len(), 1,
-                 "Байты '{}' должны были создать ровно 1 токен, а создали {}", src, tokens.len());
-      
+      assert_eq!(
+        token.getDataType().to_string(),
+        expected_type.to_string(),
+        "Ключевое слово '{}' должно давать тип {}, получен {}",
+        keyword,
+        expected_type.to_string(),
+        token.getDataType().to_string()
+      );
+
       //
-      let tokenType: String = tokens[0].getDataType().to_string();
-      let expectedType: String = expectedType.to_string();
-      assert_eq!(tokenType, expectedType,
-                 "Байты '{}' должны были создать токен {:?}, а создали {:?}", src, expectedType, tokenType);
-      
+      let expected_data = if *keyword == "true" || *keyword == "false" {
+        keyword.to_string()
+      } else {
+        String::new()
+      };
+      assert_eq!(
+        token.getData().toString().unwrap_or_default(),
+        expected_data,
+        "Ключевое слово '{}' должно иметь значение '{}', получено '{}'",
+        keyword,
+        expected_data,
+        token.getData().toString().unwrap_or_default()
+      );
+
       //
-      let tokenData: String = tokens[0].to_string();
-      assert_eq!(tokenData, src,
-                 "Ожидались исходные байты '{}', а получили '{}':'{}'", src, tokenData, tokenType);
+      assert_eq!(
+        index, bufferLength,
+        "Индекс для '{}' должен продвинуться на {} (длина строки), остановился на {}",
+        keyword, bufferLength, index
+      );
     }
+    //
   }
 
-  /// Проверяет разделение пробелами на несколько токенов
+  /// todo desk
   #[test]
-  fn split() -> ()
+  fn links() 
   {
-    checkSplit(&[
-      // Простейшие custom слова
-      ("a b c", &[TokenType::Word, TokenType::Word, TokenType::Word]),
-      // Длинные custom слова
-      ("hello world", &[TokenType::Word, TokenType::Word]),
-      // Все типы
-      ("Bool UInt Int UFloat Float Char String RawString FormattedChar FormattedString FormattedRawString None", 
-       &[
-         TokenType::Bool, 
-         //
-         TokenType::UInt, 
-         TokenType::Int, 
-         TokenType::UFloat, 
-         TokenType::Float, 
-         // TokenType::Rational, // todo Rational пока что нет как типа
-         //
-         TokenType::Char, 
-         TokenType::String,
-         TokenType::RawString,
-         //
-         TokenType::FormattedChar,
-         TokenType::FormattedString,
-         TokenType::FormattedRawString,
-         //
-         TokenType::None
-       ]
-      ),
-      // Статические ссылки (динамические здесь не должны проверяться)
-      ("a.name b.prop", &[TokenType::Link, TokenType::Link]),
-    ]);
+    for (input, expectedType, expectedData) in vec![
+      ("hello", TokenType::Word, "hello"),
+      ("world123", TokenType::Word, "world123"),
+      ("myVar", TokenType::Word, "myVar"),
+      ("a.", TokenType::Link, "a."),
+      ("var.name", TokenType::Link, "var.name"),
+      ("obj.prop[0]", TokenType::Link, "obj.prop[0]"),
+      ("data.list[1].value", TokenType::Link, "data.list[1].value"),
+      ("arr.[42].field", TokenType::Link, "arr.[42].field"),
+      ("true", TokenType::Bool, "true"),
+      ("false", TokenType::Bool, "false"),
+      ("None", TokenType::None, ""),
+      ("abc123", TokenType::Word, "abc123"),
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      let token: Token = getWord(buffer, &mut index, &bufferLength);
+
+      //
+      assert_eq!(
+        token.getDataType().to_string(),
+        expectedType.to_string(),
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedType.to_string(),
+        token.getDataType().to_string()
+      );
+
+      //
+      assert_eq!(
+        token.getData().toString().unwrap_or_default(),
+        expectedData,
+        "Для '{}' ожидалось значение '{}', получено '{}'",
+        input,
+        expectedData,
+        token.getData().toString().unwrap_or_default()
+      );
+
+      //
+      assert_eq!(
+        index, bufferLength,
+        "Для '{}' индекс должен продвинуться на {} (вся строка), остановился на {}",
+        input, bufferLength, index
+      );
+    }
+    //
   }
 
-  /// Проверяет через несколько токенов
+  /// todo desk
   #[test]
-  fn throughOthers() -> ()
+  fn index() 
   {
-    checkThroughOthers([
-      ("a=true", "a", "=", TokenType::Bool),
-      ("a=false", "a", "=", TokenType::Bool),
+    for (input, expectedWord, expectedType, expectedIndex) in vec![
+      ("hello world", "hello", TokenType::Word, 5),
+      ("myVar=123", "myVar", TokenType::Word, 5),
+      ("a.b.c;", "a.b.c", TokenType::Link, 5),
+      ("true false", "true", TokenType::Bool, 4),
+      ("None;", "", TokenType::None, 4),
+      ("obj.[0].prop,", "obj.[0].prop", TokenType::Link, 12),
+      ("abc123+", "abc123", TokenType::Word, 6),
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      let token: Token = getWord(buffer, &mut index, &bufferLength);
+      //
+      assert_eq!(
+        token.getDataType().to_string(),
+        expectedType.to_string(),
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedType.to_string(),
+        token.getDataType().to_string()
+      );
 
-      ("a:UInt", "a", ":", TokenType::UInt),
-      ("a:Int", "a", ":", TokenType::Int),
-      ("a:UFloat", "a", ":", TokenType::UFloat),
-      ("a:Float", "a", ":", TokenType::Float),
-      //("xxx:Rational", "g", ":", TokenType::Float), // todo Rational пока что нет как типа
+      //
+      let actual_data = token.getData().toString().unwrap_or_default();
+      assert_eq!(
+        actual_data,
+        expectedWord,
+        "Для '{}' ожидалось слово '{}', получено '{}'",
+        input,
+        expectedWord,
+        actual_data
+      );
 
-      ("a:Char", "a", ":", TokenType::Char),
-      ("a:String", "a", ":", TokenType::String),
-      ("a:RawString", "a", ":", TokenType::RawString),
-
-      ("a:FormattedChar", "a", ":", TokenType::FormattedChar),
-      ("a:FormattedString", "a", ":", TokenType::FormattedString),
-      ("a:FormattedRawString", "a", ":", TokenType::FormattedRawString),
-
-      ("m=None", "m", "=", TokenType::None)
-    ]);
+      //
+      assert_eq!(
+        index, expectedIndex,
+        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        input, expectedIndex, index
+      );
+    }
+    //
   }
 
   // ===============================================================================================

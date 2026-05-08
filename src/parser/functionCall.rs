@@ -448,7 +448,7 @@ impl Structure
             Some(result) =>
             { // Результат не пустой, значит оставляем его
               value[i].setData    ( result.getData() );
-              value[i].setDataType( result.getDataType().clone() );
+              value[i].setDataType( *result.getDataType() );
             }
             None =>
             { // Если результата структуры не было,
