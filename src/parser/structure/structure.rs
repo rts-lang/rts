@@ -272,6 +272,9 @@ pub enum StructureType
   /// Позволяет создавать пользовательские типы
   Custom(String),
 }
+// todo Можно заменить данные на keywords из words.rs, 
+//   но их не хватит т.к. тут есть другие, 
+//   + здесь structure type
 impl ToString for StructureType
 { // todo convert -> fmt::Display ?
   fn to_string(&self) -> String

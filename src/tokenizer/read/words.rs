@@ -15,9 +15,9 @@ pub const keywords: &[(&str, TokenType)] = &[
   ("Link", TokenType::Link),
   ("Any", TokenType::Any),
   //
-  ("Bool", TokenType::Bool),
-  ("true", TokenType::Bool),
-  ("false", TokenType::Bool),
+  ("Bool", TokenType::Bool), // todo issue #65
+  ("true", TokenType::Bool), // todo issue #65
+  ("false", TokenType::Bool), // todo issue #65
   //
   ("UInt", TokenType::UInt),
   ("Int", TokenType::Int),

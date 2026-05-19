@@ -5,10 +5,16 @@
 use std::fmt;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::StructureType;
+use crate::tokenizer::read::words::keywords;
 use crate::tokenizer::types::line::Line;
 
 // TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации
+/// 
+/// todo Можно создать глобальную общую структуру:
+///   - structure type
+///   - token type
+///   - string
 #[derive(PartialEq)]
 #[derive(Copy, Clone)]
 pub enum TokenType
@@ -155,7 +161,8 @@ pub enum TokenType
   Complex,
 
   /// Bool
-  Bool,
+  Bool, // todo issue #65
+  // True, False, // todo issue #65
   /// & (and) Joint
   Joint,
   /// ^
@@ -257,7 +264,7 @@ impl ToString for TokenType
       //TokenType::Rational => String::from("Rational"), // todo Rational пока что нет как типа
       TokenType::Complex  => String::from("Complex"),
 
-      TokenType::Bool      => String::from("Bool"),
+      TokenType::Bool      => String::from("Bool"), // todo issue #65
       TokenType::Joint     => String::from("Joint"),
       TokenType::Disjoint  => String::from("Disjoint"),
       TokenType::Inclusion => String::from("Inclusion"),
@@ -412,26 +419,7 @@ impl Token
   /// Проверяет примитивный это токен или нет
   pub fn isPrimitive(&self) -> bool
   {
-    matches!(
-      self.dataType,
-      TokenType::None |
-      TokenType::Any |
-      //
-      TokenType::Link |
-      //
-      TokenType::UInt |
-      TokenType::Int |
-      TokenType::UFloat |
-      TokenType::Float |
-      // TokenType::Rational // todo Rational пока что нет как типа
-      //
-      TokenType::Char |
-      TokenType::String |
-      TokenType::RawString |
-      TokenType::FormattedChar |
-      TokenType::FormattedString |
-      TokenType::FormattedRawString
-    )
+    keywords.iter().any(|(_, tt)| *tt == self.dataType)
   }
 
   /// Получает данные
