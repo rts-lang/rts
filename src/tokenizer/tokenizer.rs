@@ -1,11 +1,11 @@
 use std::{
   sync::{Arc, RwLock, RwLockWriteGuard}
 };
-#[cfg(all(not(feature = "analyzer"), not(test)))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm"), not(test)))]
 use std::time::{Instant, Duration};
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use std::sync::RwLockReadGuard;
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use crate::logger::logger::{formatPrint, log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::read::comments::{deleteComment};
@@ -349,7 +349,7 @@ fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usi
 }
 
 /// Выводит токен, его тип данных
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> ()
 {
   let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
@@ -464,7 +464,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
   }
 }
 /// Выводит информацию о линии, а также токены линии
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
 {
   let identStr1: String = " ".repeat(indent*2);   // Это отступ для главной строки
@@ -534,7 +534,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     };
   
   //
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   #[cfg(not(test))]
   match debugMode
   {
@@ -546,7 +546,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     }
     false => {}
   }
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   #[cfg(not(test))]
   let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
@@ -753,7 +753,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   #[cfg(not(test))]
   match debugMode
   { false => {} true =>

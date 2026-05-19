@@ -16,9 +16,10 @@ use crate::tokenizer::tokenizer::readTokens;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 
+// todo удалить mods
 mod tokenizer;
 mod parser;
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 mod logger;
 #[cfg(not(feature = "analyzer"))]
 mod packages;

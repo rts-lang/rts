@@ -21,6 +21,7 @@ use crate::logger::logger::{log, logExit, logSeparator};
 use crate::parser::parser::parseLines;
 use crate::tokenizer::tokenizer::readTokens;
 
+// todo удалить mods
 mod tokenizer;
 mod parser;
 mod logger;

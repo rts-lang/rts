@@ -58,3 +58,5 @@ default = ["termion","rand"]
 # debug: cargo build --lib --target wasm32-unknown-unknown --features analyzer --no-default-features
 # release: wasm-pack build --target web --features analyzer --no-default-features
 analyzer = ["wasm-bindgen","serde_json","serde"]
+
+wasm = []

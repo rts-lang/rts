@@ -6,11 +6,11 @@ use crate::parser::structure::structure::{Structure, StructureMut, StructureType
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{ToStructureType, Token, TokenType};
 use crate::tokenizer::tokenizer::splitByType;
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use crate::_debugMode;
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use crate::logger::logger::{log, logSeparator};
-#[cfg(not(feature = "analyzer"))]
+#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use std::time::{Duration, Instant};
 // =================================================================================================
 /* /parser
@@ -595,7 +595,7 @@ lazy_static!
 /// Она разделена на подготовительную часть, и часть запуска readLine()
 pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 { // Начинается подготовка к запуску
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   match unsafe{_debugMode} 
   { false => {} true  =>
   {
@@ -668,7 +668,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Выводим arch & argv
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   unsafe
   {
     match _debugMode
@@ -684,9 +684,9 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Подготовка закончена, читаем линии
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   let startTime: Instant = Instant::now(); // Получаем текущее время для debug замера
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   match unsafe{ _debugMode }
   { false => {} true  =>
   {
@@ -696,7 +696,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   // Передаём ссылку на структуру и запускаем
   readLines(_main.clone());
   // Далее идут debug замеры
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
   match unsafe{_debugMode} 
   { false => {} true =>
   {
