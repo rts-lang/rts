@@ -29,8 +29,11 @@ lazy_static!
 #[derive(Serialize, Clone)]
 pub struct AnalyzeToken 
 {
+  // todo desc
   pub start: usize,
+  // todo desc
   pub end: usize,
+  // todo desc
   pub kind: String,
 }
 
@@ -38,12 +41,15 @@ pub struct AnalyzeToken
 #[derive(Serialize)]
 pub struct AnalyzedLine 
 {
+  // todo desc
   pub indent: usize,
+  // todo desc
   pub tokens: Vec<AnalyzeToken>,
 }
 
 // =================================================================================================
 
+// todo desc
 #[wasm_bindgen]
 pub fn analyzeLines(code: &str) -> String 
 {
@@ -54,6 +60,7 @@ pub fn analyzeLines(code: &str) -> String
   to_string(&result).unwrap_or_else(|_| "[]".to_string())
 }
 
+// todo desc
 fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
 {
   for linLink in lines
@@ -73,6 +80,7 @@ fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
   }
 }
 
+// todo desc
 fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>) 
 {
   for token in tokens 

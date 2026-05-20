@@ -68,3 +68,107 @@ pub fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, st
 }
 
 // =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  #[cfg(not(feature = "analyzer"))]
+  use crate::tokenizer::read::comments::{deleteComment};
+  #[cfg(feature = "analyzer")]
+  use crate::tokenizer::read::comments::deleteComments;
+  // ===============================================================================================
+  
+  /// todo desk
+  #[test]
+  #[cfg(feature = "analyzer")]
+  fn singleLine()
+  {
+    for (input, expectedIndex, indent) in vec![
+      ( "# short\nrest ", 7, 0),
+      ( "# end", 5, 0),
+      ( "# mid\n", 5, 0) // тут не 6 т.к. \n не символ
+    ] {
+      let buffer:  &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      
+      //
+      deleteComments(buffer,  &mut index,  &bufferLength, &indent);
+      
+      //
+      assert_eq!(
+        index,
+        expectedIndex,
+        "Для '{}' индекс должен остановиться на {}, получен {}",
+        input,
+        expectedIndex,
+        index
+      );
+    }
+    //
+  }
+  /// todo desk
+  #[test]
+  #[cfg(feature = "analyzer")]
+  fn multiLine()
+  {
+    for (input, expectedIndex, indent) in vec![
+      ( "# base\n  cont\nend ", 13, 0), // тут не 14 т.к. \n не символ
+      ( "# a\n# b\n", 3, 0)
+    ] {
+      let buffer:  &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      
+      //
+      deleteComments(buffer,  &mut index,  &bufferLength, &indent);
+      
+      //
+      assert_eq!(
+        index,
+        expectedIndex,
+        "Для '{}' индекс {} != {}",
+        input,
+        expectedIndex,
+        index
+      );
+    }
+    //
+  }
+  
+  // ===============================================================================================
+  
+  /// todo desk
+  #[test]
+  #[cfg(not(feature = "analyzer"))]
+  fn singleLine()
+  {
+    for (input, expectedIndex) in vec![
+      ( "# short\nrest ", 7),
+      ( "# end", 5),
+      ( "# mid\n", 5) // тут не 6 т.к. \n не символ
+    ] {
+      let buffer:  &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      
+      //
+      deleteComment(buffer,  &mut index,  &bufferLength);
+      
+      //
+      assert_eq!(
+        index,
+        expectedIndex,
+        "Для '{}' индекс должен остановиться на {}, получен {}",
+        input,
+        expectedIndex,
+        index
+      );
+    }
+    //
+  }
+  
+  // ===============================================================================================
+}
+
+// =================================================================================================

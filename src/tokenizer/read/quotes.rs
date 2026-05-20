@@ -23,6 +23,8 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
     {
       // Возврат строки не возможен, поскольку она может выйти за скобки и т.п. 
       // если он достиг конца строки уже;
+      // todo Комментарии же читают далее - значит возможно;
+      //  Должно читать до закрывающего quote.
       b'\n' => { return Token::newEmpty(TokenType::None); }
       // Если мы нашли символ похожий на первый, значит закрываем,
       // но возможно это экранированная кавычка, и не закрываем.
@@ -91,6 +93,8 @@ mod tests
   {
     for (input, expectedType, expectedData, formatted) in [
       ("'c'", TokenType::Char, "c", false),
+      ("'ab'", TokenType::None, "", false),
+      //
       ("\"text\"", TokenType::String, "text", false),
       ("`raw`", TokenType::RawString, "raw", false),
       //
@@ -150,7 +154,7 @@ mod tests
       ("\"123\"xyz", TokenType::String, "123", 5, false),
       ("`test`end", TokenType::RawString, "test", 6, false),
       ("\"unterminated", TokenType::String, "unterminated", 13, false),
-      //("\"line\n", TokenType::String, "", 5, false) // todo Должно было читать до закрывающей quote?
+      //("\"line\n", TokenType::String, "", 5, false) // todo Должно было читать до закрывающей quote
     ] {
       let buffer: &[u8] = input.as_bytes();
       let mut index: usize = 0;
