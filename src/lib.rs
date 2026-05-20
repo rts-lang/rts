@@ -19,7 +19,7 @@ use crate::tokenizer::types::token::Token;
 // todo удалить mods
 mod tokenizer;
 mod parser;
-#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+#[cfg(not(feature = "wasm"))]
 mod logger;
 #[cfg(not(feature = "analyzer"))]
 mod packages;

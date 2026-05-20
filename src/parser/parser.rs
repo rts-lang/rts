@@ -7,11 +7,11 @@ use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
 use crate::tokenizer::tools::splitByType::splitByType;
-#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+#[cfg(not(feature = "wasm"))]
 use crate::_debugMode;
-#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+#[cfg(not(feature = "wasm"))]
 use crate::logger::logger::{log, logSeparator};
-#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+#[cfg(not(feature = "wasm"))]
 use std::time::{Duration, Instant};
 // =================================================================================================
 /* /parser
@@ -596,7 +596,7 @@ lazy_static!
 /// Она разделена на подготовительную часть, и часть запуска readLine()
 pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 { // Начинается подготовка к запуску
-  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+  #[cfg(not(feature = "wasm"))]
   match unsafe{_debugMode} 
   { false => {} true  =>
   {
@@ -669,7 +669,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Выводим arch & argv
-  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+  #[cfg(not(feature = "wasm"))]
   unsafe
   {
     match _debugMode
@@ -685,9 +685,9 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Подготовка закончена, читаем линии
-  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+  #[cfg(not(feature = "wasm"))]
   let startTime: Instant = Instant::now(); // Получаем текущее время для debug замера
-  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+  #[cfg(not(feature = "wasm"))]
   match unsafe{ _debugMode }
   { false => {} true  =>
   {
@@ -697,7 +697,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   // Передаём ссылку на структуру и запускаем
   readLines(_main.clone());
   // Далее идут debug замеры
-  #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+  #[cfg(not(feature = "wasm"))]
   match unsafe{_debugMode} 
   { false => {} true =>
   {

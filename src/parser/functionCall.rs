@@ -7,7 +7,7 @@ use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
-#[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+#[cfg(not(feature = "wasm"))]
 use rand::Rng;
 // =================================================================================================
 /// Это набор базовых функций
@@ -133,7 +133,7 @@ impl Function
   /// Возвращаем случайное число типа UInt от min до max
   fn randUInt(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
-    #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
+    #[cfg(not(feature = "wasm"))]
     if !parameters.isNone() // todo оставить либо это, либо снизу нули
     {
       let min: usize =
