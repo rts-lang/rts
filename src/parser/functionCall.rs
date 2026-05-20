@@ -5,7 +5,8 @@ use std::str::SplitWhitespace;
 use std::sync::RwLockReadGuard;
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::TokenType;
 #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use rand::Rng;
 // =================================================================================================

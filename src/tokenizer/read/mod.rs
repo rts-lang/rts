@@ -12,8 +12,8 @@ mod tests
   use std::mem;
   use std::sync::{Arc, RwLock, RwLockWriteGuard};
   use crate::tokenizer::types::line::Line;
-  use crate::tokenizer::types::token::{Token, TokenType};
-
+  use crate::tokenizer::types::token::{Token};
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
   
   /// Получает bytes -> выдает token types для проверки в тестах

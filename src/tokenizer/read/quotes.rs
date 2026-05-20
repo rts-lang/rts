@@ -1,4 +1,5 @@
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет buffer по index и так находит возможные
@@ -84,7 +85,8 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
 mod tests
 {
   use crate::tokenizer::read::quotes::getQuotes;
-  use crate::tokenizer::types::token::{Token, TokenType};
+  use crate::tokenizer::types::token::{Token};
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
   /// todo desk

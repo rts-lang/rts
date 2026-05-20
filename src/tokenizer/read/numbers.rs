@@ -1,4 +1,5 @@
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет что байт является числом
@@ -89,8 +90,8 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 mod tests
 {
   use crate::tokenizer::read::numbers::getNumber;
-  use crate::tokenizer::types::token::{Token, TokenType};
-
+  use crate::tokenizer::types::token::{Token};
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
   /// todo desk

@@ -4,7 +4,8 @@ use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::{Structure, StructureMut, StructureType, ToTokenType};
 use crate::tokenizer::types::line::Line;
-use crate::tokenizer::types::token::{ToStructureType, Token, TokenType};
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
 use crate::tokenizer::tokenizer::splitByType;
 #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use crate::_debugMode;

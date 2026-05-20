@@ -1,4 +1,5 @@
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет что байт является одиночным знаком доступным для синтаксиса
@@ -92,8 +93,8 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> To
 mod tests 
 {
   use crate::tokenizer::read::operators::{getOperator, operators};
-  use crate::tokenizer::types::token::{Token, TokenType};
-
+  use crate::tokenizer::types::token::{Token};
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
   /// todo desk

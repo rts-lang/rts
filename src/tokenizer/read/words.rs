@@ -1,5 +1,6 @@
 use crate::tokenizer::read::numbers::isDigit;
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет что байт является буквой a-z A-Z
@@ -105,8 +106,8 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 mod tests
 {
   use crate::tokenizer::read::words::{getWord, keywords};
-  use crate::tokenizer::types::token::{Token, TokenType};
-  
+  use crate::tokenizer::types::token::{Token};
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
   /// todo desk

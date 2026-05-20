@@ -10,13 +10,14 @@ use crate::logger::logger::{formatPrint, log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::read::comments::{deleteComment};
 #[cfg(feature = "analyzer")]
-use crate::tokenizer::read::comments::{deleteComments};
+use crate::tokenizer::read::comments::{deleteComments}; 
 use crate::tokenizer::read::numbers::{getNumber, isDigit};
 use crate::tokenizer::read::operators::{getOperator, isSingleChar};
 use crate::tokenizer::read::quotes::getQuotes;
 use crate::tokenizer::read::words::{getWord, isLetter};
 use crate::tokenizer::types::line::Line;
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 // /tokenizer
 
@@ -670,12 +671,12 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         { // Получаем все возможные численные примитивные типы данных
           #[cfg(feature = "analyzer")]
           {
-            let mut token: Token = crate::tokenizer::read::numbers::getNumber(&buffer, &mut index, &bufferLength);
+            let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
             pushLineToken!(token, lineTokens, start, index);
           }
           #[cfg(not(feature = "analyzer"))]
           {
-            let token: Token = getWord(&buffer, &mut index, &bufferLength);
+            let token: Token = getNumber(&buffer, &mut index, &bufferLength);
             lineTokens.push(token);
           }
         } else
@@ -742,12 +743,17 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         // Получаем возможные двойные и одиночные символы
         if isSingleChar(&byte)
         {
-          let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
           //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
+            pushLineToken!(token, lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = getOperator(&buffer, &mut index, &bufferLength);
+            lineTokens.push(token);
+          }
         } else
         { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
           // Поэтому просто идём дальше
