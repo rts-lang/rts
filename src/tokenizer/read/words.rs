@@ -104,7 +104,6 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::operators::getOperator;
   use crate::tokenizer::read::words::{getWord, keywords};
   use crate::tokenizer::types::token::{Token, TokenType};
   

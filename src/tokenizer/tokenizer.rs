@@ -654,30 +654,44 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           deleteComments(&buffer, &mut index, &bufferLength, &lineIndent); // Пропускает комментарии
           #[cfg(not(feature = "analyzer"))]
           deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
-          let mut token: Token = Token::newEmpty(TokenType::Comment);
           //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = Token::newEmpty(TokenType::Comment);
+            pushLineToken!(token, lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = Token::newEmpty(TokenType::Comment);
+            lineTokens.push(token);
+          }
         } else
         if isDigit(&byte) || (byte == b'-' && index+1 < bufferLength && isDigit(&buffer[index+1]))
         { // Получаем все возможные численные примитивные типы данных
-          let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
-          //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = crate::tokenizer::read::numbers::getNumber(&buffer, &mut index, &bufferLength);
+            pushLineToken!(token, lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = getWord(&buffer, &mut index, &bufferLength);
+            lineTokens.push(token);
+          }
         } else
         if isLetter(&byte)
         { // Получаем все возможные и зарезервированные слова
-          let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
           //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
+            pushLineToken!(token, lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = getWord(&buffer, &mut index, &bufferLength);
+            lineTokens.push(token);
+          }
         } else
         if matches!(byte, b'\'' | b'"' | b'`') {
           // Проверяем, есть ли перед кавычкой токен `f`

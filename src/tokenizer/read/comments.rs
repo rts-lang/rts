@@ -15,8 +15,8 @@ pub fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> 
 
 // =================================================================================================
 
-#[cfg(feature = "analyzer")]
 // todo desk
+#[cfg(feature = "analyzer")]
 pub fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> () 
 {
   // 1. Пропускаем первую строку комментария до конца строки или буфера

@@ -77,3 +77,119 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
 }
 
 // =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use crate::tokenizer::read::quotes::getQuotes;
+  use crate::tokenizer::types::token::{Token, TokenType};
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn value()
+  {
+    for (input, expectedType, expectedData, formatted) in [
+      ("'c'", TokenType::Char, "c", false),
+      ("\"text\"", TokenType::String, "text", false),
+      ("`raw`", TokenType::RawString, "raw", false),
+      //
+      ("'a", TokenType::Char, "a", false),
+      ("'f", TokenType::FormattedChar, "f", true),
+      //
+      ("\"esc'\"", TokenType::String, "esc'", false),
+      ("\"esc`\"", TokenType::String, "esc`", false),
+      ("`esc'`", TokenType::RawString, "esc'", false),
+      // todo Тут проблемы что нельзя отладить \ перед quotes - оно не работает;
+      //  Хотя в коде обычно это работало. Возможно что тут передать нельзя.
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+      let token: Token = getQuotes(buffer, &mut index, formatted);
+      
+      //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedTypeStr: String = expectedType.to_string();
+      assert_eq!(
+        tokenType,
+        expectedTypeStr,
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedTypeStr,
+        tokenType
+      );
+
+      //
+      let tokenData: String = token.getData().toString().unwrap_or_default();
+      assert_eq!(
+        tokenData,
+        expectedData,
+        "Для '{}' ожидалось значение '{}', получено '{}'",
+        input,
+        expectedData,
+        tokenData
+      );
+      
+      //
+      assert_eq!(
+        index, bufferLength,
+        "Индекс для '{}' должен продвинуться на {}, остановился на {}",
+        input, bufferLength, index
+      );
+    }
+    //
+  }
+  
+  /// todo desk
+  #[test]
+  fn index()
+  {
+    for (input, expectedType, expectedData, expectedIndex, formatted) in [
+      ("'a'!", TokenType::Char, "a", 3, false),
+      ("\"123\"xyz", TokenType::String, "123", 5, false),
+      ("`test`end", TokenType::RawString, "test", 6, false),
+      ("\"unterminated", TokenType::String, "unterminated", 13, false),
+      //("\"line\n", TokenType::String, "", 5, false) // todo Должно было читать до закрывающей quote?
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let mut index: usize = 0;
+      let token: Token = getQuotes(buffer, &mut index, formatted);
+      
+      //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedTypeStr: String = expectedType.to_string();
+      assert_eq!(
+        tokenType,
+        expectedTypeStr,
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedTypeStr,
+        tokenType
+      );
+
+      //
+      let tokenData: String = token.getData().toString().unwrap_or_default();
+      assert_eq!(
+        tokenData,
+        expectedData,
+        "Для '{}' ожидалось значение '{}', получено '{}'",
+        input,
+        expectedData,
+        tokenData
+      );
+
+      //
+      assert_eq!(
+        index, expectedIndex,
+        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        input, expectedIndex, index
+      );
+    }
+    //
+  }
+  
+  // ===============================================================================================
+}
+
+// =================================================================================================
