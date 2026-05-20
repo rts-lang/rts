@@ -1,4 +1,4 @@
 pub(super) mod tokenizer;
-pub(super) mod types;
+pub mod types;
 mod read;
 pub(super) mod tools;
