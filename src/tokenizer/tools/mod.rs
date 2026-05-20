@@ -1,3 +1,3 @@
 pub mod splitByType;
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 pub mod output;

@@ -1,9 +1,9 @@
 use std::{
   sync::{Arc, RwLock}
 };
-#[cfg(all(not(feature = "wasm"), not(test)))]
+#[cfg(all(not(target_family = "wasm"), not(test)))]
 use std::time::{Instant, Duration};
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::{log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::read::primitives::comments::{deleteComment};
@@ -20,7 +20,7 @@ use crate::tokenizer::read::nesting::comments::deleteNestedComment;
 #[cfg(not(feature = "analyzer"))]
 #[cfg(not(test))]
 use crate::tokenizer::read::nesting::lines::lineNesting;
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 #[cfg(not(test))]
 use crate::tokenizer::tools::output::outputLines;
 use crate::tokenizer::types::line::Line;
@@ -60,7 +60,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     };
   
   //
-  #[cfg(not(feature = "wasm"))]
+  #[cfg(not(target_family = "wasm"))]
   #[cfg(not(test))]
   match debugMode
   {
@@ -72,7 +72,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     }
     false => {}
   }
-  #[cfg(not(feature = "wasm"))]
+  #[cfg(not(target_family = "wasm"))]
   #[cfg(not(test))]
   let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
@@ -298,7 +298,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
-  #[cfg(not(feature = "wasm"))]
+  #[cfg(not(target_family = "wasm"))]
   #[cfg(not(test))]
   match debugMode
   { false => {} true =>

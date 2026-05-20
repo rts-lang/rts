@@ -7,11 +7,11 @@ use crate::parser::parser::{readLines, searchStructure};
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::line::Line;
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 use std::io;
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 use std::io::Write;
-#[cfg(not(feature = "wasm"))]
+#[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
 // =================================================================================================
 
@@ -25,7 +25,7 @@ impl Procedure
   /// Выводит несколько значений и \n в конце.
   fn print(structure: &Structure, parameters: &Parameters, newline: bool)
   {
-    #[cfg(not(feature = "wasm"))]
+    #[cfg(not(target_family = "wasm"))]
     match parameters.getAllExpressions(structure)
     { None => {} Some(parameters) =>
     {

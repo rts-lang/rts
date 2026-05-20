@@ -66,14 +66,9 @@ default = ["termion","rand"]
 # release: wasm-pack build --target web --features analyzer --no-default-features
 
 # test:
-# cargo test --features wasm --lib
-wasm = []
-
-# test:
 # cargo test --features analyzer --lib
 analyzer = [
-  "wasm",
-  "dep:wasm-bindgen",
-  "dep:serde_json",
-  "dep:serde"
+  "wasm-bindgen",
+  "serde_json",
+  "serde"
 ]
