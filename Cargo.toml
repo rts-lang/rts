@@ -71,4 +71,9 @@ wasm = []
 
 # test:
 # cargo test --features analyzer --lib
-analyzer = ["wasm-bindgen","serde_json","serde"]
+analyzer = [
+  "wasm",
+  "dep:wasm-bindgen",
+  "dep:serde_json",
+  "dep:serde"
+]

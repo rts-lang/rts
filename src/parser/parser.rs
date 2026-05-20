@@ -6,7 +6,7 @@ use crate::parser::structure::structure::{Structure, StructureMut, StructureType
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
-use crate::tokenizer::tokenizer::splitByType;
+use crate::tokenizer::tools::splitByType::splitByType;
 #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use crate::_debugMode;
 #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
