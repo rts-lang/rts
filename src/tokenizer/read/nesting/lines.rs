@@ -62,7 +62,7 @@ mod tests
 {
   use std::sync::{Arc, RwLock, RwLockReadGuard};
   use crate::tokenizer::types::line::Line;
-  use super::lineNesting;
+  use crate::tokenizer::read::nesting::lines::lineNesting;
   // ===============================================================================================
 
   /// Вспомогательная функция для создания линий с заданным отступом

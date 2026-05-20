@@ -13,12 +13,9 @@ use crate::tokenizer::read::primitives::numbers::{getNumber, isDigit};
 use crate::tokenizer::read::primitives::operators::{getOperator, isSingleChar};
 use crate::tokenizer::read::primitives::quotes::getQuotes;
 use crate::tokenizer::read::primitives::words::{getWord, isLetter};
-#[cfg(not(test))]
 use crate::tokenizer::read::nesting::brackets::{bracketNesting};
-#[cfg(not(test))]
 use crate::tokenizer::read::nesting::comments::deleteNestedComment;
 #[cfg(not(feature = "analyzer"))]
-#[cfg(not(test))]
 use crate::tokenizer::read::nesting::lines::lineNesting;
 #[cfg(not(target_family = "wasm"))]
 #[cfg(not(test))]
@@ -104,18 +101,16 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         let start: usize = index; // Начало токена
         readLineIndent = false;
         
-        // Смотрим является ли это endline
+        // Смотрим, является ли это endline
         if byte == b'\n' || byte == b';'
         { // Если это действительно конец строки,
           // то вкладываем возможные скобки
-          #[cfg(not(test))]
           bracketNesting(
             &mut lineTokens,
             &TokenType::CircleBracketBegin,
             &TokenType::CircleBracketEnd
           );
           /* todo Вырезано, пока не используется
-          #[cfg(not(test))]    
           bracketNesting(
             &mut lineTokens,
             &TokenType::SquareBracketBegin,
@@ -291,10 +286,8 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 
   // Вкладываем линии
   #[cfg(not(feature = "analyzer"))]
-  #[cfg(not(test))]
   lineNesting(&mut linesLinks);
   // Удаляем возможные вложенные комментарии по меткам
-  #[cfg(not(test))]
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return

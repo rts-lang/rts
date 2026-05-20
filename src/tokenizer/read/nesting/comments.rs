@@ -142,16 +142,21 @@ pub fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index:
 mod tests
 {
   use std::sync::{Arc, RwLock, RwLockReadGuard};
+  use crate::tokenizer::read::nesting::comments::deleteNestedComment;
   use crate::tokenizer::types::line::Line;
   use crate::tokenizer::types::token::Token;
   use crate::tokenizer::types::tokenType::TokenType;
-  use super::deleteNestedComment;
   // ===============================================================================================
 
   /// Вспомогательная функция для создания линий
   fn createLine(tokens: Option<Vec<Token>>, lines: Option<Vec<Arc<RwLock<Line>>>>) -> Arc<RwLock<Line>>
   {
-    Arc::new(RwLock::new(Line { tokens, indent: None, lines, parent: None }))
+    Arc::new(RwLock::new(Line {
+      tokens,
+      indent: None,
+      lines,
+      parent: None
+    }))
   }
 
   // ===============================================================================================
@@ -174,7 +179,14 @@ mod tests
     assert_eq!(lines.len(), 1, "Линия должна остаться");
     let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
     let tokens: &Vec<Token> = line.tokens.as_ref().unwrap();
+
+    //
+    #[cfg(not(feature = "analyzer"))]
     assert_eq!(tokens.len(), 1, "Токен комментария должен быть удален");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(tokens.len(), 2, "Токен комментария должен быть сохранен");
+
+    //
     assert!(tokens[0].getDataType() == &TokenType::Word, "Должен остаться только Word");
   }
 
@@ -208,7 +220,14 @@ mod tests
     //
     let child: RwLockReadGuard<Line> = nestedLines[0].read().unwrap();
     let childTokens: &Vec<Token> = child.tokens.as_ref().unwrap();
+
+    //
+    #[cfg(not(feature = "analyzer"))]
     assert_eq!(childTokens.len(), 1, "Вложенный комментарий должен быть рекурсивно удален");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(childTokens.len(), 2, "Вложенный комментарий должен быть сохранен");
+
+    //
     assert!(childTokens[0].getDataType() == &TokenType::Word, "Ожидался только Word");
   }
 
@@ -232,7 +251,12 @@ mod tests
     deleteNestedComment(&mut lines, 0);
 
     //
+    #[cfg(not(feature = "analyzer"))]
     assert_eq!(lines.len(), 1, "Пустая линия с комментарием должна быть полностью удалена");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(lines.len(), 2, "Линия с комментарием должна быть сохранена");
+
+    //
     let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
     assert!(line.tokens.as_ref().unwrap()[0].getDataType() == &TokenType::Word, "Ожидалась линия с Word");
   }
