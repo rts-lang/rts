@@ -2,7 +2,6 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use crate::tokenizer::types::line::Line;
 // =================================================================================================
 
-#[cfg(not(feature = "analyzer"))]
 /// Вкладывает линии токенов друг в друга
 pub fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
 {
@@ -54,6 +53,124 @@ pub fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
     }
     //
   }
+}
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use std::sync::{Arc, RwLock, RwLockReadGuard};
+  use crate::tokenizer::types::line::Line;
+  use super::lineNesting;
+  // ===============================================================================================
+
+  /// Вспомогательная функция для создания линий с заданным отступом
+  fn createLine(indent: usize) -> Arc<RwLock<Line>>
+  {
+    Arc::new(RwLock::new(Line {
+      tokens: None,
+      indent: Some(indent),
+      lines: None,
+      parent: None
+    }))
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn deepNesting() -> ()
+  {
+    let mut linesLinks: Vec< Arc<RwLock<Line>> > = 
+      vec![
+        createLine(0),
+        createLine(2),
+        createLine(4),
+      ];
+
+    //
+    lineNesting(&mut linesLinks);
+
+    //
+    assert_eq!(linesLinks.len(), 1, "Ожидается 1 корневая линия");
+
+    //
+    let level0: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
+    let level0Lines: &Vec< Arc<RwLock<Line>> > = level0.lines.as_ref().expect("Ожидается вложение 1 уровня");
+    assert_eq!(level0Lines.len(), 1, "Ожидается 1 дочерняя линия");
+    assert_eq!(level0Lines[0].read().unwrap().indent.unwrap(), 2);
+    assert!(level0Lines[0].read().unwrap().parent.is_some(), "Ожидается ссылка на родителя");
+
+    //
+    let level1: RwLockReadGuard<Line> = level0Lines[0].read().unwrap();
+    let level1Lines: &Vec< Arc<RwLock<Line>> > = level1.lines.as_ref().expect("Ожидается вложение 2 уровня");
+    assert_eq!(level1Lines.len(), 1, "Ожидается 1 дочерняя линия");
+    assert_eq!(level1Lines[0].read().unwrap().indent.unwrap(), 4);
+    assert!(level1Lines[0].read().unwrap().parent.is_some(), "Ожидается ссылка на родителя");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn noNesting() -> ()
+  {
+    let mut linesLinks: Vec< Arc<RwLock<Line>> > = 
+      vec![
+        createLine(0),
+        createLine(0),
+      ];
+
+    //
+    lineNesting(&mut linesLinks);
+
+    //
+    assert_eq!(linesLinks.len(), 2, "Ожидается 2 корневые линии");
+    
+    //
+    let l0: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
+    let l1: RwLockReadGuard<Line> = linesLinks[1].read().unwrap();
+    assert!(l0.lines.is_none(), "Вложений быть не должно");
+    assert!(l1.lines.is_none(), "Вложений быть не должно");
+    assert!(l0.parent.is_none(), "Родителя быть не должно");
+    assert!(l1.parent.is_none(), "Родителя быть не должно");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn mixedNesting() -> ()
+  {
+    let mut linesLinks: Vec< Arc<RwLock<Line>> > = 
+      vec![
+        createLine(0),
+        createLine(2),
+        createLine(0),
+        createLine(4),
+      ];
+
+    //
+    lineNesting(&mut linesLinks);
+
+    //
+    assert_eq!(linesLinks.len(), 2, "Ожидается 2 корневые линии из-за сброса отступа");
+
+    //
+    let root1: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
+    let root1Lines: &Vec< Arc<RwLock<Line>> > = root1.lines.as_ref().expect("Ожидается вложение у первой линии");
+    assert_eq!(root1Lines.len(), 1, "Ожидается 1 дочерняя линия");
+    assert_eq!(root1Lines[0].read().unwrap().indent.unwrap(), 2);
+
+    //
+    let root2: RwLockReadGuard<Line> = linesLinks[1].read().unwrap();
+    let root2Lines: &Vec< Arc<RwLock<Line>> > = root2.lines.as_ref().expect("Ожидается вложение у второй линии");
+    assert_eq!(root2Lines.len(), 1, "Ожидается 1 дочерняя линия");
+    assert_eq!(root2Lines[0].read().unwrap().indent.unwrap(), 4);
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================

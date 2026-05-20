@@ -137,3 +137,132 @@ pub fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index:
 }
 
 // =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use std::sync::{Arc, RwLock, RwLockReadGuard};
+  use crate::tokenizer::types::line::Line;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
+  use super::deleteNestedComment;
+  // ===============================================================================================
+
+  /// Вспомогательная функция для создания линий
+  fn createLine(tokens: Option<Vec<Token>>, lines: Option<Vec<Arc<RwLock<Line>>>>) -> Arc<RwLock<Line>>
+  {
+    Arc::new(RwLock::new(Line { tokens, indent: None, lines, parent: None }))
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn commentRemoval() -> ()
+  {
+    let mut lines: Vec<Arc<RwLock<Line>>> = vec![
+      createLine(Some(vec![
+        Token::newEmpty(TokenType::Word),
+        Token::newEmpty(TokenType::Comment)
+      ]), None)
+    ];
+
+    //
+    deleteNestedComment(&mut lines, 0);
+
+    //
+    assert_eq!(lines.len(), 1, "Линия должна остаться");
+    let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
+    let tokens: &Vec<Token> = line.tokens.as_ref().unwrap();
+    assert_eq!(tokens.len(), 1, "Токен комментария должен быть удален");
+    assert!(tokens[0].getDataType() == &TokenType::Word, "Должен остаться только Word");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn nestedRemoval() -> ()
+  {
+    let childLine: Arc<RwLock<Line>> = 
+      createLine(Some(vec![
+        Token::newEmpty(TokenType::Word),
+        Token::newEmpty(TokenType::Comment)
+      ]), None);
+
+    let mut lines: Vec< Arc<RwLock<Line>> > = vec![
+      createLine(Some(vec![
+        Token::newEmpty(TokenType::Word)
+      ]), Some(vec![childLine]))
+    ];
+
+    //
+    deleteNestedComment(&mut lines, 0);
+
+    //
+    assert_eq!(lines.len(), 1, "Корневая линия должна остаться");
+    let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
+    let nestedLines: &Vec<Arc<RwLock<Line>>> = line.lines.as_ref().unwrap();
+    assert_eq!(nestedLines.len(), 1, "Вложенная линия должна остаться");
+    
+    //
+    let child: RwLockReadGuard<Line> = nestedLines[0].read().unwrap();
+    let childTokens: &Vec<Token> = child.tokens.as_ref().unwrap();
+    assert_eq!(childTokens.len(), 1, "Вложенный комментарий должен быть рекурсивно удален");
+    assert!(childTokens[0].getDataType() == &TokenType::Word, "Ожидался только Word");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn emptyLineRemoval() -> ()
+  {
+    let mut lines: Vec< Arc<RwLock<Line>> > = 
+      vec![
+        createLine(Some(vec![
+          Token::newEmpty(TokenType::Word)
+        ]), None),
+        createLine(Some(vec![
+          Token::newEmpty(TokenType::Comment)
+        ]), None)
+      ];
+
+    //
+    deleteNestedComment(&mut lines, 0);
+
+    //
+    assert_eq!(lines.len(), 1, "Пустая линия с комментарием должна быть полностью удалена");
+    let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
+    assert!(line.tokens.as_ref().unwrap()[0].getDataType() == &TokenType::Word, "Ожидалась линия с Word");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn separators() -> ()
+  {
+    let mut lines: Vec< Arc<RwLock<Line>> > = 
+      vec![
+        createLine(None, None), // separator
+        createLine(None, None), // separator
+        createLine(None, None), // separator
+        createLine(Some(vec![Token::newEmpty(TokenType::Word)]), None)
+      ];
+
+    //
+    deleteNestedComment(&mut lines, 0);
+
+    //
+    assert_eq!(lines.len(), 2, "Должен остаться 1 разделитель и 1 линия с токеном");
+    let line0: RwLockReadGuard<Line> = lines[0].read().unwrap();
+    assert!(line0.tokens.is_none(), "Первая линия должна быть разделителем");
+    let line1: RwLockReadGuard<Line> = lines[1].read().unwrap();
+    assert!(line1.tokens.is_some(), "Вторая линия должна содержать токены");
+  }
+
+  // ===============================================================================================
+}
+
+// =================================================================================================

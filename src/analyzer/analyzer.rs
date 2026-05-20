@@ -26,6 +26,7 @@ lazy_static!
 
 // =================================================================================================
 
+// todo issue #67 (возможно не все убирать)
 /// Выходной токен
 #[derive(Serialize, Clone)]
 pub struct AnalyzeToken 
@@ -38,6 +39,7 @@ pub struct AnalyzeToken
   pub kind: String,
 }
 
+// todo issue #67 (возможно не все убирать)
 /// Выходная линия
 #[derive(Serialize)]
 pub struct AnalyzedLine 
@@ -50,6 +52,7 @@ pub struct AnalyzedLine
 
 // =================================================================================================
 
+// todo issue #67
 // todo desc
 #[wasm_bindgen]
 pub fn analyzeLines(code: &str) -> String 

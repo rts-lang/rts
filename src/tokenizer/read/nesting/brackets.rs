@@ -100,3 +100,166 @@ fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenT
 }
 
 // =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use crate::tokenizer::types::line::Line;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
+  use super::bracketNesting;
+  // ===============================================================================================
+
+  /// Вспомогательная функция для генерации токенов
+  fn createToken(tokenType: TokenType, data: &str) -> Token {
+    Token::new(tokenType, data.to_string())
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn simpleBracket() -> ()
+  {
+    let mut tokens: Vec<Token> = 
+      vec![
+        createToken(TokenType::CircleBracketBegin, "("),
+        createToken(TokenType::Word, "a"),
+        createToken(TokenType::Plus, "+"),
+        createToken(TokenType::Word, "b"),
+        createToken(TokenType::CircleBracketEnd, ")"),
+      ];
+
+    //
+    bracketNesting(&mut tokens, &TokenType::CircleBracketBegin, &TokenType::CircleBracketEnd);
+
+    //
+    assert_eq!(tokens.len(), 1, "Должен остаться только открывающий токен (контейнер)");
+    
+    //
+    let tokenType: String = tokens[0].getDataType().to_string();
+    assert_eq!(tokenType, TokenType::CircleBracketBegin.to_string(), "Ожидалась открывающая скобка");
+
+    //
+    let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
+    assert_eq!(lines.len(), 1, "Ожидалась 1 линия");
+
+    //
+    let lineTokens: &Vec<Token> = lines[0].tokens.as_ref().expect("Ожидались токены в линии");
+    assert_eq!(lineTokens.len(), 3, "Ожидалось 3 токена внутри: a, +, b");
+    
+    //
+    let firstTokenData: String = lineTokens[0].getData().toString().unwrap_or_default();
+    assert_eq!(firstTokenData, "a");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn nestedBrackets() -> ()
+  {
+    let mut tokens: Vec<Token> = 
+      vec![
+        createToken(TokenType::CircleBracketBegin, "("),
+        createToken(TokenType::CircleBracketBegin, "("),
+        createToken(TokenType::Word, "x"),
+        createToken(TokenType::CircleBracketEnd, ")"),
+        createToken(TokenType::CircleBracketBegin, "("),
+        createToken(TokenType::Word, "y"),
+        createToken(TokenType::CircleBracketEnd, ")"),
+        createToken(TokenType::CircleBracketEnd, ")"),
+      ];
+
+    //
+    bracketNesting(&mut tokens, &TokenType::CircleBracketBegin, &TokenType::CircleBracketEnd);
+
+    //
+    assert_eq!(tokens.len(), 1, "Должен остаться только корневой открывающий токен");
+    
+    //
+    let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
+    assert_eq!(lines.len(), 1, "Ожидалась 1 линия на верхнем уровне");
+
+    //
+    let lineTokens: &Vec<Token> = lines[0].tokens.as_ref().expect("Ожидались токены в линии");
+    assert_eq!(lineTokens.len(), 2, "Ожидалось 2 токена (вложенные скобки)");
+    
+    //
+    let t1: String = lineTokens[0].getDataType().to_string();
+    let t2: String = lineTokens[1].getDataType().to_string();
+    let expected: String = TokenType::CircleBracketBegin.to_string();
+    assert_eq!(t1, expected);
+    assert_eq!(t2, expected);
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn commas() -> ()
+  {
+    let mut tokens: Vec<Token> = 
+      vec![
+        createToken(TokenType::CircleBracketBegin, "("),
+        createToken(TokenType::Word, "a"),
+        createToken(TokenType::Comma, ","),
+        createToken(TokenType::Word, "b"),
+        createToken(TokenType::Comma, ","),
+        createToken(TokenType::Word, "c"),
+        createToken(TokenType::CircleBracketEnd, ")"),
+      ];
+
+    //
+    bracketNesting(&mut tokens, &TokenType::CircleBracketBegin, &TokenType::CircleBracketEnd);
+
+    //
+    assert_eq!(tokens.len(), 1, "Должен остаться только открывающий токен");
+    
+    //
+    let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
+    assert_eq!(lines.len(), 3, "Ожидалось 3 линии из-за разделения запятыми");
+
+    //
+    let expectedValues: [&str; 3] = ["a", "b", "c"];
+    for (i, expectedVal) in expectedValues.iter().enumerate()
+    {
+      let lineTokens: &Vec<Token> = lines[i].tokens.as_ref().expect("Ожидались токены в линии");
+      assert_eq!(lineTokens.len(), 1, "В каждой линии ожидается 1 токен");
+      
+      let tokenData: String = lineTokens[0].getData().toString().unwrap_or_default();
+      assert_eq!(tokenData, *expectedVal);
+    }
+  }
+
+  // ===============================================================================================
+  
+  /// todo desk
+  #[test]
+  fn emptyBrackets() -> ()
+  {
+    let mut tokens: Vec<Token> = 
+      vec![
+        createToken(TokenType::CircleBracketBegin, "("),
+        createToken(TokenType::CircleBracketEnd, ")"),
+      ];
+
+    //
+    bracketNesting(&mut tokens, &TokenType::CircleBracketBegin, &TokenType::CircleBracketEnd);
+
+    //
+    assert_eq!(tokens.len(), 1, "Должен остаться только открывающий токен");
+    
+    //
+    let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
+    assert_eq!(lines.len(), 1, "Ожидается 1 пустая линия");
+    
+    //
+    let lineTokens: &Vec<Token> = lines[0].tokens.as_ref().expect("Ожидались токены");
+    assert_eq!(lineTokens.len(), 0, "Линия должна быть пустой");
+  }
+
+  // ===============================================================================================
+}
+
+// =================================================================================================
