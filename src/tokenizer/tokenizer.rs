@@ -8,113 +8,20 @@ use std::sync::RwLockReadGuard;
 #[cfg(all(not(feature = "analyzer"), not(feature = "wasm")))]
 use crate::logger::logger::{formatPrint, log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
-use crate::tokenizer::read::comments::{deleteComment};
+use crate::tokenizer::read::primitives::comments::{deleteComment};
 #[cfg(feature = "analyzer")]
-use crate::tokenizer::read::comments::{deleteComments}; 
-use crate::tokenizer::read::numbers::{getNumber, isDigit};
-use crate::tokenizer::read::operators::{getOperator, isSingleChar};
-use crate::tokenizer::read::quotes::getQuotes;
-use crate::tokenizer::read::words::{getWord, isLetter};
+use crate::tokenizer::read::primitives::comments::{deleteComments}; 
+use crate::tokenizer::read::primitives::numbers::{getNumber, isDigit};
+use crate::tokenizer::read::primitives::operators::{getOperator, isSingleChar};
+use crate::tokenizer::read::primitives::quotes::getQuotes;
+use crate::tokenizer::read::primitives::words::{getWord, isLetter};
+use crate::tokenizer::read::nesting::brackets::{bracketNesting};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
-// /tokenizer
 
 
-/// Основная функция, которая вкладывает токены в скобки `() [] {}` от начальной скобки
-/// до закрывающей; Её особенность в рекурсивном вызове себя для дочерних токенов
-fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
-{
-  /* todo Эта часть помогала пройти вложения, чтобы () [] {} видно было друг в друге
-  for token in tokens.iter_mut()
-  { // Чтение токенов
-    match &mut token.tokens
-    { None => {} Some(tokens) =>
-    { // Рекурсия
-      println!("!! {:?}",tokens);
-      bracketNesting(tokens, beginType, endType);
-    }}
-  }
-  */
-  // Вкладывание
-  blockNesting(tokens, beginType, endType);
-}
-/// Эта функция является дочерней bracketNesting;
-/// Занимается вложением линий в токены;
-/// От начальной скобки до закрывающей;
-/// Делит токены через запятую.
-///
-/// todo может использовать split
-fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
-{
-  let mut isReadData: bool = false; // Читаем данные в буфер?
-  let mut readData: Vec<Token> = Vec::new(); // Буфер токенов
-  let mut readDataLines: Vec<Line> = Vec::new(); // Линии из токенов
-
-  let mut i: usize = tokens.len();
-  while i > 0
-  {
-    i -= 1;
-    match tokens[i].getDataType()
-    {
-      tokenType if tokenType == beginType =>
-      { // Конец чтения
-        readDataLines.insert(
-          0,
-          Line
-          {
-            tokens: Some( std::mem::take(&mut readData) ),
-            indent: None,
-            lines: None,
-            parent: None,
-          }
-        );
-        tokens[i].lines = Some( std::mem::take(&mut readDataLines) );
-        return;
-      }
-      tokenType if tokenType == endType =>
-      { // Начало чтения
-        if !isReadData
-        {
-          #[cfg(not(feature = "analyzer"))]
-          tokens.remove(i);
-          isReadData = true;
-        } else
-        {
-          // Вложенный блок
-          let before: usize = tokens.len();
-          blockNesting(tokens, beginType, endType);
-          // Сдвиг текущего списка
-          let removed: usize = before - tokens.len();
-          i = i - removed;
-          //
-          readData.insert(0, tokens.remove(i));
-        }
-      }
-      TokenType::Comma =>
-      { // Разделение буфера на линии
-        #[cfg(not(feature = "analyzer"))]
-        tokens.remove(i);
-        readDataLines.insert(
-        0,
-        Line
-          {
-            tokens: Some( std::mem::take(&mut readData) ),
-            indent: None,
-            lines: None,
-            parent: None,
-          }
-        );
-      }
-      _ => match  isReadData
-      { // Чтение данных в буфер
-        false => {}
-        true => readData.insert(0, tokens.remove(i))
-      }
-    }
-  }
-}
 
 /// Проверка на вхождение в срез
 macro_rules! matchesIn 

@@ -92,7 +92,7 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> To
 #[cfg(test)]
 mod tests 
 {
-  use crate::tokenizer::read::operators::{getOperator, operators};
+  use crate::tokenizer::read::primitives::operators::{getOperator, operators};
   use crate::tokenizer::types::token::{Token};
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================

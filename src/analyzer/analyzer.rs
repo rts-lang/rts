@@ -7,7 +7,8 @@ use serde::Serialize;
 use serde_json::to_string;
 use crate::tokenizer::tokenizer::readTokens;
 use crate::tokenizer::types::line::Line;
-use crate::tokenizer::types::token::{Token, TokenType};
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 lazy_static!

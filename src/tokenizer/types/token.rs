@@ -1,6 +1,6 @@
 use std::fmt;
 use crate::parser::bytes::Bytes;
-use crate::tokenizer::read::words::keywords;
+use crate::tokenizer::read::primitives::words::keywords;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================

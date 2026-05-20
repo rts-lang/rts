@@ -84,7 +84,7 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::quotes::getQuotes;
+  use crate::tokenizer::read::primitives::quotes::getQuotes;
   use crate::tokenizer::types::token::{Token};
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================

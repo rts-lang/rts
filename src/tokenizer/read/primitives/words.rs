@@ -1,4 +1,4 @@
-use crate::tokenizer::read::numbers::isDigit;
+use crate::tokenizer::read::primitives::numbers::isDigit;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -105,7 +105,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::words::{getWord, keywords};
+  use crate::tokenizer::read::primitives::words::{getWord, keywords};
   use crate::tokenizer::types::token::{Token};
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================

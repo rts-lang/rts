@@ -89,7 +89,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::numbers::getNumber;
+  use crate::tokenizer::read::primitives::numbers::getNumber;
   use crate::tokenizer::types::token::{Token};
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================

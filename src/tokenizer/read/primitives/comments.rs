@@ -73,9 +73,9 @@ pub fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, st
 mod tests
 {
   #[cfg(not(feature = "analyzer"))]
-  use crate::tokenizer::read::comments::{deleteComment};
+  use crate::tokenizer::read::primitives::comments::deleteComment;
   #[cfg(feature = "analyzer")]
-  use crate::tokenizer::read::comments::deleteComments;
+  use crate::tokenizer::read::primitives::comments::deleteComments;
   // ===============================================================================================
   
   /// todo desk
