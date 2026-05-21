@@ -109,12 +109,14 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
-  /// Вспомогательная функция для генерации токенов
+  /// Вспомогательная функция: 
+  /// Генерация токенов
   fn createToken(tokenType: TokenType, data: &str) -> Token 
   {
     Token::new(tokenType, data.to_string())
   }
 
+  /// Вспомогательная функция: 
   /// Рекурсивно разворачивает линии и вложенные токены в плоский список пар (тип, данные)
   fn flattenLines(lines: &[Line]) -> Vec<(TokenType, String)> 
   {
@@ -140,8 +142,9 @@ mod tests
     result
   }
 
-  /// Вспомогательная функция для табличной проверки токенов
-  fn checkFlat(lines: &[Line], expected: &[(TokenType, &str)]) -> ()
+  /// Вспомогательная функция: 
+  /// Табличная проверка токенов
+  fn checkLines(lines: &[Line], expected: &[(TokenType, &str)]) -> ()
   {
     let flat: Vec<(TokenType, String)> = flattenLines(lines);
     assert_eq!(flat.len(), expected.len(), "Длина плоского списка токенов не совпадает с ожидаемой");
@@ -188,7 +191,7 @@ mod tests
     assert_eq!(lines.len(), 1, "Ожидалась 1 линия");
 
     // Табличная проверка содержимого
-    checkFlat(lines, &[
+    checkLines(lines, &[
       (TokenType::Word, "a"),
       (TokenType::Plus, "+"),
       (TokenType::Word, "b"),
@@ -228,13 +231,13 @@ mod tests
 
     // Табличная проверка содержимого
     #[cfg(not(feature = "analyzer"))]
-    checkFlat(lines, &[
+    checkLines(lines, &[
       (TokenType::CircleBracketBegin, "("),
       (TokenType::Word, "x"),
       (TokenType::CircleBracketBegin, "("),
       (TokenType::Word, "y"),
     ]);
-
+    
     #[cfg(feature = "analyzer")]
     {
       let flat: Vec<(TokenType, String)> = flattenLines(lines);
@@ -274,7 +277,7 @@ mod tests
     assert_eq!(lines.len(), 3, "Ожидалось 3 линии из-за разделения запятыми");
 
     // Табличная проверка всех линий последовательно
-    checkFlat(lines, &[
+    checkLines(lines, &[
       (TokenType::Word, "a"),
       (TokenType::Word, "b"),
       (TokenType::Word, "c"),
@@ -307,7 +310,7 @@ mod tests
     assert_eq!(lines.len(), 1, "Ожидается 1 пустая линия");
     
     // Табличная проверка пустого содержимого
-    checkFlat(lines, &[]);
+    checkLines(lines, &[]);
   }
 
   // ===============================================================================================
