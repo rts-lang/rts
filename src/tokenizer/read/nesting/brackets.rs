@@ -115,9 +115,49 @@ mod tests
     Token::new(tokenType, data.to_string())
   }
 
+  /// Рекурсивно разворачивает линии и вложенные токены в плоский список пар (тип, данные)
+  fn flattenLines(lines: &[Line]) -> Vec<(TokenType, String)> 
+  {
+    let mut result: Vec<(TokenType, String)> = Vec::new();
+    for line in lines 
+    {
+      if let Some(tokens) = &line.tokens 
+      {
+        for token in tokens 
+        {
+          result.push((
+            *token.getDataType(), 
+            token.getData().toString().unwrap_or_default())
+          );
+          if let Some(innerLines) = &token.lines {
+            result.extend(flattenLines(innerLines));
+          }
+          //
+        }
+      }
+      // НЕ обрабатываем line.lines, потому что в bracketNesting они не используются
+    }
+    result
+  }
+
+  /// Вспомогательная функция для табличной проверки токенов
+  fn checkFlat(lines: &[Line], expected: &[(TokenType, &str)]) -> ()
+  {
+    let flat: Vec<(TokenType, String)> = flattenLines(lines);
+    assert_eq!(flat.len(), expected.len(), "Длина плоского списка токенов не совпадает с ожидаемой");
+    
+    //
+    for (i, (actualType, actualData)) in flat.iter().enumerate()
+    {
+      let (expType, expData): &(TokenType, &str) = &expected[i];
+      assert_eq!(actualType.to_string(), expType.to_string(), "Токен на позиции {}: несоответствие типа", i);
+      assert_eq!(actualData, expData, "Токен на позиции {}: несоответствие данных", i);
+    }
+  }
+
   // ===============================================================================================
 
-  /// todo desk
+  /// Проверяет базовое вложение: `(a+b)`
   #[test]
   fn simpleBracket() -> ()
   {
@@ -147,18 +187,17 @@ mod tests
     let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
     assert_eq!(lines.len(), 1, "Ожидалась 1 линия");
 
-    //
-    let lineTokens: &Vec<Token> = lines[0].tokens.as_ref().expect("Ожидались токены в линии");
-    assert_eq!(lineTokens.len(), 3, "Ожидалось 3 токена внутри: a, +, b");
-    
-    //
-    let firstTokenData: String = lineTokens[0].getData().toString().unwrap_or_default();
-    assert_eq!(firstTokenData, "a");
+    // Табличная проверка содержимого
+    checkFlat(lines, &[
+      (TokenType::Word, "a"),
+      (TokenType::Plus, "+"),
+      (TokenType::Word, "b"),
+    ]);
   }
 
   // ===============================================================================================
 
-  /// todo desk
+  /// Проверяет вложенные скобки: `((x)(y))`
   #[test]
   fn nestedBrackets() -> ()
   {
@@ -187,24 +226,26 @@ mod tests
     let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
     assert_eq!(lines.len(), 1, "Ожидалась 1 линия на верхнем уровне");
 
-    //
-    let lineTokens: &Vec<Token> = lines[0].tokens.as_ref().expect("Ожидались токены в линии");
-
-    //
+    // Табличная проверка содержимого
     #[cfg(not(feature = "analyzer"))]
-    assert_eq!(lineTokens.len(), 2, "Ожидалось 2 токена (вложенные скобки)");
+    checkFlat(lines, &[
+      (TokenType::CircleBracketBegin, "("),
+      (TokenType::Word, "x"),
+      (TokenType::CircleBracketBegin, "("),
+      (TokenType::Word, "y"),
+    ]);
+
     #[cfg(feature = "analyzer")]
-    assert!(lineTokens.len() >= 2, "Ожидались токены включая сохраненные маркеры");
-    
-    //
-    let t1: String = lineTokens[0].getDataType().to_string();
-    let expected: String = TokenType::CircleBracketBegin.to_string();
-    assert_eq!(t1, expected);
+    {
+      let flat: Vec<(TokenType, String)> = flattenLines(lines);
+      assert!(flat.len() >= 2, "Ожидались токены включая сохраненные маркеры");
+      assert_eq!(flat[0].0.to_string(), TokenType::CircleBracketBegin.to_string());
+    }
   }
 
   // ===============================================================================================
 
-  /// todo desk
+  /// Проверяет разделение запятыми: `(a,b,c)`
   #[test]
   fn commas() -> ()
   {
@@ -232,21 +273,17 @@ mod tests
     let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
     assert_eq!(lines.len(), 3, "Ожидалось 3 линии из-за разделения запятыми");
 
-    //
-    let expectedValues: [&str; 3] = ["a", "b", "c"];
-    for (i, expectedVal) in expectedValues.iter().enumerate()
-    {
-      let lineTokens: &Vec<Token> = lines[i].tokens.as_ref().expect("Ожидались токены в линии");
-      assert_eq!(lineTokens.len(), 1, "В каждой линии ожидается 1 токен");
-      
-      let tokenData: String = lineTokens[0].getData().toString().unwrap_or_default();
-      assert_eq!(tokenData, *expectedVal);
-    }
+    // Табличная проверка всех линий последовательно
+    checkFlat(lines, &[
+      (TokenType::Word, "a"),
+      (TokenType::Word, "b"),
+      (TokenType::Word, "c"),
+    ]);
   }
 
   // ===============================================================================================
-  
-  /// todo desk
+
+  /// Проверяет пустые скобки: `()`
   #[test]
   fn emptyBrackets() -> ()
   {
@@ -269,9 +306,8 @@ mod tests
     let lines: &Vec<Line> = tokens[0].lines.as_ref().expect("Ожидались вложенные линии");
     assert_eq!(lines.len(), 1, "Ожидается 1 пустая линия");
     
-    //
-    let lineTokens: &Vec<Token> = lines[0].tokens.as_ref().expect("Ожидались токены");
-    assert_eq!(lineTokens.len(), 0, "Линия должна быть пустой");
+    // Табличная проверка пустого содержимого
+    checkFlat(lines, &[]);
   }
 
   // ===============================================================================================
