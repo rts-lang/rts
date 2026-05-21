@@ -77,9 +77,43 @@ mod tests
     }))
   }
 
+  /// Вспомогательная функция:
+  /// Рекурсивно разворачивает иерархию линий в плоский список пар (отступ, глубина вложения)
+  fn flattenHierarchy(lines: &[Arc<RwLock<Line>>], depth: usize) -> Vec<(usize, usize)>
+  {
+    let mut result: Vec<(usize, usize)> = Vec::new();
+    for lineArc in lines
+    {
+      let line: RwLockReadGuard<Line> = lineArc.read().unwrap();
+      result.push((line.indent.unwrap_or(0), depth));
+
+      if let Some(innerLines) = &line.lines
+      {
+        result.extend(flattenHierarchy(innerLines, depth + 1));
+      }
+    }
+    result
+  }
+
+  /// Вспомогательная функция:
+  /// Табличная проверка иерархии линий (отступ, ожидаемая глубина)
+  fn checkHierarchy(lines: &[Arc<RwLock<Line>>], expected: &[(usize, usize)]) -> ()
+  {
+    let flat: Vec<(usize, usize)> = flattenHierarchy(lines, 0);
+    assert_eq!(flat.len(), expected.len(), "Количество линий не совпадает с ожидаемым");
+
+    //
+    for (i, (actualIndent, actualDepth)) in flat.iter().enumerate()
+    {
+      let (expIndent, expDepth): &(usize, usize) = &expected[i];
+      assert_eq!(actualIndent, expIndent, "Линия на позиции {}: несоответствие отступа", i);
+      assert_eq!(actualDepth, expDepth, "Линия на позиции {}: несоответствие глубины", i);
+    }
+  }
+
   // ===============================================================================================
 
-  /// todo desk
+  /// Проверяет глубокое последовательное вложение линий (лесенка)
   #[test]
   fn deepNesting() -> ()
   {
@@ -94,26 +128,16 @@ mod tests
     lineNesting(&mut linesLinks);
 
     //
-    assert_eq!(linesLinks.len(), 1, "Ожидается 1 корневая линия");
-
-    //
-    let level0: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
-    let level0Lines: &Vec< Arc<RwLock<Line>> > = level0.lines.as_ref().expect("Ожидается вложение 1 уровня");
-    assert_eq!(level0Lines.len(), 1, "Ожидается 1 дочерняя линия");
-    assert_eq!(level0Lines[0].read().unwrap().indent.unwrap(), 2);
-    assert!(level0Lines[0].read().unwrap().parent.is_some(), "Ожидается ссылка на родителя");
-
-    //
-    let level1: RwLockReadGuard<Line> = level0Lines[0].read().unwrap();
-    let level1Lines: &Vec< Arc<RwLock<Line>> > = level1.lines.as_ref().expect("Ожидается вложение 2 уровня");
-    assert_eq!(level1Lines.len(), 1, "Ожидается 1 дочерняя линия");
-    assert_eq!(level1Lines[0].read().unwrap().indent.unwrap(), 4);
-    assert!(level1Lines[0].read().unwrap().parent.is_some(), "Ожидается ссылка на родителя");
+    checkHierarchy(&linesLinks, &[
+      (0, 0), // Корень
+      (2, 1), // Вложено в 0
+      (4, 2), // Вложено в 2
+    ]);
   }
 
   // ===============================================================================================
 
-  /// todo desk
+  /// Проверяет отсутствие вложений при одинаковом отступе
   #[test]
   fn noNesting() -> ()
   {
@@ -127,20 +151,15 @@ mod tests
     lineNesting(&mut linesLinks);
 
     //
-    assert_eq!(linesLinks.len(), 2, "Ожидается 2 корневые линии");
-    
-    //
-    let l0: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
-    let l1: RwLockReadGuard<Line> = linesLinks[1].read().unwrap();
-    assert!(l0.lines.is_none(), "Вложений быть не должно");
-    assert!(l1.lines.is_none(), "Вложений быть не должно");
-    assert!(l0.parent.is_none(), "Родителя быть не должно");
-    assert!(l1.parent.is_none(), "Родителя быть не должно");
+    checkHierarchy(&linesLinks, &[
+      (0, 0), // Корень 1
+      (0, 0), // Корень 2
+    ]);
   }
 
   // ===============================================================================================
 
-  /// todo desk
+  /// Проверяет смешанное вложение со сбросом отступа в корень
   #[test]
   fn mixedNesting() -> ()
   {
@@ -156,19 +175,37 @@ mod tests
     lineNesting(&mut linesLinks);
 
     //
-    assert_eq!(linesLinks.len(), 2, "Ожидается 2 корневые линии из-за сброса отступа");
+    checkHierarchy(&linesLinks, &[
+      (0, 0), // Корень 1
+      (2, 1), // Вложено в первый 0
+      (0, 0), // Корень 2 (сброс)
+      (4, 1), // Вложено во второй 0
+    ]);
+  }
+
+  // ===============================================================================================
+
+  /// Проверяет частичный возврат отступа (сброс на один уровень назад)
+  #[test]
+  fn complexReturn() -> ()
+  {
+    let mut linesLinks: Vec< Arc<RwLock<Line>> > = vec![
+      createLine(0),
+      createLine(2),
+      createLine(4),
+      createLine(2), // Возврат на уровень 2
+    ];
 
     //
-    let root1: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
-    let root1Lines: &Vec< Arc<RwLock<Line>> > = root1.lines.as_ref().expect("Ожидается вложение у первой линии");
-    assert_eq!(root1Lines.len(), 1, "Ожидается 1 дочерняя линия");
-    assert_eq!(root1Lines[0].read().unwrap().indent.unwrap(), 2);
+    lineNesting(&mut linesLinks);
 
     //
-    let root2: RwLockReadGuard<Line> = linesLinks[1].read().unwrap();
-    let root2Lines: &Vec< Arc<RwLock<Line>> > = root2.lines.as_ref().expect("Ожидается вложение у второй линии");
-    assert_eq!(root2Lines.len(), 1, "Ожидается 1 дочерняя линия");
-    assert_eq!(root2Lines[0].read().unwrap().indent.unwrap(), 4);
+    checkHierarchy(&linesLinks, &[
+      (0, 0), // Корень
+      (2, 1), // Вложено в 0 (первый узел)
+      (4, 2), // Вложено в первый 2
+      (2, 1), // Вложено в 0 (сосед первого 2)
+    ]);
   }
 
   // ===============================================================================================

@@ -578,7 +578,8 @@ println(a())
 
   /// todo desk
   #[test]
-  fn semicolonEndline() -> () {
+  fn semicolonEndline() -> () 
+  {
     let buffer: Vec<u8> = b"x; y;".to_vec();
     let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
 
