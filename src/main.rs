@@ -5,6 +5,8 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
+// Сборка с флагом `analyzer` не может собирать бинарный файл.
+// Она может только `wasm` и `lib` виды сборки.
 #[cfg(feature = "analyzer")]
 compile_error!("This binary cannot be compiled with the 'analyzer' feature enabled. Please build the library crate instead.");
 

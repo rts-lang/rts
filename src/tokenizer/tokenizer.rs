@@ -27,15 +27,11 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 /// Вспомогательный макрос для добавления токенов start/end
 #[cfg(feature = "analyzer")]
-macro_rules! pushLineToken 
+fn pushLineToken(token: &mut Token, lineTokens: &mut Vec<Token>, start: usize, end: usize) 
 {
-  ($token:expr, $lineTokens:expr, $start:expr, $end:expr) => {
-    {
-      $token.start = $start;
-      $token.end = $end;
-      $lineTokens.push($token);
-    }
-  };
+  token.start = start;
+  token.end = end;
+  lineTokens.push(token.clone());
 }
 
 /// Основная функция для чтения токенов и получения чистых линий из них;
@@ -179,7 +175,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           #[cfg(feature = "analyzer")]
           {
             let mut token: Token = Token::newEmpty(TokenType::Comment);
-            pushLineToken!(token, lineTokens, start, index);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
           }
           #[cfg(not(feature = "analyzer"))]
           {
@@ -192,7 +188,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           #[cfg(feature = "analyzer")]
           {
             let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
-            pushLineToken!(token, lineTokens, start, index);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
           }
           #[cfg(not(feature = "analyzer"))]
           {
@@ -206,7 +202,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           #[cfg(feature = "analyzer")]
           {
             let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
-            pushLineToken!(token, lineTokens, start, index);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
           }
           #[cfg(not(feature = "analyzer"))]
           {
@@ -232,12 +228,14 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
             let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
 
             // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
-            let tokenType = match byte {
-              b'\'' => TokenType::FormattedChar,
-              b'"' => TokenType::FormattedString,
-              b'`' => TokenType::FormattedRawString,
-              _ => unreachable!(),
-            };
+            let tokenType: TokenType = 
+              match byte 
+              {
+                b'\'' => TokenType::FormattedChar,
+                b'"' => TokenType::FormattedString,
+                b'`' => TokenType::FormattedRawString,
+                _ => unreachable!(),
+              };
             token.setDataType(tokenType);
 
             #[cfg(feature = "analyzer")]
@@ -252,7 +250,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
             let tokenType: TokenType = *token.getDataType();
             if tokenType != TokenType::None {
               #[cfg(feature = "analyzer")]
-              pushLineToken!(token, lineTokens, startPos, index);
+              pushLineToken(&mut token, &mut lineTokens, startPos, index);
               #[cfg(not(feature = "analyzer"))]
               lineTokens.push(token);
             } else {
@@ -267,7 +265,7 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           #[cfg(feature = "analyzer")]
           {
             let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
-            pushLineToken!(token, lineTokens, start, index);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
           }
           #[cfg(not(feature = "analyzer"))]
           {
@@ -447,7 +445,7 @@ mod testsReadTokens
   #[test]
   fn commentRemoval() -> ()
   {
-    // todo Хороший пример.
+    // todo Хороший пример, тут табуляция ниже станет и `= 20` видно будет.
     //  Также вроде как есть закрытие комментариев? что-то вроде ;
     /*
 # comment
