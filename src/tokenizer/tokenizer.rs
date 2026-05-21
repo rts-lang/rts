@@ -308,3 +308,289 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 }
 
 // =================================================================================================
+
+#[cfg(test)]
+mod testsReadTokens
+{
+  use std::sync::{Arc, RwLock, RwLockReadGuard};
+  use crate::tokenizer::types::line::Line;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
+  use super::readTokens;
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn emptyBuffer() -> ()
+  {
+    let buffer: Vec<u8> = vec![];
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    assert_eq!(result.len(), 1, "Пустой буфер даёт 1 разделитель");
+
+    //
+    let guard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    assert!(guard.tokens.is_none(), "Токенов быть не должно");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn autoNewline() -> ()
+  {
+    let buffer: Vec<u8> = b"a".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    assert_eq!(result.len(), 1, "Автодобавление \\n не ломает структуру");
+
+    //
+    let guard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    let tokens: &Vec<Token> = guard.tokens.as_ref().expect("Ожидается токен");
+    assert_eq!(tokens.len(), 1);
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn indentHierarchy() -> () 
+  {
+    let buffer: Vec<u8> = b"a\n  b\n    c\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 1, "1 корень");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 3, "3 корневые линии (вложения не выполняются)");
+
+    //
+    let rootGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    #[cfg(not(feature = "analyzer"))]
+    let children: &Vec<Arc<RwLock<Line>>> = rootGuard.lines.as_ref().expect("Вложенные линии");
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(children.len(), 1, "1 дочерняя линия");
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    let childGuard: RwLockReadGuard<Line> = children[0].read().unwrap();
+    #[cfg(not(feature = "analyzer"))]
+    assert!(childGuard.lines.is_some(), "Уровень вложенности 2");
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    let inner: RwLockReadGuard<Line> = childGuard.lines.as_ref().unwrap()[0].read().unwrap();
+    #[cfg(not(feature = "analyzer"))]
+    assert!(inner.parent.is_some(), "Ссылка .parent существует");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn indentReset() -> () 
+  {
+    let buffer: Vec<u8> = b"a\n  b\nc\n  d\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 2, "2 корня после сброса отступа");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 4, "4 корневые линии (вложения не выполняются)");
+
+    //
+    #[cfg(not(feature = "analyzer"))] {
+      let guard1: RwLockReadGuard<Line> = result[0].read().unwrap();
+      let guard2: RwLockReadGuard<Line> = result[1].read().unwrap();
+      assert_eq!(guard1.lines.as_ref().unwrap().len(), 1);
+      assert_eq!(guard2.lines.as_ref().unwrap().len(), 1);
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn bracketInLine() -> ()
+  {
+    let buffer: Vec<u8> = b"(x + y)\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    let lineGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    let tokens: &Vec<Token> = lineGuard.tokens.as_ref().expect("Токены линии");
+
+    //
+    let tokenTypeStr: String = tokens[0].getDataType().to_string();
+    assert_eq!(tokenTypeStr, TokenType::CircleBracketBegin.to_string(), "Ожидалась открывающая скобка");
+
+    //
+    let innerLines: &Vec<Line> = tokens[0].lines.as_ref().expect("Вложение скобок");
+    assert_eq!(innerLines.len(), 1);
+
+    //
+    let innerTokens: &Vec<Token> = innerLines[0].tokens.as_ref().expect("Токены внутри");
+    assert_eq!(innerTokens.len(), 3);
+
+    //
+    let firstToken: String = innerTokens[0].getData().toString().unwrap_or_default();
+    assert_eq!(firstToken, "x");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn commentRemoval() -> ()
+  {
+    // todo Хороший пример.
+    //  Также вроде как есть закрытие комментариев? что-то вроде ;
+    /*
+# comment
+ comment
+   comment
+a -> UInt
+  println(10) # comment
+   comment
+      comment
+    comment
+	= 20
+
+println(a())
+    */
+    
+    //let buffer: Vec<u8> =
+    //let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    #[cfg(not(feature = "analyzer"))]
+    {
+      //
+    }
+
+    #[cfg(feature = "analyzer")]
+    {
+      // Analyzer сохраняет комментарии
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn fullCommentLine() -> ()
+  {
+    let buffer: Vec<u8> = b"# only comment\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 1, "1 разделитель");
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 0, "Пустой результат");
+    #[cfg(feature = "analyzer")]
+    {
+      let guard: RwLockReadGuard<Line> = result[0].read().unwrap();
+      assert!(guard.tokens.is_some(), "Линия сохранена");
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn complexBlock() -> ()
+  {
+    let buffer: Vec<u8> = b"a\n  10\ntype(a)\n# test comment\nmut(a)".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 3); // a, type(a), mut(a)
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 5); // a, 10, type(a), # comment, mut(a)
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    {
+      //
+      let rootGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+      let body: &Vec<Arc<RwLock<Line>>> = rootGuard.lines.as_ref().expect("Тело блока");
+      assert_eq!(body.len(), 1, "Комментарий удалён, 1 линия"); // 10
+
+      //
+      let firstGuard: RwLockReadGuard<Line> = body[0].read().unwrap();
+      let firstTokens: &Vec<Token> = firstGuard.tokens.as_ref().expect("Токены линии");
+      assert_eq!(firstTokens[0].getDataType().to_string(), TokenType::UInt.to_string());
+    }
+
+    //
+    #[cfg(feature = "analyzer")]
+    {
+      // При анализаторе линии плоские (нет вложенности)
+      // Вторая корневая линия (индекс 1) — это "10"
+      let secondGuard: RwLockReadGuard<Line> = result[1].read().unwrap();
+      let tokens: &Vec<Token> = secondGuard.tokens.as_ref().expect("Токены линии");
+      assert_eq!(tokens[0].getDataType().to_string(), TokenType::UInt.to_string());
+
+      // Проверяем остальные линии для уверенности
+      let thirdGuard: RwLockReadGuard<Line> = result[2].read().unwrap();
+      let thirdTokens: &Vec<Token> = thirdGuard.tokens.as_ref().unwrap();
+      assert_eq!(thirdTokens[0].getDataType().to_string(), TokenType::Word.to_string());
+      assert_eq!(thirdTokens[0].getData().toString().unwrap(), "type");
+
+      let fourthGuard: RwLockReadGuard<Line> = result[3].read().unwrap();
+      let fourthTokens: &Vec<Token> = fourthGuard.tokens.as_ref().unwrap();
+      assert_eq!(fourthTokens[0].getDataType().to_string(), TokenType::Comment.to_string());
+
+      let fifthGuard: RwLockReadGuard<Line> = result[4].read().unwrap();
+      let fifthTokens: &Vec<Token> = fifthGuard.tokens.as_ref().unwrap();
+      assert_eq!(fifthTokens[0].getDataType().to_string(), TokenType::Word.to_string());
+      assert_eq!(fifthTokens[0].getData().toString().unwrap(), "mut");
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn nestedBracketsWithCommas() -> ()
+  {
+    let buffer: Vec<u8> = b"((a), (b))\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    let lineGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    let tokens: &Vec<Token> = lineGuard.tokens.as_ref().expect("Токены линии");
+
+    //
+    assert_eq!(tokens[0].getDataType().to_string(), TokenType::CircleBracketBegin.to_string());
+
+    //
+    let innerLines: &Vec<Line> = tokens[0].lines.as_ref().expect("Вложенные линии");
+    assert_eq!(innerLines.len(), 2, "Две линии через запятую");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn semicolonEndline() -> () {
+    let buffer: Vec<u8> = b"x; y;".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 2, "2 линии через ;");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 3, "3 линии (последняя пустая из-за завершающего \\n)");
+  }
+
+  // ===============================================================================================
+}
+
+// =================================================================================================
