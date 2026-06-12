@@ -1,16 +1,15 @@
-/* /tokenizer/token
-  Token is the smallest unit of data, represents strings, numbers, operators...
-*/
-
-use std::fmt;
-use crate::parser::bytes::Bytes;
+// =================================================================================================
 use crate::parser::structure::structure::StructureType;
-use crate::tokenizer::line::Line;
+// =================================================================================================
 
-// TokenType =======================================================================================
 /// Тип элементарной единицы хранения информации
+/// 
+/// todo Можно создать глобальную общую структуру:
+///   - structure type
+///   - token type
+///   - string
 #[derive(PartialEq)]
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum TokenType
 {
 // basic
@@ -149,13 +148,14 @@ pub enum TokenType
   Float,
   /// Unsigned float
   UFloat,
-  /// Rational
-  Rational,
+  /// Rational 
+  //Rational, // todo Rational пока что нет как типа
   /// Complex
   Complex,
 
   /// Bool
-  Bool,
+  Bool, // todo issue #65
+  // True, False, // todo issue #65
   /// & (and) Joint
   Joint,
   /// ^
@@ -254,15 +254,16 @@ impl ToString for TokenType
       TokenType::UInt     => String::from("UInt"),
       TokenType::Float    => String::from("Float"),
       TokenType::UFloat   => String::from("UFloat"),
-      TokenType::Rational => String::from("Rational"),
+      //TokenType::Rational => String::from("Rational"), // todo Rational пока что нет как типа
       TokenType::Complex  => String::from("Complex"),
 
-      TokenType::Bool      => String::from("Bool"),
+      TokenType::Bool      => String::from("Bool"), // todo issue #65
       TokenType::Joint     => String::from("Joint"),
       TokenType::Disjoint  => String::from("Disjoint"),
       TokenType::Inclusion => String::from("Inclusion"),
       TokenType::Exclusion => String::from("Exclusion")
     }
+    //
   }
 }
 impl Default for TokenType
@@ -297,182 +298,8 @@ impl ToStructureType for TokenType
         StructureType::Custom(self.to_string())
       }
     }
-  }
-}
-// Token ===========================================================================================
-/// Элементарная единица хранения информации
-#[derive(Clone)]
-pub struct Token 
-{
-  /// Данные единицы хранения
-  data:       Bytes,
-  /// Тип данных единицы хранения
-  dataType:   TokenType,
-  /// Набор вложенных единиц хранения
-  pub lines: Option< Vec<Line> >,
-  #[cfg(feature = "analyzer")]
-  pub start: usize,
-  #[cfg(feature = "analyzer")]
-  pub end: usize
-}
-impl Token 
-{
-  /// Обычное создание
-  pub fn new<T: Into<Bytes>>(
-    dataType: TokenType,
-    data:     T,
-  ) -> Self {
-    Token {
-      data: data.into(),
-      dataType,
-      lines: None,
-      #[cfg(feature = "analyzer")]
-      start: 0,
-      #[cfg(feature = "analyzer")]
-      end: 0
-    }
-  }
-  
-  /// Пустой, но имеет тип данных
-  pub fn newEmpty(
-    dataType: TokenType
-  ) -> Self 
-  {
-    Token 
-    {
-      data: Bytes::empty(),
-      dataType,
-      lines: None,
-      #[cfg(feature = "analyzer")]
-      start: 0,
-      #[cfg(feature = "analyzer")]
-      end: 0
-    }
-  }
-  /// Пустой, но выполняет роль держателя вложения
-  pub fn newNesting(
-    lines: Vec<Line>
-  ) -> Self
-  {
-    Token
-    {
-      data: Bytes::empty(),
-      dataType: TokenType::None,
-      lines: Some(lines),
-      #[cfg(feature = "analyzer")]
-      start: 0,
-      #[cfg(feature = "analyzer")]
-      end: 0
-    }
-  }
-
-  // convert data
-  // todo: фиг его знает что это за ерунда,
-  // но смысл такой, что если тип был Int или Float, 
-  // а ожидается UInt или UFloat, то понятно,
-  // что результат будет 0
-  fn convertData(&mut self) -> ()
-  {
-    match self.data.toString()
-    {
-      None => {}
-      Some(data) => 
-      {
-        match data.chars().nth(0)  
-        {
-          Some('-') => 
-          {
-            match self.dataType.clone()
-            {
-              TokenType::UInt   => { self.data = Bytes::from(String::from("0")); }
-              TokenType::UFloat => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
-              _ => { }
-            }
-          }
-          _ => {}
-        }
-      }
-    }
-  }
-
-  /// Получает тип данных
-  pub fn getDataType(&self) -> &TokenType
-  {
-    &self.dataType
-  }
-  /// Устанавливает тип данных
-  pub fn setDataType(&mut self, newDataType: TokenType) -> ()
-  {
-    self.dataType = newDataType;
-    self.convertData();
-  }
-
-  /// Проверяет примитивный это токен или нет
-  pub fn isPrimitive(&self) -> bool
-  {
-    matches!(
-      self.dataType,
-      TokenType::None |
-      TokenType::Any |
-      TokenType::Link |
-      TokenType::UInt |
-      TokenType::Int |
-      TokenType::UFloat |
-      TokenType::Float |
-      TokenType::Char |
-      TokenType::String |
-      TokenType::RawString |
-      TokenType::FormattedChar |
-      TokenType::FormattedString |
-      TokenType::FormattedRawString
-    )
-  }
-
-  /// Получает данные
-  pub fn getData(&self) -> Bytes
-  {
-    self.data.clone()
-  }
-  /// Устанавливает данные
-  pub fn setData<T: Into<Bytes>>(&mut self, newData: T) 
-  {
-    self.data = newData.into();
-    self.convertData();
+    //
   }
 }
 
-impl fmt::Display for Token
-{ // todo: debug only ?
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-  {
-    match self.data.getAll()
-    {
-      Some(data) =>
-      { // Есть данные - печатаем как символы
-        write!(f, "{}", std::str::from_utf8(&data).unwrap_or_default())
-      }
-      None =>
-      { // Данных нет - печатаем тип
-        write!(f, "{}", self.getDataType().to_string())
-      }
-    }
-  }
-}
-
-impl fmt::Debug for Token
-{ // todo: debug only ?
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-  {
-    match self.data.getAll()
-    {
-      Some(data) =>
-      { // Есть данные - печатаем как символы
-        write!(f, "{}", std::str::from_utf8(&data).unwrap_or_default())
-      }
-      None =>
-      { // Данных нет - печатаем тип
-        write!(f, "{}", self.getDataType().to_string())
-      }
-    }
-  }
-}
+// =================================================================================================

@@ -12,13 +12,14 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::parser::{_main, parseLines};
 use crate::parser::structure::structure::{Structure, StructureMut, StructureType};
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::Token;
 use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::Token;
 
-mod tokenizer;
-mod parser;
-#[cfg(not(feature = "analyzer"))]
+// todo удалить mods
+pub mod tokenizer;
+pub mod parser;
+#[cfg(not(target_family = "wasm"))]
 mod logger;
 #[cfg(not(feature = "analyzer"))]
 mod packages;

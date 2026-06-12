@@ -1,9 +1,10 @@
 /* /parser/structure/parameters
   Хранит параметры без просчитывания их заранее
 */
+
 use crate::parser::structure::structure::Structure;
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::Token;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::Token;
 
 #[derive(Clone)]
 pub struct Parameters

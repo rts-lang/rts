@@ -1,935 +1,37 @@
 use std::{
-  sync::{Arc, RwLock, RwLockWriteGuard}
+  sync::{Arc, RwLock}
 };
+#[cfg(all(not(target_family = "wasm"), not(test)))]
+use std::time::{Instant, Duration};
+#[cfg(not(target_family = "wasm"))]
+use crate::logger::logger::{log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
-use std::{
-  time::{Instant, Duration},
-  sync::RwLockReadGuard,
-};
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{Token, TokenType};
-#[cfg(not(feature = "analyzer"))]
-use crate::logger::logger::{formatPrint, log, logSeparator};
-// =================================================================================================
-// /tokenizer
-
-#[cfg(not(feature = "analyzer"))]
-/// Проверяет buffer по index и так пропускаем возможные комментарии;
-/// Потом они будут удалены по меткам
-fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
-{
-  *index += 1;
-  while *index < *bufferLength && buffer[*index] != b'\n' 
-  {
-    *index += 1;
-  }
-}
-
+use crate::tokenizer::read::primitives::comments::{deleteComment};
 #[cfg(feature = "analyzer")]
-// todo desk
-fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> () {
-  // 1. Пропускаем первую строку комментария до конца строки или буфера
-  while *index < *bufferLength && buffer[*index] != b'\n' {
-    *index += 1;
-  }
-
-  // Если достигли конца буфера, то комментарий закончился, выходим
-  if *index >= *bufferLength {
-    return;
-  }
-
-  // Теперь *index указывает на '\n' (или конец буфера, но мы проверили)
-  loop {
-    let newline_pos = *index; // позиция '\n'
-    // Пропускаем '\n' только для проверки следующих строк, но не сдвигаем индекс навсегда, если продолжения нет
-    let mut next_idx = *index + 1;
-    if next_idx >= *bufferLength {
-      // Нет следующей строки, оставляем индекс на '\n'
-      *index = newline_pos;
-      break;
-    }
-
-    let mut next_indent = 0;
-    // Считаем пробелы в начале следующей строки
-    while next_idx < *bufferLength && buffer[next_idx] == b' ' {
-      next_indent += 1;
-      next_idx += 1;
-    }
-
-    if next_indent > *startIndent {
-      // Это продолжение комментария: пропускаем всю строку до конца
-      *index = next_idx;
-      while *index < *bufferLength && buffer[*index] != b'\n' {
-        *index += 1;
-      }
-      // Если достигли конца буфера, выходим, иначе продолжаем loop
-      if *index >= *bufferLength {
-        break;
-      }
-      // иначе *index указывает на '\n' следующей строки, продолжим loop
-    } else {
-      // Комментарий закончился, возвращаем индекс на исходный '\n'
-      *index = newline_pos;
-      break;
-    }
-  }
-}
-
-/// Проверяет что байт является одиночным знаком доступным для синтаксиса
-fn isSingleChar(c: &u8) -> bool 
-{
-  matches!(*c, 
-    b'+' | b'-' | b'*' | b'/' | b'=' | b'%' | b'^' |
-    b'>' | b'<' | b'?' | b'!' | b'&' | b'|' | 
-    b'(' | b')' | b'{' | b'}' | b'[' | b']' | 
-    b':' | b',' | b'.' | b'~'
-  )
-}
-
-/// Проверяет что байт является числом
-fn isDigit(c: &u8) -> bool 
-{
-  *c >= b'0' && *c <= b'9'
-}
-/// Проверяет buffer по index и так находит возможные примитивные числовые типы данных;
-/// `UInt, Int, UFloat, Float, Rational, Complex`
-///
-/// todo: Ввести Complex числа;
-///
-/// todo: Ввести работу float с .1 или . как 0.0
-fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token 
-{
-  let mut savedIndex: usize = *index; // index buffer
-  let mut result: String = String::from(buffer[savedIndex] as char);
-  savedIndex += 1;
-
-  let mut      dot: bool = false; // dot check
-  let mut negative: bool = false; // negative check
-  let mut rational: bool = false; // rational check
-
-  let mut byte1: u8; // Текущий символ
-  let mut byte2: u8; // Следующий символ
-  while savedIndex < *bufferLength 
-  {
-    byte1 = buffer[savedIndex]; // Значение текущего символа
-    byte2 =                     // Значение следующего символа
-      match savedIndex+1 < *bufferLength 
-      {
-        true  => { buffer[savedIndex+1] }  
-        false => { b'\0' }
-      };
-
-    // todo: use match case
-    if !negative && buffer[*index] == b'-' 
-    { // Int/Float
-      result.push(byte1 as char);
-      negative = true;
-      savedIndex += 1;
-    } else
-    if isDigit(&byte1) 
-    { // UInt
-      result.push(byte1 as char);
-      savedIndex += 1;
-    } else 
-    if byte1 == b'.' && !dot && isDigit(&byte2) &&
-       savedIndex > 1 && buffer[*index-1] != b'.' // fixed for a.0.1
-    { // UFloat
-      match rational 
-      { false => {}
-        true => { break; }
-      }
-      dot = true;
-      result.push(byte1 as char);
-      savedIndex += 1;
-    } else
-    if byte1 == b'/' && byte2 == b'/' && !dot && 
-       (savedIndex+2 < *bufferLength && isDigit(&buffer[savedIndex+2])) 
-    { // Rational
-      rational = true;
-      result.push_str("//");
-      savedIndex += 2;
-    } else { break; }
-  }
-
-  *index = savedIndex;
-  
-  // next return
-  match (rational, dot, negative) 
-  { // rational, dot, negative
-    (true, _, _)     => Token::new( TokenType::Rational, result ),
-    (_, true, true)  => Token::new( TokenType::Float,    result ),
-    (_, true, false) => Token::new( TokenType::UFloat,   result ),
-    (_, false, true) => Token::new( TokenType::Int,      result ),
-    _                => Token::new( TokenType::UInt,     result ),
-  }
-  //
-}
-
-/// Проверяет что байт является буквой a-z A-Z
-fn isLetter(c: &u8) -> bool 
-{
-  (c|32)>=b'a'&&(c|32)<=b'z'
-}
-/// Проверяет buffer по index и так находит возможные слова;
-/// Из них также выделяет сразу определяемые зарезервированные
-fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token 
-{
-  let mut savedIndex: usize = *index; // index buffer
-  let mut result: String = String::from(buffer[savedIndex] as char);
-  savedIndex += 1;
-  let mut isLink: bool = false;
-
-  let mut byte1: u8; // Текущий символ
-  while savedIndex < *bufferLength 
-  {
-    byte1 = buffer[savedIndex]; // Значение текущего символа
-
-    // todo: use match case
-    if (isDigit(&byte1) || byte1 == b'.') || // Либо число, либо . как ссылка
-       (isLink && byte1 == b'[' || byte1 == b']') // В случае ссылки мы можем читать динамические []
-    {
-      result.push(byte1 as char);
-      savedIndex += 1;
-      match byte1 == b'.' 
-      { false => {} true =>
-      { // Только если есть . то мы знаем что это ссылка
-        isLink = true;
-      }}
-    } else
-    {
-      match isLetter(&byte1)
-      { false => { break; } true =>
-      {
-        result.push(byte1 as char);
-        savedIndex += 1;
-      }}
-      //
-    }
-  }
-
-  *index = savedIndex;
-  
-  // next return
-  match isLink 
-  {
-    true => Token::new( TokenType::Link, result.clone() ),
-    false =>
-    {
-      match result.as_str()
-      {
-        "true"     => Token::newEmpty( TokenType::Bool ),
-        "false"    => Token::newEmpty( TokenType::Bool ),
-        //
-        "UInt"     => Token::newEmpty( TokenType::UInt ),
-        "Int"      => Token::newEmpty( TokenType::Int ),
-        "UFloat"   => Token::newEmpty( TokenType::UFloat ),
-        "Float"    => Token::newEmpty( TokenType::Float ),
-        //
-        "String"   => Token::newEmpty( TokenType::String ),
-        "Char"     => Token::newEmpty( TokenType::Char ),
-        //
-        "None"     => Token::newEmpty(TokenType::None),
-        //
-        _          => Token::new( TokenType::Word, result ),
-      }
-      //
-    }
-  }
-  //
-}
-
-/// Проверяет buffer по index и так находит возможные
-/// Char, String, RawString
-fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token 
-{
-  let byte1: u8 = buffer[*index]; // Начальный символ кавычки
-  let mut result: String = String::new();
-
-  *index += 1;
-
-  let length: usize = buffer.len();
-  let mut byte2: u8;
-
-  let mut backslashCount: usize;
-  let mut i: usize;
-  while *index < length 
-  {
-    byte2 = buffer[*index]; // Текущий байт
-    // Ошибка: конец строки внутри кавычек
-    match byte2 
-    {
-      // Возврат строки не возможен, поскольку она может выйти за скобки и т.п. 
-      // если он достиг конца строки уже;
-      b'\n' => { return Token::newEmpty(TokenType::None); }
-      // Если мы нашли символ похожий на первый, значит закрываем,
-      // но возможно это экранированная кавычка, и не закрываем.
-      byte if byte == byte1 =>
-      { // Проверка обратных слэшей перед закрывающей кавычкой
-        backslashCount = 0;
-        i = *index-1;
-
-        while i > 0 && buffer[i] == b'\\' 
-        {
-          backslashCount += 1;
-          i -= 1;
-        }
-
-        // Нечетное количество обратных слэшей — кавычка экранирована
-        match backslashCount%2 
-        {
-          1 => result.push(byte2 as char), // Экранированная кавычка
-          _ => 
-          {
-            *index += 1; // Завершение строки
-            break;
-          }
-        }
-      }
-      // Все иные символы, входящие между кавычек;
-      _ => { result.push(byte2 as char); }
-    }
-
-    *index += 1;
-  }
-
-  // Проверяем тип кавычки и возвращаем соответствующий токен
-  match byte1 
-  {
-    b'\'' => 
-    { 
-      if formatted || result.len() == 1 
-      { // Одинарные кавычки должны содержать только один символ - если не formatted
-        Token::new(
-          if formatted { TokenType::FormattedChar } else { TokenType::Char },
-          result,
-        )
-      } else {
-        Token::newEmpty(TokenType::None)
-      }
-    }
-    b'"' => Token::new(TokenType::String, result),
-    b'`' => Token::new(TokenType::RawString, result),
-    _ => Token::newEmpty(TokenType::None),
-  }
-}
-
-/// Проверяет buffer по index и так находит возможные двойные и одиночные операторы
-fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token 
-{
-  let currentByte: u8 = buffer[*index]; // current byte
-  let nextByte: u8 =                    // next byte or \0
-    match *index+1 < *bufferLength 
-    {
-      true  => { buffer[*index+1] } 
-      false => { b'\0'}
-    };
-
-  let mut increment = |count: usize| 
-  { // index increment for single & duble operators
-    *index += count;
-  };
-
-  match currentByte 
-  {
-    b'+' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::PlusEquals) }
-        b'+' => { increment(2); Token::newEmpty(TokenType::UnaryPlus) }
-        _    => { increment(1); Token::newEmpty(TokenType::Plus) }
-      }
-    }
-    b'-' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::MinusEquals) }
-        b'-' => { increment(2); Token::newEmpty(TokenType::UnaryMinus) }
-        b'>' => { increment(2); Token::newEmpty(TokenType::Pointer) }
-        _    => { increment(1); Token::newEmpty(TokenType::Minus) }
-      }
-    }
-    b'*' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::MultiplyEquals) }
-        b'*' => { increment(2); Token::newEmpty(TokenType::UnaryMultiply) }
-        _    => { increment(1); Token::newEmpty(TokenType::Multiply) }
-      }
-    }
-    b'/' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::DivideEquals) }
-        b'/' => { increment(2); Token::newEmpty(TokenType::UnaryDivide) }
-        _    => { increment(1); Token::newEmpty(TokenType::Divide) }
-      }
-    }
-    b'%' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::Modulo) } // todo: add new type in Token
-        b'%' => { increment(2); Token::newEmpty(TokenType::Modulo) } // todo: add new type in Token
-        _    => { increment(1); Token::newEmpty(TokenType::Modulo) }
-      }
-    }
-    b'^' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::Exponent) } // todo: add new type in Token
-        b'^' => { increment(2); Token::newEmpty(TokenType::Exponent) } // todo: add new type in Token
-        _    => { increment(1); Token::newEmpty(TokenType::Disjoint) }
-      }
-    }
-    b'>' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::GreaterThanOrEquals) }
-        _    => { increment(1); Token::newEmpty(TokenType::GreaterThan) }
-      }
-    }
-    b'<' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::LessThanOrEquals) }
-        _    => { increment(1); Token::newEmpty(TokenType::LessThan) }
-      }
-    }
-    b'!' => 
-    {
-      match nextByte 
-      {
-        b'=' => { increment(2); Token::newEmpty(TokenType::NotEquals) }
-        _    => { increment(1); Token::newEmpty(TokenType::Exclusion) }
-      }
-    }
-    b'~' =>
-    {
-      match nextByte
-      {
-        b'~' => { increment(2); Token::newEmpty(TokenType::DoubleTilde) }
-        _    => { increment(1); Token::newEmpty(TokenType::Tilde) }
-      }
-    }
-    b'&' => { increment(1); Token::newEmpty(TokenType::Joint) }
-    b'|' => { increment(1); Token::newEmpty(TokenType::Inclusion) }
-    b'=' => { increment(1); Token::newEmpty(TokenType::Equals) }
-    // brackets
-    b'(' => { increment(1); Token::newEmpty(TokenType::CircleBracketBegin) }
-    b')' => { increment(1); Token::newEmpty(TokenType::CircleBracketEnd) }
-    b'{' => { increment(1); Token::newEmpty(TokenType::FigureBracketBegin) }
-    b'}' => { increment(1); Token::newEmpty(TokenType::FigureBracketEnd) }
-    b'[' => { increment(1); Token::newEmpty(TokenType::SquareBracketBegin) }
-    b']' => { increment(1); Token::newEmpty(TokenType::SquareBracketEnd) }
-    // other
-    b';' => { increment(1); Token::newEmpty(TokenType::Endline) }
-    b':' => { increment(1); Token::newEmpty(TokenType::Colon) }
-    b',' => { increment(1); Token::newEmpty(TokenType::Comma) }
-    b'.' => { increment(1); Token::newEmpty(TokenType::Dot) }
-    b'?' => { increment(1); Token::newEmpty(TokenType::Question) }
-    _ => Token::newEmpty(TokenType::None)
-  }
-}
-
-/// Основная функция, которая вкладывает токены в скобки `() [] {}` от начальной скобки
-/// до закрывающей; Её особенность в рекурсивном вызове себя для дочерних токенов
-fn bracketNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
-{
-  /* todo Эта часть помогала пройти вложения, чтобы () [] {} видно было друг в друге
-  for token in tokens.iter_mut()
-  { // Чтение токенов
-    match &mut token.tokens
-    { None => {} Some(tokens) =>
-    { // Рекурсия
-      println!("!! {:?}",tokens);
-      bracketNesting(tokens, beginType, endType);
-    }}
-  }
-  */
-  // Вкладывание
-  blockNesting(tokens, beginType, endType);
-}
-/// Эта функция является дочерней bracketNesting;
-/// Занимается вложением линий в токены;
-/// От начальной скобки до закрывающей;
-/// Делит токены через запятую.
-///
-/// todo может использовать split
-fn blockNesting(tokens: &mut Vec<Token>, beginType: &TokenType, endType: &TokenType) -> ()
-{
-  let mut isReadData: bool = false; // Читаем данные в буфер?
-  let mut readData: Vec<Token> = Vec::new(); // Буфер токенов
-  let mut readDataLines: Vec<Line> = Vec::new(); // Линии из токенов
-
-  let mut i: usize = tokens.len();
-  while i > 0
-  {
-    i -= 1;
-    match tokens[i].getDataType()
-    {
-      tokenType if tokenType == beginType =>
-      { // Конец чтения
-        readDataLines.insert(
-          0,
-          Line
-          {
-            tokens: Some( std::mem::take(&mut readData) ),
-            indent: None,
-            lines: None,
-            parent: None,
-          }
-        );
-        tokens[i].lines = Some( std::mem::take(&mut readDataLines) );
-        return;
-      }
-      tokenType if tokenType == endType =>
-      { // Начало чтения
-        if !isReadData
-        {
-          #[cfg(not(feature = "analyzer"))]
-          tokens.remove(i);
-          isReadData = true;
-        } else
-        {
-          // Вложенный блок
-          let before: usize = tokens.len();
-          blockNesting(tokens, beginType, endType);
-          // Сдвиг текущего списка
-          let removed: usize = before - tokens.len();
-          i = i - removed;
-          //
-          readData.insert(0, tokens.remove(i));
-        }
-      }
-      TokenType::Comma =>
-      { // Разделение буфера на линии
-        #[cfg(not(feature = "analyzer"))]
-        tokens.remove(i);
-        readDataLines.insert(
-        0,
-        Line
-          {
-            tokens: Some( std::mem::take(&mut readData) ),
-            indent: None,
-            lines: None,
-            parent: None,
-          }
-        );
-      }
-      _ => match  isReadData
-      { // Чтение данных в буфер
-        false => {}
-        true => readData.insert(0, tokens.remove(i))
-      }
-    }
-  }
-}
-
-/// Проверка на вхождение в срез
-macro_rules! matchesIn 
-{
-  ($value:expr, $slice:expr) => 
-  {
-    $slice.contains(&$value)
-  };
-}
-
-/// Разделяет токены по типу токена-разделителя
-pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line>
-{
-  let mut lines: Vec<Line> = Vec::new();
-  let mut buffer: Vec<Token> = Vec::new();
-
-  for token in tokens.into_iter()
-  {
-    if matchesIn!(token.getDataType(), separatorTypes) 
-    {
-      lines.push(Line
-      {
-        tokens: Some(buffer),
-        indent: None,
-        lines: None,
-        parent: None,
-      });
-      buffer = Vec::new();
-    }
-    else
-    {
-      buffer.push(token);
-    }
-  }
-
-  if !buffer.is_empty()
-  {
-    lines.push(Line
-    {
-      tokens: Some(buffer),
-      indent: None,
-      lines: None,
-      parent: None,
-    });
-  }
-
-  lines
-}
-
+use crate::tokenizer::read::primitives::comments::{deleteComments}; 
+use crate::tokenizer::read::primitives::numbers::{getNumber, isDigit};
+use crate::tokenizer::read::primitives::operators::{getOperator, isSingleChar};
+use crate::tokenizer::read::primitives::quotes::getQuotes;
+use crate::tokenizer::read::primitives::words::{getWord, isLetter};
+use crate::tokenizer::read::nesting::brackets::{bracketNesting};
+use crate::tokenizer::read::nesting::comments::deleteNestedComment;
 #[cfg(not(feature = "analyzer"))]
-/// Вкладывает линии токенов друг в друга
-fn lineNesting(linesLinks: &mut Vec< Arc<RwLock<Line>> >) -> ()
-{
-  let mut index:     usize = 0;                // current line index
-  let mut nextIndex: usize = 1;                // next    line index
-  let mut length:    usize = linesLinks.len(); // all lines links length
-
-  let mut compare: bool;
-  while index < length && nextIndex < length
-  { // Если мы не дошли до конца, то читаем линии
-    compare =
-    { // Только в Tokenizer мы уверены, что существует indent
-      let currentIndent: usize = linesLinks[index].read().unwrap().indent.unwrap();
-      let nextIndent:    usize = linesLinks[nextIndex].read().unwrap().indent.unwrap();
-      currentIndent < nextIndent
-    };
-    match compare
-    { // compare current indent < next indent
-      true =>
-      {
-        // get next line and remove
-        let nestingLineLink: Arc<RwLock<Line>> = linesLinks.remove(nextIndex);
-        length -= 1;
-        { // set parent line link
-          nestingLineLink.write().unwrap()
-            .parent = Some( linesLinks[index].clone() );
-        }
-        // push nesting
-        let mut currentLine: RwLockWriteGuard<Line> = linesLinks[index].write().unwrap();
-        match &mut currentLine.lines
-        {
-          Some(lineLines) =>
-          { // Если вложения уже были, то просто делаем push
-            lineLines.push(nestingLineLink); // nesting
-            lineNesting(lineLines);          // cycle
-          },
-          None =>
-          { // Если вложения не было до этого, то создаём
-            currentLine.lines = Some(vec![nestingLineLink]);  // nesting
-            lineNesting(currentLine.lines.as_mut().unwrap()); // cycle
-          }
-        }
-      }
-      false =>
-      {
-        index += 1;
-        nextIndex = index+1;
-      }
-    }
-  }
-}
-
-/// Удаляет возможные вложенные комментарии по меткам;
-/// Это такие комментарии, которые имеют вложения.
-///
-/// Кроме того, создаёт линии разделители (separator).
-fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index: usize) -> ()
-{
-  let mut linesLinksLength: usize = linesLinks.len(); // Количество ссылок строк
-  let mut lastTokenIndex:   usize; // Это указатель на метку где TokenType::Comment
-  // Это может быть либо последний токен, либо первый токен в большом комментарии;
-
-  let mut deleteLine: bool;
-  let mut line: RwLockWriteGuard<Line>;
-
-  while index < linesLinksLength
-  {
-    deleteLine = false; // Состояние удаления текущей линии
-    'exit:
-    { // Прерывание чтобы не нарушать мутабельность
-      line = linesLinks[index].write().unwrap();
-
-      match &mut line.lines
-      { None => {} Some(lineLines) =>
-      { // Рекурсивно обрабатываем вложенные линии
-        deleteNestedComment(lineLines, 0);
-      }}
-
-      // Логика для разделителей
-      match line.tokens.is_none()
-      { false => {} true =>
-      { // Пропускаем разделители, они нужны для синтаксиса
-        // Если разделитель имеет вложения
-        match &line.lines
-        { None => {} Some(_) =>
-        { // Выходим из прерывания, т.к это безымянный блок
-          break 'exit;
-        }}
-
-        // Проверяем на скопление разделителей
-        match index+1 < linesLinksLength
-        { false => {} true =>
-        { // Если есть линия ниже, то мы можем предполагать, что
-          // Она может быть тоже разделителем;
-          match
-            linesLinks[index+1].write().unwrap()
-             .tokens.is_none()
-          { // Если токенов в следующей линии не было, значит точно separator;
-            // Повторение подобных условий оставит 1 separator линию по итогу;
-            false => {}
-            true  => deleteLine = true
-          }
-        }}
-
-        // Обычный разделитель
-        break 'exit; // Выходим из прерывания
-      }}
-
-      // Логика для комментариев
-      let hadNested = line.lines.is_some();
-      match line.tokens
-      { None => {} Some(ref mut tokens) =>
-      {
-        lastTokenIndex = tokens.len() -1;
-        match tokens.get(lastTokenIndex)
-        { None => {} Some(token) =>
-        {
-
-          match *token.getDataType() == TokenType::Comment
-          { false => {} true =>
-          {
-            #[cfg(feature = "analyzer")]
-            {
-              // Для анализатора НЕ объединяем токены в один.
-              // Оставляем структуру линии нетронутой, чтобы подсветка синтаксиса работала корректно.
-              if hadNested {
-                line.lines = None;
-              }
-              break 'exit; // Прерываем блок, чтобы строка не удалилась и токены остались
-            }
-            #[cfg(not(feature = "analyzer"))]
-            { // Удаляем комментарии
-              tokens.remove(lastTokenIndex);
-              // Проверяем если есть вложенные линии,
-              // что комментарий не удалится весь
-              // и продолжается на вложенные линии
-              match &line.lines
-              { None => {}, Some(_) =>
-              {
-                line.lines = None
-              }}
-  
-              // Переходим к удалению пустой линии
-              match &line.tokens
-              {
-                Some(tokens) =>
-                { // Пустой массив
-                  match tokens.is_empty()
-                  { false => {} true =>
-                  {
-                    deleteLine = true; // Линия была удалена
-                    break 'exit;       // Выходим из прерывания
-                  }}
-                }
-                None =>
-                { // Просто пустой
-                  deleteLine = true; // Линия была удалена
-                  break 'exit;       // Выходим из прерывания
-                }
-              }
-            }
-            //
-          }}
-          //
-        }}
-        //
-      }}
-      //
-    }
-    // Когда линия удалена в прерывании,
-    // её можно спокойно удалить
-    match deleteLine
-    { false => {} true =>
-    {
-      drop(line);
-      linesLinks.remove(index);
-      linesLinksLength -= 1;
-      continue;
-    }}
-    // Продолжаем чтение
-    index += 1;
-  }
-}
-
-/// Выводит токен, его тип данных
-#[cfg(not(feature = "analyzer"))]
-pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> ()
-{
-  let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
-  let identString:      String = " ".repeat(indent*2+1);     // Отступ для вложения токенов
-  
-  if tokens.len() == 0 { return; }
-  let tokenCount: usize = tokens.len()-1;
-  let mut c: char;
-
-  let mut tokenType: &TokenType;
-  for (i, token) in tokens.iter().enumerate()
-  { // Читаем все токены
-
-    // Слева помечаем что это за токен;
-    // В случае с X это завершающий токен
-    c =
-      match i == tokenCount
-      {
-        true  => { 'X' }
-        false => { '┃' }
-      };
-
-    tokenType = token.getDataType(); // Тип токена
-    match token.getData().toString()
-    {
-      Some(tokenData) =>
-      { // Если токен содержит данные
-        match *tokenType
-        { // Проверяем что за токен
-          TokenType::Char | TokenType::FormattedChar =>
-          { // Если токен это Char | FormattedChar
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b'\\c{}\\c\\fg(#f0f8ff)\\b'\\c  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          TokenType::String | TokenType::FormattedString =>
-          { // Если токен это String | FormattedString
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b\"\\c{}\\c\\fg(#f0f8ff)\\b\"\\c  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          TokenType::RawString | TokenType::FormattedRawString =>
-          { // Если токен это RawString | FormattedRawString
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b`\\c{}\\c\\fg(#f0f8ff)\\b`\\c  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          _ =>
-          { // Если это обычный токен
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}{}  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-        }
-      }
-      _ =>
-      { // Если это токен только с типом, то выводим тип как символ
-        match token.isPrimitive()
-        {
-          true =>
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}|{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenType.to_string()
-            )),
-          false =>
-            formatPrint(&format!(
-              "{}\\b{}\\c{}{}\n",
-              lineIndentString,
-              c,
-              identString,
-              tokenType.to_string()
-            ))
-        }
-      }
-    }
-
-    match &token.lines
-    { None => {} Some(lines) =>
-    { // Если есть вложения у токена, то рекурсивно обрабатываем их
-      for (i, line) in lines.iter().enumerate()
-      {
-        outputTokens(&line.tokens.clone().unwrap_or_default(), lineIndent, &(indent+1));
-        match i != lines.len()-1
-        { false => {}
-          true => log("parserToken", &format!("{}\\b┃\\c", lineIndentString))
-        }
-      }
-    }}
-  }
-}
-/// Выводит информацию о линии, а также токены линии
-#[cfg(not(feature = "analyzer"))]
-pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
-{
-  let identStr1: String = " ".repeat(indent*2);   // Это отступ для главной строки
-  let identStr2: String = format!("{} ", identStr1); // Это для дочерних токенов
-
-  let mut line: RwLockReadGuard<Line>;
-  for (i, lineLink) in linesLinks.iter().enumerate()
-  { // Проходи по линиям через чтение
-    line = lineLink.read().unwrap();
-    log("parserBegin", &format!("{} {}",identStr1,i));
-
-    match &line.tokens
-    {
-      None =>
-      { // Заголовок для разделителей
-        formatPrint(&format!("{}\\b┗ \\fg(#90df91)Separator\\c\n",identStr2));
-      }
-      Some(tokens) =>
-      { // Заголовок для начала вложенных токенов
-        formatPrint(&format!("{}\\b┣ \\fg(#90df91)Tokens\\c\n",identStr2));
-        // todo плохо используются tokens
-        outputTokens(tokens, &indent, &1); // выводим вложенные токены
-      }
-    }
-
-    match &line.lines
-    { None => {} Some(lineLines) =>
-    { // Заголовок для начала вложенных линий
-      formatPrint(&format!("{}\\b┗ \\fg(#90df91)Lines\\c\n",identStr2));
-      outputLines(lineLines, &(indent+1)); // выводим вложенные линии
-    }}
-  }
-  //
-}
-
+use crate::tokenizer::read::nesting::lines::lineNesting;
+#[cfg(not(target_family = "wasm"))]
+#[cfg(not(test))]
+use crate::tokenizer::tools::output::outputLines;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Вспомогательный макрос для добавления токенов start/end
 #[cfg(feature = "analyzer")]
-macro_rules! pushLineToken 
+fn pushLineToken(token: &mut Token, lineTokens: &mut Vec<Token>, start: usize, end: usize) 
 {
-  ($token:expr, $lineTokens:expr, $start:expr, $end:expr) => {
-    {
-      $token.start = $start;
-      $token.end = $end;
-      $lineTokens.push($token);
-    }
-  };
+  token.start = start;
+  token.end = end;
+  lineTokens.push(token.clone());
 }
 
 /// Основная функция для чтения токенов и получения чистых линий из них;
@@ -937,7 +39,22 @@ macro_rules! pushLineToken
 /// предварительные базовые типы данных
 pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 {
-  #[cfg(not(feature = "analyzer"))]
+  // Требуем обязательно \n в конце для правильного чтения;
+  // Получаем buffer без mut.
+  let buffer: Vec<u8> = 
+    if buffer.last() == Some(&b'\n') 
+    { // Если есть, значит оставляем старый
+      buffer
+    } else 
+    { // Если нет, получаем новый
+      let mut newBuffer: Vec<u8> = buffer.clone();
+      newBuffer.push(b'\n');
+      newBuffer
+    };
+  
+  //
+  #[cfg(not(target_family = "wasm"))]
+  #[cfg(not(test))]
   match debugMode
   {
     true =>
@@ -948,7 +65,8 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
     }
     false => {}
   }
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
+  #[cfg(not(test))]
   let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
 
   let mut      index: usize = 0;               // Основной индекс чтения
@@ -975,10 +93,11 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
       }
       false =>
       {
+        #[cfg(feature = "analyzer")]
         let start: usize = index; // Начало токена
         readLineIndent = false;
         
-        // Смотрим является ли это endline
+        // Смотрим, является ли это endline
         if byte == b'\n' || byte == b';'
         { // Если это действительно конец строки,
           // то вкладываем возможные скобки
@@ -1052,30 +171,44 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           deleteComments(&buffer, &mut index, &bufferLength, &lineIndent); // Пропускает комментарии
           #[cfg(not(feature = "analyzer"))]
           deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
-          let mut token: Token = Token::newEmpty(TokenType::Comment);
           //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = Token::newEmpty(TokenType::Comment);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = Token::newEmpty(TokenType::Comment);
+            lineTokens.push(token);
+          }
         } else
         if isDigit(&byte) || (byte == b'-' && index+1 < bufferLength && isDigit(&buffer[index+1]))
         { // Получаем все возможные численные примитивные типы данных
-          let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
-          //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = getNumber(&buffer, &mut index, &bufferLength);
+            lineTokens.push(token);
+          }
         } else
         if isLetter(&byte)
         { // Получаем все возможные и зарезервированные слова
-          let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
           //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = getWord(&buffer, &mut index, &bufferLength);
+            lineTokens.push(token);
+          }
         } else
         if matches!(byte, b'\'' | b'"' | b'`') {
           // Проверяем, есть ли перед кавычкой токен `f`
@@ -1095,12 +228,14 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
             let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
 
             // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
-            let tokenType = match byte {
-              b'\'' => TokenType::FormattedChar,
-              b'"' => TokenType::FormattedString,
-              b'`' => TokenType::FormattedRawString,
-              _ => unreachable!(),
-            };
+            let tokenType: TokenType = 
+              match byte 
+              {
+                b'\'' => TokenType::FormattedChar,
+                b'"' => TokenType::FormattedString,
+                b'`' => TokenType::FormattedRawString,
+                _ => unreachable!(),
+              };
             token.setDataType(tokenType);
 
             #[cfg(feature = "analyzer")]
@@ -1112,10 +247,10 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           } else 
           {
             let mut token: Token = getQuotes(&buffer, &mut index, false);
-            let tokenType: TokenType = token.getDataType().clone();
+            let tokenType: TokenType = *token.getDataType();
             if tokenType != TokenType::None {
               #[cfg(feature = "analyzer")]
-              pushLineToken!(token, lineTokens, startPos, index);
+              pushLineToken(&mut token, &mut lineTokens, startPos, index);
               #[cfg(not(feature = "analyzer"))]
               lineTokens.push(token);
             } else {
@@ -1126,12 +261,17 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
         // Получаем возможные двойные и одиночные символы
         if isSingleChar(&byte)
         {
-          let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
           //
           #[cfg(feature = "analyzer")]
-          pushLineToken!(token, lineTokens, start, index);
+          {
+            let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
+            pushLineToken(&mut token, &mut lineTokens, start, index);
+          }
           #[cfg(not(feature = "analyzer"))]
-          lineTokens.push(token);
+          {
+            let token: Token = getOperator(&buffer, &mut index, &bufferLength);
+            lineTokens.push(token);
+          }
         } else
         { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
           // Поэтому просто идём дальше
@@ -1149,7 +289,8 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   deleteNestedComment(&mut linesLinks, 0);
 
   // debug output and return
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
+  #[cfg(not(test))]
   match debugMode
   { false => {} true =>
   {
@@ -1162,6 +303,293 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
   }}
   // Возвращаем готовые ссылки на линии
   linesLinks
+}
+
+// =================================================================================================
+
+#[cfg(test)]
+mod testsReadTokens
+{
+  use std::sync::{Arc, RwLock, RwLockReadGuard};
+  use crate::tokenizer::types::line::Line;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
+  use super::readTokens;
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn emptyBuffer() -> ()
+  {
+    let buffer: Vec<u8> = vec![];
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    assert_eq!(result.len(), 1, "Пустой буфер даёт 1 разделитель");
+
+    //
+    let guard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    assert!(guard.tokens.is_none(), "Токенов быть не должно");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn autoNewline() -> ()
+  {
+    let buffer: Vec<u8> = b"a".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    assert_eq!(result.len(), 1, "Автодобавление \\n не ломает структуру");
+
+    //
+    let guard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    let tokens: &Vec<Token> = guard.tokens.as_ref().expect("Ожидается токен");
+    assert_eq!(tokens.len(), 1);
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn indentHierarchy() -> () 
+  {
+    let buffer: Vec<u8> = b"a\n  b\n    c\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 1, "1 корень");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 3, "3 корневые линии (вложения не выполняются)");
+
+    //
+    let rootGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    #[cfg(not(feature = "analyzer"))]
+    let children: &Vec<Arc<RwLock<Line>>> = rootGuard.lines.as_ref().expect("Вложенные линии");
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(children.len(), 1, "1 дочерняя линия");
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    let childGuard: RwLockReadGuard<Line> = children[0].read().unwrap();
+    #[cfg(not(feature = "analyzer"))]
+    assert!(childGuard.lines.is_some(), "Уровень вложенности 2");
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    let inner: RwLockReadGuard<Line> = childGuard.lines.as_ref().unwrap()[0].read().unwrap();
+    #[cfg(not(feature = "analyzer"))]
+    assert!(inner.parent.is_some(), "Ссылка .parent существует");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn indentReset() -> () 
+  {
+    let buffer: Vec<u8> = b"a\n  b\nc\n  d\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 2, "2 корня после сброса отступа");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 4, "4 корневые линии (вложения не выполняются)");
+
+    //
+    #[cfg(not(feature = "analyzer"))] {
+      let guard1: RwLockReadGuard<Line> = result[0].read().unwrap();
+      let guard2: RwLockReadGuard<Line> = result[1].read().unwrap();
+      assert_eq!(guard1.lines.as_ref().unwrap().len(), 1);
+      assert_eq!(guard2.lines.as_ref().unwrap().len(), 1);
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn bracketInLine() -> ()
+  {
+    let buffer: Vec<u8> = b"(x + y)\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    let lineGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    let tokens: &Vec<Token> = lineGuard.tokens.as_ref().expect("Токены линии");
+
+    //
+    let tokenTypeStr: String = tokens[0].getDataType().to_string();
+    assert_eq!(tokenTypeStr, TokenType::CircleBracketBegin.to_string(), "Ожидалась открывающая скобка");
+
+    //
+    let innerLines: &Vec<Line> = tokens[0].lines.as_ref().expect("Вложение скобок");
+    assert_eq!(innerLines.len(), 1);
+
+    //
+    let innerTokens: &Vec<Token> = innerLines[0].tokens.as_ref().expect("Токены внутри");
+    assert_eq!(innerTokens.len(), 3);
+
+    //
+    let firstToken: String = innerTokens[0].getData().toString().unwrap_or_default();
+    assert_eq!(firstToken, "x");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn commentRemoval() -> ()
+  {
+    // todo Хороший пример, тут табуляция ниже станет и `= 20` видно будет.
+    //  Также вроде как есть закрытие комментариев? что-то вроде ;
+    /*
+# comment
+ comment
+   comment
+a -> UInt
+  println(10) # comment
+   comment
+      comment
+    comment
+	= 20
+
+println(a())
+    */
+    
+    //let buffer: Vec<u8> =
+    //let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    #[cfg(not(feature = "analyzer"))]
+    {
+      //
+    }
+
+    #[cfg(feature = "analyzer")]
+    {
+      // Analyzer сохраняет комментарии
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn fullCommentLine() -> ()
+  {
+    let buffer: Vec<u8> = b"# only comment\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 1, "1 разделитель");
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 0, "Пустой результат");
+    #[cfg(feature = "analyzer")]
+    {
+      let guard: RwLockReadGuard<Line> = result[0].read().unwrap();
+      assert!(guard.tokens.is_some(), "Линия сохранена");
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn complexBlock() -> ()
+  {
+    let buffer: Vec<u8> = b"a\n  10\ntype(a)\n# test comment\nmut(a)".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 3); // a, type(a), mut(a)
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 5); // a, 10, type(a), # comment, mut(a)
+
+    //
+    #[cfg(not(feature = "analyzer"))]
+    {
+      //
+      let rootGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+      let body: &Vec<Arc<RwLock<Line>>> = rootGuard.lines.as_ref().expect("Тело блока");
+      assert_eq!(body.len(), 1, "Комментарий удалён, 1 линия"); // 10
+
+      //
+      let firstGuard: RwLockReadGuard<Line> = body[0].read().unwrap();
+      let firstTokens: &Vec<Token> = firstGuard.tokens.as_ref().expect("Токены линии");
+      assert_eq!(firstTokens[0].getDataType().to_string(), TokenType::UInt.to_string());
+    }
+
+    //
+    #[cfg(feature = "analyzer")]
+    {
+      // При анализаторе линии плоские (нет вложенности)
+      // Вторая корневая линия (индекс 1) — это "10"
+      let secondGuard: RwLockReadGuard<Line> = result[1].read().unwrap();
+      let tokens: &Vec<Token> = secondGuard.tokens.as_ref().expect("Токены линии");
+      assert_eq!(tokens[0].getDataType().to_string(), TokenType::UInt.to_string());
+
+      // Проверяем остальные линии для уверенности
+      let thirdGuard: RwLockReadGuard<Line> = result[2].read().unwrap();
+      let thirdTokens: &Vec<Token> = thirdGuard.tokens.as_ref().unwrap();
+      assert_eq!(thirdTokens[0].getDataType().to_string(), TokenType::Word.to_string());
+      assert_eq!(thirdTokens[0].getData().toString().unwrap(), "type");
+
+      let fourthGuard: RwLockReadGuard<Line> = result[3].read().unwrap();
+      let fourthTokens: &Vec<Token> = fourthGuard.tokens.as_ref().unwrap();
+      assert_eq!(fourthTokens[0].getDataType().to_string(), TokenType::Comment.to_string());
+
+      let fifthGuard: RwLockReadGuard<Line> = result[4].read().unwrap();
+      let fifthTokens: &Vec<Token> = fifthGuard.tokens.as_ref().unwrap();
+      assert_eq!(fifthTokens[0].getDataType().to_string(), TokenType::Word.to_string());
+      assert_eq!(fifthTokens[0].getData().toString().unwrap(), "mut");
+    }
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn nestedBracketsWithCommas() -> ()
+  {
+    let buffer: Vec<u8> = b"((a), (b))\n".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    //
+    let lineGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
+    let tokens: &Vec<Token> = lineGuard.tokens.as_ref().expect("Токены линии");
+
+    //
+    assert_eq!(tokens[0].getDataType().to_string(), TokenType::CircleBracketBegin.to_string());
+
+    //
+    let innerLines: &Vec<Line> = tokens[0].lines.as_ref().expect("Вложенные линии");
+    assert_eq!(innerLines.len(), 2, "Две линии через запятую");
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn semicolonEndline() -> () 
+  {
+    let buffer: Vec<u8> = b"x; y;".to_vec();
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(result.len(), 2, "2 линии через ;");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(result.len(), 3, "3 линии (последняя пустая из-за завершающего \\n)");
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================

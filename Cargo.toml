@@ -53,8 +53,25 @@ lto = false
 incremental = true
 
 [features]
+
+# test:
+# cargo test
+# cargo test --lib
+
 # cargo build
 default = ["termion","rand"]
+
+# Сборка на wasm
 # debug: cargo build --lib --target wasm32-unknown-unknown --features analyzer --no-default-features
 # release: wasm-pack build --target web --features analyzer --no-default-features
-analyzer = ["wasm-bindgen","serde_json","serde"]
+
+# Отладка wasm
+# wasm-tools print rts.wasm
+
+# test:
+# cargo test --features analyzer --lib
+analyzer = [
+  "wasm-bindgen",
+  "serde_json",
+  "serde"
+]

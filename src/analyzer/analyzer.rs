@@ -5,9 +5,10 @@ use lazy_static::lazy_static;
 use wasm_bindgen::prelude::wasm_bindgen;
 use serde::Serialize;
 use serde_json::to_string;
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{Token, TokenType};
 use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 lazy_static!
@@ -25,38 +26,45 @@ lazy_static!
 
 // =================================================================================================
 
+// todo issue #67 (возможно не все убирать)
 /// Выходной токен
 #[derive(Serialize, Clone)]
 pub struct AnalyzeToken 
 {
+  // todo desc
   pub start: usize,
+  // todo desc
   pub end: usize,
+  // todo desc
   pub kind: String,
 }
 
+// todo issue #67 (возможно не все убирать)
 /// Выходная линия
 #[derive(Serialize)]
 pub struct AnalyzedLine 
 {
+  // todo desc
   pub indent: usize,
+  // todo desc
   pub tokens: Vec<AnalyzeToken>,
 }
 
 // =================================================================================================
 
+// todo issue #67
+// todo desc
 #[wasm_bindgen]
 pub fn analyzeLines(code: &str) -> String 
 {
-  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  if buffer.last() != Some(&b'\n') {
-    buffer.push(b'\n');
-  }
+  let buffer: Vec<u8> = code.as_bytes().to_vec();
   let lines: Vec< Arc<RwLock<Line>> > = readTokens(buffer, false);
   let mut result: Vec<AnalyzedLine> = Vec::new();
   collectLines(&lines, &mut result);
   to_string(&result).unwrap_or_else(|_| "[]".to_string())
 }
 
+// todo desc
 fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
 {
   for linLink in lines
@@ -76,6 +84,7 @@ fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
   }
 }
 
+// todo desc
 fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>) 
 {
   for token in tokens 

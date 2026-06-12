@@ -3,14 +3,15 @@ use lazy_static::lazy_static;
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::{Structure, StructureMut, StructureType, ToTokenType};
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{ToStructureType, Token, TokenType};
-use crate::tokenizer::tokenizer::splitByType;
-#[cfg(not(feature = "analyzer"))]
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
+use crate::tokenizer::tools::splitByType::splitByType;
+#[cfg(not(target_family = "wasm"))]
 use crate::_debugMode;
-#[cfg(not(feature = "analyzer"))]
+#[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::{log, logSeparator};
-#[cfg(not(feature = "analyzer"))]
+#[cfg(not(target_family = "wasm"))]
 use std::time::{Duration, Instant};
 // =================================================================================================
 /* /parser
@@ -110,9 +111,9 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
   // Получаем тип операции
   let opType: TokenType = lineTokens.iter().find_map(|token| 
   {
-    match isMathOperator( token.getDataType().clone() ) 
+    match isMathOperator( *token.getDataType() ) 
     {
-      true => Some(token.getDataType().clone()),
+      true => Some(*token.getDataType()),
       false => None,
     }
   }).unwrap_or(TokenType::None);
@@ -125,7 +126,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     { 
       false => 
       {// Операция есть
-        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType.clone()]); // todo: Тут точно клонирование ?
+        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType]); // todo: Тут точно клонирование ?
 
         leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
         rightValue = std::mem::take(&mut parts[1].tokens);
@@ -405,7 +406,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             newStructure.result = match newStructureResultType
             {
               Some(newStructureResultType) =>
-                Some( Token::newEmpty(newStructureResultType.clone()) ),
+                Some( Token::newEmpty(*newStructureResultType) ),
               None => None,
             };
 
@@ -595,7 +596,7 @@ lazy_static!
 /// Она разделена на подготовительную часть, и часть запуска readLine()
 pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 { // Начинается подготовка к запуску
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
   match unsafe{_debugMode} 
   { false => {} true  =>
   {
@@ -668,7 +669,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Выводим arch & argv
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
   unsafe
   {
     match _debugMode
@@ -684,9 +685,9 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }
 
   // Подготовка закончена, читаем линии
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
   let startTime: Instant = Instant::now(); // Получаем текущее время для debug замера
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
   match unsafe{ _debugMode }
   { false => {} true  =>
   {
@@ -696,7 +697,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   // Передаём ссылку на структуру и запускаем
   readLines(_main.clone());
   // Далее идут debug замеры
-  #[cfg(not(feature = "analyzer"))]
+  #[cfg(not(target_family = "wasm"))]
   match unsafe{_debugMode} 
   { false => {} true =>
   {

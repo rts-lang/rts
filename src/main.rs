@@ -5,6 +5,8 @@
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
+// Сборка с флагом `analyzer` не может собирать бинарный файл.
+// Она может только `wasm` и `lib` виды сборки.
 #[cfg(feature = "analyzer")]
 compile_error!("This binary cannot be compiled with the 'analyzer' feature enabled. Please build the library crate instead.");
 
@@ -21,6 +23,7 @@ use crate::logger::logger::{log, logExit, logSeparator};
 use crate::parser::parser::parseLines;
 use crate::tokenizer::tokenizer::readTokens;
 
+// todo удалить mods
 mod tokenizer;
 mod parser;
 mod logger;
@@ -205,20 +208,6 @@ fn main() -> io::Result<()>
       }
 
       unsafe{ buffer = _filePath.clone().into_bytes(); }
-    }
-  }
-
-  // проверяем что в конце был \n, если нет, то добавляем его
-  match buffer.last() 
-  {
-    None => {}
-    Some(&lastByte) => 
-    {
-      match lastByte != b'\n' 
-      {
-        false => {}
-        true  => { buffer.push(b'\n'); }
-      }
     }
   }
 

@@ -5,7 +5,7 @@ mod tokenizer;
 #[cfg(not(feature = "analyzer"))]
 mod parser;
 
-#[cfg(not(feature = "analyzer"))]
+#[cfg(not(target_family = "wasm"))]
 mod logger;
 
 #[cfg(not(feature = "analyzer"))]

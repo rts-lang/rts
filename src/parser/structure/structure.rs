@@ -3,9 +3,10 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::uf64::uf64;
 use crate::parser::value::Value;
-use crate::tokenizer::line::Line;
-use crate::tokenizer::token::{ToStructureType, Token, TokenType};
 use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::types::line::Line;
+use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
 // =================================================================================================
 /* /parser/structure
   структура, которая представляет свободную ячейку данных в памяти;
@@ -17,10 +18,10 @@ use crate::tokenizer::tokenizer::readTokens;
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
 {
   // Получаем значение левой части выражения
-  let leftTokenDataType: TokenType = leftToken.getDataType().clone();
+  let leftTokenDataType: TokenType = *leftToken.getDataType();
   let leftValue: Value = getValue(leftToken.getData().toString().unwrap_or_default(), &leftTokenDataType);
   // Получаем значение правой части выражения
-  let rightTokenDataType: TokenType = rightToken.getDataType().clone();
+  let rightTokenDataType: TokenType = *rightToken.getDataType();
   let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
   // Получаем значение выражения, а также предварительный тип
   let mut resultType: TokenType = TokenType::UInt;
@@ -119,7 +120,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
           rightTokenDataType == TokenType::Char
       { //
-        resultType = leftTokenDataType.clone();
+        resultType = leftTokenDataType;
       } else
       if leftTokenDataType == TokenType::Char
       {
@@ -191,10 +192,10 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
     },
     TokenType::Bool =>
     {
-      match tokenData == "0"
+      match tokenData == "true"
       {
-        true  => Value::UInt(0),
-        false => Value::UInt(1)
+        true  => Value::UInt(1),
+        false => Value::UInt(0)
       }
     },
     _ => Value::UInt(0)
@@ -272,6 +273,9 @@ pub enum StructureType
   /// Позволяет создавать пользовательские типы
   Custom(String),
 }
+// todo Можно заменить данные на keywords из words.rs, 
+//   но их не хватит т.к. тут есть другие, 
+//   + здесь structure type
 impl ToString for StructureType
 { // todo convert -> fmt::Display ?
   fn to_string(&self) -> String
@@ -650,7 +654,7 @@ impl Structure
                   let _ = drop(structure);
                   let result: Token = self.expression(tokens);
                   value[index].setData    ( result.getData().clone() );
-                  value[index].setDataType( result.getDataType().clone() );
+                  value[index].setDataType( *result.getDataType() );
                 }
                 structureLinesLen if structureLinesLen > 1 =>
                 { // Это структура с вложением
@@ -1126,7 +1130,7 @@ impl Structure
             }
             _ =>
             { // Если это другие типы, то просто ставим новый dataType
-              value[0].setDataType( linkResult.getDataType().clone() );
+              value[0].setDataType( *linkResult.getDataType() );
             }
           }
           value[0].setData( linkResult.getData() ); // Ставим новый data
@@ -1135,7 +1139,7 @@ impl Structure
         { // Если это TokenType::Word, то
           let data:       String = value[0].getData().toString().unwrap_or_default(); // token data
           let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
-          value[0].setDataType( linkResult.getDataType().clone() ); // Ставим новый dataType
+          value[0].setDataType( *linkResult.getDataType() ); // Ставим новый dataType
           value[0].setData( linkResult.getData() );  // Ставим новый data
         }
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
@@ -1202,7 +1206,7 @@ impl Structure
               .collect();
           
           let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));//parameters.getAll()); todo
-          value[i].setDataType( linkResult.getDataType().clone() );
+          value[i].setDataType( *linkResult.getDataType() );
           value[i].setData( linkResult.getData() );
           
           // native method
