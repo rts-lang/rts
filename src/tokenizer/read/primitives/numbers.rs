@@ -60,26 +60,18 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
       dot = true;
       result.push(byte1 as char);
       savedIndex += 1;
-    } /*else // todo Rational пока что нет как типа
-    if byte1 == b'/' && byte2 == b'/' && !dot &&
-      (savedIndex+2 < *bufferLength && isDigit(&buffer[savedIndex+2]))
-    { // Rational
-      rational = true;
-      result.push_str("//");
-      savedIndex += 2;
-    }*/ else { break; }
+    } else { break; }
   }
 
   *index = savedIndex;
 
   // next return
-  match (rational, dot, negative)
-  { // rational, dot, negative
-    // (true, _, _)     => Token::new( TokenType::Rational, result ), // todo Rational пока что нет как типа
-    (_, true, true)  => Token::new( TokenType::Float,    result ),
-    (_, true, false) => Token::new( TokenType::UFloat,   result ),
-    (_, false, true) => Token::new( TokenType::Int,      result ),
-    _                => Token::new( TokenType::UInt,     result ),
+  match (dot, negative)
+  { // dot, negative
+    (true, true)  => Token::new( TokenType::Float,    result ),
+    (true, false) => Token::new( TokenType::UFloat,   result ),
+    (false, true) => Token::new( TokenType::Int,      result ),
+    _             => Token::new( TokenType::UInt,     result ),
   }
   //
 }

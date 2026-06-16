@@ -1,4 +1,3 @@
-// =================================================================================================
 use crate::parser::structure::structure::StructureType;
 // =================================================================================================
 
@@ -148,10 +147,6 @@ pub enum TokenType
   Float,
   /// Unsigned float
   UFloat,
-  /// Rational 
-  //Rational, // todo Rational пока что нет как типа
-  /// Complex
-  //Complex, // todo Rational пока что нет как типа
 
   /// Bool
   Bool, // todo issue #65
@@ -249,15 +244,15 @@ impl ToString for TokenType
 
       TokenType::Native => String::from("Native"),
       
-      // words
+      //
       TokenType::Int      => String::from("Int"),
       TokenType::UInt     => String::from("UInt"),
       TokenType::Float    => String::from("Float"),
       TokenType::UFloat   => String::from("UFloat"),
-      //TokenType::Rational => String::from("Rational"), // todo Rational пока что нет как типа
-      //TokenType::Complex  => String::from("Complex"), // todo Rational пока что нет как типа
 
+      //
       TokenType::Bool      => String::from("Bool"), // todo issue #65
+      
       TokenType::Joint     => String::from("Joint"),
       TokenType::Disjoint  => String::from("Disjoint"),
       TokenType::Inclusion => String::from("Inclusion"),
@@ -285,14 +280,16 @@ impl ToStructureType for TokenType
   {
     match self
     {
+      /* todo Я сломал тут типы из-за новых ABI типов для StructureType
       TokenType::UInt => StructureType::UInt,
       TokenType::Int => StructureType::Int,
       TokenType::UFloat => StructureType::UFloat,
       TokenType::Float => StructureType::Float,
+      
       TokenType::String => StructureType::String,
       TokenType::Char => StructureType::Char,
-      // TokenType::Rational => StructureType::Rational,
-      // TokenType::Complex => StructureType::Complex,
+      */
+
       // todo А что тут с другими типами? почему только часть? или так нужно?
       TokenType::Native => StructureType::Native,
       _ =>

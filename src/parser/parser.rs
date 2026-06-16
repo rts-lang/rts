@@ -614,7 +614,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
       Structure::new(
         Some(String::from("argc")),
         StructureMut::Constant, // Неизменяемая;
-        StructureType::UInt,    // Не может быть меньше 0
+        StructureType::Usize,   // Не может быть меньше 0
         // В линии структуры
         Some(vec![
           Arc::new(RwLock::new( // добавляем линию с 1 токеном

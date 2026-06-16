@@ -24,7 +24,6 @@ pub const keywords: &[(&str, TokenType)] = &[
   ("Int", TokenType::Int),
   ("UFloat", TokenType::UFloat),
   ("Float", TokenType::Float),
-  //("Rational", TokenType::Rational), // todo Rational пока что нет как типа
   //
   ("Char", TokenType::Char),
   ("String", TokenType::String),

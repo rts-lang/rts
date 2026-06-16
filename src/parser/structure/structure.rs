@@ -1,208 +1,19 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
-use crate::parser::uf64::uf64;
-use crate::parser::value::Value;
+use crate::parser::structure::value::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokens;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
 // =================================================================================================
-/* /parser/structure
+/* 
   структура, которая представляет свободную ячейку данных в памяти;
   имеет свои настройки, место хранения.
 */
 
-// Addition for Structure ==========================================================================
-/// Вычисляет по математической операции значение и тип нового токена из двух
-pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
-{
-  // Получаем значение левой части выражения
-  let leftTokenDataType: TokenType = *leftToken.getDataType();
-  let leftValue: Value = getValue(leftToken.getData().toString().unwrap_or_default(), &leftTokenDataType);
-  // Получаем значение правой части выражения
-  let rightTokenDataType: TokenType = *rightToken.getDataType();
-  let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
-  // Получаем значение выражения, а также предварительный тип
-  let mut resultType: TokenType = TokenType::UInt;
-  let resultValue: String = match *op 
-  {
-    TokenType::Plus     => (leftValue + rightValue).to_string(),
-    TokenType::Minus    => (leftValue - rightValue).to_string(),
-    TokenType::Multiply => (leftValue * rightValue).to_string(),
-    TokenType::Divide   => (leftValue / rightValue).to_string(),
-    TokenType::Inclusion => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue.toBool() || rightValue.toBool() 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::Joint => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue.toBool() && rightValue.toBool() 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::Equals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue == rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::NotEquals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue != rightValue
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::GreaterThan => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue > rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::LessThan => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue < rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::GreaterThanOrEquals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue >= rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::LessThanOrEquals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue <= rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    _ => "0".to_string(),
-  };
-  // После того как значение было получено,
-  // Смотрим какой точно тип выдать новому токену
-  // todo: if -> match
-  match resultType != TokenType::Bool 
-  {
-    false => {}
-    true => 
-    {
-      if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
-      {
-        resultType = TokenType::String;
-      } else
-      if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
-          rightTokenDataType == TokenType::Char
-      { //
-        resultType = leftTokenDataType;
-      } else
-      if leftTokenDataType == TokenType::Char
-      {
-        resultType = TokenType::Char;
-      } else
-      if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
-      {
-        resultType = TokenType::Float;
-      } else
-      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
-      {
-        resultType = TokenType::UFloat;
-      } else
-      if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int
-      {
-        resultType = TokenType::Int;
-      }
-    }
-  }
-  // return
-  Token::new(resultType, resultValue)
-}
-/// Зависимость для calculate;
-/// Считает значение левой и правой части выражения
-fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value 
-{
-  match tokenDataType
-  {
-    TokenType::None =>
-    {
-      Value::None()
-    }
-    TokenType::Int =>
-    {
-      tokenData.parse::<i64>()
-        .map(Value::Int)
-        .unwrap_or(Value::Int(0))
-    },
-    TokenType::UInt =>
-    {
-      tokenData.parse::<u64>()
-        .map(Value::UInt)
-        .unwrap_or(Value::UInt(0))
-    },
-    TokenType::Float =>
-    {
-      tokenData.parse::<f64>()
-        .map(Value::Float)
-        .unwrap_or(Value::Float(0.0))
-    },
-    TokenType::UFloat =>
-    {
-      tokenData.parse::<f64>()
-        .map(uf64::from)
-        .map(Value::UFloat)
-        .unwrap_or(Value::UFloat(uf64::from(0.0)))
-    },
-    TokenType::Char =>
-    { // todo: добавить поддержку операций с TokenType::formattedChar
-      tokenData.parse::<char>()
-        .map(|x| Value::Char(x))
-        .unwrap_or(Value::Char('\0'))
-    },
-    TokenType::String =>
-    {
-      tokenData.parse::<String>()
-        .map(|x| Value::String(x))
-        .unwrap_or(Value::String("".to_string()))
-    },
-    TokenType::Bool =>
-    {
-      match tokenData == "true"
-      {
-        true  => Value::UInt(1),
-        false => Value::UInt(0)
-      }
-    },
-    _ => Value::UInt(0)
-  }
-}
+// =================================================================================================
 
-// StructureMut ====================================================================================
 /// Обозначает уровень изменения структуры
 #[derive(PartialEq)]
 #[derive(Clone)]
@@ -231,7 +42,8 @@ impl ToString for StructureMut
   }
 }
 
-// DataType ========================================================================================
+// =================================================================================================
+
 /// Тип данных структуры
 #[derive(PartialEq)]
 #[derive(Clone)]
@@ -242,31 +54,21 @@ pub enum StructureType
   Any,
   Link,
 
-  Bool,
+  Bool, // todo Потом надо будет заменить на True/False - issue #65
 
-  UInt,
-  Int,
+  U8, U16, U32, U64,
+  I8, I16, I32, I64,
+  F32, F64,
+  Usize, Isize,
+  Ptr,  // указатель (raw)
 
-  UFloat,
-  Float,
-
-  // todo
-  //Rational,
-  //Complex,
-
-  Char,
-  String,
-  RawString,
-
-  FormattedChar,
-  FormattedString,
-  FormattedRawString,
-
+  // todo Требует удаление для FFI-ABI?
   Method,
-
+  // todo Требует удаление для FFI-ABI?
   List, // todo List<Type>
   
 // native
+  // todo Требует удаление для FFI-ABI?
   /// Нативные внешние штуки
   Native,
 
@@ -274,6 +76,7 @@ pub enum StructureType
   /// Позволяет создавать пользовательские типы
   Custom(String),
 }
+
 // todo Можно заменить данные на keywords из words.rs, 
 //   но их не хватит т.к. тут есть другие, 
 //   + здесь structure type
@@ -289,22 +92,24 @@ impl ToString for StructureType
 
       StructureType::Bool => String::from("Bool"),
 
-      StructureType::UInt => String::from("UInt"),
-      StructureType::Int => String::from("Int"),
-
-      StructureType::UFloat => String::from("UFloat"),
-      StructureType::Float => String::from("Float"),
-
-      StructureType::Char => String::from("Char"),
-      StructureType::String => String::from("String"),
-      StructureType::RawString => String::from("RawString"),
-
-      StructureType::FormattedChar => String::from("FormattedChar"),
-      StructureType::FormattedString => String::from("FormattedString"),
-      StructureType::FormattedRawString => String::from("FormattedRawString"),
+      StructureType::U8 => String::from("U8"),
+      StructureType::U16 => String::from("U16"),
+      StructureType::U32 => String::from("U32"),
+      StructureType::U64 => String::from("U64"),
+      StructureType::Usize => String::from("Usize"),
+      
+      StructureType::I8 => String::from("I8"),
+      StructureType::I16 => String::from("I16"),
+      StructureType::I32 => String::from("I32"),
+      StructureType::I64 => String::from("I64"),
+      StructureType::Isize => String::from("Isize"),
+      
+      StructureType::F32 => String::from("F32"),
+      StructureType::F64 => String::from("F64"),
+      
+      StructureType::Ptr => String::from("Ptr"),
 
       StructureType::Method => String::from("Method"),
-
       StructureType::List => String::from("List"),
       
       // native
@@ -328,21 +133,33 @@ impl ToTokenType for StructureType
   {
     match self
     {
-      StructureType::UInt => TokenType::UInt,
-      StructureType::Int => TokenType::Int,
-      StructureType::UFloat => TokenType::UFloat,
-      StructureType::Float => TokenType::Float,
-      StructureType::String => TokenType::String,
-      StructureType::Char => TokenType::Char,
-      // StructureType::Rational => TokenType::Rational,
-      // StructureType::Complex => TokenType::Complex,
+      // todo Я тут не уверен что ABI FFI типы правильно вообще кастуются
+      StructureType::U8 => TokenType::UInt,
+      StructureType::U16 => TokenType::UInt,
+      StructureType::U32 => TokenType::UInt,
+      StructureType::U64 => TokenType::UInt,
+      StructureType::Usize => TokenType::UInt,
+      
+      StructureType::I8 => TokenType::Int,
+      StructureType::I16 => TokenType::Int,
+      StructureType::I32 => TokenType::Int,
+      StructureType::I64 => TokenType::Int,
+      StructureType::Isize => TokenType::Int,
+      
+      StructureType::F32 => TokenType::Float,
+      StructureType::F64 => TokenType::Float,
+      
+      StructureType::Ptr => TokenType::Pointer, // todo Не тот pointer
+      
       // todo А что тут с другими типами? почему только часть? или так нужно?
       StructureType::Native => TokenType::Native,
       _ => TokenType::None, // todo ?
     }
   }
 }
-// Structure =======================================================================================
+
+// =================================================================================================
+
 /// Свободная структура данных
 #[derive(Clone)]
 pub struct Structure 
@@ -378,6 +195,7 @@ pub struct Structure
   /// todo Комментарий + возможно не нужно т.к. можно лучше
   pub lineIndex: usize,
 }
+
 impl Structure 
 {
   pub fn new
@@ -402,6 +220,8 @@ impl Structure
       lineIndex: 0
     }
   }
+
+  // ===============================================================================================
 
   /// Ищет структуру по имени (даже если это ссылка)
   ///
@@ -499,9 +319,13 @@ impl Structure
         {
           structures.push( Arc::new(RwLock::new(structure)) );
         }}
+        //
       }
     }
+    //
   }
+
+  // ===============================================================================================
 
   /// Выполняет операцию со структурой,
   /// для этого требует левую и правую часть выражения,
@@ -624,6 +448,8 @@ impl Structure
     }
   }
 
+  // ===============================================================================================
+
   /// Вычисляем значение для struct имени типа TokenType::Word
   fn replaceStructureByName(&self, value: &mut Vec<Token>, index: usize) -> ()
   {
@@ -697,6 +523,8 @@ impl Structure
     }
     //
   }
+
+  // ===============================================================================================
 
   /// Получает значение из ссылки на структуру;
   /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
@@ -1029,6 +857,8 @@ impl Structure
     Token::newEmpty(TokenType::None)
   }
 
+  // ===============================================================================================
+
   /// Принимает formatQuote типы и получает возможное значение обычной строки;
   /// В основном всё сводится к получению токенов в {} через Token::readTokens(),
   /// после чего результат проходит через expression и мы получаем обычную строку на выходе.
@@ -1098,6 +928,8 @@ impl Structure
     // Отдаём новую строку
     result
   }
+
+  // ===============================================================================================
 
   /// Получает параметры структуры вычисляя их значения;
   ///
@@ -1174,6 +1006,8 @@ impl Structure
     //
     Parameters::new(result)
   }
+
+  // ===============================================================================================
 
   /// Основная функция, которая получает результат выражения состоящего из токенов;
   /// Сначала она проверяет что это single токен, но если нет,
@@ -1552,4 +1386,8 @@ impl Structure
       i += 1;
     }
   }
+  
+  // ===============================================================================================
 }
+
+// =================================================================================================

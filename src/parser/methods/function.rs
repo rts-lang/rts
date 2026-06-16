@@ -1,6 +1,5 @@
 use std::io;
 use std::io::Write;
-use std::ops::Deref;
 use std::process::{Command, ExitStatus, Output};
 use std::str::SplitWhitespace;
 use std::sync::RwLockReadGuard;

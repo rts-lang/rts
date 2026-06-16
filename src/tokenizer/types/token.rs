@@ -93,8 +93,8 @@ impl Token
           {
             match self.dataType
             {
-              TokenType::UInt   => { self.data = Bytes::from(String::from("0")); }
-              TokenType::UFloat => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
+              TokenType::UInt  => { self.data = Bytes::from(String::from("0")); }
+              TokenType::Float => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
               _ => { }
             }
           }
