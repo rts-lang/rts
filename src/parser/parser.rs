@@ -2,10 +2,10 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use lazy_static::lazy_static;
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
-use crate::parser::structure::structure::{Structure, StructureMut, StructureType, ToTokenType};
+use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
-use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
+use crate::tokenizer::types::tokenType::{TokenType};
 use crate::tokenizer::tools::splitByType::splitByType;
 #[cfg(not(target_family = "wasm"))]
 use crate::_debugMode;
@@ -13,6 +13,7 @@ use crate::_debugMode;
 use crate::logger::logger::{log, logSeparator};
 #[cfg(not(target_family = "wasm"))]
 use std::time::{Duration, Instant};
+use crate::parser::structure::structureType::StructureType;
 // =================================================================================================
 /* /parser
   предоставляет механизмы для парсинга токенов,
@@ -178,7 +179,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     {
       None => StructureType::None,
       Some(structureTypeTokens) => 
-        structureTypeTokens[0].getDataType().toStructureType()
+        structureTypeTokens[0].getDataType().toStructureType() // todo Я не уверен что getStructureType() потянет его
     };
   };
   
@@ -240,16 +241,15 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
           true =>
           { // Тип вычисляется если он не был изначально определён;
             // Вычисляется он по типу из результата правой части выражения
-            structureType = value.getDataType().toStructureType();
+            structureType = value.getStructureType();
           }
           false =>
             match structureMutability == StructureMut::Dynamic
-            {
-              // Тип вычисляется, если флаг изменяемости Dynamic
+            { // Тип вычисляется, если флаг изменяемости Dynamic
               // Вычисляется он по типу из результата правой части выражения
-              true => structureType = value.getDataType().toStructureType(),
+              true => structureType = value.getStructureType(),
               // Требуется выполнить преобразование в указанный тип данных
-              false => value.setDataType( structureType.toTokenType() )
+              false => value.normalizeToStructure(structureType.clone())
             }
         }
         //

@@ -1,11 +1,12 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
-use crate::parser::structure::value::calculate::calculate;
+use crate::parser::structure::structureType::{StructureType};
+use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokens;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
-use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
+use crate::tokenizer::types::tokenType::{TokenType};
 // =================================================================================================
 /* 
   структура, которая представляет свободную ячейку данных в памяти;
@@ -44,122 +45,6 @@ impl ToString for StructureMut
 
 // =================================================================================================
 
-/// Тип данных структуры
-#[derive(PartialEq)]
-#[derive(Clone)]
-pub enum StructureType
-{
-// primitives
-  None,
-  Any,
-  Link,
-
-  Bool, // todo Потом надо будет заменить на True/False - issue #65
-
-  U8, U16, U32, U64,
-  I8, I16, I32, I64,
-  F32, F64,
-  Usize, Isize,
-  Ptr,  // указатель (raw)
-
-  // todo Требует удаление для FFI-ABI?
-  Method,
-  // todo Требует удаление для FFI-ABI?
-  List, // todo List<Type>
-  
-// native
-  // todo Требует удаление для FFI-ABI?
-  /// Нативные внешние штуки
-  Native,
-
-// custom
-  /// Позволяет создавать пользовательские типы
-  Custom(String),
-}
-
-// todo Можно заменить данные на keywords из words.rs, 
-//   но их не хватит т.к. тут есть другие, 
-//   + здесь structure type
-impl ToString for StructureType
-{ // todo convert -> fmt::Display ?
-  fn to_string(&self) -> String
-  {
-    match self
-    { // primitives
-      StructureType::None => String::from("None"),
-      StructureType::Any => String::from("Any"),
-      StructureType::Link => String::from("Link"),
-
-      StructureType::Bool => String::from("Bool"),
-
-      StructureType::U8 => String::from("U8"),
-      StructureType::U16 => String::from("U16"),
-      StructureType::U32 => String::from("U32"),
-      StructureType::U64 => String::from("U64"),
-      StructureType::Usize => String::from("Usize"),
-      
-      StructureType::I8 => String::from("I8"),
-      StructureType::I16 => String::from("I16"),
-      StructureType::I32 => String::from("I32"),
-      StructureType::I64 => String::from("I64"),
-      StructureType::Isize => String::from("Isize"),
-      
-      StructureType::F32 => String::from("F32"),
-      StructureType::F64 => String::from("F64"),
-      
-      StructureType::Ptr => String::from("Ptr"),
-
-      StructureType::Method => String::from("Method"),
-      StructureType::List => String::from("List"),
-      
-      // native
-      StructureType::Native => String::from("Native"),
-
-      // custom
-      StructureType::Custom(value) => value.clone(),
-    }
-  }
-}
-
-pub trait ToTokenType
-{
-  /// Преобразует StructureType в TokenType
-  fn toTokenType(&self) -> TokenType;
-}
-
-impl ToTokenType for StructureType
-{
-  fn toTokenType(&self) -> TokenType
-  {
-    match self
-    {
-      // todo Я тут не уверен что ABI FFI типы правильно вообще кастуются
-      StructureType::U8 => TokenType::UInt,
-      StructureType::U16 => TokenType::UInt,
-      StructureType::U32 => TokenType::UInt,
-      StructureType::U64 => TokenType::UInt,
-      StructureType::Usize => TokenType::UInt,
-      
-      StructureType::I8 => TokenType::Int,
-      StructureType::I16 => TokenType::Int,
-      StructureType::I32 => TokenType::Int,
-      StructureType::I64 => TokenType::Int,
-      StructureType::Isize => TokenType::Int,
-      
-      StructureType::F32 => TokenType::Float,
-      StructureType::F64 => TokenType::Float,
-      
-      StructureType::Ptr => TokenType::Pointer, // todo Не тот pointer
-      
-      // todo А что тут с другими типами? почему только часть? или так нужно?
-      StructureType::Native => TokenType::Native,
-      _ => TokenType::None, // todo ?
-    }
-  }
-}
-
-// =================================================================================================
-
 /// Свободная структура данных
 #[derive(Clone)]
 pub struct Structure 
@@ -178,7 +63,7 @@ pub struct Structure
   pub lines: Option< Vec< Arc<RwLock<Line>> > >,
 
   /// Входные параметры
-  /// todo Не используется в коде
+  /// todo Не используется в коде. Зачем оно тогда здесь было?
   pub parameters: Parameters,
 
   /// Выходной результат
@@ -365,12 +250,12 @@ impl Structure
             match leftPartMutable != StructureMut::Variable
             { false => {} true =>
             { // Будет присвоено только Final | Dynamic
-              structure.dataType = rightPartValue.getDataType().toStructureType();
+              structure.dataType = rightPartValue.getStructureType();
             }}
           }
           false =>
           { // Требуется выполнить преобразование в указанный тип данных
-            rightPartValue.setDataType(structure.dataType.toTokenType());
+            rightPartValue.normalizeToStructure(structure.dataType.clone());
           }
         }
 

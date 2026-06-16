@@ -1,7 +1,12 @@
-use crate::parser::structure::value::uf64::*;
-use crate::parser::structure::value::value::Value;
+use crate::parser::structure::tokenValue::uf64::*;
+use crate::parser::structure::tokenValue::value::Value;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
+// =================================================================================================
+
+// Это вычисление на основе Value от токенов.
+// Это отдельные вещи от Structure - потому что это внешний инструмент.
+
 // =================================================================================================
 
 /// Вычисляет по математической операции значение и тип нового токена из двух

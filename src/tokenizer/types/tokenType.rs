@@ -1,4 +1,3 @@
-use crate::parser::structure::structure::StructureType;
 // =================================================================================================
 
 /// Тип элементарной единицы хранения информации
@@ -261,43 +260,12 @@ impl ToString for TokenType
     //
   }
 }
+
 impl Default for TokenType
 {
   fn default() -> Self 
   {
     TokenType::None
-  }
-}
-
-pub trait ToStructureType
-{
-  /// Преобразует TokenType в StructureType
-  fn toStructureType(&self) -> StructureType;
-}
-impl ToStructureType for TokenType
-{
-  fn toStructureType(&self) -> StructureType
-  {
-    match self
-    {
-      /* todo Я сломал тут типы из-за новых ABI типов для StructureType
-      TokenType::UInt => StructureType::UInt,
-      TokenType::Int => StructureType::Int,
-      TokenType::UFloat => StructureType::UFloat,
-      TokenType::Float => StructureType::Float,
-      
-      TokenType::String => StructureType::String,
-      TokenType::Char => StructureType::Char,
-      */
-
-      // todo А что тут с другими типами? почему только часть? или так нужно?
-      TokenType::Native => StructureType::Native,
-      _ =>
-      { // todo: возможно нестабильно
-        StructureType::Custom(self.to_string())
-      }
-    }
-    //
   }
 }
 

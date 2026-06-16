@@ -1,6 +1,3 @@
-// =================================================================================================
-// /main
-
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
@@ -11,6 +8,7 @@
 compile_error!("This binary cannot be compiled with the 'analyzer' feature enabled. Please build the library crate instead.");
 
 include!("prelude.rs");
+
 // =================================================================================================
 
 use std::{
