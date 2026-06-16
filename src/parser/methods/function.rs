@@ -1,5 +1,6 @@
 use std::io;
 use std::io::Write;
+use std::ops::Deref;
 use std::process::{Command, ExitStatus, Output};
 use std::str::SplitWhitespace;
 use std::sync::RwLockReadGuard;
@@ -327,6 +328,58 @@ impl Function
   }
 
   // ===============================================================================================
+  
+  /// todo desc
+  /// 
+  /// todo Должен также иметь возможность загрузить по имени как 1 символ, так и всю либу сразу.
+  pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
+  {
+    match parameters.getExpression(structure, 0)
+    {
+      None => value[i].setDataType(TokenType::None),
+      Some(p0) => 
+      {
+        let libraryPath: String = p0.getData().toString().unwrap_or_default();
+        if libraryPath.is_empty() {
+          value[i].setDataType(TokenType::None);
+          return;
+        }
+
+        println!("DEBUG1: {}",libraryPath);
+
+        #[cfg(not(target_family = "wasm"))]
+        unsafe 
+        {
+          match libloading::Library::new(&libraryPath) 
+          {
+            Ok(lib) => 
+            {
+              println!("DEBUG2: {:?}",lib);
+              // Переносим Library в кучу, чтобы она жила в памяти
+              let libPointer: usize = Box::into_raw(Box::new(lib)) as usize;
+              println!("DEBUG3: {}",libPointer);
+              // Возвращаем токен типа Native, который хранит ТОЛЬКО адрес либы
+              value[i].setDataType(TokenType::Native);
+              value[i].setData(libPointer.to_ne_bytes().to_vec());
+              println!("DEBUG4: {:?}:{:?}",value[i].getData().getAll(),libPointer.to_ne_bytes().to_vec());
+            }
+            Err(_) => value[i].setDataType(TokenType::None)
+          }
+        }
+
+        // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна
+        // todo Это нужно будет решить
+        #[cfg(target_family = "wasm")]
+        {
+          value[i].setDataType(TokenType::None);
+        }
+        //
+      }
+    }
+    //
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================
@@ -334,13 +387,15 @@ impl Function
 impl Structure
 {
   // ===============================================================================================
+  
   /// Запускает функцию;
   ///
   /// Функция - это такая структура, которая возвращает значение.
   ///
   /// Но кроме того, запускает не стандартные методы;
   /// В нестандартных методах могут быть процедуры, которые не вернут результат.
-
+  /// 
+  /// 
   /// todo: вынести все стандартные варианты в отдельный модуль
   ///
   /// todo: когда будет вынесено, то должна ожидать тип данных, который должен в Tokenizer::getWord() тоже
@@ -408,7 +463,7 @@ impl Structure
       }
       // -------------------------------------------------------------------------------------------
       Some(structureName) =>
-      { // Вариант в котором это обращение к стандартной или custrom функции;
+      { // Вариант в котором это обращение к стандартной или custom функции;
         // todo: проверка на нижний регистр
 
         // Далее идут базовые методы;
@@ -428,6 +483,7 @@ impl Structure
             "input" => Function::input(self, &parameters, value, i),
             "exec" => Function::exec(self, &parameters, value, i),
             "execs" => Function::execs(self, &parameters, value, i),
+            "importNative" => Function::importNative(self, &parameters, value, i),
             _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
           }
           return;
@@ -464,6 +520,7 @@ impl Structure
     }
     //
   }
+  
   // ===============================================================================================
 }
 

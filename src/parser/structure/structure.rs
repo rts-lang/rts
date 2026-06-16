@@ -265,9 +265,10 @@ pub enum StructureType
   Method,
 
   List, // todo List<Type>
-
-  // todo
-  // Date
+  
+// native
+  /// Нативные внешние штуки
+  Native,
 
 // custom
   /// Позволяет создавать пользовательские типы
@@ -305,6 +306,9 @@ impl ToString for StructureType
       StructureType::Method => String::from("Method"),
 
       StructureType::List => String::from("List"),
+      
+      // native
+      StructureType::Native => String::from("Native"),
 
       // custom
       StructureType::Custom(value) => value.clone(),
@@ -332,6 +336,8 @@ impl ToTokenType for StructureType
       StructureType::Char => TokenType::Char,
       // StructureType::Rational => TokenType::Rational,
       // StructureType::Complex => TokenType::Complex,
+      // todo А что тут с другими типами? почему только часть? или так нужно?
+      StructureType::Native => TokenType::Native,
       _ => TokenType::None, // todo ?
     }
   }
@@ -870,6 +876,79 @@ impl Structure
           None => {}
           Some(structureLink) => 
           { // Это структура которую мы нашли по имени в self пространстве
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Обработка нативной библиотеки
+            // Проверяем: остались ли ещё сегменты пути (имя метода)
+            if !link.is_empty() 
+            {
+              // Читаем структуру, которая представляет загруженную библиотеку
+              let structureGuard: RwLockReadGuard<'_, Structure> = structureLink.read().unwrap();
+
+              // Если структура имеет тип Native — это наша динамическая библиотека
+              if structureGuard.dataType == StructureType::Native {
+                // Имя метода, который вызывают (например, "method" в lib.method(...))
+                let methodName: String = link[0].clone();
+
+                // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0]
+                // Библиотека там лежит как токен типа Native с адресом в данных
+
+                // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен)
+                let linesVec: &Vec<Arc<RwLock<Line>>> = match &structureGuard.lines {
+                  Some(v) => v,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Берём первую линию (индекс 0)
+                let lineLock: &Arc<RwLock<Line>> = match linesVec.get(0) {
+                  Some(l) => l,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Читаем линию, чтобы получить её токены
+                let line: RwLockReadGuard<'_, Line> = lineLock.read().unwrap();
+                // Токены линии — здесь должен быть один токен типа Native
+                let tokensVec: &Vec<Token> = match &line.tokens {
+                  Some(t) => t,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Берём первый (и единственный) токен
+                let nativeToken: &Token = match tokensVec.get(0) {
+                  Some(t) => t,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Убеждаемся, что токен действительно типа Native
+                if *nativeToken.getDataType() != TokenType::Native {
+                  return Token::newEmpty(TokenType::None);
+                }
+                // Из токена извлекаем сырые байты (в них лежит указатель на библиотеку)
+                let bytes: Bytes = nativeToken.getData();
+                let raw: &[u8] = match bytes.getAll() {
+                  Some(r) => r,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Преобразуем байты в usize-адрес
+                let mut addr: [u8; size_of::<usize>()] = [0u8; size_of::<usize>()];
+                addr.copy_from_slice(raw);
+                let libPtr: usize = usize::from_le_bytes(addr);
+
+                // Восстанавливаем изменяемую ссылку на библиотеку из сырого указателя
+                let libRef: &mut libloading::Library = unsafe { &mut *(libPtr as *mut libloading::Library) };
+                
+                // Сигнатура нативной функции: принимает &[Token], возвращает Token
+                // todo возможно стоит вынести т.к. используется не только тут
+                type NativeFn = unsafe extern "C" fn(&[Token]) -> Token;
+
+                let result: Token = unsafe {
+                  match libRef.get::<NativeFn>(methodName.as_bytes()) {
+                    Ok(func) => func(parameters.as_deref().unwrap_or(&[])),
+                    Err(_) => Token::newEmpty(TokenType::None),
+                  }
+                };
+                return result;
+              }
+            }
+            
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // todo desc
             match link.len() == 0
             { // Закончилась ли ссылка?
               false =>
@@ -940,7 +1019,7 @@ impl Structure
                 //
               }
             }
-            //
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
           }
         }
         //

@@ -151,7 +151,7 @@ pub enum TokenType
   /// Rational 
   //Rational, // todo Rational пока что нет как типа
   /// Complex
-  Complex,
+  //Complex, // todo Rational пока что нет как типа
 
   /// Bool
   Bool, // todo issue #65
@@ -255,7 +255,7 @@ impl ToString for TokenType
       TokenType::Float    => String::from("Float"),
       TokenType::UFloat   => String::from("UFloat"),
       //TokenType::Rational => String::from("Rational"), // todo Rational пока что нет как типа
-      TokenType::Complex  => String::from("Complex"),
+      //TokenType::Complex  => String::from("Complex"), // todo Rational пока что нет как типа
 
       TokenType::Bool      => String::from("Bool"), // todo issue #65
       TokenType::Joint     => String::from("Joint"),
@@ -293,6 +293,8 @@ impl ToStructureType for TokenType
       TokenType::Char => StructureType::Char,
       // TokenType::Rational => StructureType::Rational,
       // TokenType::Complex => StructureType::Complex,
+      // todo А что тут с другими типами? почему только часть? или так нужно?
+      TokenType::Native => StructureType::Native,
       _ =>
       { // todo: возможно нестабильно
         StructureType::Custom(self.to_string())

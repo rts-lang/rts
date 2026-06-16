@@ -1,0 +1,3 @@
+
+lib = importNative("./libprint.so")
+lib.print("Hello from RTS!")

@@ -11,13 +11,16 @@ use crate::tokenizer::types::tokenType::TokenType;
 pub struct Token 
 {
   /// Данные единицы хранения
-  data:       Bytes,
+  data: Bytes,
   /// Тип данных единицы хранения
-  dataType:   TokenType,
+  dataType: TokenType,
   /// Набор вложенных единиц хранения
   pub lines: Option< Vec<Line> >,
+  
+  /// Начало токена для analyzer
   #[cfg(feature = "analyzer")]
   pub start: usize,
+  /// Конец токена для analyzer
   #[cfg(feature = "analyzer")]
   pub end: usize
 }
