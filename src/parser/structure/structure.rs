@@ -107,6 +107,14 @@ impl Structure
   }
 
   // ===============================================================================================
+  
+  pub fn parseLink(linkName: &str) -> Vec<String> 
+  {
+    linkName
+      .split('.')
+      .map(|segment: &str| segment.to_string())
+      .collect()
+  }
 
   /// Ищет структуру по имени (даже если это ссылка)
   ///
@@ -119,11 +127,8 @@ impl Structure
   pub fn getStructureByName(&self, name: &str) -> Option<Arc<RwLock<Structure>>> 
   {
     // "a.b.c" -> ["a", "b", "c"]
-    let segments: Vec<String> = name
-      .split('.')
-      .map(|segment: &str| segment.to_string())
-      .collect();
-
+    let segments: Vec<String> = Self::parseLink(name);
+    
     // Если имя пустое - нечего искать
     match segments.is_empty() 
     {
@@ -132,7 +137,7 @@ impl Structure
     }
 
     // Начинаем с корневого уровня (None)
-    let mut currentStructure: Option<Arc<RwLock<Structure>>> = None;
+    let mut currentStructure: Option< Arc<RwLock<Structure>> > = None;
 
     // Пошагово проходим по каждому сегменту имени
     for segment in segments.iter() 
@@ -140,7 +145,8 @@ impl Structure
       // Определяем список структур для поиска на текущем уровне:
       // если currentStructure = None, это означает корневой уровень self.structures
       // иначе — получаем дочерние структуры текущей найденной структуры
-      let childrenOpt: Option<Vec<Arc<RwLock<Structure>>>> = match &currentStructure {
+      let childrenOpt: Option<Vec< Arc<RwLock<Structure>> >> = match &currentStructure 
+      {
         None => self.structures.clone(), // Корневые структуры
         Some(structureRef) => {
           let structureGuard: RwLockReadGuard<Structure> = structureRef.read().unwrap();
@@ -151,7 +157,7 @@ impl Structure
       // Флаг найденной структуры
       let mut found: bool = false;
       // Следующая структура, если сегмент найден
-      let mut nextStructure: Option<Arc<RwLock<Structure>>> = None;
+      let mut nextStructure: Option< Arc<RwLock<Structure>> > = None;
 
       // Обрабатываем наличие дочерних структур
       match childrenOpt 
@@ -413,7 +419,12 @@ impl Structure
 
   /// Получает значение из ссылки на структуру;
   /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
-  pub fn linkExpression(&self, currentStructureLink: Option< Arc<RwLock<Structure>> >, link: &mut Vec<String>, parameters: Option< Vec<Token> >) -> Token
+  pub fn linkExpression(
+    &self, // Текущая структура - текущее пространство;
+    currentStructureLink: Option< Arc<RwLock<Structure>> >, // Структура предыдущего уровня ссылки;
+    link: &mut Vec<String>, // Осталось читать;
+    parameters: Option< Vec<Token> >
+  ) -> Token
   { // Обработка динамического выражение
     match link[0].starts_with('[')
     { false => {} true => { // Получаем динамическое выражение между []
@@ -915,11 +926,8 @@ impl Structure
         TokenType::Link =>
         { // Если это TokenType::Link, то
           let data: String = value[0].getData().toString().unwrap_or_default(); // token data
-          let mut link: Vec<String> =
-            data.split('.')
-              .map(|s| s.to_string())
-              .collect();
-          let linkResult: Token  = self.linkExpression(None, &mut link, None); // Получаем результат от data
+          let mut link: Vec<String> = Self::parseLink(&data);
+          let linkResult: Token = self.linkExpression(None, &mut link, None); // Получаем результат от data
           match *linkResult.getDataType() // Предполагаем изменение dataType
           {
             TokenType::Word =>
@@ -936,7 +944,7 @@ impl Structure
         TokenType::Word =>
         { // Если это TokenType::Word, то
           let data:       String = value[0].getData().toString().unwrap_or_default(); // token data
-          let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
+          let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
           value[0].setDataType( *linkResult.getDataType() ); // Ставим новый dataType
           value[0].setData( linkResult.getData() );  // Ставим новый data
         }
@@ -998,10 +1006,7 @@ impl Structure
           //let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
           let     data: String = value[i].getData().toString().unwrap_or_default();
-          let mut link: Vec<String> =
-            data.split('.')
-              .map(|s| s.to_string())
-              .collect();
+          let mut link: Vec<String> = Self::parseLink(&data);
           
           let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));//parameters.getAll()); todo
           value[i].setDataType( *linkResult.getDataType() );

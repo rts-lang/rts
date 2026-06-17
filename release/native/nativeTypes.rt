@@ -1,0 +1,8 @@
+
+a~~: U8 = 10
+println(type(10+10)) # UInt
+println(type(a)) # UInt
+println(type(a-1)) # Изменение внутреннего на Int
+println(stype(a)) # U8
+a = -10 # Работает т.к. мы указали модификатор ~~ (полная мутабельность)
+println(stype(a)) # I8

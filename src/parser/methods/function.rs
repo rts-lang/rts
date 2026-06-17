@@ -16,74 +16,87 @@ impl Function
 {
   // ===============================================================================================
   
-  /// Возвращает тип данных переданной структуры или значения
-  ///
-  /// todo Может проверять несколько параметров и возвращать список
-  /// 
-  /// todo Struct type != Token type
+  /// Возвращает тип данных выражения
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
-    match parameters.get(0)
-    { None => {} Some(p0) =>
-    { // Получаем 0 параметр
-
-      match &p0.tokens
-      { None => {} Some(tokens) =>
-      { // Получаем список токенов
-    
-        let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
-        
-        let structureName: String = token.getData().toString().unwrap_or_default();
-        match structureName.is_empty()
+    if parameters.isNone()
+    {
+      value[i].setDataType(TokenType::None);
+      value[i].setData(None);
+    } else
+    {
+      match parameters.getExpression(structure, 0)
+      {
+        None => 
         {
-          false =>
-          {
+          value[i].setDataType(TokenType::None);
+          value[i].setData(None);
+        },
+        Some(p0) =>
+        {
+          value[i].setDataType( TokenType::String );
+          value[i].setData( p0.getDataType().to_string() );
+        }
+      };
+    }
+  }
+  
+  /// Возвращает тип данных структуры
+  fn stype(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
+  {
+    if parameters.isNone()
+    {
+      value[i].setDataType(TokenType::None);
+      value[i].setData(None);
+    } else
+    {
+      //
+      match parameters.get(0)
+      { None => {} Some(p0) =>
+      { // Получаем 0 параметр
+  
+        match &p0.tokens
+        { None => {} Some(tokens) =>
+        { // Получаем список токенов
+      
+          let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
+          
+          let structureName: String = token.getData().toString().unwrap_or_default();
+          match structureName.is_empty()
+          { true => {} false =>
+          { // Ищем структуру
             match structure.getStructureByName(&structureName)
             {
               Some(structureLink) =>
               { // Это custom structure
                 let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-                value[i].setDataType( TokenType::String );
-                value[i].setData( structure.dataType.to_string() );
+                value[i].setDataType(TokenType::String);
+                value[i].setData(structure.dataType.to_string());
               }
               None =>
               {
-                value[i].setDataType( TokenType::String );
+                value[i].setDataType(TokenType::String);
                 match token.isPrimitive()
                 { // Это примитивное значение
-                  true => value[i].setData( token.getData() ),
+                  true => value[i].setData(token.getData()),
                   // Это то, чего нет как типа данных
-                  false => value[i].setData( String::from("None") )
+                  false => {
+                    value[i].setDataType(TokenType::None);
+                    value[i].setData(None);
+                  }
                 }
+                //
               }
             }
-          }
-          true =>
-          {
-            match parameters.getExpression(structure, 0)
-            { None => 
-              { // Это пустое значение
-                value[i].setDataType( TokenType::String );
-                value[i].setData( String::from("None") )
-              } 
-              Some(parameter) =>
-              { // Это тип данных
-                value[i].setDataType( TokenType::String );
-                match parameter.isPrimitive()
-                { // Это примитивное значение
-                  true => value[i].setData( parameter.to_string() ),
-                  // Это то, чего нет как типа данных
-                  false => value[i].setData( String::from("None") )
-                }
-              }
-            }
-          }
-        }
+            //
+          }}
+          //
+        }}
         //
       }}
+      
       //
-    }}
-    //
+    }
   }
   
   // ===============================================================================================
@@ -476,6 +489,7 @@ impl Structure
             //       для возвращения результата ожидаемого структурой
 
             "type" => Function::_type(self, &parameters, value, i),
+            "stype" => Function::stype(self, &parameters, value, i),
             "mut" => Function::_mut(self, &parameters, value, i),
             "randUInt" => Function::randUInt(self, &parameters, value, i),
             "len" => Function::len(self, &parameters, value, i),

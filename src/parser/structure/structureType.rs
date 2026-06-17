@@ -356,8 +356,8 @@ impl Token
 
 impl Token
 {
-  /// Вычисляет тип структуры на основе токена;
-  /// Удобно когда нет рамок структуры (не указан её тип) и нужно понять, 
+  /// Вычисляет StructureType на основе токена;
+  /// Удобно, когда нет рамок структуры (не указан её тип) и нужно понять, 
   /// что в неё положили, но при этом в рамках StructureType.
   pub fn getStructureType(&self) -> StructureType 
   {
@@ -445,13 +445,11 @@ impl Token
     }
     //
   }
-}
 
-impl TokenType
-{
-  /// Преобразует TokenType в StructureType;
-  /// Удобно если есть Custom или известный StructureType как строка.
-  pub fn toStructureType(&self) -> StructureType
+  /// Вычисляет StructureType на основе токена;
+  /// Но делает это упрощенно по имени токена - 
+  /// т.е. когда мы явно знаем уже тип в строке.
+  pub fn getStructureTypeSimple(&self) -> StructureType
   {
     let data: String = self.to_string();
     match data.as_str()

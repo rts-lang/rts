@@ -178,8 +178,8 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     structureType = match structureTypeTokens 
     {
       None => StructureType::None,
-      Some(structureTypeTokens) => 
-        structureTypeTokens[0].getDataType().toStructureType() // todo Я не уверен что getStructureType() потянет его
+      Some(structureTypeTokens) =>
+        structureTypeTokens[0].getStructureTypeSimple()
     };
   };
   
