@@ -249,7 +249,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
               // Вычисляется он по типу из результата правой части выражения
               true => structureType = value.getStructureType(),
               // Требуется выполнить преобразование в указанный тип данных
-              false => value.normalizeToStructure(structureType.clone())
+              false => Structure::normalizeToken(&mut value, structureType.clone())
             }
         }
         //

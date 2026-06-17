@@ -255,7 +255,7 @@ impl Structure
           }
           false =>
           { // Требуется выполнить преобразование в указанный тип данных
-            rightPartValue.normalizeToStructure(structure.dataType.clone());
+            Structure::normalizeToken(&mut rightPartValue, structure.dataType.clone())
           }
         }
 

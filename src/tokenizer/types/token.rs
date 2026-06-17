@@ -11,6 +11,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 pub struct Token 
 {
   /// Данные единицы хранения
+  /// todo В будущем лучше будет хранить более бинарно? (но это сломает абстрактные операции с Token)
   data: Bytes,
   /// Тип данных единицы хранения
   dataType: TokenType,
