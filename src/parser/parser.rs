@@ -410,8 +410,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 newStructure.pushStructure(
                   Structure::new(
                     parameter.getData().toString(),
-                    StructureMut::Constant, // todo не знаю что сюда ставить
-                    StructureType::None, // todo не знаю что сюда ставить
+                    StructureMut::Constant, // todo По идее надо еще читать правила mut.
+                    StructureType::None, // todo Надо брать StructureType simple (возможно в getStructureParameters);
+                                         //  Или ставить Any - если не указано.
                     None,
                     None,
                   )
