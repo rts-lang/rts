@@ -613,7 +613,7 @@ impl Structure
               let structureGuard: RwLockReadGuard<Structure> = structureLink.read().unwrap();
 
               // Если структура имеет тип Native — это наша динамическая библиотека
-              if structureGuard.dataType == StructureType::Pointer 
+              if structureGuard.dataType == StructureType::Pointer
               {
                 // Имя метода, который вызывают (например, "method" в lib.method(...))
                 let methodName: String = link[0].clone();
@@ -658,13 +658,13 @@ impl Structure
                 // Преобразуем байты в usize-адрес библиотеки
                 let mut addr: [u8; size_of::<usize>()] = [0u8; size_of::<usize>()];
                 addr.copy_from_slice(raw);
-                let libPtr: usize = usize::from_le_bytes(addr);
+                let libraryPointer: usize = usize::from_le_bytes(addr);
 
                 // Восстанавливаем изменяемую ссылку на библиотеку из сырого указателя
-                let libRef: &mut libloading::Library = unsafe { &mut *(libPtr as *mut libloading::Library) };
+                let libRef: &mut libloading::Library = unsafe { &mut *(libraryPointer as *mut libloading::Library) };
 
                 // Получаем адрес функции по имени methodName
-                let func_ptr: *const () = unsafe {
+                let functionPointer: *const () = unsafe {
                   match libRef.get::<*const ()>(methodName.as_bytes()) {
                     Ok(ptr) => *ptr,
                     Err(_) => return Token::newEmpty(TokenType::None),
@@ -674,7 +674,7 @@ impl Structure
                 // Возвращаем токен с адресом функции
                 return Token::new(
                   TokenType::Address,
-                  (func_ptr as usize).to_ne_bytes().to_vec()
+                  (functionPointer as usize).to_ne_bytes().to_vec()
                 );
               }
             }
@@ -854,17 +854,16 @@ impl Structure
           {
             expressionBuffer.push( token.clone() );
           }}
-
-          // todo: зачем это?
-          /*
+          
+          // Это типизация параметра
           if expressionBuffer.len() == 3 
           {
-            if let Some(expressionData) = expressionBuffer[2].getData() 
-            {
-              expressionBuffer[0].setDataType( Some(getStructureResultType(expressionData)) );
-            }
+            // todo По идее должен быть expressionBuffer[2].getStructureTypeSimple(),
+            //  а потом смотрим на StructureType и получаем просто абстрактный TokenType
+            expressionBuffer[0].setDataType(TokenType::UInt); // todo Поэтому временно поставил это
           }
-          */
+          
+          //
           result.push( expressionBuffer[0].clone() );
 
           expressionBuffer.clear();
@@ -875,7 +874,7 @@ impl Structure
         }
       }
     }
-
+    
     result
   }
 
@@ -1023,6 +1022,7 @@ impl Structure
           // native method
           if value[i].getDataType() == &TokenType::Address 
           {
+            
             // Создаём массив нужного размера (разные usize могут быть)
             let mut array = [0u8; size_of::<usize>()];
             {
@@ -1035,15 +1035,26 @@ impl Structure
             //
             let addr: usize = usize::from_le_bytes(array);
             let fnPtr: *const () = addr as *const ();
-            let func: extern "C" fn(args: &[Token]) = unsafe { std::mem::transmute(fnPtr) };
             
             // Собираем параметры
             let bracket: &Token = &value[1];
             let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
             let parameters: Parameters = Parameters::new( Some(bracketLines.to_vec()) );
-            func( &parameters.getAllExpressions(self).unwrap() );
+            let args: Vec<Token> = parameters.getAllExpressions(self).unwrap();
+            if let Some(token) = args.get(0) 
+            {
+              if let Some(s) = token.getData().toString() 
+              {
+                let ptr: *const u8 = s.as_ptr();
+                let len: usize = s.len();
+                let func: extern "C" fn(*const u8, usize) -> *mut u8 = unsafe { std::mem::transmute(fnPtr) };
+                let _result: *mut u8 = func(ptr, len);
+                // result можно проигнорировать, т.к. функция возвращает NULL
+              }
+            }
+            //
           }
-        }
+        } 
         TokenType::Minus =>
         { // это выражение в круглых скобках, но перед ними отрицание -
           match
@@ -1067,6 +1078,7 @@ impl Structure
                     Token::newEmpty(TokenType::None)
                   }
                 }
+                //
               }
             };
             // Меняем отрицание

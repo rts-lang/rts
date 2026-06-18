@@ -1,8 +1,15 @@
 
-lib: Pointer = importNative("./libprint.so")
+#lib: Pointer = importNative("./libprint.so")
 # todo Нужно дописать авто Pointer, чтобы Addres -> Pointer. А еще мб переименовать их?
-#  типо адрес это ли все же поинтер? типо если различий нет. если есть - то стоит подумать.
-lib.print("Hello from RTS!")
+    типо адрес это ли все же поинтер? типо если различий нет. если есть - то стоит подумать.
+printc(text: U8)
+  println(type(text))
+  #println(text)
+  #lib.print(text)
+
+#printc("Hello from RTS 222!")
+println("111")
+printc(123)
 
 #
  `Потеря контроля: программист не может явно указать сигнатуру, что может привести к ошибкам на уровне ABI.`
