@@ -32,17 +32,12 @@ pub enum StructureType
   I8, I16, I32, I64,
   F32, F64,
   Usize, Isize,
-  Ptr,  // указатель (raw)
+  Pointer, // указатель (raw)
 
   // todo Требует удаление для FFI-ABI?
   Method,
   // todo Требует удаление для FFI-ABI?
   List, // todo List<Type>
-  
-// native
-  // todo Требует удаление для FFI-ABI?
-  /// Нативные внешние штуки
-  Native,
 
 // custom
   /// Позволяет создавать пользовательские типы
@@ -84,12 +79,11 @@ impl ToString for StructureType
       StructureType::F64 => String::from("F64"),
 
       // Указатель
-      StructureType::Ptr => String::from("Ptr"),
+      StructureType::Pointer => String::from("Pointer"),
 
       // Служебные
       StructureType::Method => String::from("Method"),
       StructureType::List => String::from("List"),
-      StructureType::Native => String::from("Native"),
 
       // custom
       StructureType::Custom(value) => value.clone(),
@@ -112,16 +106,22 @@ impl Structure
   {
     let dataType: &TokenType = token.getDataType();
 
-    // Получаем строку из данных
-    let tokenData: String = match token.getData().toString() 
-    {
-      Some(s) => s,
-      None => 
+    // todo Пока что оставил это здесь, т.к. часть требует его, а часть нет.
+    let tokenData: String = if token.getDataType() != &TokenType::Address 
+    { // Адрес не может быть преобразован в строку;
+      // Получаем строку из данных.
+      match token.getData().toString()
       {
-        // Нет данных
-        token.setDefaultValue(structureType);
-        return;
+        Some(s) => s,
+        None =>
+        {
+          // Нет данных
+          token.setDefaultValue(structureType);
+          return;
+        }
       }
+    } else {
+      String::new()
     };
 
     // Обработка типов
@@ -479,13 +479,12 @@ impl Token
       "F64" => StructureType::F64,
 
       // Указатель
-      "Ptr" => StructureType::Ptr,
+      "Pointer" => StructureType::Pointer,
 
       // Служебные
       // todo Под вопросом
       "Method" => StructureType::Method,
       "List" => StructureType::List,
-      "Native" => StructureType::Native,
 
       // Всё остальное — кастомное
       _ => StructureType::Custom(data),

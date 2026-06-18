@@ -357,23 +357,23 @@ impl Function
           return;
         }
 
-        println!("DEBUG1: {}",libraryPath);
-
         #[cfg(not(target_family = "wasm"))]
         unsafe 
         {
           match libloading::Library::new(&libraryPath) 
           {
             Ok(lib) => 
-            {
-              println!("DEBUG2: {:?}",lib);
+            { // todo Кстати мы могли бы сразу хранить Native?
+              //  потому что потом мы загружаем lib снова при использовании?
+              //  но тут вопрос либо указатель - потому что запуск может быть потом или не быть.
+              //  или сохранение и как бы в режиме готовности?
+              //  вообще можно сделать 2 варианта через flag True/False или 2 метода 
+              //  и выдавать разные результаты.
               // Переносим Library в кучу, чтобы она жила в памяти
               let libPointer: usize = Box::into_raw(Box::new(lib)) as usize;
-              println!("DEBUG3: {}",libPointer);
               // Возвращаем токен типа Native, который хранит ТОЛЬКО адрес либы
-              value[i].setDataType(TokenType::Native);
+              value[i].setDataType(TokenType::Address);
               value[i].setData(libPointer.to_ne_bytes().to_vec());
-              println!("DEBUG4: {:?}:{:?}",value[i].getData().getAll(),libPointer.to_ne_bytes().to_vec());
             }
             Err(_) => value[i].setDataType(TokenType::None)
           }

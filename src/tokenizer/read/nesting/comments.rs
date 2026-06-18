@@ -30,6 +30,8 @@ pub fn deleteNestedComment(linesLinks: &mut Vec< Arc<RwLock<Line>> >, mut index:
       }}
 
       // Логика для разделителей
+      // todo Не удаляет Separator если они друг за другом -
+      //  а могли бы быть просто 1 Separator
       match line.tokens.is_none()
       { false => {} true =>
       { // Пропускаем разделители, они нужны для синтаксиса
