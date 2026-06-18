@@ -311,6 +311,8 @@ impl Structure
         };
         let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо
 
+        println!("leftValue {} rightPart {}", leftValue, rightPart);
+        
         // Далее обрабатываем саму операцию
         let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
         match op 
@@ -322,6 +324,9 @@ impl Structure
                 Arc::new(RwLock::new( 
                   Line {
                     tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightPart) ]),
+                    // todo Здесь должны быть преобразования типа у структуры
+                    //  Сейчас если станет Int, то у структуры не поменяется U8 на I8.
+                    //  + Здесь должна быть normalizeToken когда не Dynamic
                     indent: None,
                     lines:  None,
                     parent: None
@@ -1236,22 +1241,26 @@ impl Structure
     let mut tokenType: &TokenType;
 
     while i < *valueLength
-    { // Проверка на логические операции
+    { // Если остался только 1 токен — дальше нечего делать
       match *valueLength == 1
       { false => {} true =>
       {
         break;
       }}
+      // Если i == 0, не можем начать, потому что нужен оператор
       match i == 0
       { false => {} true =>
       {
-        i += 1; continue;
+        i += 1; 
+        continue;
       }}
 
+      // true - если будет входящий в operations операция
       token = value[i].clone();
       tokenType = token.getDataType();
       match i+1 < *valueLength && operations.contains(tokenType)
       {
+        // Вычисление заданной операции между двумя операндами.
         true =>
         {
           value[i-1] = calculate(tokenType, &value[i-1], &value[i+1]);
@@ -1261,7 +1270,10 @@ impl Structure
           *valueLength -= 2;
           continue;
         }
+        // Подразумевается, что нет оператора - поэтому два операнда,
+        // поэтому мы можем проверить:
         // value -value2
+        // Потому что минус входит в число и мы можем просто проверить 2 токена.
         false => match matches!(*tokenType, TokenType::Int | TokenType::Float)
         { false => {} true =>
         {

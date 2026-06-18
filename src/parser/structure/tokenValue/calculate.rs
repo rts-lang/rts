@@ -5,7 +5,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Это вычисление на основе Value от токенов.
-// Это отдельные вещи от Structure - потому что это внешний инструмент.
+// Это отдельные вещи от Structure - потому что это внешний (над ним) инструмент.
 
 // =================================================================================================
 
@@ -20,7 +20,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
   // Получаем значение выражения, а также предварительный тип
   let mut resultType: TokenType = TokenType::UInt;
-  let resultValue: String = match *op 
+  let mut resultValue: String = match *op 
   {
     TokenType::Plus     => (leftValue + rightValue).to_string(),
     TokenType::Minus    => (leftValue - rightValue).to_string(),
@@ -121,18 +121,45 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
       {
         resultType = TokenType::Char;
       } else
+      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
+      {
+        // Проверяем смену типа
+        if let Ok(value) = resultValue.parse::<f64>() 
+        {
+          if value < 0.0 {
+            resultType = TokenType::Float;
+          } else {
+            resultType = TokenType::UFloat;
+          }
+        } else {
+          resultType = TokenType::None;
+          resultValue = String::new();
+        }
+      } else
       if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
       {
         resultType = TokenType::Float;
       } else
-      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
+      if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
       {
-        resultType = TokenType::UFloat;
+        // Проверяем смену типа
+        if let Ok(value) = resultValue.parse::<i64>() 
+        {
+          if value < 0 {
+            resultType = TokenType::Int;
+          } else {
+            resultType = TokenType::UInt;
+          }
+        } else {
+          resultType = TokenType::None;
+          resultValue = String::new();
+        }
       } else
       if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int
       {
         resultType = TokenType::Int;
       }
+      //
     }
   }
   // return

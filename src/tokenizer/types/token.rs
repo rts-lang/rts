@@ -81,6 +81,7 @@ impl Token
   // но смысл такой, что если тип был Int или Float, 
   // а ожидается UInt или UFloat, то понятно,
   // что результат будет 0
+  // todo По идее это обрубание типов? константановое поведение.
   fn convertData(&mut self) -> ()
   {
     match self.data.toString()
