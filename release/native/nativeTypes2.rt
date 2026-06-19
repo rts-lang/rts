@@ -1,0 +1,105 @@
+
+# Это авто-приведение абстрактных чисел 
+  из токенов в ABI типы структур;
+  Это не ручное приведение чисел.
+
+# U8
+a~~ = 0 # Полная mut для кода ниже
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U8
+
+a = 255
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U8
+
+# U16
+a = 256
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U16
+
+a = 65535
+print(f"{type(a)} | {stype(a)} = {a}\n")  # UInt | U16
+
+# U32
+a = 65536
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U32
+
+a = 4294967295
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U32
+
+# U64
+a = 4294967296
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U64
+
+a = 18446744073709551615
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U64
+
+# Usize так же есть, но он не выводится автоматически
+
+# None
+a = 18446744073709551616
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | None
+# todo Не должен был положить строку - "":None должно быть
+
+#
+println("=====")
+
+# I8
+a = -1
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I8
+
+a = -128
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I8
+
+# I16
+a = -129
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I16
+
+a = -32768
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I16
+
+# I32
+a = -32769
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I32
+
+a = -2147483648
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I32
+
+# I64
+a = -2147483649
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I64
+
+a = -9223372036854775808
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I64
+
+# None
+a = -9223372036854775809
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | None
+# todo Не должен был положить строку - "":None должно быть
+
+# Isize так же есть, но он не выводится автоматически
+
+#
+println("=====")
+
+# f32
+a = 0.0
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UFloat | F32
+
+a = 3.4028234663852886e38
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UFloat | F32
+
+a = -3.4028234663852886e38
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Float | F32
+
+# f64
+a = 1.7976931348623157e308
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UFloat | F64
+
+a = -1.7976931348623157e308
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Float | F64
+
+# None
+a = 1.7976931348623157e309
+print(f"{type(a)} | {stype(a)} = {a}\n")   # UFloat | F64
+
+a = -1.7976931348623157e309
+print(f"{type(a)} | {stype(a)} = {a}\n")   # Float | F64
+# todo Не должен был положить строку - "":None должно быть

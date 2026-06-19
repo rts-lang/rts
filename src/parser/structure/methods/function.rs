@@ -505,13 +505,6 @@ impl Structure
         // Если код не завершился ранее, то далее идут custom методы;
 
         // Передаём параметры, они также могут быть None
-        println!("  > SEARCH1: {:?}",self.name);
-        if self.name.clone().unwrap() != String::from("main") {
-          let a: Arc<RwLock<Structure>> = self.getStructureByName("text").unwrap();
-          let b: RwLockReadGuard<Structure> = a.read().unwrap();
-          println!("  > SEARCH2: {:?}",b.name);
-        }
-        println!("  > PARAMS: {:?}",parameters.getAllExpressions(self).unwrap_or_default());
 //        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
         self.procedureCall(&structureName, parameters);
         // После чего решаем какой результат оставить

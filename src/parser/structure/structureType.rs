@@ -65,6 +65,7 @@ impl ToString for StructureType
       StructureType::U16 => String::from("U16"),
       StructureType::U32 => String::from("U32"),
       StructureType::U64 => String::from("U64"),
+      // U128 нет т.к. это не FFI совместимый тип данных
       StructureType::Usize => String::from("Usize"),
 
       // Знаковые
@@ -72,9 +73,11 @@ impl ToString for StructureType
       StructureType::I16 => String::from("I16"),
       StructureType::I32 => String::from("I32"),
       StructureType::I64 => String::from("I64"),
+      // I128 нет т.к. это не FFI совместимый тип данных
       StructureType::Isize => String::from("Isize"),
 
       // Плавающие
+      // F16 нет т.к. это не FFI совместимый тип данных
       StructureType::F32 => String::from("F32"),
       StructureType::F64 => String::from("F64"),
 
@@ -244,6 +247,7 @@ impl Structure
                 // Приведение к целочисленным типам
                 target if matches!(target, 
                   StructureType::U8 | StructureType::U16 | StructureType::U32 | StructureType::U64 | StructureType::Usize |
+                  //
                   StructureType::I8 | StructureType::I16 | StructureType::I32 | StructureType::I64 | StructureType::Isize) =>
                 {
                   let integerValue: i128 = if value < 0.0 { 0 } else { value.round() as i128 };

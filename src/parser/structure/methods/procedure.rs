@@ -198,7 +198,9 @@ impl Structure
                         }))
                       ]);
                       // todo Приводим значение к типу параметра:
-                      //  Structure::normalizeToken(&mut param_values[idx], child.dataType.clone());
+                      //  Structure::normalizeToken(&mut parametersValues[idx], child.dataType.clone());
+                      //  ? Но кстати не должен ли getAllExpressions сам делать приведение?
+                      //  Много таких мест в коде с params.
                     }
                   }
                   //
