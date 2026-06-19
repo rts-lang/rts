@@ -361,19 +361,31 @@ impl Token
 impl Token
 {
   /// Вычисляет StructureType на основе токена;
+  /// 
   /// Удобно, когда нет рамок структуры (не указан её тип) и нужно понять, 
-  /// что в неё положили, но при этом в рамках StructureType.
-  pub fn getStructureType(&self) -> StructureType 
+  /// что в неё положили, но при этом в рамках StructureType;
+  /// 
+  /// Если станет None - то токен будет очищен.
+  pub fn getStructureType(&mut self) -> StructureType
   {
+    let result = |selfToken: &mut Token, structureType: StructureType| -> StructureType
+    {
+      if structureType == StructureType::None {
+        selfToken.setData(None);
+      }
+      return structureType;
+    };
+    
+    //
     let dataType: &TokenType = self.getDataType();
     
     // Получаем строку из данных токена
     let data: String = match self.getData().toString() {
       Some(s) => s,
-      None => return StructureType::None,
+      None => return result(self, StructureType::None),
     };
 
-    match dataType 
+    result(self, match dataType 
     {
       TokenType::None => StructureType::None,
       TokenType::Any => StructureType::Any,
@@ -446,7 +458,7 @@ impl Token
       // Для остальных типов - возвращаем Custom
       // todo Сейчас могут попасть лишние т.к. они не объявлены выше
       _ => StructureType::None,
-    }
+    })
     //
   }
 

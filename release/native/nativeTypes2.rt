@@ -36,7 +36,6 @@ print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | U64
 # None
 a = 18446744073709551616
 print(f"{type(a)} | {stype(a)} = {a}\n")   # UInt | None
-# todo Не должен был положить строку - "":None должно быть
 
 #
 println("=====")
@@ -72,7 +71,6 @@ print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | I64
 # None
 a = -9223372036854775809
 print(f"{type(a)} | {stype(a)} = {a}\n")   # Int | None
-# todo Не должен был положить строку - "":None должно быть
 
 # Isize так же есть, но он не выводится автоматически
 
@@ -102,4 +100,3 @@ print(f"{type(a)} | {stype(a)} = {a}\n")   # UFloat | F64
 
 a = -1.7976931348623157e309
 print(f"{type(a)} | {stype(a)} = {a}\n")   # Float | F64
-# todo Не должен был положить строку - "":None должно быть
