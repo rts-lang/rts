@@ -1,6 +1,4 @@
 // =================================================================================================
-use crate::parser::structure::structure::StructureType;
-// =================================================================================================
 
 /// Тип элементарной единицы хранения информации
 /// 
@@ -136,8 +134,10 @@ pub enum TokenType
   /// Ссылка на структуру
   Link,
   
-  /// Что-то нативное
-  Native,
+  /// Нативный адрес. По факту это то же UInt, но мы его выделяем,
+  /// чтобы было легче с ним работать и не тянуть к UInt операциям.
+  /// (Также, сейчас его можно получить только вручную)
+  Address,
 
 // words
   /// Integer
@@ -148,10 +148,6 @@ pub enum TokenType
   Float,
   /// Unsigned float
   UFloat,
-  /// Rational 
-  //Rational, // todo Rational пока что нет как типа
-  /// Complex
-  Complex,
 
   /// Bool
   Bool, // todo issue #65
@@ -247,17 +243,17 @@ impl ToString for TokenType
 
       TokenType::Link => String::from("Link"),
 
-      TokenType::Native => String::from("Native"),
+      TokenType::Address => String::from("Address"),
       
-      // words
+      //
       TokenType::Int      => String::from("Int"),
       TokenType::UInt     => String::from("UInt"),
       TokenType::Float    => String::from("Float"),
       TokenType::UFloat   => String::from("UFloat"),
-      //TokenType::Rational => String::from("Rational"), // todo Rational пока что нет как типа
-      TokenType::Complex  => String::from("Complex"),
 
+      //
       TokenType::Bool      => String::from("Bool"), // todo issue #65
+      
       TokenType::Joint     => String::from("Joint"),
       TokenType::Disjoint  => String::from("Disjoint"),
       TokenType::Inclusion => String::from("Inclusion"),
@@ -266,39 +262,12 @@ impl ToString for TokenType
     //
   }
 }
+
 impl Default for TokenType
 {
   fn default() -> Self 
   {
     TokenType::None
-  }
-}
-
-pub trait ToStructureType
-{
-  /// Преобразует TokenType в StructureType
-  fn toStructureType(&self) -> StructureType;
-}
-impl ToStructureType for TokenType
-{
-  fn toStructureType(&self) -> StructureType
-  {
-    match self
-    {
-      TokenType::UInt => StructureType::UInt,
-      TokenType::Int => StructureType::Int,
-      TokenType::UFloat => StructureType::UFloat,
-      TokenType::Float => StructureType::Float,
-      TokenType::String => StructureType::String,
-      TokenType::Char => StructureType::Char,
-      // TokenType::Rational => StructureType::Rational,
-      // TokenType::Complex => StructureType::Complex,
-      _ =>
-      { // todo: возможно нестабильно
-        StructureType::Custom(self.to_string())
-      }
-    }
-    //
   }
 }
 

@@ -11,13 +11,17 @@ use crate::tokenizer::types::tokenType::TokenType;
 pub struct Token 
 {
   /// Данные единицы хранения
-  data:       Bytes,
+  /// todo В будущем лучше будет хранить более бинарно? (но это сломает абстрактные операции с Token)
+  data: Bytes,
   /// Тип данных единицы хранения
-  dataType:   TokenType,
+  dataType: TokenType,
   /// Набор вложенных единиц хранения
   pub lines: Option< Vec<Line> >,
+  
+  /// Начало токена для analyzer
   #[cfg(feature = "analyzer")]
   pub start: usize,
+  /// Конец токена для analyzer
   #[cfg(feature = "analyzer")]
   pub end: usize
 }
@@ -74,11 +78,13 @@ impl Token
 
   // convert data
   // todo: фиг его знает что это за ерунда,
-  // но смысл такой, что если тип был Int или Float, 
-  // а ожидается UInt или UFloat, то понятно,
-  // что результат будет 0
+  //  но смысл такой, что если тип был Int или Float, 
+  //  а ожидается UInt или UFloat, то понятно,
+  //  что результат будет 0
+  // todo По идее это обрубание типов? константановое поведение.
   fn convertData(&mut self) -> ()
   {
+    return; // todo Работает криво например для `Float | F32 = -3.4028234663852886e38` - было 0.0
     match self.data.toString()
     {
       None => {}
@@ -90,8 +96,8 @@ impl Token
           {
             match self.dataType
             {
-              TokenType::UInt   => { self.data = Bytes::from(String::from("0")); }
-              TokenType::UFloat => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
+              TokenType::UInt  => { self.data = Bytes::from(String::from("0")); }
+              TokenType::Float => { self.data = Bytes::from(String::from("0.0")); } // todo: use . (0.0)
               _ => { }
             }
           }

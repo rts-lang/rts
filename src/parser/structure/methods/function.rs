@@ -2,7 +2,7 @@ use std::io;
 use std::io::Write;
 use std::process::{Command, ExitStatus, Output};
 use std::str::SplitWhitespace;
-use std::sync::RwLockReadGuard;
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::token::{Token};
@@ -16,74 +16,87 @@ impl Function
 {
   // ===============================================================================================
   
-  /// Возвращает тип данных переданной структуры или значения
-  ///
-  /// todo Может проверять несколько параметров и возвращать список
-  /// 
-  /// todo Struct type != Token type
+  /// Возвращает тип данных выражения
   fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
-    match parameters.get(0)
-    { None => {} Some(p0) =>
-    { // Получаем 0 параметр
-
-      match &p0.tokens
-      { None => {} Some(tokens) =>
-      { // Получаем список токенов
-    
-        let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
-        
-        let structureName: String = token.getData().toString().unwrap_or_default();
-        match structureName.is_empty()
+    if parameters.isNone()
+    {
+      value[i].setDataType(TokenType::None);
+      value[i].setData(None);
+    } else
+    {
+      match parameters.getExpression(structure, 0)
+      {
+        None => 
         {
-          false =>
-          {
+          value[i].setDataType(TokenType::None);
+          value[i].setData(None);
+        },
+        Some(p0) =>
+        {
+          value[i].setDataType( TokenType::String );
+          value[i].setData( p0.getDataType().to_string() );
+        }
+      };
+    }
+  }
+  
+  /// Возвращает тип данных структуры
+  fn stype(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
+  {
+    if parameters.isNone()
+    {
+      value[i].setDataType(TokenType::None);
+      value[i].setData(None);
+    } else
+    {
+      //
+      match parameters.get(0)
+      { None => {} Some(p0) =>
+      { // Получаем 0 параметр
+  
+        match &p0.tokens
+        { None => {} Some(tokens) =>
+        { // Получаем список токенов
+      
+          let token: &Token = tokens.get(0).unwrap(); // Получаем 0 токен
+          
+          let structureName: String = token.getData().toString().unwrap_or_default();
+          match structureName.is_empty()
+          { true => {} false =>
+          { // Ищем структуру
             match structure.getStructureByName(&structureName)
             {
               Some(structureLink) =>
               { // Это custom structure
                 let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-                value[i].setDataType( TokenType::String );
-                value[i].setData( structure.dataType.to_string() );
+                value[i].setDataType(TokenType::String);
+                value[i].setData(structure.dataType.to_string());
               }
               None =>
               {
-                value[i].setDataType( TokenType::String );
+                value[i].setDataType(TokenType::String);
                 match token.isPrimitive()
                 { // Это примитивное значение
-                  true => value[i].setData( token.getData() ),
+                  true => value[i].setData(token.getData()),
                   // Это то, чего нет как типа данных
-                  false => value[i].setData( String::from("None") )
+                  false => {
+                    value[i].setDataType(TokenType::None);
+                    value[i].setData(None);
+                  }
                 }
+                //
               }
             }
-          }
-          true =>
-          {
-            match parameters.getExpression(structure, 0)
-            { None => 
-              { // Это пустое значение
-                value[i].setDataType( TokenType::String );
-                value[i].setData( String::from("None") )
-              } 
-              Some(parameter) =>
-              { // Это тип данных
-                value[i].setDataType( TokenType::String );
-                match parameter.isPrimitive()
-                { // Это примитивное значение
-                  true => value[i].setData( parameter.to_string() ),
-                  // Это то, чего нет как типа данных
-                  false => value[i].setData( String::from("None") )
-                }
-              }
-            }
-          }
-        }
+            //
+          }}
+          //
+        }}
         //
       }}
+      
       //
-    }}
-    //
+    }
   }
   
   // ===============================================================================================
@@ -327,6 +340,58 @@ impl Function
   }
 
   // ===============================================================================================
+  
+  /// todo desc
+  /// 
+  /// todo Должен также иметь возможность загрузить по имени как 1 символ, так и всю либу сразу.
+  pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
+  {
+    match parameters.getExpression(structure, 0)
+    {
+      None => value[i].setDataType(TokenType::None),
+      Some(p0) => 
+      {
+        let libraryPath: String = p0.getData().toString().unwrap_or_default();
+        if libraryPath.is_empty() {
+          value[i].setDataType(TokenType::None);
+          return;
+        }
+
+        #[cfg(not(target_family = "wasm"))]
+        unsafe 
+        {
+          match libloading::Library::new(&libraryPath) 
+          {
+            Ok(lib) => 
+            { // todo Кстати мы могли бы сразу хранить Native?
+              //  потому что потом мы загружаем lib снова при использовании?
+              //  но тут вопрос либо указатель - потому что запуск может быть потом или не быть.
+              //  или сохранение и как бы в режиме готовности?
+              //  вообще можно сделать 2 варианта через flag True/False или 2 метода 
+              //  и выдавать разные результаты.
+              // Переносим Library в кучу, чтобы она жила в памяти
+              let libPointer: usize = Box::into_raw(Box::new(lib)) as usize;
+              // Возвращаем токен типа Native, который хранит ТОЛЬКО адрес либы
+              value[i].setDataType(TokenType::Address);
+              value[i].setData(libPointer.to_ne_bytes().to_vec());
+            }
+            Err(_) => value[i].setDataType(TokenType::None)
+          }
+        }
+
+        // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна
+        // todo Это нужно будет решить
+        #[cfg(target_family = "wasm")]
+        {
+          value[i].setDataType(TokenType::None);
+        }
+        //
+      }
+    }
+    //
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================
@@ -334,13 +399,15 @@ impl Function
 impl Structure
 {
   // ===============================================================================================
+  
   /// Запускает функцию;
   ///
   /// Функция - это такая структура, которая возвращает значение.
   ///
   /// Но кроме того, запускает не стандартные методы;
   /// В нестандартных методах могут быть процедуры, которые не вернут результат.
-
+  /// 
+  /// 
   /// todo: вынести все стандартные варианты в отдельный модуль
   ///
   /// todo: когда будет вынесено, то должна ожидать тип данных, который должен в Tokenizer::getWord() тоже
@@ -408,7 +475,7 @@ impl Structure
       }
       // -------------------------------------------------------------------------------------------
       Some(structureName) =>
-      { // Вариант в котором это обращение к стандартной или custrom функции;
+      { // Вариант в котором это обращение к стандартной или custom функции;
         // todo: проверка на нижний регистр
 
         // Далее идут базовые методы;
@@ -422,12 +489,14 @@ impl Structure
             //       для возвращения результата ожидаемого структурой
 
             "type" => Function::_type(self, &parameters, value, i),
+            "stype" => Function::stype(self, &parameters, value, i),
             "mut" => Function::_mut(self, &parameters, value, i),
             "randUInt" => Function::randUInt(self, &parameters, value, i),
             "len" => Function::len(self, &parameters, value, i),
             "input" => Function::input(self, &parameters, value, i),
             "exec" => Function::exec(self, &parameters, value, i),
             "execs" => Function::execs(self, &parameters, value, i),
+            "importNative" => Function::importNative(self, &parameters, value, i),
             _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
           }
           return;
@@ -464,6 +533,7 @@ impl Structure
     }
     //
   }
+  
   // ===============================================================================================
 }
 

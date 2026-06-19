@@ -1,5 +1,5 @@
 use std::process::Command;
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::sleep;
 use std::time::Duration;
 use crate::{_exit, _exitCode};
@@ -13,6 +13,8 @@ use std::io;
 use std::io::Write;
 #[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
+use crate::tokenizer::tools::output::outputLines;
+use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
 /// Это набор базовых процедур
@@ -148,7 +150,10 @@ impl Structure
   /// Но кроме того, запускает не стандартные методы;
   /// Из нестандартных методов, процедуры могут вернуть результат, в таком случае, их следует считать функциями.
   ///
-  /// todo: вынести все стандартные варианты в отдельный модуль
+  /// todo Вынести все стандартные варианты в отдельный модуль (теперь когда #68, надо ли?)
+  /// 
+  /// todo Кстати было замечено что 2 и последующие параметры могут обрабатывать не верно, а 1 норм.
+  ///   Пример был когда у 2 параметра None - то его не видно, а 1 был виден, при проверках type/stype.
   pub fn procedureCall(&self, structureName: &str, parameters: Parameters) -> ()
   {
     if structureName.starts_with(|c: char| c.is_lowercase()) // todo if -> match
@@ -162,16 +167,50 @@ impl Structure
         "sleep" => Procedure::sleep(self, &parameters),
         "exit" => Procedure::exit(self, &parameters),
         // -----------------------------------------------------------------------------------------
-        _ =>
-        { // Если не было найдено совпадений среди стандартных процедур,
+        _ => 
+        { // Если не найдено совпадений среди стандартных процедур,
           // значит это нестандартный метод.
-          match self.getStructureByName(&structureName)
-          { None => {} Some(calledStructureLink) =>
-          { // Запускаем структуру
-            // todo обработка параметров для процедуры
-            //      https://github.com/rts-lang/rts/blob/a173ba17e660bf19e9a46c4445f05003f717dd8a/src/parser/structure.rs
-            readLines(calledStructureLink);
-          }}
+          match self.getStructureByName(&structureName) 
+          {
+            None => {}
+            Some(calledStructureLink) => 
+            {
+              // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны
+              let parametersValues: Vec<Token> = parameters.getAllExpressions(self).unwrap_or_default();
+
+              // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции
+              {
+                let mut calledStructure: RwLockWriteGuard<Structure> = calledStructureLink.write().unwrap();
+                if let Some(structures) = &mut calledStructure.structures 
+                {
+                  for (idx, childLink) in structures.iter_mut().enumerate() 
+                  {
+                    if idx < parametersValues.len() 
+                    {
+                      let mut child: RwLockWriteGuard<Structure> = childLink.write().unwrap();
+                      // Устанавливаем lines параметра как линию с одним токеном – переданным значением
+                      child.lines = Some(vec![
+                        Arc::new(RwLock::new(Line {
+                          tokens: Some(vec![parametersValues[idx].clone()]),
+                          indent: None,
+                          lines: None,
+                          parent: None,
+                        }))
+                      ]);
+                      // todo Приводим значение к типу параметра:
+                      //  Structure::normalizeToken(&mut parametersValues[idx], child.dataType.clone());
+                      //  ? Но кстати не должен ли getAllExpressions сам делать приведение?
+                      //  Много таких мест в коде с params.
+                    }
+                  }
+                  //
+                }
+              }
+
+              // 3. Запускаем исполнение тела функции
+              readLines(calledStructureLink);
+            }
+          }
         }
         // -----------------------------------------------------------------------------------------
       }

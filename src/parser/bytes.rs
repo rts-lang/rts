@@ -35,7 +35,8 @@ impl Bytes
     self.data.as_deref()
   }
 
-  /// Получает строку из байтов
+  /// Получает строку из байтов;
+  /// Если байты будут неправильными - то будет None.
   pub fn toString(&self) -> Option<String>
   {
     self.getAll()

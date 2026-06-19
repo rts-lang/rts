@@ -3,7 +3,7 @@ use std::{
 };
 #[cfg(all(not(target_family = "wasm"), not(test)))]
 use std::time::{Instant, Duration};
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(test)))]
 use crate::logger::logger::{log, logSeparator};
 #[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::read::primitives::comments::{deleteComment};

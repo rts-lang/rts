@@ -45,7 +45,7 @@ mod tests
   fn withTokens()
   {
     let token1: Token = Token::newEmpty(TokenType::Word);
-    let token2: Token = Token::newEmpty(TokenType::Int);
+    let token2: Token = Token::newEmpty(TokenType::UInt);
     let line: Line = Line {
       tokens: Some(vec![token1, token2]),
       indent: None,

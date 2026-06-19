@@ -1,17 +1,16 @@
-// /lib
-// =================================================================================================
-
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 
 include!("prelude.rs");
+
 // =================================================================================================
 
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::parser::{_main, parseLines};
-use crate::parser::structure::structure::{Structure, StructureMut, StructureType};
+use crate::parser::structure::structure::{Structure, StructureMut};
+use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::tokenizer::readTokens;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -69,7 +68,13 @@ impl RTS
   }
   
   /// Добавляет структуру в namespace структуру
-  pub fn newStructure(&self, structureName: String, structureMut: StructureMut, structureType: StructureType, structureTokens: Vec<Token>) 
+  pub fn newStructure(
+    &self, 
+    structureName: String, 
+    structureMut: StructureMut, 
+    structureType: StructureType, 
+    structureTokens: Vec<Token>
+  ) 
   {
     //
     let mainStructure: RwLockWriteGuard<Structure> = _main.write().unwrap();

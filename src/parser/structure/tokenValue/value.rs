@@ -1,22 +1,30 @@
-/* /parser/value
-  Interaction of primitives through operators
-*/
-
 use std::fmt;
-use crate::parser::uf64::*;
+use crate::parser::structure::tokenValue::uf64::uf64;
+// =================================================================================================
 
-// Value ===========================================================================================
+// Чтобы понять, что выполняет Value, нужно понять следующее:
+// TokenType - это просто абстрактные данные для токенайзера и парсера;
+// Token - хранит data = Vec<u8>, что есть абстрактные данные;
+// А Value - это математика абстрактных данных, т.е. самих токенов.
+// Это все потому, что Token не может знать что есть какой тип - это дело структур;
+// Поэтому тут не должно быть ABI типов - это разные вещи.
+
+// =================================================================================================
+
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum Value 
 {
   None(),
+  
   Int(i64),
   UInt(u64),
   Float(f64),
   UFloat(uf64),
+  
   Char(char),
   String(String),
 }
+
 impl Value 
 {
   // to bool
@@ -34,6 +42,7 @@ impl Value
     }
   }
 }
+
 impl fmt::Display for Value 
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
@@ -51,7 +60,9 @@ impl fmt::Display for Value
   }
 }
 
-// + ===============================================================================================
+// =================================================================================================
+
+// plus
 impl std::ops::Add for Value 
 {
   type Output = Self;
@@ -61,11 +72,11 @@ impl std::ops::Add for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y)) => Value::Int(y),
-      (Value::None(), Value::UInt(y)) => Value::UInt(y),
-      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::Int(y))    => Value::Int(y),
+      (Value::None(), Value::UInt(y))   => Value::UInt(y),
+      (Value::None(), Value::Float(y))  => Value::Float(y),
       (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::Char(y))   => Value::Char(y),
       (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int   (x+y),
@@ -104,7 +115,7 @@ impl std::ops::Add for Value
           }
         )
       },
-      (Value::Char(x), Value::Int(y))  => 
+      (Value::Char(x), Value::Int(y)) => 
       {
         Value::Char(
           match std::char::from_u32((x as i64 +y) as u32)
@@ -137,7 +148,10 @@ impl std::ops::Add for Value
     }
   }
 }
-// - ===============================================================================================
+
+// =================================================================================================
+
+// minus
 impl std::ops::Sub for Value 
 {
   type Output = Self;
@@ -147,11 +161,11 @@ impl std::ops::Sub for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y)) => Value::Int(y),
-      (Value::None(), Value::UInt(y)) => Value::UInt(y),
-      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::Int(y))    => Value::Int(y),
+      (Value::None(), Value::UInt(y))   => Value::UInt(y),
+      (Value::None(), Value::Float(y))  => Value::Float(y),
       (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::Char(y))   => Value::Char(y),
       (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int  (x-y),
@@ -160,7 +174,7 @@ impl std::ops::Sub for Value
       (Value::Int(x), Value::UFloat(y)) => Value::Float(x as f64 -f64::from(y)),
       (Value::Int(x), Value::Char(y))   => Value::Int  (x- y as i64),
       // UInt
-      (Value::UInt(x), Value::UInt(y))   => 
+      (Value::UInt(x), Value::UInt(y)) => 
       {
         match y > x 
         {
@@ -193,7 +207,7 @@ impl std::ops::Sub for Value
           }
         )
       },
-      (Value::Char(x), Value::Int(y))  => 
+      (Value::Char(x), Value::Int(y)) => 
       {
         Value::Char(
           match std::char::from_u32((x as i64 -y) as u32)
@@ -218,7 +232,10 @@ impl std::ops::Sub for Value
     }
   }
 }
-// * ===============================================================================================
+
+// =================================================================================================
+
+// multiple
 impl std::ops::Mul for Value 
 {
   type Output = Self;
@@ -228,11 +245,11 @@ impl std::ops::Mul for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y)) => Value::Int(y),
-      (Value::None(), Value::UInt(y)) => Value::UInt(y),
-      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::Int(y))    => Value::Int(y),
+      (Value::None(), Value::UInt(y))   => Value::UInt(y),
+      (Value::None(), Value::Float(y))  => Value::Float(y),
       (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::Char(y))   => Value::Char(y),
       (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int  (x*y),
@@ -259,7 +276,10 @@ impl std::ops::Mul for Value
     }
   }
 }
-// / ===============================================================================================
+
+// =================================================================================================
+
+// divide
 impl std::ops::Div for Value 
 {
   type Output = Self;
@@ -269,11 +289,11 @@ impl std::ops::Div for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y)) => Value::Int(y),
-      (Value::None(), Value::UInt(y)) => Value::UInt(y),
-      (Value::None(), Value::Float(y)) => Value::Float(y),
+      (Value::None(), Value::Int(y))    => Value::Int(y),
+      (Value::None(), Value::UInt(y))   => Value::UInt(y),
+      (Value::None(), Value::Float(y))  => Value::Float(y),
       (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y)) => Value::Char(y),
+      (Value::None(), Value::Char(y))   => Value::Char(y),
       (Value::None(), Value::String(y)) => Value::String(y),
       // Int
       (Value::Int(x), Value::Int(y))    => Value::Int  (x/y),
@@ -300,3 +320,5 @@ impl std::ops::Div for Value
     }
   }
 }
+
+// =================================================================================================

@@ -1,208 +1,20 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
-use crate::parser::uf64::uf64;
-use crate::parser::value::Value;
+use crate::parser::structure::structureType::{StructureType};
+use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokens;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
-use crate::tokenizer::types::tokenType::{ToStructureType, TokenType};
+use crate::tokenizer::types::tokenType::{TokenType};
 // =================================================================================================
-/* /parser/structure
+/* 
   структура, которая представляет свободную ячейку данных в памяти;
   имеет свои настройки, место хранения.
 */
 
-// Addition for Structure ==========================================================================
-/// Вычисляет по математической операции значение и тип нового токена из двух
-pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
-{
-  // Получаем значение левой части выражения
-  let leftTokenDataType: TokenType = *leftToken.getDataType();
-  let leftValue: Value = getValue(leftToken.getData().toString().unwrap_or_default(), &leftTokenDataType);
-  // Получаем значение правой части выражения
-  let rightTokenDataType: TokenType = *rightToken.getDataType();
-  let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
-  // Получаем значение выражения, а также предварительный тип
-  let mut resultType: TokenType = TokenType::UInt;
-  let resultValue: String = match *op 
-  {
-    TokenType::Plus     => (leftValue + rightValue).to_string(),
-    TokenType::Minus    => (leftValue - rightValue).to_string(),
-    TokenType::Multiply => (leftValue * rightValue).to_string(),
-    TokenType::Divide   => (leftValue / rightValue).to_string(),
-    TokenType::Inclusion => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue.toBool() || rightValue.toBool() 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::Joint => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue.toBool() && rightValue.toBool() 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::Equals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue == rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::NotEquals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue != rightValue
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::GreaterThan => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue > rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::LessThan => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue < rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::GreaterThanOrEquals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue >= rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    TokenType::LessThanOrEquals => 
-    { 
-      resultType = TokenType::Bool;
-      match leftValue <= rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
-      }
-    }
-    _ => "0".to_string(),
-  };
-  // После того как значение было получено,
-  // Смотрим какой точно тип выдать новому токену
-  // todo: if -> match
-  match resultType != TokenType::Bool 
-  {
-    false => {}
-    true => 
-    {
-      if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
-      {
-        resultType = TokenType::String;
-      } else
-      if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
-          rightTokenDataType == TokenType::Char
-      { //
-        resultType = leftTokenDataType;
-      } else
-      if leftTokenDataType == TokenType::Char
-      {
-        resultType = TokenType::Char;
-      } else
-      if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
-      {
-        resultType = TokenType::Float;
-      } else
-      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
-      {
-        resultType = TokenType::UFloat;
-      } else
-      if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int
-      {
-        resultType = TokenType::Int;
-      }
-    }
-  }
-  // return
-  Token::new(resultType, resultValue)
-}
-/// Зависимость для calculate;
-/// Считает значение левой и правой части выражения
-fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value 
-{
-  match tokenDataType
-  {
-    TokenType::None =>
-    {
-      Value::None()
-    }
-    TokenType::Int =>
-    {
-      tokenData.parse::<i64>()
-        .map(Value::Int)
-        .unwrap_or(Value::Int(0))
-    },
-    TokenType::UInt =>
-    {
-      tokenData.parse::<u64>()
-        .map(Value::UInt)
-        .unwrap_or(Value::UInt(0))
-    },
-    TokenType::Float =>
-    {
-      tokenData.parse::<f64>()
-        .map(Value::Float)
-        .unwrap_or(Value::Float(0.0))
-    },
-    TokenType::UFloat =>
-    {
-      tokenData.parse::<f64>()
-        .map(uf64::from)
-        .map(Value::UFloat)
-        .unwrap_or(Value::UFloat(uf64::from(0.0)))
-    },
-    TokenType::Char =>
-    { // todo: добавить поддержку операций с TokenType::formattedChar
-      tokenData.parse::<char>()
-        .map(|x| Value::Char(x))
-        .unwrap_or(Value::Char('\0'))
-    },
-    TokenType::String =>
-    {
-      tokenData.parse::<String>()
-        .map(|x| Value::String(x))
-        .unwrap_or(Value::String("".to_string()))
-    },
-    TokenType::Bool =>
-    {
-      match tokenData == "true"
-      {
-        true  => Value::UInt(1),
-        false => Value::UInt(0)
-      }
-    },
-    _ => Value::UInt(0)
-  }
-}
+// =================================================================================================
 
-// StructureMut ====================================================================================
 /// Обозначает уровень изменения структуры
 #[derive(PartialEq)]
 #[derive(Clone)]
@@ -231,112 +43,8 @@ impl ToString for StructureMut
   }
 }
 
-// DataType ========================================================================================
-/// Тип данных структуры
-#[derive(PartialEq)]
-#[derive(Clone)]
-pub enum StructureType
-{
-// primitives
-  None,
-  Any,
-  Link,
+// =================================================================================================
 
-  Bool,
-
-  UInt,
-  Int,
-
-  UFloat,
-  Float,
-
-  // todo
-  //Rational,
-  //Complex,
-
-  Char,
-  String,
-  RawString,
-
-  FormattedChar,
-  FormattedString,
-  FormattedRawString,
-
-  Method,
-
-  List, // todo List<Type>
-
-  // todo
-  // Date
-
-// custom
-  /// Позволяет создавать пользовательские типы
-  Custom(String),
-}
-// todo Можно заменить данные на keywords из words.rs, 
-//   но их не хватит т.к. тут есть другие, 
-//   + здесь structure type
-impl ToString for StructureType
-{ // todo convert -> fmt::Display ?
-  fn to_string(&self) -> String
-  {
-    match self
-    { // primitives
-      StructureType::None => String::from("None"),
-      StructureType::Any => String::from("Any"),
-      StructureType::Link => String::from("Link"),
-
-      StructureType::Bool => String::from("Bool"),
-
-      StructureType::UInt => String::from("UInt"),
-      StructureType::Int => String::from("Int"),
-
-      StructureType::UFloat => String::from("UFloat"),
-      StructureType::Float => String::from("Float"),
-
-      StructureType::Char => String::from("Char"),
-      StructureType::String => String::from("String"),
-      StructureType::RawString => String::from("RawString"),
-
-      StructureType::FormattedChar => String::from("FormattedChar"),
-      StructureType::FormattedString => String::from("FormattedString"),
-      StructureType::FormattedRawString => String::from("FormattedRawString"),
-
-      StructureType::Method => String::from("Method"),
-
-      StructureType::List => String::from("List"),
-
-      // custom
-      StructureType::Custom(value) => value.clone(),
-    }
-  }
-}
-
-pub trait ToTokenType
-{
-  /// Преобразует StructureType в TokenType
-  fn toTokenType(&self) -> TokenType;
-}
-
-impl ToTokenType for StructureType
-{
-  fn toTokenType(&self) -> TokenType
-  {
-    match self
-    {
-      StructureType::UInt => TokenType::UInt,
-      StructureType::Int => TokenType::Int,
-      StructureType::UFloat => TokenType::UFloat,
-      StructureType::Float => TokenType::Float,
-      StructureType::String => TokenType::String,
-      StructureType::Char => TokenType::Char,
-      // StructureType::Rational => TokenType::Rational,
-      // StructureType::Complex => TokenType::Complex,
-      _ => TokenType::None, // todo ?
-    }
-  }
-}
-// Structure =======================================================================================
 /// Свободная структура данных
 #[derive(Clone)]
 pub struct Structure 
@@ -355,7 +63,7 @@ pub struct Structure
   pub lines: Option< Vec< Arc<RwLock<Line>> > >,
 
   /// Входные параметры
-  /// todo Не используется в коде
+  /// todo Не используется в коде. Зачем оно тогда здесь было?
   pub parameters: Parameters,
 
   /// Выходной результат
@@ -372,6 +80,7 @@ pub struct Structure
   /// todo Комментарий + возможно не нужно т.к. можно лучше
   pub lineIndex: usize,
 }
+
 impl Structure 
 {
   pub fn new
@@ -397,6 +106,16 @@ impl Structure
     }
   }
 
+  // ===============================================================================================
+  
+  pub fn parseLink(linkName: &str) -> Vec<String> 
+  {
+    linkName
+      .split('.')
+      .map(|segment: &str| segment.to_string())
+      .collect()
+  }
+
   /// Ищет структуру по имени (даже если это ссылка)
   ///
   /// Пример: "parent.child.grandchild" будет искать:
@@ -408,11 +127,8 @@ impl Structure
   pub fn getStructureByName(&self, name: &str) -> Option<Arc<RwLock<Structure>>> 
   {
     // "a.b.c" -> ["a", "b", "c"]
-    let segments: Vec<String> = name
-      .split('.')
-      .map(|segment: &str| segment.to_string())
-      .collect();
-
+    let segments: Vec<String> = Self::parseLink(name);
+    
     // Если имя пустое - нечего искать
     match segments.is_empty() 
     {
@@ -421,7 +137,7 @@ impl Structure
     }
 
     // Начинаем с корневого уровня (None)
-    let mut currentStructure: Option<Arc<RwLock<Structure>>> = None;
+    let mut currentStructure: Option< Arc<RwLock<Structure>> > = None;
 
     // Пошагово проходим по каждому сегменту имени
     for segment in segments.iter() 
@@ -429,7 +145,8 @@ impl Structure
       // Определяем список структур для поиска на текущем уровне:
       // если currentStructure = None, это означает корневой уровень self.structures
       // иначе — получаем дочерние структуры текущей найденной структуры
-      let childrenOpt: Option<Vec<Arc<RwLock<Structure>>>> = match &currentStructure {
+      let childrenOpt: Option<Vec< Arc<RwLock<Structure>> >> = match &currentStructure 
+      {
         None => self.structures.clone(), // Корневые структуры
         Some(structureRef) => {
           let structureGuard: RwLockReadGuard<Structure> = structureRef.read().unwrap();
@@ -440,7 +157,7 @@ impl Structure
       // Флаг найденной структуры
       let mut found: bool = false;
       // Следующая структура, если сегмент найден
-      let mut nextStructure: Option<Arc<RwLock<Structure>>> = None;
+      let mut nextStructure: Option< Arc<RwLock<Structure>> > = None;
 
       // Обрабатываем наличие дочерних структур
       match childrenOpt 
@@ -493,9 +210,13 @@ impl Structure
         {
           structures.push( Arc::new(RwLock::new(structure)) );
         }}
+        //
       }
     }
+    //
   }
+
+  // ===============================================================================================
 
   /// Выполняет операцию со структурой,
   /// для этого требует левую и правую часть выражения,
@@ -535,12 +256,12 @@ impl Structure
             match leftPartMutable != StructureMut::Variable
             { false => {} true =>
             { // Будет присвоено только Final | Dynamic
-              structure.dataType = rightPartValue.getDataType().toStructureType();
+              structure.dataType = rightPartValue.getStructureType();
             }}
           }
           false =>
           { // Требуется выполнить преобразование в указанный тип данных
-            rightPartValue.setDataType(structure.dataType.toTokenType());
+            Structure::normalizeToken(&mut rightPartValue, structure.dataType.clone())
           }
         }
 
@@ -589,7 +310,7 @@ impl Structure
           //
         };
         let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо
-
+        
         // Далее обрабатываем саму операцию
         let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
         match op 
@@ -601,6 +322,9 @@ impl Structure
                 Arc::new(RwLock::new( 
                   Line {
                     tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightPart) ]),
+                    // todo Здесь должны быть преобразования типа у структуры
+                    //  Сейчас если станет Int, то у структуры не поменяется U8 на I8.
+                    //  + Здесь должна быть normalizeToken когда не Dynamic
                     indent: None,
                     lines:  None,
                     parent: None
@@ -617,6 +341,8 @@ impl Structure
       }
     }
   }
+
+  // ===============================================================================================
 
   /// Вычисляем значение для struct имени типа TokenType::Word
   fn replaceStructureByName(&self, value: &mut Vec<Token>, index: usize) -> ()
@@ -692,9 +418,16 @@ impl Structure
     //
   }
 
+  // ===============================================================================================
+
   /// Получает значение из ссылки на структуру;
   /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
-  pub fn linkExpression(&self, currentStructureLink: Option< Arc<RwLock<Structure>> >, link: &mut Vec<String>, parameters: Option< Vec<Token> >) -> Token
+  pub fn linkExpression(
+    &self, // Текущая структура - текущее пространство;
+    currentStructureLink: Option< Arc<RwLock<Structure>> >, // Структура предыдущего уровня ссылки;
+    link: &mut Vec<String>, // Осталось читать;
+    parameters: Option< Vec<Token> >
+  ) -> Token
   { // Обработка динамического выражение
     match link[0].starts_with('[')
     { false => {} true => { // Получаем динамическое выражение между []
@@ -870,6 +603,84 @@ impl Structure
           None => {}
           Some(structureLink) => 
           { // Это структура которую мы нашли по имени в self пространстве
+
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // Обработка нативной библиотеки
+            // Проверяем: остались ли ещё сегменты пути (имя метода)
+            if !link.is_empty() 
+            {
+              // Читаем структуру, которая представляет загруженную библиотеку
+              let structureGuard: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+
+              // Если структура имеет тип Native — это наша динамическая библиотека
+              if structureGuard.dataType == StructureType::Pointer
+              {
+                // Имя метода, который вызывают (например, "method" в lib.method(...))
+                let methodName: String = link[0].clone();
+
+                // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0]
+                // Библиотека там лежит как токен типа Native с адресом в данных
+
+                // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен)
+                let linesVec: &Vec< Arc<RwLock<Line>> > = match &structureGuard.lines {
+                  Some(v) => v,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Берём первую линию (индекс 0)
+                let lineLock: &Arc<RwLock<Line>> = match linesVec.get(0) {
+                  Some(l) => l,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Читаем линию, чтобы получить её токены
+                let line: RwLockReadGuard<Line> = lineLock.read().unwrap();
+                // Токены линии — здесь должен быть один токен типа Native
+                let tokensVec: &Vec<Token> = match &line.tokens {
+                  Some(t) => t,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Берём первый (и единственный) токен
+                let nativeToken: &Token = match tokensVec.get(0) {
+                  Some(t) => t,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+                // Убеждаемся, что токен действительно типа Address
+                if *nativeToken.getDataType() != TokenType::Address {
+                  return Token::newEmpty(TokenType::None);
+                }
+
+                // Из токена извлекаем сырые байты (адрес библиотеки)
+                let bytes: Bytes = nativeToken.getData();
+                let raw: &[u8] = match bytes.getAll() {
+                  Some(r) => r,
+                  None => return Token::newEmpty(TokenType::None),
+                };
+
+                // Преобразуем байты в usize-адрес библиотеки
+                let mut addr: [u8; size_of::<usize>()] = [0u8; size_of::<usize>()];
+                addr.copy_from_slice(raw);
+                let libraryPointer: usize = usize::from_le_bytes(addr);
+
+                // Восстанавливаем изменяемую ссылку на библиотеку из сырого указателя
+                let libRef: &mut libloading::Library = unsafe { &mut *(libraryPointer as *mut libloading::Library) };
+
+                // Получаем адрес функции по имени methodName
+                let functionPointer: *const () = unsafe {
+                  match libRef.get::<*const ()>(methodName.as_bytes()) {
+                    Ok(ptr) => *ptr,
+                    Err(_) => return Token::newEmpty(TokenType::None),
+                  }
+                };
+
+                // Возвращаем токен с адресом функции
+                return Token::new(
+                  TokenType::Address,
+                  (functionPointer as usize).to_ne_bytes().to_vec()
+                );
+              }
+            }
+            
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+            // todo desc
             match link.len() == 0
             { // Закончилась ли ссылка?
               false =>
@@ -940,7 +751,7 @@ impl Structure
                 //
               }
             }
-            //
+            // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
           }
         }
         //
@@ -949,6 +760,8 @@ impl Structure
     // если всё было плохо, то просто используем пустой результат
     Token::newEmpty(TokenType::None)
   }
+
+  // ===============================================================================================
 
   /// Принимает formatQuote типы и получает возможное значение обычной строки;
   /// В основном всё сводится к получению токенов в {} через Token::readTokens(),
@@ -1020,6 +833,8 @@ impl Structure
     result
   }
 
+  // ===============================================================================================
+
   /// Получает параметры структуры вычисляя их значения;
   ///
   /// todo: требует пересмотра
@@ -1039,17 +854,16 @@ impl Structure
           {
             expressionBuffer.push( token.clone() );
           }}
-
-          // todo: зачем это?
-          /*
+          
+          // Это типизация параметра
           if expressionBuffer.len() == 3 
           {
-            if let Some(expressionData) = expressionBuffer[2].getData() 
-            {
-              expressionBuffer[0].setDataType( Some(getStructureResultType(expressionData)) );
-            }
+            // todo По идее должен быть expressionBuffer[2].getStructureTypeSimple(),
+            //  а потом смотрим на StructureType и получаем просто абстрактный TokenType
+            expressionBuffer[0].setDataType(TokenType::UInt); // todo Поэтому временно поставил это
           }
-          */
+          
+          //
           result.push( expressionBuffer[0].clone() );
 
           expressionBuffer.clear();
@@ -1060,7 +874,7 @@ impl Structure
         }
       }
     }
-
+    
     result
   }
 
@@ -1096,6 +910,8 @@ impl Structure
     Parameters::new(result)
   }
 
+  // ===============================================================================================
+
   /// Основная функция, которая получает результат выражения состоящего из токенов;
   /// Сначала она проверяет что это single токен, но если нет,
   /// то в цикле перебирает возможные варианты
@@ -1117,11 +933,8 @@ impl Structure
         TokenType::Link =>
         { // Если это TokenType::Link, то
           let data: String = value[0].getData().toString().unwrap_or_default(); // token data
-          let mut link: Vec<String> =
-            data.split('.')
-              .map(|s| s.to_string())
-              .collect();
-          let linkResult: Token  = self.linkExpression(None, &mut link, None); // Получаем результат от data
+          let mut link: Vec<String> = Self::parseLink(&data);
+          let linkResult: Token = self.linkExpression(None, &mut link, None); // Получаем результат от data
           match *linkResult.getDataType() // Предполагаем изменение dataType
           {
             TokenType::Word =>
@@ -1138,7 +951,7 @@ impl Structure
         TokenType::Word =>
         { // Если это TokenType::Word, то
           let data:       String = value[0].getData().toString().unwrap_or_default(); // token data
-          let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
+          let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
           value[0].setDataType( *linkResult.getDataType() ); // Ставим новый dataType
           value[0].setData( linkResult.getData() );  // Ставим новый data
         }
@@ -1200,18 +1013,16 @@ impl Structure
           //let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
           let     data: String = value[i].getData().toString().unwrap_or_default();
-          let mut link: Vec<String> =
-            data.split('.')
-              .map(|s| s.to_string())
-              .collect();
+          let mut link: Vec<String> = Self::parseLink(&data);
           
           let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));//parameters.getAll()); todo
           value[i].setDataType( *linkResult.getDataType() );
           value[i].setData( linkResult.getData() );
           
           // native method
-          if value[i].getDataType() == &TokenType::Native 
+          if value[i].getDataType() == &TokenType::Address 
           {
+            
             // Создаём массив нужного размера (разные usize могут быть)
             let mut array = [0u8; size_of::<usize>()];
             {
@@ -1224,13 +1035,24 @@ impl Structure
             //
             let addr: usize = usize::from_le_bytes(array);
             let fnPtr: *const () = addr as *const ();
-            let func: extern "C" fn(args: &[Token]) = unsafe { std::mem::transmute(fnPtr) };
             
             // Собираем параметры
             let bracket: &Token = &value[1];
             let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
             let parameters: Parameters = Parameters::new( Some(bracketLines.to_vec()) );
-            func( &parameters.getAllExpressions(self).unwrap() );
+            let args: Vec<Token> = parameters.getAllExpressions(self).unwrap();
+            if let Some(token) = args.get(0) 
+            {
+              if let Some(s) = token.getData().toString() 
+              {
+                let ptr: *const u8 = s.as_ptr();
+                let len: usize = s.len();
+                let func: extern "C" fn(*const u8, usize) -> *mut u8 = unsafe { std::mem::transmute(fnPtr) };
+                let _result: *mut u8 = func(ptr, len);
+                // result можно проигнорировать, т.к. функция возвращает NULL
+              }
+            }
+            //
           }
         } 
         TokenType::Minus =>
@@ -1256,6 +1078,7 @@ impl Structure
                     Token::newEmpty(TokenType::None)
                   }
                 }
+                //
               }
             };
             // Меняем отрицание
@@ -1433,22 +1256,26 @@ impl Structure
     let mut tokenType: &TokenType;
 
     while i < *valueLength
-    { // Проверка на логические операции
+    { // Если остался только 1 токен — дальше нечего делать
       match *valueLength == 1
       { false => {} true =>
       {
         break;
       }}
+      // Если i == 0, не можем начать, потому что нужен оператор
       match i == 0
       { false => {} true =>
       {
-        i += 1; continue;
+        i += 1; 
+        continue;
       }}
 
+      // true - если будет входящий в operations операция
       token = value[i].clone();
       tokenType = token.getDataType();
       match i+1 < *valueLength && operations.contains(tokenType)
       {
+        // Вычисление заданной операции между двумя операндами.
         true =>
         {
           value[i-1] = calculate(tokenType, &value[i-1], &value[i+1]);
@@ -1458,7 +1285,10 @@ impl Structure
           *valueLength -= 2;
           continue;
         }
+        // Подразумевается, что нет оператора - поэтому два операнда,
+        // поэтому мы можем проверить:
         // value -value2
+        // Потому что минус входит в число и мы можем просто проверить 2 токена.
         false => match matches!(*tokenType, TokenType::Int | TokenType::Float)
         { false => {} true =>
         {
@@ -1473,4 +1303,8 @@ impl Structure
       i += 1;
     }
   }
+  
+  // ===============================================================================================
 }
+
+// =================================================================================================

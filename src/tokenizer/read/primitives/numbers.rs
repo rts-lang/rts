@@ -24,6 +24,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
 
   let mut      dot: bool = false; // dot check
   let mut negative: bool = false; // negative check
+  let mut exponential: bool = false; // e, e+, e-
   let rational: bool = false; // rational check
 
   let mut byte1: u8; // Текущий символ
@@ -60,26 +61,29 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Toke
       dot = true;
       result.push(byte1 as char);
       savedIndex += 1;
-    } /*else // todo Rational пока что нет как типа
-    if byte1 == b'/' && byte2 == b'/' && !dot &&
-      (savedIndex+2 < *bufferLength && isDigit(&buffer[savedIndex+2]))
-    { // Rational
-      rational = true;
-      result.push_str("//");
-      savedIndex += 2;
-    }*/ else { break; }
+    } else 
+    if !exponential && (byte1 == b'e' || byte1 == b'E') 
+    { // Это должно быть float, без повторений E.
+      exponential = true;
+      result.push(byte1 as char);
+      if byte2 == b'+' || byte2 == b'-' {
+        result.push(byte2 as char);
+        savedIndex += 1;
+      }
+      savedIndex += 1;
+      dot = true; // Если будет integer - то станет от этого float
+    } else { break; }
   }
 
   *index = savedIndex;
 
   // next return
-  match (rational, dot, negative)
-  { // rational, dot, negative
-    // (true, _, _)     => Token::new( TokenType::Rational, result ), // todo Rational пока что нет как типа
-    (_, true, true)  => Token::new( TokenType::Float,    result ),
-    (_, true, false) => Token::new( TokenType::UFloat,   result ),
-    (_, false, true) => Token::new( TokenType::Int,      result ),
-    _                => Token::new( TokenType::UInt,     result ),
+  match (dot, negative)
+  { // dot, negative
+    (true, true)  => Token::new( TokenType::Float,    result ),
+    (true, false) => Token::new( TokenType::UFloat,   result ),
+    (false, true) => Token::new( TokenType::Int,      result ),
+    _             => Token::new( TokenType::UInt,     result ),
   }
   //
 }
@@ -203,6 +207,64 @@ mod tests
       );
     }
     //
+  }
+
+  // ===============================================================================================
+
+  /// todo desk
+  #[test]
+  fn exponential() 
+  {
+    for (input, expectedType, expectedValue, expectedIndex) in [
+      ("1e3", TokenType::UFloat, "1e3", 3),
+      ("1.5e-2", TokenType::UFloat, "1.5e-2", 6),
+      ("-3.14e+10", TokenType::Float, "-3.14e+10", 9),
+      ("0e0", TokenType::UFloat, "0e0", 3),
+      ("-1E-5", TokenType::Float, "-1E-5", 5),
+      ("2e+5", TokenType::UFloat, "2e+5", 4),
+      ("10e-1", TokenType::UFloat, "10e-1", 5),
+    ] {
+      let buffer: &[u8] = input.as_bytes();
+      let bufferLength: usize = buffer.len();
+      let mut index: usize = 0;
+
+      let token: Token = getNumber(buffer, &mut index, &bufferLength);
+
+      //
+      let tokenType: String = token.getDataType().to_string();
+      let expectedType: String = expectedType.to_string();
+
+      assert_eq!(
+        tokenType,
+        expectedType,
+        "Для '{}' ожидался тип {}, получен {}",
+        input,
+        expectedType,
+        tokenType
+      );
+
+      //
+      let tokenData: String = token.getData().toString().unwrap_or_default();
+
+      assert_eq!(
+        tokenData,
+        expectedValue,
+        "Для '{}' ожидалось значение '{}', получено '{}'",
+        input,
+        expectedValue,
+        tokenData
+      );
+
+      //
+      assert_eq!(
+        index,
+        expectedIndex,
+        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        input,
+        expectedIndex,
+        index
+      );
+    }
   }
 
   // ===============================================================================================

@@ -1,5 +1,4 @@
 /.idea
 /target
-/release/rts
 /Cargo.lock
 /pkg
