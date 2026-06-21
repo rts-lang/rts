@@ -616,9 +616,6 @@ impl Structure
               // Если структура имеет тип Pointer — это динамическая библиотека
               if structureGuard.dataType == StructureType::Pointer
               {
-                // Имя метода, который вызывают (например, "method" в lib.method(...))
-                let methodName: String = link[0].clone();
-
                 // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0]
                 // Библиотека там лежит как токен типа String с путём к файлу библиотеки
 
@@ -661,32 +658,20 @@ impl Structure
                   Ok(s) => s,
                   Err(_) => return Token::newEmpty(TokenType::None),
                 };
-
-                // Загружаем библиотеку по этому пути
-                let lib: Library = match unsafe { Library::new(libraryPath) } {
-                  Ok(l) => l,
-                  Err(_) => return Token::newEmpty(TokenType::None),
-                };
-
-                // Переносим Library в кучу, чтобы она продолжала жить после выхода из области видимости
-                let libraryPointer: usize = Box::into_raw(Box::new(lib)) as usize;
-
-                // Восстанавливаем изменяемую ссылку на библиотеку из сырого указателя
-                let libRef: &mut Library = unsafe { &mut *(libraryPointer as *mut Library) };
-
-                // Получаем адрес функции по имени methodName
-                let functionPointer: *const () = unsafe {
-                  match libRef.get::<*const ()>(methodName.as_bytes()) {
-                    Ok(ptr) => *ptr,
-                    Err(_) => return Token::newEmpty(TokenType::None),
-                  }
-                };
-
-                // Возвращаем токен с адресом функции
-                return Token::new(
-                  TokenType::Address,
-                  (functionPointer as usize).to_ne_bytes().to_vec()
-                );
+                
+                // Формируем токен Nesting: одна линия с двумя токенами-строками
+                return Token::newNesting(vec![Line {
+                  tokens: Some(vec![
+                    // Путь к lib, например: "./libprint.so"
+                    Token::new(TokenType::String, libraryPath),
+                    // Имя метода, который вызывают; например: "method" в lib.method(...)
+                    Token::new(TokenType::String, link[0].clone()) // todo Но кстати оно больше не надо будет? зачем тогда .clone
+                  ]),
+                  indent: None,
+                  lines: None,
+                  parent: None,
+                }]);
+                //
               }
             }
             
@@ -1020,51 +1005,89 @@ impl Structure
         }
         TokenType::Link =>
         { // Это ссылка на структуру, может выдать значение, запустить метод и т.д;
-          // todo
+          // todo ? хз что это, имелось ввиду не для ffi
           //let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
           let     data: String = value[i].getData().toString().unwrap_or_default();
           let mut link: Vec<String> = Self::parseLink(&data);
           
-          let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));//parameters.getAll()); todo
-          value[i].setDataType( *linkResult.getDataType() );
-          value[i].setData( linkResult.getData() );
+          let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));
+            //parameters.getAll()); todo? хз что это, имелось ввиду не для ffi
           
-          // native method
-          if value[i].getDataType() == &TokenType::Address 
+          // Проверяем, не является ли результат вызовом динамической библиотеки
+          // todo Правда это выглядит криво, вдруг другие nested будут. Мб тип ему сделать? Типо nativeCall.
+          'none: 
           {
-            
-            // Создаём массив нужного размера (разные usize могут быть)
-            let mut array = [0u8; size_of::<usize>()];
+            if let Some(lines) = &linkResult.lines 
             {
-              let data: Bytes = value[0].getData();
-              let all: Option<&[u8]> = data.getAll();
-              let bytes: &[u8] = all.unwrap();
-              array.copy_from_slice(bytes);
-            }
-  
-            //
-            let addr: usize = usize::from_le_bytes(array);
-            let fnPtr: *const () = addr as *const ();
-            
-            // Собираем параметры
-            let bracket: &Token = &value[1];
-            let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
-            let parameters: Parameters = Parameters::new( Some(bracketLines.to_vec()) );
-            let args: Vec<Token> = parameters.getAllExpressions(self).unwrap();
-            if let Some(token) = args.get(0) 
-            {
-              if let Some(s) = token.getData().toString() 
+              if let Some(firstLine) = lines.get(0) 
               {
-                let ptr: *const u8 = s.as_ptr();
-                let len: usize = s.len();
-                let func: extern "C" fn(*const u8, usize) -> *mut u8 = unsafe { std::mem::transmute(fnPtr) };
-                let _result: *mut u8 = func(ptr, len);
-                // result можно проигнорировать, т.к. функция возвращает NULL
+                if let Some(tokens) = &firstLine.tokens 
+                {
+                  if tokens.len() == 2
+                    && tokens[0].getDataType() == &TokenType::String
+                    && tokens[1].getDataType() == &TokenType::String
+                  {
+                    // Это вызов внешней функции
+                    let libraryPath: String = tokens[0].getData().toString().unwrap();
+                    let methodName: String = tokens[1].getData().toString().unwrap();
+  
+                    // Загружаем библиотеку (можно добавить кэш)
+                    let lib: Library = match unsafe { Library::new(&libraryPath) } {
+                      Ok(l) => l,
+                      Err(_) => {
+                        value[i].setDataType(TokenType::None);
+                        value[i].setData(None);
+                        break 'none;
+                      }
+                    };
+                    let libraryPointer = Box::into_raw(Box::new(lib));
+                    let libraryLink = unsafe { &*libraryPointer };
+  
+                    let functionPointer: *const () = unsafe {
+                      match libraryLink.get::<*const ()>(methodName.as_bytes()) {
+                        Ok(ptr) => *ptr,
+                        Err(_) => {
+                          value[i].setDataType(TokenType::None);
+                          value[i].setData(None);
+                          break 'none;
+                        }
+                      }
+                    };
+  
+                    // -- Здесь выполняем вызов, используя functionPointer и параметры --
+                    // Параметры берутся из value[i+1] - bracket
+                    let bracket: &Token = &value[i + 1];
+                    let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
+                    let parameters = Parameters::new(Some(bracketLines.to_vec()));
+                    let args: Vec<Token> = parameters.getAllExpressions(self).unwrap();
+  
+                    // Пример вызова для функции с сигнатурой fn(*const u8, usize) -> *mut u8
+                    if let Some(token) = args.get(0) 
+                    {
+                      if let Some(tokenData) = token.getData().toString() // todo utf8 строка сейчас
+                      {
+                        let ptr: *const u8 = tokenData.as_ptr();
+                        let len: usize = tokenData.len();
+                        let func: extern "C" fn(*const u8, usize) -> *mut u8 =
+                          unsafe { std::mem::transmute(functionPointer) };
+                        let _result = func(ptr, len);
+                        // todo Обработка result
+                      }
+                    }
+                    //
+                  }
+                }
+                //
               }
+            } else {
+              // Стандартный вариант результата
+              // todo Кстати как же запуск обычных методов по ссылкам?
+              value[i].setDataType( *linkResult.getDataType() );
+              value[i].setData( linkResult.getData() );
             }
-            //
           }
+          //
         } 
         TokenType::Minus =>
         { // это выражение в круглых скобках, но перед ними отрицание -

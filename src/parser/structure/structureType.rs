@@ -109,22 +109,15 @@ impl Structure
   {
     let dataType: &TokenType = token.getDataType();
 
-    // todo Пока что оставил это здесь, т.к. часть требует его, а часть нет.
-    let tokenData: String = if token.getDataType() != &TokenType::Address 
-    { // Адрес не может быть преобразован в строку;
-      // Получаем строку из данных.
-      match token.getData().toString()
-      {
-        Some(s) => s,
-        None =>
-        {
-          // Нет данных
-          token.setDefaultValue(structureType);
-          return;
-        }
+    // Получаем строку из данных
+    let tokenData: String = match token.getData().toString()
+    {
+      Some(s) => s,
+      None =>
+      { // Нет данных
+        token.setDefaultValue(structureType);
+        return;
       }
-    } else {
-      String::new()
     };
 
     // Обработка типов
