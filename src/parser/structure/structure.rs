@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use libloading::Library;
 use crate::parser::bytes::Bytes;
+use crate::parser::structure::ffi::workerManager::callExternal;
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::calculate;
@@ -1028,57 +1029,37 @@ impl Structure
                     && tokens[0].getDataType() == &TokenType::String
                     && tokens[1].getDataType() == &TokenType::String
                   {
-                    // Это вызов внешней функции
                     let libraryPath: String = tokens[0].getData().toString().unwrap();
                     let methodName: String = tokens[1].getData().toString().unwrap();
-  
-                    // Загружаем библиотеку (можно добавить кэш)
-                    let lib: Library = match unsafe { Library::new(&libraryPath) } {
-                      Ok(l) => l,
+
+                    // Получаем аргументы из value[i+1] - скобка
+                    let bracket: &Token = &value[i + 1];
+                    let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
+                    let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
+                    let parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
+
+                    // Преобразуем токены в строки (все должны быть строковыми)
+                    let parametersStrings: Vec<String> = parametersTokens
+                      .iter()
+                      .map(|t| t.getData().toString().unwrap()) // todo utf8 строка сейчас
+                      .collect();
+
+                    // Вызов через worker
+                    match callExternal(&libraryPath, &methodName, &parametersStrings) 
+                    {
+                      Ok(_result) => {
+                        // todo Обработка result
+                      }
                       Err(_) => {
                         value[i].setDataType(TokenType::None);
                         value[i].setData(None);
                         break 'none;
                       }
-                    };
-                    let libraryPointer = Box::into_raw(Box::new(lib));
-                    let libraryLink = unsafe { &*libraryPointer };
-  
-                    let functionPointer: *const () = unsafe {
-                      match libraryLink.get::<*const ()>(methodName.as_bytes()) {
-                        Ok(ptr) => *ptr,
-                        Err(_) => {
-                          value[i].setDataType(TokenType::None);
-                          value[i].setData(None);
-                          break 'none;
-                        }
-                      }
-                    };
-  
-                    // -- Здесь выполняем вызов, используя functionPointer и параметры --
-                    // Параметры берутся из value[i+1] - bracket
-                    let bracket: &Token = &value[i + 1];
-                    let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
-                    let parameters = Parameters::new(Some(bracketLines.to_vec()));
-                    let args: Vec<Token> = parameters.getAllExpressions(self).unwrap();
-  
-                    // Пример вызова для функции с сигнатурой fn(*const u8, usize) -> *mut u8
-                    if let Some(token) = args.get(0) 
-                    {
-                      if let Some(tokenData) = token.getData().toString() // todo utf8 строка сейчас
-                      {
-                        let ptr: *const u8 = tokenData.as_ptr();
-                        let len: usize = tokenData.len();
-                        let func: extern "C" fn(*const u8, usize) -> *mut u8 =
-                          unsafe { std::mem::transmute(functionPointer) };
-                        let _result = func(ptr, len);
-                        // todo Обработка result
-                      }
+                      //
                     }
-                    //
                   }
+                  //
                 }
-                //
               }
             } else {
               // Стандартный вариант результата
