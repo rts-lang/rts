@@ -1,4 +1,5 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use libloading::Library;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structureType::{StructureType};
@@ -612,14 +613,14 @@ impl Structure
               // Читаем структуру, которая представляет загруженную библиотеку
               let structureGuard: RwLockReadGuard<Structure> = structureLink.read().unwrap();
 
-              // Если структура имеет тип Native — это наша динамическая библиотека
+              // Если структура имеет тип Pointer — это динамическая библиотека
               if structureGuard.dataType == StructureType::Pointer
               {
                 // Имя метода, который вызывают (например, "method" в lib.method(...))
                 let methodName: String = link[0].clone();
 
                 // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0]
-                // Библиотека там лежит как токен типа Native с адресом в данных
+                // Библиотека там лежит как токен типа String с путём к файлу библиотеки
 
                 // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен)
                 let linesVec: &Vec< Arc<RwLock<Line>> > = match &structureGuard.lines {
@@ -633,7 +634,7 @@ impl Structure
                 };
                 // Читаем линию, чтобы получить её токены
                 let line: RwLockReadGuard<Line> = lineLock.read().unwrap();
-                // Токены линии — здесь должен быть один токен типа Native
+                // Токены линии — здесь должен быть один токен типа String
                 let tokensVec: &Vec<Token> = match &line.tokens {
                   Some(t) => t,
                   None => return Token::newEmpty(TokenType::None),
@@ -643,25 +644,35 @@ impl Structure
                   Some(t) => t,
                   None => return Token::newEmpty(TokenType::None),
                 };
-                // Убеждаемся, что токен действительно типа Address
-                if *nativeToken.getDataType() != TokenType::Address {
+                // Убеждаемся, что токен действительно типа String
+                if *nativeToken.getDataType() != TokenType::String {
                   return Token::newEmpty(TokenType::None);
                 }
 
-                // Из токена извлекаем сырые байты (адрес библиотеки)
+                // Из токена извлекаем сырые байты (путь к библиотеке)
                 let bytes: Bytes = nativeToken.getData();
                 let raw: &[u8] = match bytes.getAll() {
                   Some(r) => r,
                   None => return Token::newEmpty(TokenType::None),
                 };
 
-                // Преобразуем байты в usize-адрес библиотеки
-                let mut addr: [u8; size_of::<usize>()] = [0u8; size_of::<usize>()];
-                addr.copy_from_slice(raw);
-                let libraryPointer: usize = usize::from_le_bytes(addr);
+                // Преобразуем байты в строку (путь)
+                let libraryPath: &str = match std::str::from_utf8(raw) {
+                  Ok(s) => s,
+                  Err(_) => return Token::newEmpty(TokenType::None),
+                };
+
+                // Загружаем библиотеку по этому пути
+                let lib: Library = match unsafe { Library::new(libraryPath) } {
+                  Ok(l) => l,
+                  Err(_) => return Token::newEmpty(TokenType::None),
+                };
+
+                // Переносим Library в кучу, чтобы она продолжала жить после выхода из области видимости
+                let libraryPointer: usize = Box::into_raw(Box::new(lib)) as usize;
 
                 // Восстанавливаем изменяемую ссылку на библиотеку из сырого указателя
-                let libRef: &mut libloading::Library = unsafe { &mut *(libraryPointer as *mut libloading::Library) };
+                let libRef: &mut Library = unsafe { &mut *(libraryPointer as *mut Library) };
 
                 // Получаем адрес функции по имени methodName
                 let functionPointer: *const () = unsafe {

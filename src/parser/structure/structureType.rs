@@ -312,7 +312,7 @@ impl Structure
       }
       _ => {
         // todo
-        // Другие типы — пока ничего не делаем
+        // Другие типы — ничего не делаем
       }
     }
     //
@@ -347,7 +347,7 @@ impl Token
         self.setData("0.0");
       }
       // todo
-      // Для остальных типов - пока ничего
+      // Для остальных типов - ничего
       _ => {
         self.setDataType(TokenType::None);
         self.setData(None);

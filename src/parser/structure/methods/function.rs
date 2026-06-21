@@ -2,7 +2,7 @@ use std::io;
 use std::io::Write;
 use std::process::{Command, ExitStatus, Output};
 use std::str::SplitWhitespace;
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use std::sync::{RwLockReadGuard};
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::token::{Token};
@@ -358,25 +358,9 @@ impl Function
         }
 
         #[cfg(not(target_family = "wasm"))]
-        unsafe 
         {
-          match libloading::Library::new(&libraryPath) 
-          {
-            Ok(lib) => 
-            { // todo Кстати мы могли бы сразу хранить Native?
-              //  потому что потом мы загружаем lib снова при использовании?
-              //  но тут вопрос либо указатель - потому что запуск может быть потом или не быть.
-              //  или сохранение и как бы в режиме готовности?
-              //  вообще можно сделать 2 варианта через flag True/False или 2 метода 
-              //  и выдавать разные результаты.
-              // Переносим Library в кучу, чтобы она жила в памяти
-              let libPointer: usize = Box::into_raw(Box::new(lib)) as usize;
-              // Возвращаем токен типа Native, который хранит ТОЛЬКО адрес либы
-              value[i].setDataType(TokenType::Address);
-              value[i].setData(libPointer.to_ne_bytes().to_vec());
-            }
-            Err(_) => value[i].setDataType(TokenType::None)
-          }
+          value[i].setDataType(TokenType::String);
+          value[i].setData(libraryPath);
         }
 
         // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна

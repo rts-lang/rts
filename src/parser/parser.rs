@@ -599,7 +599,7 @@ lazy_static!
 { /// Основная структура; В неё вкладываются остальные;
   /// В эту структуру будут переданы стартовые параметры;
   /// Неизменяемая; Действует во время всей жизни программы;
-  pub static ref _main: Arc<RwLock<Structure>> = Arc::new(
+  pub static ref MainStructure: Arc<RwLock<Structure>> = Arc::new(
     RwLock::new(
       Structure::new(
         Some(String::from("main")),
@@ -626,7 +626,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }}
 
   { // Присваиваем в главную структуру
-    let mut main: RwLockWriteGuard<Structure> = _main.write().unwrap();
+    let mut main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
 
     // Присваиваем линии от Tokenizer
     main.lines = Some(tokenizerLinesLinks);
@@ -654,7 +654,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
             }
           ))
         ]),
-        Some( _main.clone() ), // Ссылаемся на родителя
+        Some( MainStructure.clone() ), // Ссылаемся на родителя
       )
     );
 
@@ -685,7 +685,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
         StructureMut::Constant, // Неизменяемая;
         StructureType::List,    // Список;
         Some(argv),             // В линии структуры добавляем все argv линии;
-        Some( _main.clone() ),  // ссылаемся на родителя
+        Some( MainStructure.clone() ),  // ссылаемся на родителя
       )
     );
   }
@@ -717,7 +717,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
   }}
   
   // Передаём ссылку на структуру и запускаем
-  readLines(_main.clone());
+  readLines(MainStructure.clone());
   // Далее идут debug замеры
   #[cfg(not(target_family = "wasm"))]
   match unsafe{_debugMode} 
