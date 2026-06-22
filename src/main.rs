@@ -86,8 +86,8 @@ fn main() -> io::Result<()>
       let key: &str = args.0.as_str();
       match key
       {
-        "worker" => 
-        { // worker process
+        "ffi" => 
+        { // ffi worker process
           // todo Эта команда видна пользователю
           workerMain(); // эта функция сама завершит процесс
           return Ok(());

@@ -1,5 +1,4 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use libloading::Library;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::workerManager::callExternal;
 use crate::parser::structure::parameters::Parameters;

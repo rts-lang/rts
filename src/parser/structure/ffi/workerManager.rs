@@ -1,17 +1,22 @@
 use std::io::{Read, Stdin, Stdout, Write};
-use std::sync::Mutex;
-use lazy_static::lazy_static;
+use std::sync::{LazyLock, Mutex};
 use serde::{Deserialize, Serialize};
 use libloading::Library;
-use std::ffi::CStr;
+use std::ffi::{CStr};
 use std::os::raw::c_char;
 use std::process::{Command, Stdio, Child, ChildStdin, ChildStdout};
 use std::env;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
-use postcard::accumulator::{CobsAccumulator, FeedResult};
+use serde::de::DeserializeOwned;
+use crate::parser::structure::ffi::workerManager::stdoutRedirect::StdoutRedirect;
 // =================================================================================================
 
 // Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
+// 
+// Она также всегда перезапускается, чтобы мы могли её использовать постоянно;
+// А также синхронная, чтобы не нарушать поток и вести себя как обычный запуск чего-то.
+// Собственно, ей и не надо иметь многопоточность или асинхронность.
 
 // =================================================================================================
 
@@ -35,37 +40,39 @@ mod stdoutRedirect
   use libc;
   // ===============================================================================================
 
-  pub struct StdoutRedirect {
-    saved_fd: i32,
+  pub struct StdoutRedirect 
+  {
+    /// Сохраняет оригинальный дескриптор stdout для последующего восстановления
+    savedFd: i32,
   }
 
-  impl StdoutRedirect {
-    pub fn new() -> Self {
+  impl StdoutRedirect 
+  {
+    /// Сохраняет текущий stdout и перенаправляет его в stderr
+    pub fn new() -> Self 
+    {
       let stdoutFd: RawFd = std::io::stdout().as_raw_fd();
       let stderrFd: RawFd = std::io::stderr().as_raw_fd();
       let saved = unsafe { libc::dup(stdoutFd) };
       unsafe { libc::dup2(stderrFd, stdoutFd) };
-      StdoutRedirect { saved_fd: saved }
+      StdoutRedirect { savedFd: saved }
     }
   }
 
   // ===============================================================================================
   
-  extern "C" {
-    static stdout: *mut libc::FILE;
-  }
-
   impl Drop for StdoutRedirect 
   {
+    /// Восстанавливает оригинальный stdout и закрывает сохранённый дескриптор
     fn drop(&mut self) 
     {
       unsafe {
         // Сброс буфера Си-рантайма перед возвратом дескриптора
-        libc::fflush(stdout);
+        libc::fflush(std::ptr::null_mut()); // Сбрасывает все открытые C-потоки
 
         let stdoutFd: RawFd = std::io::stdout().as_raw_fd();
-        libc::dup2(self.saved_fd, stdoutFd);
-        libc::close(self.saved_fd);
+        libc::dup2(self.savedFd, stdoutFd);
+        libc::close(self.savedFd);
       }
     }
   }
@@ -73,32 +80,159 @@ mod stdoutRedirect
   // ===============================================================================================
 }
 
-use stdoutRedirect::StdoutRedirect;
+// =================================================================================================
+
+/// Результат обработки очередной порции данных аккумулятором COBS
+pub enum DynamicFeedResult<'a, T> 
+{
+  /// Данные поглощены, ждём завершения сообщения
+  Consumed,
+  /// Ошибка десериализации COBS или postcard
+  DeserError(String),
+  /// Успешно декодировано сообщение с остатком данных
+  Success { data: T, remaining: &'a [u8] }
+}
+
+/// Аккумулятор для накопления и декодирования COBS-сообщений из потока;
+/// Он динамического размера, чтобы мы могли не нарушать работу FFI потоков извне;
+/// Поскольку они бы не смогли изменить runtime и не писали бы это - 
+/// мы должны дать им это из коробки.
+pub struct DynamicCobsAccumulator 
+{
+  /// Буфер сырых байт COBS
+  rawBuffer: Vec<u8>,
+  /// Буфер раскодированных данных
+  decodedBuffer: Vec<u8>
+}
+
+impl DynamicCobsAccumulator 
+{
+  // ===============================================================================================
+
+  /// Создаёт аккумулятор с начальной ёмкостью буферов (по умолчанию 4096 байт).
+  pub fn new() -> Self {
+    Self::withCapacity(4096)
+  }
+
+  /// Создаёт аккумулятор с заданной начальной ёмкостью.
+  pub fn withCapacity(capacity: usize) -> Self 
+  {
+    Self {
+      rawBuffer: Vec::with_capacity(capacity),
+      decodedBuffer: Vec::with_capacity(capacity),
+    }
+  }
+
+  // ===============================================================================================
+
+  /// Очищает оба буфера для подготовки к новому сообщению
+  pub fn clear(&mut self) 
+  {
+    self.rawBuffer.clear();
+    self.decodedBuffer.clear();
+  }
+
+  // ===============================================================================================
+
+  /// Подаёт порцию данных, пытается извлечь законченное COBS-сообщение
+  pub fn feed<'a, T: DeserializeOwned>(&mut self, data: &'a [u8]) -> DynamicFeedResult<'a, T> 
+  {
+    for (i, &byte) in data.iter().enumerate() 
+    {
+      if byte == 0x00 
+      {
+        if let Err(e) = Self::decodeCobs(&self.rawBuffer, &mut self.decodedBuffer) {
+          self.clear();
+          return DynamicFeedResult::DeserError(e);
+        }
+        self.rawBuffer.clear();
+
+        match postcard::from_bytes::<T>(&self.decodedBuffer) 
+        {
+          Ok(val) => {
+            return DynamicFeedResult::Success {
+              data: val,
+              remaining: &data[i + 1..],
+            };
+          }
+          Err(e) => {
+            self.clear();
+            return DynamicFeedResult::DeserError(format!("{:?}", e));
+          }
+        }
+      } else {
+        // Буфер автоматически расширится при необходимости
+        self.rawBuffer.push(byte);
+      }
+    }
+    DynamicFeedResult::Consumed
+  }
+
+  // ===============================================================================================
+
+  /// Декодирует COBS-последовательность в обычные байты
+  fn decodeCobs(src: &[u8], dst: &mut Vec<u8>) -> Result<(), String> 
+  {
+    dst.clear();
+    let mut srcIndex: usize = 0;
+
+    while srcIndex < src.len() {
+      let code: usize = src[srcIndex] as usize;
+      if code == 0 {
+        return Err("Invalid COBS: zero byte in data".into());
+      }
+      srcIndex += 1;
+      let end: usize = srcIndex + code - 1;
+
+      if end > src.len() {
+        return Err("Invalid COBS: unexpected end".into());
+      }
+
+      dst.extend_from_slice(&src[srcIndex..end]);
+      srcIndex = end;
+
+      if code < 0xFF && srcIndex < src.len() {
+        dst.push(0);
+      }
+    }
+
+    Ok(())
+  }
+  
+  // ===============================================================================================
+}
 
 // =================================================================================================
 
+/// Запрос, отправляемый от родителя воркеру
 #[derive(Serialize, Deserialize)]
 struct WorkerRequest 
 {
+  /// Путь к динамической библиотеке
   libraryPath: String,
+  /// Имя вызываемой функции (символ)
   methodName: String,
+  /// Аргументы todo Пока только первый используется
   args: Vec<String>,
 }
 
+/// Ответ воркера родителю
 #[derive(Serialize, Deserialize)]
 struct WorkerResponse 
 {
+  /// Успешный результат (строка)
   result: Option<String>,
+  /// Сообщение об ошибке
   error: Option<String>,
 }
 
+/// Главный цикл воркера: чтение запросов, выполнение и отправка ответов
 pub fn workerMain() 
 {
   let mut inputStream: Stdin = std::io::stdin();
   let mut outputStream: Stdout = std::io::stdout();
-
-  let mut rawBuffer: [u8; 1024] = [0u8; 1024];
-  let mut cobsBuffer: CobsAccumulator<4096> = CobsAccumulator::new();
+  let mut rawBuffer: [u8; 8192] = [0u8; 8192];
+  let mut cobsBuffer: DynamicCobsAccumulator = DynamicCobsAccumulator::new();
 
   loop {
     let bytesRead: usize = match inputStream.read(&mut rawBuffer) {
@@ -111,19 +245,44 @@ pub fn workerMain()
     }
 
     let mut window: &[u8] = &rawBuffer[..bytesRead];
-    while !window.is_empty() {
+
+    while !window.is_empty() 
+    {
       window = match cobsBuffer.feed::<WorkerRequest>(window) 
       {
-        FeedResult::Consumed => break,
-        FeedResult::OverFull(remaining) => remaining,
-        FeedResult::DeserError(_) => break,
-        FeedResult::Success { data, remaining } => {
+        DynamicFeedResult::Consumed => break,
+        DynamicFeedResult::DeserError(e) => 
+        {
+          let response: WorkerResponse = WorkerResponse {
+            result: None,
+            error: Some(format!("Deserialization error: {:?}", e)),
+          };
+          if let Ok(bytes) = postcard::to_allocvec_cobs(&response) {
+            let _ = outputStream.write_all(&bytes);
+            let _ = outputStream.flush();
+          }
+          cobsBuffer.clear();
+          break;
+        }
+        DynamicFeedResult::Success { data, remaining } => 
+        {
           // Перенаправляем stdout на время обработки запроса
           let response: WorkerResponse = {
-            let redirect: StdoutRedirect = StdoutRedirect::new();
-            match processRequest(&data) {
-              Ok(res) => WorkerResponse { result: Some(res), error: None },
-              Err(err) => WorkerResponse { result: None, error: Some(err) },
+            #[cfg(unix)]
+            let _redirect: StdoutRedirect = StdoutRedirect::new();
+
+            let catchResult: Result<Result<String, String>, Box<dyn std::any::Any + Send>> =
+              catch_unwind(AssertUnwindSafe(|| processRequest(&data)));
+            // Если паника перехвачена внутри worker, он остается жив и возвращает ошибку родителю;
+            // Родитель получает штатный Err и не делает дорогостоящий restart.
+
+            match catchResult {
+              Ok(Ok(res)) => WorkerResponse { result: Some(res), error: None },
+              Ok(Err(err)) => WorkerResponse { result: None, error: Some(err) },
+              Err(_) => WorkerResponse {
+                result: None,
+                error: Some("FFI function panicked".to_string()),
+              },
             }
           }; // здесь redirect уничтожается, stdout восстанавливается
 
@@ -133,12 +292,14 @@ pub fn workerMain()
           }
           remaining
         }
+        //
       };
     }
     //
   }
 }
 
+/// Загружает библиотеку, вызывает FFI-функцию и возвращает результат
 fn processRequest(request: &WorkerRequest) -> Result<String, String> 
 {
   let library: Library = unsafe {
@@ -161,43 +322,56 @@ fn processRequest(request: &WorkerRequest) -> Result<String, String>
   let pointer: *const u8 = argumentBytes.as_ptr();
   let length: usize = argumentBytes.len();
 
-  // Вызов библиотечной функции – весь вывод в stdout теперь пойдёт в stderr,
+  // Вызов библиотечной функции – весь вывод в stdout пойдёт в stderr,
   // потому что мы перенаправили stdout перед вызовом processRequest.
   let resultPointer: *mut u8 = functionPointer(pointer, length);
 
   if resultPointer.is_null() {
-    Ok(String::new())
-  } else {
-    let cString: &CStr = unsafe { CStr::from_ptr(resultPointer as *const c_char) };
-    let resultString: String = cString.to_str()
-      .map_err(|e| format!("UTF-8 conversion error: {}", e))?
-      .to_string();
-    Ok(resultString)
+    return Ok(String::new());
   }
+
+  let cString: &CStr = unsafe { CStr::from_ptr(resultPointer as *const c_char) };
+  let resultString: String = cString.to_str()
+    .map_err(|e| format!("UTF-8 conversion error: {}", e))?
+    .to_string();
+
+  // НЕ освобождаем resultPointer — мы не знаем аллокатор библиотеки;
+  // Мы также не можем вмешиваться в незнакомые библиотеки и делать внешние методы;
+  // Это утечка памяти, но worker процесс перезапускается всегда.
+
+  Ok(resultString)
 }
 
 // =================================================================================================
 
+/// Управляет дочерним процессом-воркером
 struct WorkerManager 
 {
+  /// Дочерний процесс-воркер
   childProcess: Child,
+  /// Канал записи в STDIN воркера
   stdinHandle: ChildStdin,
+  /// Канал чтения из STDOUT воркера
   stdoutHandle: ChildStdout,
-  cobsBuffer: CobsAccumulator<4096>,
+  /// Аккумулятор для декодирования COBS-ответов
+  cobsBuffer: DynamicCobsAccumulator,
 }
 
 impl WorkerManager 
 {
+  // ===============================================================================================
+
+  /// Запускает новый экземпляр воркера (дочерний процесс)
   fn init() -> Result<Self, String> 
   {
     let executablePath: PathBuf = env::current_exe()
       .map_err(|e| format!("Failed to get exe path: {}", e))?;
 
     let mut childProcess: Child = Command::new(executablePath)
-      .arg("worker")
+      .arg("ffi")
       .stdin(Stdio::piped())
       .stdout(Stdio::piped())
-      .stderr(Stdio::inherit()) // stderr будет содержать вывод библиотечных функций
+      .stderr(Stdio::inherit())
       .spawn()
       .map_err(|e| format!("Failed to spawn worker: {}", e))?;
 
@@ -208,10 +382,13 @@ impl WorkerManager
       childProcess,
       stdinHandle,
       stdoutHandle,
-      cobsBuffer: CobsAccumulator::new(),
+      cobsBuffer: DynamicCobsAccumulator::new(),
     })
   }
 
+  // ===============================================================================================
+
+  /// Перезапускает воркера (убивает и создаёт заново)
   fn restart(&mut self) -> Result<(), String> 
   {
     let _ = self.childProcess.kill();
@@ -221,7 +398,7 @@ impl WorkerManager
       .map_err(|e| format!("Failed to get exe path: {}", e))?;
 
     let newChild: Child = Command::new(executablePath)
-      .arg("worker")
+      .arg("ffi")
       .stdin(Stdio::piped())
       .stdout(Stdio::piped())
       .stderr(Stdio::inherit())
@@ -231,66 +408,72 @@ impl WorkerManager
     self.childProcess = newChild;
     self.stdinHandle = self.childProcess.stdin.take().ok_or("Failed to open stdin")?;
     self.stdoutHandle = self.childProcess.stdout.take().ok_or("Failed to open stdout")?;
-    self.cobsBuffer = CobsAccumulator::new();
+    self.cobsBuffer = DynamicCobsAccumulator::new();
 
     Ok(())
   }
 
+  // ===============================================================================================
+  
+  /// Отправляет запрос воркеру и ждёт ответ; всегда перезапускает воркер.
   pub fn callExternal(&mut self, libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String> 
   {
-    let request: WorkerRequest = WorkerRequest {
-      libraryPath: libraryPath.to_string(),
-      methodName: methodName.to_string(),
-      args: args.to_vec(),
-    };
-
-    let bytes: Vec<u8> = postcard::to_allocvec_cobs(&request)
-      .map_err(|e| format!("Serialization error: {}", e))?;
-
-    if let Err(e) = self.stdinHandle.write_all(&bytes).and_then(|_| self.stdinHandle.flush()) {
-      let _ = self.restart();
-      return Err(format!("Write error, worker restarted: {}", e));
-    }
-
-    let mut rawBuffer: [u8; 1024] = [0u8; 1024];
-    loop {
-      let bytesRead: usize = match self.stdoutHandle.read(&mut rawBuffer) {
-        Ok(0) => {
-          let _ = self.restart();
-          return Err("Worker terminated unexpectedly, restarted".to_string());
-        }
-        Ok(n) => n,
-        Err(e) => {
-          let _ = self.restart();
-          return Err(format!("Read error, worker restarted: {}", e));
-        }
+    let communicationResult: Result<String, String> = (|| {
+      let request = WorkerRequest {
+        libraryPath: libraryPath.to_string(),
+        methodName: methodName.to_string(),
+        args: args.to_vec(),
       };
 
-      let mut window: &[u8] = &rawBuffer[..bytesRead];
-      while !window.is_empty() {
-        window = match self.cobsBuffer.feed::<WorkerResponse>(window) 
-        {
-          FeedResult::Consumed => break,
-          FeedResult::OverFull(remaining) => remaining,
-          FeedResult::DeserError(_) => {
-            let _ = self.restart();
-            return Err("Deserialization error, worker restarted".to_string());
-          }
-          FeedResult::Success { data, remaining } => {
-            if let Some(err) = data.error {
-              return Err(err);
-            }
-            return data.result.ok_or("Empty result".to_string());
-          }
+      let bytes: Vec<u8> = postcard::to_allocvec_cobs(&request)
+        .map_err(|e| format!("Serialization error: {}", e))?;
+
+      if let Err(e) = self.stdinHandle.write_all(&bytes).and_then(|_| self.stdinHandle.flush()) {
+        return Err(format!("Write error: {}", e));
+      }
+
+      let mut rawBuffer: [u8; 8192] = [0u8; 8192];
+
+      loop {
+        let bytesRead: usize = match self.stdoutHandle.read(&mut rawBuffer) {
+          Ok(0) => return Err("Worker terminated unexpectedly".to_string()),
+          Ok(n) => n,
+          Err(e) => return Err(format!("Read error: {}", e)),
         };
+
+        let mut window: &[u8] = &rawBuffer[..bytesRead];
+
+        while !window.is_empty() {
+          window = match self.cobsBuffer.feed::<WorkerResponse>(window) {
+            DynamicFeedResult::Consumed => break,
+            DynamicFeedResult::DeserError(e) => return Err(format!("Deserialization error: {:?}", e)),
+            DynamicFeedResult::Success { data, remaining: _ } => {
+              return if let Some(err) = data.error {
+                Err(err)
+              } else {
+                data.result.ok_or("Empty result".to_string())
+              };
+            }
+          };
+          //
+        }
       }
       //
-    }
+    })();
+
+    let _ = self.restart(); // Перезапускаем всегда - чтобы не делать освобождение памяти
+
+    communicationResult
   }
+
+  // ===============================================================================================
 }
 
-impl Drop for WorkerManager {
-  fn drop(&mut self) {
+impl Drop for WorkerManager 
+{
+  /// Убивает воркера при уничтожении менеджера
+  fn drop(&mut self) 
+  {
     let _ = self.childProcess.kill();
     let _ = self.childProcess.wait();
   }
@@ -298,10 +481,16 @@ impl Drop for WorkerManager {
 
 // =================================================================================================
 
-lazy_static! {
-  static ref FFIWorker: Mutex<WorkerManager> = Mutex::new(WorkerManager::init().expect("Failed to initialize FFI worker"));
-}
+/// Глобальный синглтон WorkerManager, инициализируемый при первом обращении 
+/// и защищённый мьютексом для синхронной работы.
+static FFIWorker: LazyLock< Mutex<WorkerManager> > =
+  LazyLock::new(|| {
+    Mutex::new(
+      WorkerManager::init().expect("Failed to initialize FFI worker")
+    )
+  });
 
+/// Внешний интерфейс для вызова FFI-функции через ворке
 pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String> 
 {
   let mut worker = FFIWorker.lock().map_err(|e| format!("Lock error: {}", e))?;

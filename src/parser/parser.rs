@@ -1,5 +1,4 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use lazy_static::lazy_static;
+use std::sync::{Arc, LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::{Structure, StructureMut};
@@ -595,22 +594,23 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
 
 // =================================================================================================
 
-lazy_static! 
-{ /// Основная структура; В неё вкладываются остальные;
-  /// В эту структуру будут переданы стартовые параметры;
-  /// Неизменяемая; Действует во время всей жизни программы;
-  pub static ref MainStructure: Arc<RwLock<Structure>> = Arc::new(
-    RwLock::new(
-      Structure::new(
-        Some(String::from("main")),
-        StructureMut::Constant,
-        StructureType::Method,
-        None,
-        None
+/// Основная структура; В неё вкладываются остальные;
+/// В эту структуру будут переданы стартовые параметры;
+/// Неизменяемая; Действует во время всей жизни программы;
+pub static MainStructure: LazyLock< Arc<RwLock<Structure>> > =
+  LazyLock::new(|| {
+    Arc::new(
+      RwLock::new(
+        Structure::new(
+          Some(String::from("main")),
+          StructureMut::Constant,
+          StructureType::Method,
+          None,
+          None,
+        )
       )
     )
-  );
-}
+  });
 
 // =================================================================================================
 
