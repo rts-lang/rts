@@ -1,5 +1,5 @@
 use std::io::{Read, Stdin, Stdout, Write};
-use std::sync::{LazyLock, Mutex, MutexGuard};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use serde::{Deserialize, Serialize};
 use libloading::Library;
 use std::ffi::{CStr};
@@ -17,6 +17,30 @@ use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
 // Она также всегда перезапускается, чтобы мы могли её использовать постоянно;
 // А также синхронная, чтобы не нарушать поток и вести себя как обычный запуск чего-то.
 // Собственно, ей и не надо иметь многопоточность или асинхронность.
+//
+// Также worker не защищает от бесконечных циклов - это не обязанность языка;
+// Это проблема программы, как обычно, просто переписывается код - это нормально.
+// К тому же, это невозможно было бы сделать, так как нельзя определить - что задержка, а что нет.
+//
+// Сама изоляция накладывает небольшие расходы. Для примера - на легкой задаче это выглядит как
+// простой. В самих тестах скорость и работа быстрая, но за кадром есть 
+// нагрузка жизни самого дочернего процесса; На больших задачах она не заметна.
+//
+// todo (feature)
+//  В целом, для скорости мы можем выдать флаг на изоляцию - тогда код мог бы упасть, но смысл 
+//  как раз в том, чтобы ставить его в release. Но это может быть использовано неверно и 
+//  требует четкого механизма безопасности - потому что понапишут потом кода с ошибками.
+//
+// todo (feature)
+//  Мы также могли бы выдать флаги или какой-то механизм для регулирования WorkerManager;
+//  Потому что возможно, это будет гибко при написании чего-то для своего FFI в самом коде.
+//
+// todo (feature)
+//  Теоретически мы могли бы добавить многопоточность:
+//  - Несколько WorkerManager, 2 должно хватать для само-замены в горячих местах; Но мы не можем 
+//    знать горячие места чтобы понять, что надо 10 штук запустить, поэтому 2.
+//  - Реальные несколько потоков, но это потребовало бы четкой системы движения по строкам кода и
+//    решения зависимостей.
 
 // =================================================================================================
 
@@ -320,7 +344,8 @@ impl WorkerManager
             // Ошибка декодирования/десериализации COBS
             DynamicFeedResult::DeserError(e) => return Err(format!("Deserialization error: {:?}", e)),
             // Полный объект ответа восстановлен
-            DynamicFeedResult::Success { data, remaining: _ } => {
+            DynamicFeedResult::Success { data, remaining: _ } => 
+            { // remaining не используется т.к. не нужны потоковые ответы.
               return if let Some(err) = data.error {
                 Err(err)
               } else {
@@ -334,7 +359,13 @@ impl WorkerManager
       //
     })();
 
-    let _ = self.restart(); // Перезапускаем всегда - чтобы не делать освобождение памяти
+    let _ = self.restart(); 
+    // todo (feature)
+    //  Перезапускаем всегда - чтобы не делать освобождение памяти;
+    //  Иначе нужно использовать отчистку - которая разная будет и мы не сможем угадать её;
+    //  А также мы не можем знать что вот он испортил мало памяти, а этот немного испортил -
+    //  любой процесс должен быть изолирован.
+    //  Но в целом, мы могли бы дать 2 worker и их хватало бы с головой на горячие участки.
 
     communicationResult
   }
@@ -353,22 +384,31 @@ impl Drop for WorkerManager
 
 // =================================================================================================
 
-/// Глобальный синглтон WorkerManager, инициализируемый при первом обращении 
-/// и защищённый мьютексом для синхронной работы.
-static FFIWorker: LazyLock< Mutex<WorkerManager> > =
-  LazyLock::new(|| {
-    Mutex::new(
-      WorkerManager::init().expect("Failed to initialize FFI worker")
-    )
-  });
+/// Глобальный синглтон WorkerManager, инициализируемый при первом обращении
+/// и защищённый мьютексом для синхронной работы;
+/// Используется OnceLock для защиты от падений при загрузке WorkerManager.
+static FFIWorker: OnceLock<Result<Mutex<WorkerManager>, String>> = OnceLock::new();
 
 /// Внешний интерфейс для вызова FFI-функции через ворке
-pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String> 
+pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String>
 {
-  let mut worker: MutexGuard<WorkerManager> = 
-    FFIWorker.lock().map_err(|e| format!("Lock error: {}", e))?;
-  // Делегирование вызова во внутренний механизм воркера
-  worker.callExternal(libraryPath, methodName, args)
+  let workerResult: &Result<Mutex<WorkerManager>, String> = FFIWorker.get_or_init(|| {
+    WorkerManager::init()
+      .map(Mutex::new)
+      .map_err(|e| format!("Worker init error: {}", e))
+  });
+
+  match workerResult 
+  {
+    Ok(workerMutex) => 
+    {
+      let mut worker: MutexGuard<WorkerManager> = workerMutex.lock()
+        .map_err(|e| format!("Lock error: {}", e))?;
+      // Делегирование вызова во внутренний механизм воркера
+      worker.callExternal(libraryPath, methodName, args)
+    }
+    Err(e) => Err(e.clone()),
+  }
 }
 
 // =================================================================================================
