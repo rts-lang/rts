@@ -8,7 +8,7 @@ include!("prelude.rs");
 
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
-use crate::parser::parser::{_main, parseLines};
+use crate::parser::parser::{parseLines, MainStructure};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::tokenizer::readTokens;
@@ -39,7 +39,7 @@ impl RTS
   pub fn new(name: String) -> Self 
   {
     // 
-    let mut main: RwLockWriteGuard<Structure> = _main.write().unwrap();
+    let mut main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
     main.pushStructure(
       Structure::new(
         Some(name.clone()),
@@ -57,7 +57,7 @@ impl RTS
             }
           ))
         ]),
-        Some( _main.clone() ), // Ссылаемся на родителя
+        Some( MainStructure.clone() ), // Ссылаемся на родителя
       )
     );
     
@@ -77,7 +77,7 @@ impl RTS
   ) 
   {
     //
-    let mainStructure: RwLockWriteGuard<Structure> = _main.write().unwrap();
+    let mainStructure: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
     let namespaceStructureLink: Arc<RwLock<Structure>> = mainStructure.getStructureByName(self.namespace.as_str()).unwrap();
     let mut namespaceStructure: RwLockWriteGuard<Structure> = namespaceStructureLink.write().unwrap();
     namespaceStructure.pushStructure(

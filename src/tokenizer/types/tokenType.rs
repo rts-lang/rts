@@ -133,11 +133,6 @@ pub enum TokenType
 
   /// Ссылка на структуру
   Link,
-  
-  /// Нативный адрес. По факту это то же UInt, но мы его выделяем,
-  /// чтобы было легче с ним работать и не тянуть к UInt операциям.
-  /// (Также, сейчас его можно получить только вручную)
-  Address,
 
 // words
   /// Integer
@@ -242,8 +237,6 @@ impl ToString for TokenType
       TokenType::DoubleTilde => String::from("~~"),
 
       TokenType::Link => String::from("Link"),
-
-      TokenType::Address => String::from("Address"),
       
       //
       TokenType::Int      => String::from("Int"),

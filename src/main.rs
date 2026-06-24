@@ -19,6 +19,7 @@ use std::{
 };
 use crate::logger::logger::{log, logExit, logSeparator};
 use crate::parser::parser::parseLines;
+use crate::parser::structure::ffi::workerManager::workerMain;
 use crate::tokenizer::tokenizer::readTokens;
 
 // todo удалить mods
@@ -85,6 +86,12 @@ fn main() -> io::Result<()>
       let key: &str = args.0.as_str();
       match key
       {
+        "ffi" => 
+        { // ffi worker process
+          // todo Эта команда видна пользователю
+          workerMain(); // эта функция сама завершит процесс
+          return Ok(());
+        }
         "version" => 
         { // get version
           log("ok", &format!("RTS v{}", _version));

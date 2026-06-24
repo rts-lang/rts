@@ -13,7 +13,6 @@ use std::io;
 use std::io::Write;
 #[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
-use crate::tokenizer::tools::output::outputLines;
 use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
