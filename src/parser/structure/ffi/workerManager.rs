@@ -8,8 +8,11 @@ use std::process::{Command, Stdio, Child, ChildStdin, ChildStdout};
 use std::env;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
+use libffi::middle::Type;
 use crate::parser::structure::ffi::dynamicCobsAccumulator::{DynamicCobsAccumulator, DynamicFeedResult};
 use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
+use crate::parser::structure::structureType::StructureType;
+use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
 // Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
@@ -44,6 +47,87 @@ use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
 
 // =================================================================================================
 
+// todo desc
+#[derive(Clone, Serialize, Deserialize)]
+pub enum FFIValue 
+{
+  None, // Просто пустое значение
+  //
+  U8(u8),
+  U16(u16),
+  U32(u32),
+  U64(u64),
+  //
+  I8(i8),
+  I16(i16),
+  I32(i32),
+  I64(i64),
+  //
+  F32(f32),
+  F64(f64),
+  //
+  Bool(bool),
+  String(String), // Будет передана как C-строка (null-terminated)
+                  // todo Удалить т.к будет передаваться по-другому
+  Pointer(usize), // Сырой указатель
+}
+
+// todo desc
+#[derive(Serialize, Deserialize)]
+pub enum FFIType
+{
+  None, // Просто пустое значение
+  //
+  U8,
+  U16,
+  U32,
+  U64,
+  //
+  I8,
+  I16,
+  I32,
+  I64,
+  //
+  F32,
+  F64,
+  //
+  Bool,
+  Pointer, // Сырой указатель
+}
+
+impl TryFrom<StructureType> for FFIType 
+{
+  type Error = String;
+  
+  // todo desc
+  fn try_from(ty: StructureType) -> Result<Self, Self::Error> 
+  {
+    match ty 
+    {
+      StructureType::None => Ok(FFIType::None),
+      
+      StructureType::U8 => Ok(FFIType::U8),
+      StructureType::U16 => Ok(FFIType::U16),
+      StructureType::U32 => Ok(FFIType::U32),
+      StructureType::U64 => Ok(FFIType::U64),
+
+      StructureType::I8 => Ok(FFIType::I8),
+      StructureType::I16 => Ok(FFIType::I16),
+      StructureType::I32 => Ok(FFIType::I32),
+      StructureType::I64 => Ok(FFIType::I64),
+
+      StructureType::F32 => Ok(FFIType::F32),
+      StructureType::F64 => Ok(FFIType::F64),
+
+      StructureType::Bool => Ok(FFIType::Bool),
+
+      _ => Err(format!("Unsupported FFI type: {}", ty.to_string())),
+    }
+  }
+}
+
+// =================================================================================================
+
 /// Запрос, отправляемый от родителя воркеру
 #[derive(Serialize, Deserialize)]
 struct WorkerRequest 
@@ -52,16 +136,18 @@ struct WorkerRequest
   libraryPath: String,
   /// Имя вызываемой функции (символ)
   methodName: String,
-  /// Аргументы todo Пока только первый используется
-  args: Vec<String>,
+  /// Аргументы
+  args: Vec<FFIValue>,
+  /// Тип результата todo По идее должен быть сам результат
+  resultType: FFIType
 }
 
 /// Ответ воркера родителю
 #[derive(Serialize, Deserialize)]
 struct WorkerResponse 
 {
-  /// Успешный результат (строка)
-  result: Option<String>,
+  /// Успешный результат
+  result: Option<FFIValue>,
   /// Сообщение об ошибке
   error: Option<String>,
 }
@@ -130,7 +216,7 @@ pub fn workerMain()
             match catchResult 
             {
               // Успешное выполнение запроса
-              Ok(Ok(res)) => WorkerResponse { result: Some(res), error: None },
+              Ok(Ok(res)) => WorkerResponse { result: Some(FFIValue::String(res)), error: None }, // todo Заменить string на abi-ffi 9м)
               // Логическая ошибка обработки запроса
               Ok(Err(err)) => WorkerResponse { result: None, error: Some(err) },
               // Паника внутри FFI
@@ -179,33 +265,20 @@ fn processRequest(request: &WorkerRequest) -> Result<String, String>
   }
 
   // Берём первый аргумент строки
-  let argument: &String = &request.args[0];
-  // Преобразуем строку в байты UTF-8
-  let argumentBytes: &[u8] = argument.as_bytes();
-  // Указатель на первый байт (для C/FFI)
-  let pointer: *const u8 = argumentBytes.as_ptr();
-  // Длина буфера байт (нужна вместе с указателем)
-  let length: usize = argumentBytes.len();
+  let argument: &FFIValue = &request.args[0]; // todo Пока только первый используется
+  // Извлекаем строку из FFIValue
+  let (pointer, length) = match argument
+  { // todo Заменить string на abi-ffi
+    FFIValue::String(s) => (s.as_ptr(), s.len()),
+    _ => return Err("First argument must be a string".to_string()),
+  };
 
   // Вызов библиотечной функции – весь вывод в stdout пойдёт в stderr,
   // потому что мы перенаправили stdout перед вызовом processRequest.
-  let resultPointer: *mut u8 = functionPointer(pointer, length);
+  let resultPointer: *mut u8 = functionPointer(pointer, length); // todo не уверен в его типе
 
   // C указатель -> безопасная обёртка CStr (нул-терминированная строка)
-  if resultPointer.is_null() {
-    return Ok(String::new());
-  }
-  // CStr -> Rust строка (&str) с проверкой UTF-8
-  let cString: &CStr = unsafe { CStr::from_ptr(resultPointer as *const c_char) };
-  let resultString: String = cString.to_str()
-    .map_err(|e| format!("UTF-8 conversion error: {}", e))?
-    .to_string();
-
-  // НЕ освобождаем resultPointer — мы не знаем аллокатор библиотеки;
-  // Мы также не можем вмешиваться в незнакомые библиотеки и делать внешние методы;
-  // Это утечка памяти, но worker процесс перезапускается всегда.
-
-  Ok(resultString)
+  Ok(String::new()) // todo хз что тут
 }
 
 // =================================================================================================
@@ -296,15 +369,16 @@ impl WorkerManager
   // ===============================================================================================
   
   /// Отправляет запрос воркеру и ждёт ответ; всегда перезапускает воркер.
-  pub fn callExternal(&mut self, libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String> 
+  pub fn callExternal(&mut self, libraryPath: &str, methodName: &str, args: &[FFIValue], resultType: FFIType) -> Result<FFIValue, String> 
   {
-    let communicationResult: Result<String, String> = (|| 
+    let communicationResult: Result<FFIValue, String> = (|| 
     {
       // Запрос
       let request: WorkerRequest = WorkerRequest {
         libraryPath: libraryPath.to_string(),
         methodName: methodName.to_string(),
         args: args.to_vec(),
+        resultType
       };
 
       // Сериализация запроса в COBS-байты
@@ -390,14 +464,27 @@ impl Drop for WorkerManager
 static FFIWorker: OnceLock<Result<Mutex<WorkerManager>, String>> = OnceLock::new();
 
 /// Внешний интерфейс для вызова FFI-функции через ворке
-pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String>
+pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &[Token], resultType: StructureType) -> Result<FFIValue, String>
 {
+  // Получаем worker
   let workerResult: &Result<Mutex<WorkerManager>, String> = FFIWorker.get_or_init(|| {
     WorkerManager::init()
       .map(Mutex::new)
       .map_err(|e| format!("Worker init error: {}", e))
   });
-
+  
+  // Обработка параметров
+  // Преобразуем токены в строки (все должны быть строковыми)
+  let parametersStrings: Vec<FFIValue> = parametersTokens
+    .iter()
+    .filter_map(|t| {
+      t.getData()
+        .toString()
+        .map(FFIValue::String) // todo Заменить string на abi-ffi
+    })
+    .collect();
+  
+  //
   match workerResult 
   {
     Ok(workerMutex) => 
@@ -405,7 +492,12 @@ pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Res
       let mut worker: MutexGuard<WorkerManager> = workerMutex.lock()
         .map_err(|e| format!("Lock error: {}", e))?;
       // Делегирование вызова во внутренний механизм воркера
-      worker.callExternal(libraryPath, methodName, args)
+      worker.callExternal(
+        libraryPath, 
+        methodName, 
+        &parametersStrings, 
+        FFIType::try_from(resultType)?
+      )
     }
     Err(e) => Err(e.clone()),
   }

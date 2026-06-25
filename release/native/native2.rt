@@ -1,0 +1,23 @@
+
+# Два типа выступят в роли типизации
+
+CString = Pointer # todo '\0' terminated
+
+String
+  pointer: Pointer
+  length: Usize
+
+# Тестовая обертка для быстрого вызова
+printc(text: String) # todo Хотелось бы String | CString и ветвление логики ниже просто по типу
+  lib: Pointer = importNative("./libprint.so")
+  lib.print(text.pointer, text.lenght)
+
+# Это константа со строкой
+str
+  pointer
+    "Hello from RTS 222!"
+  length
+    19 # todo поэтому потребуется еще обертка для strlen();
+      или автоматические преобразования полей
+
+printc(str)

@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
-use crate::parser::structure::ffi::workerManager::callExternal;
+use crate::parser::structure::ffi::workerManager::{callExternal, FFIValue};
 use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::calculate;
@@ -1036,15 +1036,11 @@ impl Structure
                     let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
                     let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
                     let parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
-
-                    // Преобразуем токены в строки (все должны быть строковыми)
-                    let parametersStrings: Vec<String> = parametersTokens
-                      .iter()
-                      .map(|t| t.getData().toString().unwrap()) // todo utf8 строка сейчас
-                      .collect();
+                    
+                    
 
                     // Вызов через worker
-                    match callExternal(&libraryPath, &methodName, &parametersStrings) 
+                    match callExternal(&libraryPath, &methodName, &parametersTokens, StructureType::None) // todo Заменить string на abi-ffi
                     {
                       Ok(_result) => {
                         // todo Обработка result
