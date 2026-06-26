@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
-use crate::parser::structure::ffi::workerManager::{callExternal, FFIValue};
-use crate::parser::structure::parameters::Parameters;
+use crate::parser::structure::ffi::workerManager::{callExternal};
+use crate::parser::structure::methods::tokensParameters::{TokensParameters};
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokens;
@@ -65,7 +65,7 @@ pub struct Structure
 
   /// Входные параметры
   /// todo Не используется в коде. Зачем оно тогда здесь было?
-  pub parameters: Parameters,
+  pub parameters: TokensParameters,
 
   /// Выходной результат
   /// None => procedure
@@ -73,7 +73,11 @@ pub struct Structure
   pub result: Option<Token>,
 
   /// Ссылки на вложенные структуры
-  pub structures: Option< Vec< Arc<RwLock<Structure>> > >,
+  pub structures: Arc<RwLock< // Нужно, чтобы не мутировать методы и иметь доступ
+    Option< // Может не быть
+      Vec< Arc<RwLock<Structure>> > // Гибкий список вложенных структур
+    >
+  >>,
 
   /// Ссылка на родителя
   pub parent: Option< Arc<RwLock<Structure>> >,
@@ -99,9 +103,9 @@ impl Structure
       mutable,
       dataType,
       lines,
-      parameters: Parameters::new(None),
+      parameters: TokensParameters::new(None),
       result: None,
-      structures: None,
+      structures: Arc::new(RwLock::new(None)),
       parent,
       lineIndex: 0
     }
@@ -146,7 +150,7 @@ impl Structure
       // Определяем список структур для поиска на текущем уровне:
       // если currentStructure = None, это означает корневой уровень self.structures
       // иначе — получаем дочерние структуры текущей найденной структуры
-      let childrenOpt: Option<Vec< Arc<RwLock<Structure>> >> = match &currentStructure 
+      let childrenLink: Arc<RwLock< Option<Vec< Arc<RwLock<Structure>> >> >> = match &currentStructure 
       {
         None => self.structures.clone(), // Корневые структуры
         Some(structureRef) => {
@@ -154,6 +158,7 @@ impl Structure
           structureGuard.structures.clone() // Дочерние структуры текущей
         }
       };
+      let childrenOption: RwLockReadGuard< Option<Vec< Arc<RwLock<Structure>> >> > = childrenLink.read().unwrap();
 
       // Флаг найденной структуры
       let mut found: bool = false;
@@ -161,7 +166,7 @@ impl Structure
       let mut nextStructure: Option< Arc<RwLock<Structure>> > = None;
 
       // Обрабатываем наличие дочерних структур
-      match childrenOpt 
+      match childrenOption.as_deref()
       { None => {} Some(children) => 
       {
         for child in children 
@@ -195,26 +200,21 @@ impl Structure
     currentStructure
   }
 
-  /// Добавляет новую вложенную структуру в текущую структуру
-  pub fn pushStructure(&mut self, structure: Structure) -> ()
-  { 
-    match self.structures.is_none() 
-    {
-      true => 
-      { // Если не было ещё структур, то создаём новый вектор
-        self.structures = Some( vec!(Arc::new(RwLock::new(structure))) );
-      } 
-      false =>
-      { // Если уже есть структуры, то просто push делаем
-        match self.structures
-        { None => {} Some(ref mut structures) =>
-        {
-          structures.push( Arc::new(RwLock::new(structure)) );
-        }}
-        //
-      }
+  /// Добавляет новую вложенную структуру в текущую структуру;
+  /// 
+  /// Нет &mut self - что хорошо.
+  pub fn pushStructure(&self, structureLink: Arc<RwLock<Structure>>) -> ()
+  {
+    let mut children: RwLockWriteGuard<Option< Vec< Arc<RwLock<Structure>> > >> =
+      self.structures.write().unwrap();
+    
+    if let Some(childrenVec) = children.as_mut() 
+    { // Если уже есть структуры, то просто push делаем
+      childrenVec.push(structureLink);
+    } else 
+    { // Если не было ещё структур, то создаём новый вектор
+      *children = Some(vec![structureLink]);
     }
-    //
   }
 
   // ===============================================================================================
@@ -831,12 +831,10 @@ impl Structure
 
   // ===============================================================================================
 
-  /// Получает параметры структуры вычисляя их значения;
-  ///
-  /// todo: требует пересмотра
-  pub fn getStructureParameters(&self, value: &mut Vec<Token>) -> Vec<Token> 
+  /// Получает параметры структуры вычисляя их значения
+  pub fn getStructureParameters(&self, value: &mut Vec<Token>) -> Vec<(Bytes, StructureType)> 
   {
-    let mut result: Vec<Token> = Vec::new();
+    let mut result: Vec<(Bytes, StructureType)> = Vec::new();
 
     let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
     for (l, token) in value.iter().enumerate() 
@@ -851,17 +849,24 @@ impl Structure
             expressionBuffer.push( token.clone() );
           }}
           
+          // todo Тут еще надо определять structure mutable
+          
           // Это типизация параметра
           if expressionBuffer.len() == 3 
           {
-            // todo По идее должен быть expressionBuffer[2].getStructureTypeSimple(),
-            //  а потом смотрим на StructureType и получаем просто абстрактный TokenType
-            expressionBuffer[0].setDataType(TokenType::UInt); // todo Поэтому временно поставил это
+            let parameterType: StructureType = expressionBuffer[2].getStructureTypeSimple();
+            result.push((
+              expressionBuffer[0].getData(),
+              parameterType
+            ));
+          } else {
+            result.push((
+              expressionBuffer[0].getData(),
+              StructureType::Any
+            ));
           }
           
           //
-          result.push( expressionBuffer[0].clone() );
-
           expressionBuffer.clear();
         }  
         false => 
@@ -877,7 +882,7 @@ impl Structure
   /// Получает параметры при вызове структуры в качестве метода
   ///
   /// todo типы данных в параметрах
-  pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
+  pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> TokensParameters
   {
     let mut result: Option< Vec<Line> > = None;
 
@@ -891,7 +896,7 @@ impl Structure
       match bracketToken.getDataType() != &TokenType::CircleBracketBegin
       {
         false => {}
-        true => return Parameters::new(None)
+        true => return TokensParameters::new(None)
       }
 
       // Получаем линии
@@ -903,7 +908,7 @@ impl Structure
     *valueLength -= 1;
 
     //
-    Parameters::new(result)
+    TokensParameters::new(result)
   }
 
   // ===============================================================================================
@@ -1034,10 +1039,8 @@ impl Structure
                     // Получаем аргументы из value[i+1] - скобка
                     let bracket: &Token = &value[i + 1];
                     let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
-                    let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
+                    let parameters: TokensParameters = TokensParameters::new(Some(bracketLines.to_vec()));
                     let parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
-                    
-                    
 
                     // Вызов через worker
                     match callExternal(&libraryPath, &methodName, &parametersTokens, StructureType::None) // todo Заменить string на abi-ffi

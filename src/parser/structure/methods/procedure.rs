@@ -4,15 +4,16 @@ use std::thread::sleep;
 use std::time::Duration;
 use crate::{_exit, _exitCode};
 use crate::parser::parser::{readLines, searchStructure};
-use crate::parser::structure::parameters::Parameters;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::line::Line;
 #[cfg(not(target_family = "wasm"))]
 use std::io;
 #[cfg(not(target_family = "wasm"))]
 use std::io::Write;
+use std::ops::DerefMut;
 #[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
+use crate::parser::structure::methods::tokensParameters::{TokensParameters};
 use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
@@ -24,7 +25,7 @@ impl Procedure
   
   /// Выводит несколько значений;
   /// Выводит несколько значений и \n в конце.
-  fn print(structure: &Structure, parameters: &Parameters, newline: bool)
+  fn print(structure: &Structure, parameters: &TokensParameters, newline: bool)
   {
     #[cfg(not(target_family = "wasm"))]
     match parameters.getAllExpressions(structure)
@@ -99,7 +100,7 @@ impl Procedure
   // ===============================================================================================
   
   /// Ожидает определённое количество ms
-  fn sleep(structure: &Structure, parameters: &Parameters)
+  fn sleep(structure: &Structure, parameters: &TokensParameters)
   {
     match parameters.getExpression(structure, 0)
     { None => {} Some(p0) => 
@@ -121,7 +122,7 @@ impl Procedure
   // ===============================================================================================
   
   /// Завершает чтение всех структур с определённым кодом или кодом ошибки
-  fn exit(structure: &Structure, parameters: &Parameters)
+  fn exit(structure: &Structure, parameters: &TokensParameters)
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) => unsafe
@@ -153,7 +154,7 @@ impl Structure
   /// 
   /// todo Кстати было замечено что 2 и последующие параметры могут обрабатывать не верно, а 1 норм.
   ///   Пример был когда у 2 параметра None - то его не видно, а 1 был виден, при проверках type/stype.
-  pub fn procedureCall(&self, structureName: &str, parameters: Parameters) -> ()
+  pub fn procedureCall(&self, structureName: &str, parameters: TokensParameters) -> ()
   {
     if structureName.starts_with(|c: char| c.is_lowercase()) // todo if -> match
     { // Если название в нижнем регистре - то это точно процедура
@@ -174,32 +175,55 @@ impl Structure
             None => {}
             Some(calledStructureLink) => 
             {
-              // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны
-              let parametersValues: Vec<Token> = parameters.getAllExpressions(self).unwrap_or_default();
+              // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны;
+              // Они здесь точно есть, но в Some мы оборачиваем чтобы не делать clone ниже при take.
+              let mut parametersValues: Vec<Option<Token>> = parameters
+                .getAllExpressions(self)
+                .unwrap_or_default()
+                .into_iter()
+                .map(Some)
+                .collect();
 
               // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции
+              // todo Они же потом не удаляются? Вообще по логике должна быть копия структуры,
+              //  если он используется как метод? и там создание этого?
               {
-                let mut calledStructure: RwLockWriteGuard<Structure> = calledStructureLink.write().unwrap();
-                if let Some(structures) = &mut calledStructure.structures 
+                let calledStructure: RwLockReadGuard<Structure> = calledStructureLink.read().unwrap();
+                
+                let mut calledStructureStructuresLink: RwLockWriteGuard<Option< Vec< Arc<RwLock<Structure>> > >> = 
+                  calledStructure.structures.write().unwrap();
+                
+                if let Some(calledStructureStructures) = calledStructureStructuresLink.deref_mut()
                 {
-                  for (idx, childLink) in structures.iter_mut().enumerate() 
+                  for (idx, calledStructureStructureLink) in calledStructureStructures.iter_mut().enumerate() 
                   {
                     if idx < parametersValues.len() 
-                    {
-                      let mut child: RwLockWriteGuard<Structure> = childLink.write().unwrap();
+                    { // Проходит по количеству параметров, потому что первые структуры - это параметры.
+                      let mut calledStructureStructure: RwLockWriteGuard<Structure> = 
+                        calledStructureStructureLink.write().unwrap();
+                      println!("    procedure name: {:?} = {:?}",calledStructureStructure.name,parametersValues[idx].clone());
+
+                      // Забираем токен один раз
+                      let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть
+                      
+                      // Нормализируем под тип параметра
+                      // todo:
+                      //  Кстати не должен ли getAllExpressions сам делать приведение?
+                      //  Много таких мест в коде с params.
+                      Structure::normalizeToken(
+                        &mut token, 
+                        calledStructureStructure.dataType.clone()
+                      );
+                      
                       // Устанавливаем lines параметра как линию с одним токеном – переданным значением
-                      child.lines = Some(vec![
+                      calledStructureStructure.lines = Some(vec![
                         Arc::new(RwLock::new(Line {
-                          tokens: Some(vec![parametersValues[idx].clone()]),
+                          tokens: Some(vec![token]),
                           indent: None,
                           lines: None,
                           parent: None,
                         }))
                       ]);
-                      // todo Приводим значение к типу параметра:
-                      //  Structure::normalizeToken(&mut parametersValues[idx], child.dataType.clone());
-                      //  ? Но кстати не должен ли getAllExpressions сам делать приведение?
-                      //  Много таких мест в коде с params.
                     }
                   }
                   //

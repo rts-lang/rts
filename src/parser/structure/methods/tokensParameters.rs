@@ -1,19 +1,19 @@
-/* /parser/structure/parameters
-  Хранит параметры без просчитывания их заранее
-*/
-
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
+// =================================================================================================
 
+/// Хранит параметры из токенов без просчитывания их заранее
 #[derive(Clone)]
-pub struct Parameters
+pub struct TokensParameters
 {
   values: Option< Vec<Line> >,
 }
 
-impl Parameters
+impl TokensParameters
 {
+  // ===============================================================================================
+  
   /// Создает новую структуру
   pub fn new(values: Option< Vec<Line> >) -> Self
   {
@@ -25,12 +25,22 @@ impl Parameters
     self.values.is_none()
   }
 
+  // ===============================================================================================
+
   /// Получает параметр по индексу, если он существует
   pub fn get(&self, index: usize) -> Option<&Line>
   {
     self.values.as_ref()?.get(index)
   }
 
+  /// Возвращает все параметры, если они есть
+  pub fn getAll(&self) -> Option< &Vec<Line> >
+  {
+    self.values.as_ref()
+  }
+
+  // ===============================================================================================
+  
   /// Получает параметр по индексу, если он существует и
   /// вычисляет его значение его выражения
   pub fn getExpression(&self, structure: &Structure, index: usize) -> Option<Token>
@@ -62,13 +72,7 @@ impl Parameters
     }
     
   }
-
-  /// Возвращает все параметры, если они есть
-  pub fn getAll(&self) -> Option< &Vec<Line> >
-  {
-    self.values.as_ref()
-  }
-
+  
   /// Возвращает все параметры, если они есть и
   /// вычисляет для них значения их выражений
   pub fn getAllExpressions(&self, structure: &Structure) -> Option< Vec<Token> >
@@ -86,4 +90,8 @@ impl Parameters
 
     Some(tokens)  // Возвращаем все токены
   }
+
+  // ===============================================================================================
 }
+
+// =================================================================================================

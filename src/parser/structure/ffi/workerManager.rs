@@ -474,7 +474,6 @@ pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &[Tok
   });
   
   // Обработка параметров
-  // Преобразуем токены в строки (все должны быть строковыми)
   let parametersStrings: Vec<FFIValue> = parametersTokens
     .iter()
     .filter_map(|t| {
