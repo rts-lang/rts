@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::io::{Read, Stdin, Stdout, Write};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,8 @@ use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
+use libffi::middle::{Arg, Cif, CodePtr, Type};
+use std::ffi::c_void;
 // =================================================================================================
 
 // Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
@@ -68,35 +71,80 @@ pub enum FFIValue
   F64(f64),
   //
   Bool(bool),
-  String(String), // Будет передана как C-строка (null-terminated)
-                  // todo Удалить т.к будет передаваться по-другому
-  Pointer(usize), // Сырой указатель
+  Pointer(usize) // Сырой указатель
 }
 
-// todo Это тестовый метод для ручного преобразования.
-//  Суть в том, что мы должны будем уточнять токен от структуру.
-//  НО: Проблема в том, что они отделены от токенов.
-//  Мы могли бы приводить проверками на месте как в StructureType?
-//  И тогда сделать общий и там и тут приведение.
+// todo desc
+//
+// Работает так же как getStructureType() - и они могут быть вынесены в абстракцию?
+//
 // todo Вообще надо сделать min/max/default для поведения примитивов.
 impl TryFrom<&mut Token> for FFIValue 
 {
   type Error = String;
-
-  fn try_from(token: &mut Token) -> Result<Self, Self::Error> 
+  
+  // todo desc
+  fn try_from(token: &mut Token) -> Result<Self, Self::Error>
   {
-    let data: String = token
-      .getData()
-      .toString()
-      .ok_or_else(|| "Token data is not a string".to_owned())?;
+    let dataType: &TokenType = token.getDataType();
 
-    match token.getDataType() 
+    let data: String = match token.getData().toString() {
+      Some(s) => s,
+      None => return Err("Token data is empty".to_owned()),
+    };
+    
+    println!("try_from: {}:{}",data,dataType.to_string());
+
+    match dataType
     {
-      TokenType::UInt => Ok(FFIValue::Usize(
-        data.parse::<usize>()
-          .map_err(|e| e.to_string())?,
-      )),
-      TokenType::String => Ok(FFIValue::String(data)),
+      TokenType::UInt =>
+      {
+        if let Ok(value) = data.parse::<u128>()
+        {
+          if value <= u8::MAX as u128         { Ok(FFIValue::U8(value as u8))         }
+          else if value <= u16::MAX as u128   { Ok(FFIValue::U16(value as u16))       }
+          else if value <= u32::MAX as u128   { Ok(FFIValue::U32(value as u32))       }
+          else if value <= u64::MAX as u128   { Ok(FFIValue::U64(value as u64))       }
+          else if value <= usize::MAX as u128 { Ok(FFIValue::Usize(value as usize))   }
+          else { Err(format!("UInt out of range: {}", value)) }
+        } else {
+          Err(format!("Failed to parse UInt: {}", data))
+        }
+      }
+      TokenType::Int =>
+      {
+        if let Ok(value) = data.parse::<i128>()
+        {
+          if value >= i8::MIN as i128 && value <= i8::MAX as i128            { Ok(FFIValue::I8(value as i8))       }
+          else if value >= i16::MIN as i128 && value <= i16::MAX as i128     { Ok(FFIValue::I16(value as i16))     }
+          else if value >= i32::MIN as i128 && value <= i32::MAX as i128     { Ok(FFIValue::I32(value as i32))     }
+          else if value >= i64::MIN as i128 && value <= i64::MAX as i128     { Ok(FFIValue::I64(value as i64))     }
+          else if value >= isize::MIN as i128 && value <= isize::MAX as i128 { Ok(FFIValue::Isize(value as isize)) }
+          else { Err(format!("Int out of range: {}", value)) }
+        } else {
+          Err(format!("Failed to parse Int: {}", data))
+        }
+      }
+      TokenType::UFloat | TokenType::Float =>
+      {
+        if let Ok(value) = data.parse::<f64>()
+        {
+          if value >= f32::MIN as f64 && value <= f32::MAX as f64 { Ok(FFIValue::F32(value as f32)) }
+          else if value >= f64::MIN && value <= f64::MAX          { Ok(FFIValue::F64(value))        }
+          else { Err(format!("Float out of range: {}", value)) }
+        } else {
+          Err(format!("Failed to parse Float: {}", data))
+        }
+      }
+      TokenType::String =>
+        { // todo Тестовый блок для строк
+          if let Ok(value) = data.parse::<String>()
+          {
+            Ok(FFIValue::Pointer(value.as_ptr() as usize)) // todo Тут критическая ошибка т.е. адрес в main process
+          } else {
+            Err(format!("Failed to parse String: {}", data))
+          }
+        }
       _ => Err("Unsupported TokenType".to_owned()),
     }
   }
@@ -126,7 +174,7 @@ pub enum FFIType
   F64,
   //
   Bool,
-  Pointer, // Сырой указатель
+  Pointer // Сырой указатель
 }
 
 impl TryFrom<StructureType> for FFIType 
@@ -244,7 +292,7 @@ pub fn workerMain()
           {
             let _redirect: StdoutRedirect = StdoutRedirect::new();
 
-            let catchResult: Result<Result<String, String>, Box<dyn std::any::Any + Send>> =
+            let catchResult: Result<Result<FFIValue, String>, Box<dyn Any + Send>> =
               catch_unwind(AssertUnwindSafe(|| processRequest(&data)));
             // Если паника перехвачена внутри worker, он остается жив и возвращает ошибку родителю;
             // Родитель получает штатный Err и не делает дорогостоящий restart.
@@ -252,7 +300,8 @@ pub fn workerMain()
             match catchResult 
             {
               // Успешное выполнение запроса
-              Ok(Ok(res)) => WorkerResponse { result: Some(FFIValue::String(res)), error: None }, // todo Заменить string на abi-ffi 9м)
+              Ok(Ok(res)) => 
+                WorkerResponse { result: Some(FFIValue::Usize(0/*res*/)), error: None }, // todo Сделать result type чтобы был а не ручной
               // Логическая ошибка обработки запроса
               Ok(Err(err)) => WorkerResponse { result: None, error: Some(err) },
               // Паника внутри FFI
@@ -279,46 +328,238 @@ pub fn workerMain()
   }
 }
 
-/// Загружает библиотеку, вызывает FFI-функцию и возвращает результат
-fn processRequest(request: &WorkerRequest) -> Result<String, String> 
+/// Загружает библиотеку, вызывает FFI-функцию с произвольными аргументами и 
+/// возвращает результат в виде FFIValue.
+fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String> 
 {
-  // Загрузка библиотеки
+  // 1. Load the library
   let library: Library = unsafe {
     Library::new(&request.libraryPath)
       .map_err(|e| format!("Failed to load library: {}", e))?
   };
 
-  // Загрузка метода
-  type FunctionSignature = extern "C" fn(*const u8, usize) -> *mut u8;
-  let functionPointer: FunctionSignature = unsafe {
-    *library.get::<FunctionSignature>(request.methodName.as_bytes())
+  // 2. Get function pointer
+  let functionPointer: *mut c_void = unsafe { // todo return value? или оно ниже уже есть?
+    *library
+      .get::<*mut c_void>(request.methodName.as_bytes())
       .map_err(|e| format!("Failed to find function: {}", e))?
   };
+  println!("2 functionPointer: {:?}", functionPointer);
 
-  // Пустые параметры
-  if request.args.is_empty() {
-    return Err("No arguments provided".to_string());
+  // 3. Build argument types
+  let argTypes: Vec<Type> = request
+    .args
+    .iter()
+    .map(|arg| match arg 
+    {
+      FFIValue::U8(_) => Ok(Type::u8()),
+      FFIValue::U16(_) => Ok(Type::u16()),
+      FFIValue::U32(_) => Ok(Type::u32()),
+      FFIValue::U64(_) => Ok(Type::u64()),
+      FFIValue::Usize(_) => Ok(Type::usize()),
+      FFIValue::I8(_) => Ok(Type::i8()),
+      FFIValue::I16(_) => Ok(Type::i16()),
+      FFIValue::I32(_) => Ok(Type::i32()),
+      FFIValue::I64(_) => Ok(Type::i64()),
+      FFIValue::Isize(_) => Ok(Type::isize()),
+      FFIValue::F32(_) => Ok(Type::f32()),
+      FFIValue::F64(_) => Ok(Type::f64()),
+      FFIValue::Bool(_) => Ok(Type::u8()), // bool as u8
+      FFIValue::Pointer(_) => Ok(Type::pointer()),
+      FFIValue::None => Err("Cannot pass None as argument".to_string()),
+    })
+    .collect::<Result<Vec<_>, _>>()?;
+  println!("3 argTypes: {:?}", argTypes);
+
+  // 4. Return type
+  let returnType: Type = match request.resultType 
+  {
+    FFIType::None => Type::void(),
+    FFIType::U8 => Type::u8(),
+    FFIType::U16 => Type::u16(),
+    FFIType::U32 => Type::u32(),
+    FFIType::U64 => Type::u64(),
+    FFIType::Usize => Type::usize(),
+    FFIType::I8 => Type::i8(),
+    FFIType::I16 => Type::i16(),
+    FFIType::I32 => Type::i32(),
+    FFIType::I64 => Type::i64(),
+    FFIType::Isize => Type::isize(),
+    FFIType::F32 => Type::f32(),
+    FFIType::F64 => Type::f64(),
+    FFIType::Bool => Type::u8(),
+    FFIType::Pointer => Type::pointer(),
+  };
+  println!("4 returnType: {:?}", returnType);
+
+  // 5. Create CIF
+  let cif: Cif = Cif::new(argTypes.into_iter(), returnType);
+  println!("5 cif: {:?}", cif);
+
+  // 6. Store all boxed values first (no references yet)
+  let mut storage: Vec<Box<dyn Any>> = Vec::with_capacity(request.args.len());
+  for arg in &request.args 
+  {
+    match arg 
+    {
+      FFIValue::U8(v) => storage.push(Box::new(*v)),
+      FFIValue::U16(v) => storage.push(Box::new(*v)),
+      FFIValue::U32(v) => storage.push(Box::new(*v)),
+      FFIValue::U64(v) => storage.push(Box::new(*v)),
+      FFIValue::Usize(v) => storage.push(Box::new(*v)),
+      FFIValue::I8(v) => storage.push(Box::new(*v)),
+      FFIValue::I16(v) => storage.push(Box::new(*v)),
+      FFIValue::I32(v) => storage.push(Box::new(*v)),
+      FFIValue::I64(v) => storage.push(Box::new(*v)),
+      FFIValue::Isize(v) => storage.push(Box::new(*v)),
+      FFIValue::F32(v) => storage.push(Box::new(*v)),
+      FFIValue::F64(v) => storage.push(Box::new(*v)),
+      FFIValue::Bool(b) => storage.push(Box::new(if *b { 1u8 } else { 0u8 })),
+      FFIValue::Pointer(p) => storage.push(Box::new(*p as *mut c_void)),
+      FFIValue::None => return Err("Cannot pass None".to_string()),
+    }
   }
-  
-  // Извлекаем параметры
-  let pointer: *const u8 = match &request.args[0]
-  { // todo Заменить string на abi-ffi
-    FFIValue::String(s) => s.as_ptr(),
-    _ => return Err("First argument must be a string".to_string()),
-  };
-  println!("pointer: {:?}",pointer);
-  let length: usize = match &request.args[1] {
-    FFIValue::Usize(len) => *len,
-    _ => return Err("Second argument must be a usize".to_string()),
-  };
-  println!("length: {:?}",length);
+  println!("6 storage: {:?}", storage);
 
-  // Вызов библиотечной функции – весь вывод в stdout пойдёт в stderr,
-  // потому что мы перенаправили stdout перед вызовом processRequest.
-  let _resultPointer: *mut u8 = functionPointer(pointer, length); // todo не уверен в его типе + обработка нужна
+  // 7. Build arguments using references to the stored boxes (no further mutations)
+  let mut args: Vec<Arg> = Vec::with_capacity(request.args.len());
+  for (i, arg) in request.args.iter().enumerate() 
+  {
+    match arg 
+    {
+      FFIValue::U8(_) => {
+        let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
+        println!("  222 {:?}", val);
+        args.push(Arg::new(val));
+      }
+      FFIValue::U16(_) => {
+        let val: &u16 = storage[i].downcast_ref::<u16>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::U32(_) => {
+        let val: &u32 = storage[i].downcast_ref::<u32>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::U64(_) => {
+        let val: &u64 = storage[i].downcast_ref::<u64>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Usize(_) => {
+        let val: &usize = storage[i].downcast_ref::<usize>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I8(_) => {
+        let val: &i8 = storage[i].downcast_ref::<i8>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I16(_) => {
+        let val: &i16 = storage[i].downcast_ref::<i16>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I32(_) => {
+        let val: &i32 = storage[i].downcast_ref::<i32>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I64(_) => {
+        let val: &i64 = storage[i].downcast_ref::<i64>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Isize(_) => {
+        let val: &isize = storage[i].downcast_ref::<isize>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::F32(_) => {
+        let val: &f32 = storage[i].downcast_ref::<f32>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::F64(_) => {
+        let val: &f64 = storage[i].downcast_ref::<f64>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Bool(_) => {
+        let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Pointer(_) => {
+        let val: &*mut c_void = storage[i].downcast_ref::<*mut c_void>().unwrap();
+        println!("  111 {:?}", val);
+        args.push(Arg::new(val));
+      }
+      FFIValue::None => return Err("Cannot pass None".to_string()),
+    }
+  }
+  println!("7 args: {:?}", args);
 
-  // C указатель -> безопасная обёртка CStr (нул-терминированная строка)
-  Ok(String::new()) // todo хз что тут
+  // 8. Call the FFI function (all unsafe calls are wrapped)
+  let codePointer: CodePtr = CodePtr(functionPointer);
+  let result: FFIValue = match request.resultType 
+  {
+    FFIType::None => {
+      println!("  333");
+      unsafe { cif.call::<()>(codePointer, &args) };
+      FFIValue::None
+    }
+    FFIType::U8 => {
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &args) };
+      FFIValue::U8(val)
+    }
+    FFIType::U16 => {
+      let val: u16 = unsafe { cif.call::<u16>(codePointer, &args) };
+      FFIValue::U16(val)
+    }
+    FFIType::U32 => {
+      let val: u32 = unsafe { cif.call::<u32>(codePointer, &args) };
+      FFIValue::U32(val)
+    }
+    FFIType::U64 => {
+      let val: u64 = unsafe { cif.call::<u64>(codePointer, &args) };
+      FFIValue::U64(val)
+    }
+    FFIType::Usize => {
+      let val: usize = unsafe { cif.call::<usize>(codePointer, &args) };
+      FFIValue::Usize(val)
+    }
+    FFIType::I8 => {
+      let val: i8 = unsafe { cif.call::<i8>(codePointer, &args) };
+      FFIValue::I8(val)
+    }
+    FFIType::I16 => {
+      let val: i16 = unsafe { cif.call::<i16>(codePointer, &args) };
+      FFIValue::I16(val)
+    }
+    FFIType::I32 => {
+      let val: i32 = unsafe { cif.call::<i32>(codePointer, &args) };
+      FFIValue::I32(val)
+    }
+    FFIType::I64 => {
+      let val: i64 = unsafe { cif.call::<i64>(codePointer, &args) };
+      FFIValue::I64(val)
+    }
+    FFIType::Isize => {
+      let val: isize = unsafe { cif.call::<isize>(codePointer, &args) };
+      FFIValue::Isize(val)
+    }
+    FFIType::F32 => {
+      let val: f32 = unsafe { cif.call::<f32>(codePointer, &args) };
+      FFIValue::F32(val)
+    }
+    FFIType::F64 => {
+      let val: f64 = unsafe { cif.call::<f64>(codePointer, &args) };
+      FFIValue::F64(val)
+    }
+    FFIType::Bool => {
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &args) };
+      FFIValue::Bool(val != 0)
+    }
+    FFIType::Pointer => {
+      let val: *mut c_void = unsafe { cif.call::<*mut c_void>(codePointer, &args) }; // todo не const* u8 ?
+      FFIValue::Pointer(val as usize)
+    }
+  };
+
+  println!("8 codePointer: {:?}", codePointer);
+
+  Ok(result)
 }
 
 // =================================================================================================
