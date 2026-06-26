@@ -71,8 +71,7 @@ pub enum FFIValue
   F64(f64),
   //
   Bool(bool),
-  Pointer(usize), // Сырой указатель
-  //
+  // Универсальный контейнер для произвольных байтовых данных
   ByteVector(Vec<u8>) // todo Не знаю насколько правильно это иметь тут, но
                       //  это самый простой вариант передачи без нарушения адресного пространства.
                       //  Но опять же кодировки и другие штуки как будут тут себя вести?
@@ -364,7 +363,6 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::F32(_) => Ok(Type::f32()),
       FFIValue::F64(_) => Ok(Type::f64()),
       FFIValue::Bool(_) => Ok(Type::u8()), // bool as u8
-      FFIValue::Pointer(_) => Ok(Type::pointer()),
       FFIValue::ByteVector(_) => Ok(Type::pointer()),
       FFIValue::None => Err("Cannot pass None as argument".to_string())
     })
@@ -412,7 +410,6 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::F32(v) => storage.push(Box::new(*v)),
       FFIValue::F64(v) => storage.push(Box::new(*v)),
       FFIValue::Bool(b) => storage.push(Box::new(if *b { 1u8 } else { 0u8 })),
-      FFIValue::Pointer(p) => storage.push(Box::new(*p as *mut c_void)),
       FFIValue::ByteVector(v) => {
         let mut byteVector: Vec<u8> = v.clone();
         let rawPointer: *mut c_void = byteVector.as_mut_ptr() as *mut c_void;
@@ -478,10 +475,6 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       }
       FFIValue::Bool(_) => {
         let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
-        args.push(Arg::new(val));
-      }
-      FFIValue::Pointer(_) => {
-        let val: &*mut c_void = storage[i].downcast_ref::<*mut c_void>().unwrap();
         args.push(Arg::new(val));
       }
       FFIValue::ByteVector(_) => {
@@ -554,8 +547,7 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::Bool(val != 0)
     }
     FFIType::Pointer => {
-      let val: *mut c_void = unsafe { cif.call::<*mut c_void>(codePointer, &args) }; // todo не const* u8 ?
-      FFIValue::Pointer(val as usize)
+      FFIValue::None // todo Не знаю, я пока что ограничил это, ведь пространства то разные.
     }
   };
 
