@@ -221,9 +221,11 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
           if isFormatted 
           {
             // Удаляем токен `f`
-            let fToken: Token = lineTokens.pop().unwrap();
             #[cfg(feature = "analyzer")]
-            let startF: usize = fToken.start;
+            {
+              let fToken: Token = lineTokens.pop().unwrap();
+              let startF: usize = fToken.start;
+            }
 
             let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
 

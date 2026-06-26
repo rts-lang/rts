@@ -2,13 +2,10 @@ use std::io::{Read, Stdin, Stdout, Write};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use serde::{Deserialize, Serialize};
 use libloading::Library;
-use std::ffi::{CStr};
-use std::os::raw::c_char;
 use std::process::{Command, Stdio, Child, ChildStdin, ChildStdout};
 use std::env;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
-use libffi::middle::Type;
 use crate::parser::structure::ffi::dynamicCobsAccumulator::{DynamicCobsAccumulator, DynamicFeedResult};
 use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
 use crate::parser::structure::structureType::StructureType;
@@ -82,16 +79,19 @@ pub enum FFIValue
 //  Мы могли бы приводить проверками на месте как в StructureType?
 //  И тогда сделать общий и там и тут приведение.
 // todo Вообще надо сделать min/max/default для поведения примитивов.
-impl TryFrom<&mut Token> for FFIValue {
+impl TryFrom<&mut Token> for FFIValue 
+{
   type Error = String;
 
-  fn try_from(token: &mut Token) -> Result<Self, Self::Error> {
-    let data = token
+  fn try_from(token: &mut Token) -> Result<Self, Self::Error> 
+  {
+    let data: String = token
       .getData()
       .toString()
       .ok_or_else(|| "Token data is not a string".to_owned())?;
 
-    match token.getDataType() {
+    match token.getDataType() 
+    {
       TokenType::UInt => Ok(FFIValue::Usize(
         data.parse::<usize>()
           .map_err(|e| e.to_string())?,
@@ -299,24 +299,23 @@ fn processRequest(request: &WorkerRequest) -> Result<String, String>
   if request.args.is_empty() {
     return Err("No arguments provided".to_string());
   }
-
-  // Берём первый аргумент строки
-  let argument: &FFIValue = &request.args[0]; // todo Пока только первый используется
-  // Извлекаем строку из FFIValue
-  let pointer = match argument
+  
+  // Извлекаем параметры
+  let pointer: *const u8 = match &request.args[0]
   { // todo Заменить string на abi-ffi
     FFIValue::String(s) => s.as_ptr(),
     _ => return Err("First argument must be a string".to_string()),
   };
   println!("pointer: {:?}",pointer);
-  let length2: usize = match &request.args[1] {
+  let length: usize = match &request.args[1] {
     FFIValue::Usize(len) => *len,
     _ => return Err("Second argument must be a usize".to_string()),
   };
+  println!("length: {:?}",length);
 
   // Вызов библиотечной функции – весь вывод в stdout пойдёт в stderr,
   // потому что мы перенаправили stdout перед вызовом processRequest.
-  let _resultPointer: *mut u8 = functionPointer(pointer, length2); // todo не уверен в его типе + обработка нужна
+  let _resultPointer: *mut u8 = functionPointer(pointer, length); // todo не уверен в его типе + обработка нужна
 
   // C указатель -> безопасная обёртка CStr (нул-терминированная строка)
   Ok(String::new()) // todo хз что тут
