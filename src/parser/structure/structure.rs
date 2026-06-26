@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::workerManager::{callExternal};
-use crate::parser::structure::methods::tokensParameters::{TokensParameters};
+use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokens;
@@ -65,7 +65,7 @@ pub struct Structure
 
   /// Входные параметры
   /// todo Не используется в коде. Зачем оно тогда здесь было?
-  pub parameters: TokensParameters,
+  pub parameters: Parameters,
 
   /// Выходной результат
   /// None => procedure
@@ -103,7 +103,7 @@ impl Structure
       mutable,
       dataType,
       lines,
-      parameters: TokensParameters::new(None),
+      parameters: Parameters::new(None),
       result: None,
       structures: Arc::new(RwLock::new(None)),
       parent,
@@ -828,89 +828,7 @@ impl Structure
     // Отдаём новую строку
     result
   }
-
-  // ===============================================================================================
-
-  /// Получает параметры структуры вычисляя их значения
-  pub fn getStructureParameters(&self, value: &mut Vec<Token>) -> Vec<(Bytes, StructureType)> 
-  {
-    let mut result: Vec<(Bytes, StructureType)> = Vec::new();
-
-    let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
-    for (l, token) in value.iter().enumerate() 
-    { // read tokens
-      match *token.getDataType() == TokenType::Comma || l+1 == value.len()
-      {
-        true => 
-        { // comma or line end
-          match *token.getDataType() != TokenType::Comma
-          { false => {} true =>
-          {
-            expressionBuffer.push( token.clone() );
-          }}
-          
-          // todo Тут еще надо определять structure mutable
-          
-          // Это типизация параметра
-          if expressionBuffer.len() == 3 
-          {
-            let parameterType: StructureType = expressionBuffer[2].getStructureTypeSimple();
-            result.push((
-              expressionBuffer[0].getData(),
-              parameterType
-            ));
-          } else {
-            result.push((
-              expressionBuffer[0].getData(),
-              StructureType::Any
-            ));
-          }
-          
-          //
-          expressionBuffer.clear();
-        }  
-        false => 
-        { // push new expression token
-          expressionBuffer.push( token.clone() );
-        }
-      }
-    }
-    
-    result
-  }
-
-  /// Получает параметры при вызове структуры в качестве метода
-  ///
-  /// todo типы данных в параметрах
-  pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> TokensParameters
-  {
-    let mut result: Option< Vec<Line> > = None;
-
-    // Проверка и получение скобки
-    let bracketToken: Option<&Token> = value.get(i+1);
-    match bracketToken
-    { None => {} Some(bracketToken) =>
-    {
-
-      // Проверка, что это круглая скобка
-      match bracketToken.getDataType() != &TokenType::CircleBracketBegin
-      {
-        false => {}
-        true => return TokensParameters::new(None)
-      }
-
-      // Получаем линии
-      result = bracketToken.lines.clone(); // todo Тут точно клонирование?
-    }}
-    
-    // Удаление скобки
-    value.remove(i+1);
-    *valueLength -= 1;
-
-    //
-    TokensParameters::new(result)
-  }
-
+  
   // ===============================================================================================
 
   /// Основная функция, которая получает результат выражения состоящего из токенов;
@@ -1039,7 +957,7 @@ impl Structure
                     // Получаем аргументы из value[i+1] - скобка
                     let bracket: &Token = &value[i + 1];
                     let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
-                    let parameters: TokensParameters = TokensParameters::new(Some(bracketLines.to_vec()));
+                    let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
                     let parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
 
                     // Вызов через worker

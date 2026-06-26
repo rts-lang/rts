@@ -8,7 +8,7 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 #[cfg(not(target_family = "wasm"))]
 use rand::Rng;
-use crate::parser::structure::methods::tokensParameters::{TokensParameters};
+use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::line::Line;
 
@@ -20,7 +20,7 @@ impl Function
   // ===============================================================================================
   
   /// Возвращает тип данных выражения
-  fn _type(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn _type(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     if parameters.isNone()
     {
@@ -45,7 +45,7 @@ impl Function
   }
   
   /// Возвращает тип данных структуры
-  fn stype(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn stype(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     if parameters.isNone()
     {
@@ -107,7 +107,7 @@ impl Function
   /// Возвращает уровень модификации переданной структуры
   /// 
   /// todo Может проверять несколько параметров и возвращать список
-  fn _mut(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn _mut(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.get(0)
     { None => {} Some(p0) =>
@@ -147,7 +147,7 @@ impl Function
   // ===============================================================================================
   
   /// Возвращаем случайное число типа UInt от min до max
-  fn randUInt(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn randUInt(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     #[cfg(not(target_family = "wasm"))]
     if !parameters.isNone() // todo оставить либо это, либо снизу нули
@@ -186,7 +186,7 @@ impl Function
   // ===============================================================================================
   
   /// Получаем размер структуры
-  fn len(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn len(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -247,7 +247,7 @@ impl Function
   // ===============================================================================================
   
   /// Получаем результат ввода
-  fn input(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn input(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     // Результат может быть только String
     value[i].setDataType( TokenType::String );
@@ -285,7 +285,7 @@ impl Function
   // ===============================================================================================
   
   /// Запускает что-то и возвращает строковый output работы
-  fn exec(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn exec(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -319,7 +319,7 @@ impl Function
   /// Запускает что-то и возвращает кодовый результат работы
   /// todo: Возможно изменение: Следует ли оставлять вывод stdout & stderr ?
   ///       -> Возможно следует сделать отдельные методы для подобных операций.
-  fn execs(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  fn execs(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -347,7 +347,7 @@ impl Function
   /// todo desc
   /// 
   /// todo Должен также иметь возможность загрузить по имени как 1 символ, так и всю либу сразу.
-  pub fn importNative(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize)
+  pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.getExpression(structure, 0)
     {
@@ -388,7 +388,7 @@ impl Function
   /// 
   /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
   ///   а после этого было уничтожено из-за конца структуры или конца вызова.
-  fn Usize(structure: &Structure, parameters: &TokensParameters, value: &mut Vec<Token>, i: usize) 
+  fn Usize(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize) 
   {
     match parameters.getExpression(structure, 0)
     {
@@ -477,7 +477,7 @@ impl Structure
   /// todo: когда будет вынесено, то должна ожидать тип данных, который должен в Tokenizer::getWord() тоже
   pub fn functionCall(&self, value: &mut Vec<Token>, valueLength: &mut usize, i: usize) -> ()
   {
-    let parameters: TokensParameters = self.getCallParameters(value, i, valueLength);
+    let parameters: Parameters = self.getCallParameters(value, i, valueLength);
     match value[i].getData().toString()
     {
       // -------------------------------------------------------------------------------------------
@@ -570,7 +570,7 @@ impl Structure
         // Если код не завершился ранее, то далее идут custom методы;
 
         // Передаём параметры, они также могут быть None
-        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
+//        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
 //        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
         self.procedureCall(&structureName, parameters);
         // После чего решаем какой результат оставить

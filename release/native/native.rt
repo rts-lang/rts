@@ -1,22 +1,22 @@
 
 # todo Нужно дописать авто Pointer, чтобы Addres -> Pointer. А еще мб переименовать их?
     типо адрес это ли все же поинтер? типо если различий нет. если есть - то стоит подумать.
-printc(len: Usize)
-  println(f"len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
-  #lib: Pointer = importNative("./libprint.so")
-  #lib.print(text)
+printc(pointer: Pointer, len: Usize)
+  println(f"CODE: pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")
+  println(f"CODE: len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
+  lib: Pointer = importNative("./libprint.so")
+  lib.print(pointer, len)
 
   # todo lib.print(U8(text)) - это создание структры и передача как параметра, т.е. напрямую.     #72
   # todo a = U8(123)     #72
 
 # todo кстати мб легче сделать еще такое: `lib.print as print` если не надо переписывать внутренности метода.
-    кстати по синтаксису было бы верно print = lib.print;
-    todo и можно сделать чтобы import обычный мог возвращать код пакета либо просто вставляя, либо структурой?
-    но тогда есть способ просто вставить и сделать например structure внутри пакета, 
-    или при импорте написать что надо обернуть в такое-то
+  кстати по синтаксису было бы верно print = lib.print
+  todo и можно сделать чтобы import обычный мог возвращать код пакета либо просто вставляя, либо структурой?
+  но тогда есть способ просто вставить и сделать например structure внутри пакета, 
+  или при импорте написать что надо обернуть в такое-то
 
-printc(18446744073709551616)
-#printc(Pointer("Hello from RTS 222!"), Usize(19))
+printc("Hello from RTS 222!",19)
 # todo Строка сейчас, на деле должно быть выравнивание, полная типизация под ABI. #75
 
 #

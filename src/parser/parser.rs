@@ -342,17 +342,16 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 parameters =
                   if let Some(lines) = &lineTokens[1].lines 
                   { // Берём первую линию внутри скобок (там обычно перечислены параметры)
-                    if let Some(firstLine) = lines.get(0) 
+                    let mut result: Vec<(Bytes, StructureType)> = Vec::new();
+                    for line in lines
                     { // Берём вложенные токены в TokenType::CircleBracketBegin 
                       // получаем параметры из этих токенов, давая доступ к родительским структурам
-                      let mut paramTokens: Vec<Token> = firstLine.tokens.clone().unwrap_or_default();
-                      Some(
-                        parentLink.read().unwrap()
-                          .getStructureParameters(&mut paramTokens)
-                      )
-                    } else {
-                      None
+                      let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                      result.extend(
+                        parentLink.read().unwrap().getStructureParameters(&mut paramTokens)
+                      );
                     }
+                    Some(result)
                   } else {
                     None
                   };
@@ -403,6 +402,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             match &parameters 
             { None => {} Some(parameters) =>
             {
+              println!("Parameters len: {:?}", parameters.len());
               for parameter in parameters
               {
                 newStructure.pushStructure(

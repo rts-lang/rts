@@ -13,7 +13,7 @@ use std::io::Write;
 use std::ops::DerefMut;
 #[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
-use crate::parser::structure::methods::tokensParameters::{TokensParameters};
+use crate::parser::structure::methods::parameters::{Parameters};
 use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
@@ -25,7 +25,7 @@ impl Procedure
   
   /// Выводит несколько значений;
   /// Выводит несколько значений и \n в конце.
-  fn print(structure: &Structure, parameters: &TokensParameters, newline: bool)
+  fn print(structure: &Structure, parameters: &Parameters, newline: bool)
   {
     #[cfg(not(target_family = "wasm"))]
     match parameters.getAllExpressions(structure)
@@ -100,7 +100,7 @@ impl Procedure
   // ===============================================================================================
   
   /// Ожидает определённое количество ms
-  fn sleep(structure: &Structure, parameters: &TokensParameters)
+  fn sleep(structure: &Structure, parameters: &Parameters)
   {
     match parameters.getExpression(structure, 0)
     { None => {} Some(p0) => 
@@ -122,7 +122,7 @@ impl Procedure
   // ===============================================================================================
   
   /// Завершает чтение всех структур с определённым кодом или кодом ошибки
-  fn exit(structure: &Structure, parameters: &TokensParameters)
+  fn exit(structure: &Structure, parameters: &Parameters)
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) => unsafe
@@ -154,7 +154,7 @@ impl Structure
   /// 
   /// todo Кстати было замечено что 2 и последующие параметры могут обрабатывать не верно, а 1 норм.
   ///   Пример был когда у 2 параметра None - то его не видно, а 1 был виден, при проверках type/stype.
-  pub fn procedureCall(&self, structureName: &str, parameters: TokensParameters) -> ()
+  pub fn procedureCall(&self, structureName: &str, parameters: Parameters) -> ()
   {
     if structureName.starts_with(|c: char| c.is_lowercase()) // todo if -> match
     { // Если название в нижнем регистре - то это точно процедура
@@ -201,7 +201,6 @@ impl Structure
                     { // Проходит по количеству параметров, потому что первые структуры - это параметры.
                       let mut calledStructureStructure: RwLockWriteGuard<Structure> = 
                         calledStructureStructureLink.write().unwrap();
-                      println!("    procedure name: {:?} = {:?}",calledStructureStructure.name,parametersValues[idx].clone());
 
                       // Забираем токен один раз
                       let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть
