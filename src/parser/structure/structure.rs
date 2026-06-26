@@ -958,10 +958,10 @@ impl Structure
                     let bracket: &Token = &value[i + 1];
                     let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
                     let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
-                    let parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
+                    let mut parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
 
                     // Вызов через worker
-                    match callExternal(&libraryPath, &methodName, &parametersTokens, StructureType::None) // todo Заменить string на abi-ffi
+                    match callExternal(&libraryPath, &methodName, &mut parametersTokens, StructureType::None) // todo Заменить string на abi-ffi
                     {
                       Ok(_result) => {
                         // todo Обработка result

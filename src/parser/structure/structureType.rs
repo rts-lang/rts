@@ -359,6 +359,8 @@ impl Token
   /// что в неё положили, но при этом в рамках StructureType;
   /// 
   /// Если станет None - то токен будет очищен.
+  /// 
+  /// todo Было бы круто убрать как-то mut отсюда.
   pub fn getStructureType(&mut self) -> StructureType
   {
     let result = |selfToken: &mut Token, structureType: StructureType| -> StructureType

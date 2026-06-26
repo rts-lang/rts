@@ -13,6 +13,7 @@ use crate::parser::structure::ffi::dynamicCobsAccumulator::{DynamicCobsAccumulat
 use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
@@ -49,6 +50,7 @@ use crate::tokenizer::types::token::Token;
 
 // todo desc
 #[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug)] // todo remove
 pub enum FFIValue 
 {
   None, // Просто пустое значение
@@ -57,11 +59,13 @@ pub enum FFIValue
   U16(u16),
   U32(u32),
   U64(u64),
+  Usize(usize), // todo Должно быть тут?
   //
   I8(i8),
   I16(i16),
   I32(i32),
   I64(i64),
+  Isize(isize), // todo Должно быть тут?
   //
   F32(f32),
   F64(f64),
@@ -71,6 +75,34 @@ pub enum FFIValue
                   // todo Удалить т.к будет передаваться по-другому
   Pointer(usize), // Сырой указатель
 }
+
+// todo Это тестовый метод для ручного преобразования.
+//  Суть в том, что мы должны будем уточнять токен от структуру.
+//  НО: Проблема в том, что они отделены от токенов.
+//  Мы могли бы приводить проверками на месте как в StructureType?
+//  И тогда сделать общий и там и тут приведение.
+// todo Вообще надо сделать min/max/default для поведения примитивов.
+impl TryFrom<&mut Token> for FFIValue {
+  type Error = String;
+
+  fn try_from(token: &mut Token) -> Result<Self, Self::Error> {
+    let data = token
+      .getData()
+      .toString()
+      .ok_or_else(|| "Token data is not a string".to_owned())?;
+
+    match token.getDataType() {
+      TokenType::UInt => Ok(FFIValue::Usize(
+        data.parse::<usize>()
+          .map_err(|e| e.to_string())?,
+      )),
+      TokenType::String => Ok(FFIValue::String(data)),
+      _ => Err("Unsupported TokenType".to_owned()),
+    }
+  }
+}
+
+// =================================================================================================
 
 // todo desc
 #[derive(Serialize, Deserialize)]
@@ -82,11 +114,13 @@ pub enum FFIType
   U16,
   U32,
   U64,
+  Usize, // todo Должно быть тут?
   //
   I8,
   I16,
   I32,
   I64,
+  Isize, // todo Должно быть тут?
   //
   F32,
   F64,
@@ -110,11 +144,13 @@ impl TryFrom<StructureType> for FFIType
       StructureType::U16 => Ok(FFIType::U16),
       StructureType::U32 => Ok(FFIType::U32),
       StructureType::U64 => Ok(FFIType::U64),
+      StructureType::Usize => Ok(FFIType::Usize),
 
       StructureType::I8 => Ok(FFIType::I8),
       StructureType::I16 => Ok(FFIType::I16),
       StructureType::I32 => Ok(FFIType::I32),
       StructureType::I64 => Ok(FFIType::I64),
+      StructureType::Isize => Ok(FFIType::Isize),
 
       StructureType::F32 => Ok(FFIType::F32),
       StructureType::F64 => Ok(FFIType::F64),
@@ -267,15 +303,20 @@ fn processRequest(request: &WorkerRequest) -> Result<String, String>
   // Берём первый аргумент строки
   let argument: &FFIValue = &request.args[0]; // todo Пока только первый используется
   // Извлекаем строку из FFIValue
-  let (pointer, length) = match argument
+  let pointer = match argument
   { // todo Заменить string на abi-ffi
-    FFIValue::String(s) => (s.as_ptr(), s.len()),
+    FFIValue::String(s) => s.as_ptr(),
     _ => return Err("First argument must be a string".to_string()),
+  };
+  println!("pointer: {:?}",pointer);
+  let length2: usize = match &request.args[1] {
+    FFIValue::Usize(len) => *len,
+    _ => return Err("Second argument must be a usize".to_string()),
   };
 
   // Вызов библиотечной функции – весь вывод в stdout пойдёт в stderr,
   // потому что мы перенаправили stdout перед вызовом processRequest.
-  let resultPointer: *mut u8 = functionPointer(pointer, length); // todo не уверен в его типе
+  let _resultPointer: *mut u8 = functionPointer(pointer, length2); // todo не уверен в его типе + обработка нужна
 
   // C указатель -> безопасная обёртка CStr (нул-терминированная строка)
   Ok(String::new()) // todo хз что тут
@@ -464,7 +505,7 @@ impl Drop for WorkerManager
 static FFIWorker: OnceLock<Result<Mutex<WorkerManager>, String>> = OnceLock::new();
 
 /// Внешний интерфейс для вызова FFI-функции через ворке
-pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &[Token], resultType: StructureType) -> Result<FFIValue, String>
+pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &mut [Token], resultType: StructureType) -> Result<FFIValue, String>
 {
   // Получаем worker
   let workerResult: &Result<Mutex<WorkerManager>, String> = FFIWorker.get_or_init(|| {
@@ -474,14 +515,16 @@ pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &[Tok
   });
   
   // Обработка параметров
-  let parametersStrings: Vec<FFIValue> = parametersTokens
-    .iter()
-    .filter_map(|t| {
-      t.getData()
-        .toString()
-        .map(FFIValue::String) // todo Заменить string на abi-ffi
-    })
-    .collect();
+  println!("parametersTokens: {:?}",parametersTokens);
+  let parameters: Vec<FFIValue> = parametersTokens
+    .iter_mut()
+    .map(FFIValue::try_from)  // автоматически использует реализацию TryFrom<&Token>
+    .collect::<Result<Vec<_>, _>>()?; // при первой ошибке возвращаем её
+
+  println!("FFI parameters (len={}):", parameters.len());
+  for (i, val) in parameters.iter().enumerate() {
+    println!("  [{}] = {:?}", i, val);
+  }
   
   //
   match workerResult 
@@ -494,7 +537,7 @@ pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &[Tok
       worker.callExternal(
         libraryPath, 
         methodName, 
-        &parametersStrings, 
+        &parameters, 
         FFIType::try_from(resultType)?
       )
     }
