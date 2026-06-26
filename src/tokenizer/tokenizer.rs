@@ -216,11 +216,14 @@ pub fn readTokens(buffer: Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
             && lineTokens.last().unwrap().getDataType() == &TokenType::Word
             && lineTokens.last().unwrap().getData().toString().unwrap_or_default() == "f";
 
+          #[cfg(feature = "analyzer")]
           let startPos: usize = index; // Начало кавычки (для обычного токена)
 
           if isFormatted 
           {
             // Удаляем токен `f`
+            #[cfg(not(feature = "analyzer"))]
+            lineTokens.pop().unwrap();
             #[cfg(feature = "analyzer")]
             {
               let fToken: Token = lineTokens.pop().unwrap();
