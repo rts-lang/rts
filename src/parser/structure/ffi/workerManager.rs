@@ -71,7 +71,12 @@ pub enum FFIValue
   F64(f64),
   //
   Bool(bool),
-  Pointer(usize) // Сырой указатель
+  Pointer(usize), // Сырой указатель
+  //
+  ByteVector(Vec<u8>) // todo Не знаю насколько правильно это иметь тут, но
+                      //  это самый простой вариант передачи без нарушения адресного пространства.
+                      //  Но опять же кодировки и другие штуки как будут тут себя вести?
+                      //  Мб легче проброс данных по адресам или что-то?
 }
 
 // todo desc
@@ -137,14 +142,9 @@ impl TryFrom<&mut Token> for FFIValue
         }
       }
       TokenType::String =>
-        { // todo Тестовый блок для строк
-          if let Ok(value) = data.parse::<String>()
-          {
-            Ok(FFIValue::Pointer(value.as_ptr() as usize)) // todo Тут критическая ошибка т.е. адрес в main process
-          } else {
-            Err(format!("Failed to parse String: {}", data))
-          }
-        }
+      {
+        Ok(FFIValue::ByteVector(data.into_bytes()))
+      }
       _ => Err("Unsupported TokenType".to_owned()),
     }
   }
@@ -344,7 +344,6 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       .get::<*mut c_void>(request.methodName.as_bytes())
       .map_err(|e| format!("Failed to find function: {}", e))?
   };
-  println!("2 functionPointer: {:?}", functionPointer);
 
   // 3. Build argument types
   let argTypes: Vec<Type> = request
@@ -366,10 +365,10 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::F64(_) => Ok(Type::f64()),
       FFIValue::Bool(_) => Ok(Type::u8()), // bool as u8
       FFIValue::Pointer(_) => Ok(Type::pointer()),
-      FFIValue::None => Err("Cannot pass None as argument".to_string()),
+      FFIValue::ByteVector(_) => Ok(Type::pointer()),
+      FFIValue::None => Err("Cannot pass None as argument".to_string())
     })
     .collect::<Result<Vec<_>, _>>()?;
-  println!("3 argTypes: {:?}", argTypes);
 
   // 4. Return type
   let returnType: Type = match request.resultType 
@@ -388,13 +387,11 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
     FFIType::F32 => Type::f32(),
     FFIType::F64 => Type::f64(),
     FFIType::Bool => Type::u8(),
-    FFIType::Pointer => Type::pointer(),
+    FFIType::Pointer => Type::pointer()
   };
-  println!("4 returnType: {:?}", returnType);
 
   // 5. Create CIF
   let cif: Cif = Cif::new(argTypes.into_iter(), returnType);
-  println!("5 cif: {:?}", cif);
 
   // 6. Store all boxed values first (no references yet)
   let mut storage: Vec<Box<dyn Any>> = Vec::with_capacity(request.args.len());
@@ -416,10 +413,14 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::F64(v) => storage.push(Box::new(*v)),
       FFIValue::Bool(b) => storage.push(Box::new(if *b { 1u8 } else { 0u8 })),
       FFIValue::Pointer(p) => storage.push(Box::new(*p as *mut c_void)),
+      FFIValue::ByteVector(v) => {
+        let mut byteVector: Vec<u8> = v.clone();
+        let rawPointer: *mut c_void = byteVector.as_mut_ptr() as *mut c_void;
+        storage.push(Box::new((byteVector, rawPointer)));
+      }
       FFIValue::None => return Err("Cannot pass None".to_string()),
     }
   }
-  println!("6 storage: {:?}", storage);
 
   // 7. Build arguments using references to the stored boxes (no further mutations)
   let mut args: Vec<Arg> = Vec::with_capacity(request.args.len());
@@ -429,7 +430,6 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
     {
       FFIValue::U8(_) => {
         let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
-        println!("  222 {:?}", val);
         args.push(Arg::new(val));
       }
       FFIValue::U16(_) => {
@@ -482,20 +482,22 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       }
       FFIValue::Pointer(_) => {
         let val: &*mut c_void = storage[i].downcast_ref::<*mut c_void>().unwrap();
-        println!("  111 {:?}", val);
         args.push(Arg::new(val));
       }
-      FFIValue::None => return Err("Cannot pass None".to_string()),
+      FFIValue::ByteVector(_) => {
+        let dataTuple: &(Vec<u8>, *mut c_void) = 
+          storage[i].downcast_ref::<(Vec<u8>, *mut c_void)>().unwrap();
+        args.push(Arg::new(&dataTuple.1));
+      }
+      FFIValue::None => return Err("Cannot pass None".to_string())
     }
   }
-  println!("7 args: {:?}", args);
 
   // 8. Call the FFI function (all unsafe calls are wrapped)
   let codePointer: CodePtr = CodePtr(functionPointer);
   let result: FFIValue = match request.resultType 
   {
     FFIType::None => {
-      println!("  333");
       unsafe { cif.call::<()>(codePointer, &args) };
       FFIValue::None
     }
@@ -556,8 +558,6 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::Pointer(val as usize)
     }
   };
-
-  println!("8 codePointer: {:?}", codePointer);
 
   Ok(result)
 }

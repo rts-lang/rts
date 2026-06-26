@@ -571,7 +571,7 @@ impl Structure
 
         // Передаём параметры, они также могут быть None
 //        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
-//        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
+//\        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
         self.procedureCall(&structureName, parameters);
         // После чего решаем какой результат оставить
         match self.getStructureByName(&structureName)
