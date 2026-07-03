@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
-use crate::parser::structure::ffi::workerManager::callExternal;
-use crate::parser::structure::parameters::Parameters;
+use crate::parser::structure::ffi::workerManager::{callExternal};
+use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokens;
@@ -73,7 +73,11 @@ pub struct Structure
   pub result: Option<Token>,
 
   /// Ссылки на вложенные структуры
-  pub structures: Option< Vec< Arc<RwLock<Structure>> > >,
+  pub structures: Arc<RwLock< // Нужно, чтобы не мутировать методы и иметь доступ
+    Option< // Может не быть
+      Vec< Arc<RwLock<Structure>> > // Гибкий список вложенных структур
+    >
+  >>,
 
   /// Ссылка на родителя
   pub parent: Option< Arc<RwLock<Structure>> >,
@@ -101,7 +105,7 @@ impl Structure
       lines,
       parameters: Parameters::new(None),
       result: None,
-      structures: None,
+      structures: Arc::new(RwLock::new(None)),
       parent,
       lineIndex: 0
     }
@@ -146,7 +150,7 @@ impl Structure
       // Определяем список структур для поиска на текущем уровне:
       // если currentStructure = None, это означает корневой уровень self.structures
       // иначе — получаем дочерние структуры текущей найденной структуры
-      let childrenOpt: Option<Vec< Arc<RwLock<Structure>> >> = match &currentStructure 
+      let childrenLink: Arc<RwLock< Option<Vec< Arc<RwLock<Structure>> >> >> = match &currentStructure 
       {
         None => self.structures.clone(), // Корневые структуры
         Some(structureRef) => {
@@ -154,6 +158,7 @@ impl Structure
           structureGuard.structures.clone() // Дочерние структуры текущей
         }
       };
+      let childrenOption: RwLockReadGuard< Option<Vec< Arc<RwLock<Structure>> >> > = childrenLink.read().unwrap();
 
       // Флаг найденной структуры
       let mut found: bool = false;
@@ -161,7 +166,7 @@ impl Structure
       let mut nextStructure: Option< Arc<RwLock<Structure>> > = None;
 
       // Обрабатываем наличие дочерних структур
-      match childrenOpt 
+      match childrenOption.as_deref()
       { None => {} Some(children) => 
       {
         for child in children 
@@ -195,26 +200,21 @@ impl Structure
     currentStructure
   }
 
-  /// Добавляет новую вложенную структуру в текущую структуру
-  pub fn pushStructure(&mut self, structure: Structure) -> ()
-  { 
-    match self.structures.is_none() 
-    {
-      true => 
-      { // Если не было ещё структур, то создаём новый вектор
-        self.structures = Some( vec!(Arc::new(RwLock::new(structure))) );
-      } 
-      false =>
-      { // Если уже есть структуры, то просто push делаем
-        match self.structures
-        { None => {} Some(ref mut structures) =>
-        {
-          structures.push( Arc::new(RwLock::new(structure)) );
-        }}
-        //
-      }
+  /// Добавляет новую вложенную структуру в текущую структуру;
+  /// 
+  /// Нет &mut self - что хорошо.
+  pub fn pushStructure(&self, structureLink: Arc<RwLock<Structure>>) -> ()
+  {
+    let mut children: RwLockWriteGuard<Option< Vec< Arc<RwLock<Structure>> > >> =
+      self.structures.write().unwrap();
+    
+    if let Some(childrenVec) = children.as_mut() 
+    { // Если уже есть структуры, то просто push делаем
+      childrenVec.push(structureLink);
+    } else 
+    { // Если не было ещё структур, то создаём новый вектор
+      *children = Some(vec![structureLink]);
     }
-    //
   }
 
   // ===============================================================================================
@@ -828,84 +828,7 @@ impl Structure
     // Отдаём новую строку
     result
   }
-
-  // ===============================================================================================
-
-  /// Получает параметры структуры вычисляя их значения;
-  ///
-  /// todo: требует пересмотра
-  pub fn getStructureParameters(&self, value: &mut Vec<Token>) -> Vec<Token> 
-  {
-    let mut result: Vec<Token> = Vec::new();
-
-    let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
-    for (l, token) in value.iter().enumerate() 
-    { // read tokens
-      match *token.getDataType() == TokenType::Comma || l+1 == value.len()
-      {
-        true => 
-        { // comma or line end
-          match *token.getDataType() != TokenType::Comma
-          { false => {} true =>
-          {
-            expressionBuffer.push( token.clone() );
-          }}
-          
-          // Это типизация параметра
-          if expressionBuffer.len() == 3 
-          {
-            // todo По идее должен быть expressionBuffer[2].getStructureTypeSimple(),
-            //  а потом смотрим на StructureType и получаем просто абстрактный TokenType
-            expressionBuffer[0].setDataType(TokenType::UInt); // todo Поэтому временно поставил это
-          }
-          
-          //
-          result.push( expressionBuffer[0].clone() );
-
-          expressionBuffer.clear();
-        }  
-        false => 
-        { // push new expression token
-          expressionBuffer.push( token.clone() );
-        }
-      }
-    }
-    
-    result
-  }
-
-  /// Получает параметры при вызове структуры в качестве метода
-  ///
-  /// todo типы данных в параметрах
-  pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
-  {
-    let mut result: Option< Vec<Line> > = None;
-
-    // Проверка и получение скобки
-    let bracketToken: Option<&Token> = value.get(i+1);
-    match bracketToken
-    { None => {} Some(bracketToken) =>
-    {
-
-      // Проверка, что это круглая скобка
-      match bracketToken.getDataType() != &TokenType::CircleBracketBegin
-      {
-        false => {}
-        true => return Parameters::new(None)
-      }
-
-      // Получаем линии
-      result = bracketToken.lines.clone(); // todo Тут точно клонирование?
-    }}
-    
-    // Удаление скобки
-    value.remove(i+1);
-    *valueLength -= 1;
-
-    //
-    Parameters::new(result)
-  }
-
+  
   // ===============================================================================================
 
   /// Основная функция, которая получает результат выражения состоящего из токенов;
@@ -1035,16 +958,10 @@ impl Structure
                     let bracket: &Token = &value[i + 1];
                     let bracketLines: &Vec<Line> = bracket.lines.as_ref().unwrap();
                     let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
-                    let parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
-
-                    // Преобразуем токены в строки (все должны быть строковыми)
-                    let parametersStrings: Vec<String> = parametersTokens
-                      .iter()
-                      .map(|t| t.getData().toString().unwrap()) // todo utf8 строка сейчас
-                      .collect();
+                    let mut parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
 
                     // Вызов через worker
-                    match callExternal(&libraryPath, &methodName, &parametersStrings) 
+                    match callExternal(&libraryPath, &methodName, &mut parametersTokens, StructureType::None) // todo Заменить string на abi-ffi
                     {
                       Ok(_result) => {
                         // todo Обработка result

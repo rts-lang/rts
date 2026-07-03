@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::token::Token;
@@ -17,8 +18,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Тип данных структуры
-#[derive(PartialEq)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum StructureType
 {
 // primitives
@@ -32,7 +32,7 @@ pub enum StructureType
   I8, I16, I32, I64,
   F32, F64,
   Usize, Isize,
-  Pointer, // указатель (raw)
+  Pointer, // Указатель (raw)
 
   // todo Требует удаление для FFI-ABI?
   Method,
@@ -359,6 +359,8 @@ impl Token
   /// что в неё положили, но при этом в рамках StructureType;
   /// 
   /// Если станет None - то токен будет очищен.
+  /// 
+  /// todo Было бы круто убрать как-то mut отсюда.
   pub fn getStructureType(&mut self) -> StructureType
   {
     let result = |selfToken: &mut Token, structureType: StructureType| -> StructureType

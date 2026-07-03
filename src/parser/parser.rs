@@ -232,7 +232,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       // и работаем с правой частью выражения
 
       // Закидываем новую структуру в родительскую структуру
-      let mut parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
+      let parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
 
       // Вычисляем правое выражение?
       match structureMutability == StructureMut::Final
@@ -266,7 +266,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
 
       // Создаём структуру
       parentStructure.pushStructure(
-        Structure::new(
+        Arc::new(RwLock::new(Structure::new(
           Some(structureName),
           structureMutability,
           structureType,
@@ -281,7 +281,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
             ))
           ]),
           None
-        )
+        )))
       );
       
       //
@@ -331,7 +331,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           Some(newStructureName) => 
           { // получаем имя структуры
             let mut newStructureResultType: Option<&TokenType> = None; // результат структуры
-            let mut parameters: Option< Vec<Token> > = None; // параметры структуры
+            let mut parameters: Option< Vec<(Bytes, StructureType)> > = None; // параметры структуры
             match lineTokensLength > 1 && *lineTokens[1].getDataType() == TokenType::CircleBracketBegin
             {
               true => 
@@ -342,17 +342,16 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 parameters =
                   if let Some(lines) = &lineTokens[1].lines 
                   { // Берём первую линию внутри скобок (там обычно перечислены параметры)
-                    if let Some(firstLine) = lines.get(0) 
+                    let mut result: Vec<(Bytes, StructureType)> = Vec::new();
+                    for line in lines
                     { // Берём вложенные токены в TokenType::CircleBracketBegin 
                       // получаем параметры из этих токенов, давая доступ к родительским структурам
-                      let mut paramTokens: Vec<Token> = firstLine.tokens.clone().unwrap_or_default();
-                      Some(
-                        parentLink.read().unwrap()
-                          .getStructureParameters(&mut paramTokens)
-                      )
-                    } else {
-                      None
+                      let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                      result.extend(
+                        parentLink.read().unwrap().getStructureParameters(&mut paramTokens)
+                      );
                     }
+                    Some(result)
                   } else {
                     None
                   };
@@ -393,28 +392,27 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             let mut newStructure: Structure = 
               Structure::new(
                 Some(newStructureName.clone()),
-                StructureMut::Constant,
-                StructureType::Method,
+                StructureMut::Constant, // todo По идее надо вычислять из синтаксиса
+                StructureType::Method, // todo По идее надо вычислять из синтаксиса
                 Some(lineLine),
                 Some(parentLink.clone())
               );
 
-            // Ставим модификаторы на структуру и
-            // параметры структуры, если они были
+            // Ставим параметры структуры, если они были
             match &parameters 
             { None => {} Some(parameters) =>
             {
+              println!("Parameters len: {:?}", parameters.len());
               for parameter in parameters
               {
                 newStructure.pushStructure(
-                  Structure::new(
-                    parameter.getData().toString(),
-                    StructureMut::Constant, // todo По идее надо еще читать правила mut.
-                    StructureType::None, // todo Надо брать StructureType simple (возможно в getStructureParameters);
-                                         //  Или ставить Any - если не указано.
+                  Arc::new(RwLock::new(Structure::new(
+                    parameter.0.toString(),
+                    StructureMut::Constant, // todo По идее надо еще читать правила mut (в getStructureParameters)
+                    parameter.1.clone(),
                     None,
                     None,
-                  )
+                  )))
                 );
               }
             }}
@@ -429,7 +427,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
 
             { // Добавляем новую структуру в родителя
               parentLink.write().unwrap()
-                .pushStructure(newStructure);
+                .pushStructure(Arc::new(RwLock::new(newStructure)));
             }
             // Просматриваем строки этой новой структуры;
             // todo: в целом, это можно заменить на чтение при первом обращении к структуре;
@@ -633,7 +631,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 
     // argc
     main.pushStructure(
-      Structure::new(
+      Arc::new(RwLock::new(Structure::new(
         Some(String::from("argc")),
         StructureMut::Constant, // Неизменяемая;
         StructureType::Usize,   // Не может быть меньше 0
@@ -655,7 +653,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
           ))
         ]),
         Some( MainStructure.clone() ), // Ссылаемся на родителя
-      )
+      )))
     );
 
     // argv
@@ -680,13 +678,13 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
       );
     }
     main.pushStructure(
-      Structure::new(
+      Arc::new(RwLock::new(Structure::new(
         Some(String::from("argv")),
         StructureMut::Constant, // Неизменяемая;
         StructureType::List,    // Список;
         Some(argv),             // В линии структуры добавляем все argv линии;
         Some( MainStructure.clone() ),  // ссылаемся на родителя
-      )
+      )))
     );
   }
 

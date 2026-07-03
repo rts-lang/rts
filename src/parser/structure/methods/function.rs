@@ -2,13 +2,16 @@ use std::io;
 use std::io::Write;
 use std::process::{Command, ExitStatus, Output};
 use std::str::SplitWhitespace;
-use std::sync::{RwLockReadGuard};
-use crate::parser::structure::parameters::Parameters;
-use crate::parser::structure::structure::Structure;
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 #[cfg(not(target_family = "wasm"))]
 use rand::Rng;
+use crate::parser::structure::methods::parameters::{Parameters};
+use crate::parser::structure::structureType::StructureType;
+use crate::tokenizer::types::line::Line;
+
 // =================================================================================================
 /// Это набор базовых функций
 struct Function;
@@ -376,6 +379,83 @@ impl Function
   }
 
   // ===============================================================================================
+
+  /// Создает структуру из токена
+  /// 
+  /// todo !!! Этот метод нельзя трогать пока не будет он переделан под приведение типа просто.
+  ///  Логика такая: параметры методов сами делают приведение при указании типа.
+  ///  Но если нужно ручное приведение типа - то делаем через этот метод.
+  /// 
+  /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
+  ///   а после этого было уничтожено из-за конца структуры или конца вызова.
+  fn Usize(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize) 
+  {
+    match parameters.getExpression(structure, 0)
+    {
+      None => value[i].setDataType(TokenType::None),
+      Some(p0) =>
+      {
+        let mut tempStructure: Structure = Structure::new(
+          None,
+          StructureMut::Constant, // todo Модификаторы еще, но тут сложно т.к. ~~ не напишешь просто так;
+                                  //  либо можно сделать MutUsize.
+          StructureType::Usize,
+          Some(vec![Arc::new(RwLock::new(Line {
+            tokens: Some(vec![p0]),
+            indent: None,
+            lines: None,
+            parent: None,
+          }))]),
+          None,
+        );
+    
+        // Нормализуем
+        if let Some(lines) = &mut tempStructure.lines 
+        {
+          if let Some(line) = lines.get_mut(0) 
+          {
+            let mut lineLink: RwLockWriteGuard<Line> = line.write().unwrap();
+            if let Some(tokens) = &mut lineLink.tokens 
+            {
+              if let Some(token) = tokens.get_mut(0) {
+                Structure::normalizeToken(token, StructureType::Usize);
+              }
+            }
+            //
+          }
+        }
+    
+        // Добавляем в structures
+        let tempStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(tempStructure));
+        structure.pushStructure(tempStructureLink.clone());
+        
+        // Находим индекс этой структуры в structures
+        // todo Не уверен что это лучший вариант
+        let index: usize = 
+        {
+          let structuresLink: RwLockReadGuard<Option< Vec< Arc<RwLock<Structure>> > >> = 
+            structure.structures.read().unwrap();
+          let structures: &Vec< Arc<RwLock<Structure>> > = structuresLink
+            .as_ref()
+            .expect("structures should be Some after pushStructure"); // todo TokenType::None
+          structures.iter()
+            .position(|s| Arc::ptr_eq(s, &tempStructureLink))
+            .expect("newly added structure not found") // todo TokenType::None
+        };
+        // Возвращаем Link с "#temp{index}"
+        // todo В теории правильно вернуть нормальную ссылку - потому что в expression
+        //  могут быть еще действия дальше и такой Link токен не сработает сейчас.
+        value[i].setDataType(TokenType::Link);
+        value[i].setData(format!("#{}", index));
+        println!("    Structure index: {}", value[i].getData().toString().unwrap());
+        
+        //
+      }
+    }
+    //
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================
@@ -481,6 +561,7 @@ impl Structure
             "exec" => Function::exec(self, &parameters, value, i),
             "execs" => Function::execs(self, &parameters, value, i),
             "importNative" => Function::importNative(self, &parameters, value, i),
+            "Usize" => Function::Usize(self, &parameters, value, i),
             _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
           }
           return;
@@ -489,7 +570,8 @@ impl Structure
         // Если код не завершился ранее, то далее идут custom методы;
 
         // Передаём параметры, они также могут быть None
-//        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
+//        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
+//\        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
         self.procedureCall(&structureName, parameters);
         // После чего решаем какой результат оставить
         match self.getStructureByName(&structureName)

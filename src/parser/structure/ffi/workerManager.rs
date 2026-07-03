@@ -1,15 +1,19 @@
+use std::any::Any;
 use std::io::{Read, Stdin, Stdout, Write};
 use std::sync::{Mutex, MutexGuard, OnceLock};
 use serde::{Deserialize, Serialize};
 use libloading::Library;
-use std::ffi::{CStr};
-use std::os::raw::c_char;
 use std::process::{Command, Stdio, Child, ChildStdin, ChildStdout};
 use std::env;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
 use crate::parser::structure::ffi::dynamicCobsAccumulator::{DynamicCobsAccumulator, DynamicFeedResult};
 use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
+use crate::parser::structure::structureType::StructureType;
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
+use libffi::middle::{Arg, Cif, CodePtr, Type};
+use std::ffi::c_void;
 // =================================================================================================
 
 // Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
@@ -44,6 +48,172 @@ use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
 
 // =================================================================================================
 
+// todo desc
+#[derive(Clone, Serialize, Deserialize)]
+#[derive(Debug)] // todo remove
+pub enum FFIValue 
+{
+  None, // Просто пустое значение
+  //
+  U8(u8),
+  U16(u16),
+  U32(u32),
+  U64(u64),
+  Usize(usize), // todo Должно быть тут?
+  //
+  I8(i8),
+  I16(i16),
+  I32(i32),
+  I64(i64),
+  Isize(isize), // todo Должно быть тут?
+  //
+  F32(f32),
+  F64(f64),
+  //
+  Bool(bool),
+  // Универсальный контейнер для произвольных байтовых данных
+  ByteVector(Vec<u8>) // todo Не знаю насколько правильно это иметь тут, но
+                      //  это самый простой вариант передачи без нарушения адресного пространства.
+                      //  Но опять же кодировки и другие штуки как будут тут себя вести?
+                      //  Мб легче проброс данных по адресам или что-то?
+}
+
+// todo desc
+//
+// todo Работает так же как getStructureType() - и они могут быть вынесены в абстракцию?
+//
+// todo Вообще надо сделать min/max/default для поведения примитивов.
+//
+// todo По факту не нарушает типизацию, но тип может если был Usize(19) то для вызова быть U8(19),
+//  что по факту ошибка, так как будет сменен тип данных - важно его сохранять?
+impl TryFrom<&mut Token> for FFIValue 
+{
+  type Error = String;
+  
+  // todo desc
+  fn try_from(token: &mut Token) -> Result<Self, Self::Error>
+  {
+    let dataType: &TokenType = token.getDataType();
+
+    let data: String = match token.getData().toString() {
+      Some(s) => s,
+      None => return Err("Token data is empty".to_owned()),
+    };
+    
+    println!("try_from: {}:{}",data,dataType.to_string());
+
+    match dataType
+    {
+      TokenType::UInt =>
+      {
+        if let Ok(value) = data.parse::<u128>()
+        {
+          if value <= u8::MAX as u128         { Ok(FFIValue::U8(value as u8))         }
+          else if value <= u16::MAX as u128   { Ok(FFIValue::U16(value as u16))       }
+          else if value <= u32::MAX as u128   { Ok(FFIValue::U32(value as u32))       }
+          else if value <= u64::MAX as u128   { Ok(FFIValue::U64(value as u64))       }
+          else if value <= usize::MAX as u128 { Ok(FFIValue::Usize(value as usize))   }
+          else { Err(format!("UInt out of range: {}", value)) }
+        } else {
+          Err(format!("Failed to parse UInt: {}", data))
+        }
+      }
+      TokenType::Int =>
+      {
+        if let Ok(value) = data.parse::<i128>()
+        {
+          if value >= i8::MIN as i128 && value <= i8::MAX as i128            { Ok(FFIValue::I8(value as i8))       }
+          else if value >= i16::MIN as i128 && value <= i16::MAX as i128     { Ok(FFIValue::I16(value as i16))     }
+          else if value >= i32::MIN as i128 && value <= i32::MAX as i128     { Ok(FFIValue::I32(value as i32))     }
+          else if value >= i64::MIN as i128 && value <= i64::MAX as i128     { Ok(FFIValue::I64(value as i64))     }
+          else if value >= isize::MIN as i128 && value <= isize::MAX as i128 { Ok(FFIValue::Isize(value as isize)) }
+          else { Err(format!("Int out of range: {}", value)) }
+        } else {
+          Err(format!("Failed to parse Int: {}", data))
+        }
+      }
+      TokenType::UFloat | TokenType::Float =>
+      {
+        if let Ok(value) = data.parse::<f64>()
+        {
+          if value >= f32::MIN as f64 && value <= f32::MAX as f64 { Ok(FFIValue::F32(value as f32)) }
+          else if value >= f64::MIN && value <= f64::MAX          { Ok(FFIValue::F64(value))        }
+          else { Err(format!("Float out of range: {}", value)) }
+        } else {
+          Err(format!("Failed to parse Float: {}", data))
+        }
+      }
+      TokenType::String =>
+      {
+        Ok(FFIValue::ByteVector(data.into_bytes()))
+      }
+      _ => Err("Unsupported TokenType".to_owned()),
+    }
+  }
+}
+
+// =================================================================================================
+
+// todo desc
+#[derive(Serialize, Deserialize)]
+pub enum FFIType
+{
+  None, // Просто пустое значение
+  //
+  U8,
+  U16,
+  U32,
+  U64,
+  Usize, // todo Должно быть тут?
+  //
+  I8,
+  I16,
+  I32,
+  I64,
+  Isize, // todo Должно быть тут?
+  //
+  F32,
+  F64,
+  //
+  Bool,
+  Pointer // Сырой указатель
+}
+
+impl TryFrom<StructureType> for FFIType 
+{
+  type Error = String;
+  
+  // todo desc
+  fn try_from(ty: StructureType) -> Result<Self, Self::Error> 
+  {
+    match ty 
+    {
+      StructureType::None => Ok(FFIType::None),
+      
+      StructureType::U8 => Ok(FFIType::U8),
+      StructureType::U16 => Ok(FFIType::U16),
+      StructureType::U32 => Ok(FFIType::U32),
+      StructureType::U64 => Ok(FFIType::U64),
+      StructureType::Usize => Ok(FFIType::Usize),
+
+      StructureType::I8 => Ok(FFIType::I8),
+      StructureType::I16 => Ok(FFIType::I16),
+      StructureType::I32 => Ok(FFIType::I32),
+      StructureType::I64 => Ok(FFIType::I64),
+      StructureType::Isize => Ok(FFIType::Isize),
+
+      StructureType::F32 => Ok(FFIType::F32),
+      StructureType::F64 => Ok(FFIType::F64),
+
+      StructureType::Bool => Ok(FFIType::Bool),
+
+      _ => Err(format!("Unsupported FFI type: {}", ty.to_string())),
+    }
+  }
+}
+
+// =================================================================================================
+
 /// Запрос, отправляемый от родителя воркеру
 #[derive(Serialize, Deserialize)]
 struct WorkerRequest 
@@ -52,16 +222,18 @@ struct WorkerRequest
   libraryPath: String,
   /// Имя вызываемой функции (символ)
   methodName: String,
-  /// Аргументы todo Пока только первый используется
-  args: Vec<String>,
+  /// Аргументы
+  args: Vec<FFIValue>,
+  /// Тип результата todo По идее должен быть сам результат
+  resultType: FFIType
 }
 
 /// Ответ воркера родителю
 #[derive(Serialize, Deserialize)]
 struct WorkerResponse 
 {
-  /// Успешный результат (строка)
-  result: Option<String>,
+  /// Успешный результат
+  result: Option<FFIValue>,
   /// Сообщение об ошибке
   error: Option<String>,
 }
@@ -122,7 +294,7 @@ pub fn workerMain()
           {
             let _redirect: StdoutRedirect = StdoutRedirect::new();
 
-            let catchResult: Result<Result<String, String>, Box<dyn std::any::Any + Send>> =
+            let catchResult: Result<Result<FFIValue, String>, Box<dyn Any + Send>> =
               catch_unwind(AssertUnwindSafe(|| processRequest(&data)));
             // Если паника перехвачена внутри worker, он остается жив и возвращает ошибку родителю;
             // Родитель получает штатный Err и не делает дорогостоящий restart.
@@ -130,7 +302,8 @@ pub fn workerMain()
             match catchResult 
             {
               // Успешное выполнение запроса
-              Ok(Ok(res)) => WorkerResponse { result: Some(res), error: None },
+              Ok(Ok(res)) => 
+                WorkerResponse { result: Some(FFIValue::Usize(0/*res*/)), error: None }, // todo Сделать result type чтобы был а не ручной
               // Логическая ошибка обработки запроса
               Ok(Err(err)) => WorkerResponse { result: None, error: Some(err) },
               // Паника внутри FFI
@@ -157,55 +330,231 @@ pub fn workerMain()
   }
 }
 
-/// Загружает библиотеку, вызывает FFI-функцию и возвращает результат
-fn processRequest(request: &WorkerRequest) -> Result<String, String> 
+/// Загружает библиотеку, вызывает FFI-функцию с произвольными аргументами и 
+/// возвращает результат в виде FFIValue.
+fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String> 
 {
-  // Загрузка библиотеки
+  // 1. Load the library
   let library: Library = unsafe {
     Library::new(&request.libraryPath)
       .map_err(|e| format!("Failed to load library: {}", e))?
   };
 
-  // Загрузка метода
-  type FunctionSignature = extern "C" fn(*const u8, usize) -> *mut u8;
-  let functionPointer: FunctionSignature = unsafe {
-    *library.get::<FunctionSignature>(request.methodName.as_bytes())
+  // 2. Get function pointer
+  let functionPointer: *mut c_void = unsafe { // todo return value? или оно ниже уже есть?
+    *library
+      .get::<*mut c_void>(request.methodName.as_bytes())
       .map_err(|e| format!("Failed to find function: {}", e))?
   };
 
-  // Пустые параметры
-  if request.args.is_empty() {
-    return Err("No arguments provided".to_string());
+  // 3. Build argument types
+  let argTypes: Vec<Type> = request
+    .args
+    .iter()
+    .map(|arg| match arg 
+    {
+      FFIValue::U8(_) => Ok(Type::u8()),
+      FFIValue::U16(_) => Ok(Type::u16()),
+      FFIValue::U32(_) => Ok(Type::u32()),
+      FFIValue::U64(_) => Ok(Type::u64()),
+      FFIValue::Usize(_) => Ok(Type::usize()),
+      FFIValue::I8(_) => Ok(Type::i8()),
+      FFIValue::I16(_) => Ok(Type::i16()),
+      FFIValue::I32(_) => Ok(Type::i32()),
+      FFIValue::I64(_) => Ok(Type::i64()),
+      FFIValue::Isize(_) => Ok(Type::isize()),
+      FFIValue::F32(_) => Ok(Type::f32()),
+      FFIValue::F64(_) => Ok(Type::f64()),
+      FFIValue::Bool(_) => Ok(Type::u8()), // bool as u8
+      FFIValue::ByteVector(_) => Ok(Type::pointer()),
+      FFIValue::None => Err("Cannot pass None as argument".to_string())
+    })
+    .collect::<Result<Vec<_>, _>>()?;
+
+  // 4. Return type
+  let returnType: Type = match request.resultType 
+  {
+    FFIType::None => Type::void(),
+    FFIType::U8 => Type::u8(),
+    FFIType::U16 => Type::u16(),
+    FFIType::U32 => Type::u32(),
+    FFIType::U64 => Type::u64(),
+    FFIType::Usize => Type::usize(),
+    FFIType::I8 => Type::i8(),
+    FFIType::I16 => Type::i16(),
+    FFIType::I32 => Type::i32(),
+    FFIType::I64 => Type::i64(),
+    FFIType::Isize => Type::isize(),
+    FFIType::F32 => Type::f32(),
+    FFIType::F64 => Type::f64(),
+    FFIType::Bool => Type::u8(),
+    FFIType::Pointer => Type::pointer()
+  };
+
+  // 5. Create CIF
+  let cif: Cif = Cif::new(argTypes.into_iter(), returnType);
+
+  // 6. Store all boxed values first (no references yet)
+  let mut storage: Vec<Box<dyn Any>> = Vec::with_capacity(request.args.len());
+  for arg in &request.args 
+  {
+    match arg 
+    {
+      FFIValue::U8(v) => storage.push(Box::new(*v)),
+      FFIValue::U16(v) => storage.push(Box::new(*v)),
+      FFIValue::U32(v) => storage.push(Box::new(*v)),
+      FFIValue::U64(v) => storage.push(Box::new(*v)),
+      FFIValue::Usize(v) => storage.push(Box::new(*v)),
+      FFIValue::I8(v) => storage.push(Box::new(*v)),
+      FFIValue::I16(v) => storage.push(Box::new(*v)),
+      FFIValue::I32(v) => storage.push(Box::new(*v)),
+      FFIValue::I64(v) => storage.push(Box::new(*v)),
+      FFIValue::Isize(v) => storage.push(Box::new(*v)),
+      FFIValue::F32(v) => storage.push(Box::new(*v)),
+      FFIValue::F64(v) => storage.push(Box::new(*v)),
+      FFIValue::Bool(b) => storage.push(Box::new(if *b { 1u8 } else { 0u8 })),
+      FFIValue::ByteVector(v) => {
+        let mut byteVector: Vec<u8> = v.clone();
+        let rawPointer: *mut c_void = byteVector.as_mut_ptr() as *mut c_void;
+        storage.push(Box::new((byteVector, rawPointer)));
+      }
+      FFIValue::None => return Err("Cannot pass None".to_string()),
+    }
   }
 
-  // Берём первый аргумент строки
-  let argument: &String = &request.args[0];
-  // Преобразуем строку в байты UTF-8
-  let argumentBytes: &[u8] = argument.as_bytes();
-  // Указатель на первый байт (для C/FFI)
-  let pointer: *const u8 = argumentBytes.as_ptr();
-  // Длина буфера байт (нужна вместе с указателем)
-  let length: usize = argumentBytes.len();
-
-  // Вызов библиотечной функции – весь вывод в stdout пойдёт в stderr,
-  // потому что мы перенаправили stdout перед вызовом processRequest.
-  let resultPointer: *mut u8 = functionPointer(pointer, length);
-
-  // C указатель -> безопасная обёртка CStr (нул-терминированная строка)
-  if resultPointer.is_null() {
-    return Ok(String::new());
+  // 7. Build arguments using references to the stored boxes (no further mutations)
+  let mut args: Vec<Arg> = Vec::with_capacity(request.args.len());
+  for (i, arg) in request.args.iter().enumerate() 
+  {
+    match arg 
+    {
+      FFIValue::U8(_) => {
+        let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::U16(_) => {
+        let val: &u16 = storage[i].downcast_ref::<u16>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::U32(_) => {
+        let val: &u32 = storage[i].downcast_ref::<u32>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::U64(_) => {
+        let val: &u64 = storage[i].downcast_ref::<u64>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Usize(_) => {
+        let val: &usize = storage[i].downcast_ref::<usize>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I8(_) => {
+        let val: &i8 = storage[i].downcast_ref::<i8>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I16(_) => {
+        let val: &i16 = storage[i].downcast_ref::<i16>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I32(_) => {
+        let val: &i32 = storage[i].downcast_ref::<i32>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::I64(_) => {
+        let val: &i64 = storage[i].downcast_ref::<i64>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Isize(_) => {
+        let val: &isize = storage[i].downcast_ref::<isize>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::F32(_) => {
+        let val: &f32 = storage[i].downcast_ref::<f32>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::F64(_) => {
+        let val: &f64 = storage[i].downcast_ref::<f64>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::Bool(_) => {
+        let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
+        args.push(Arg::new(val));
+      }
+      FFIValue::ByteVector(_) => {
+        let dataTuple: &(Vec<u8>, *mut c_void) = 
+          storage[i].downcast_ref::<(Vec<u8>, *mut c_void)>().unwrap();
+        args.push(Arg::new(&dataTuple.1));
+      }
+      FFIValue::None => return Err("Cannot pass None".to_string())
+    }
   }
-  // CStr -> Rust строка (&str) с проверкой UTF-8
-  let cString: &CStr = unsafe { CStr::from_ptr(resultPointer as *const c_char) };
-  let resultString: String = cString.to_str()
-    .map_err(|e| format!("UTF-8 conversion error: {}", e))?
-    .to_string();
 
-  // НЕ освобождаем resultPointer — мы не знаем аллокатор библиотеки;
-  // Мы также не можем вмешиваться в незнакомые библиотеки и делать внешние методы;
-  // Это утечка памяти, но worker процесс перезапускается всегда.
+  // 8. Call the FFI function (all unsafe calls are wrapped)
+  let codePointer: CodePtr = CodePtr(functionPointer);
+  let result: FFIValue = match request.resultType 
+  {
+    FFIType::None => {
+      unsafe { cif.call::<()>(codePointer, &args) };
+      FFIValue::None
+    }
+    FFIType::U8 => {
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &args) };
+      FFIValue::U8(val)
+    }
+    FFIType::U16 => {
+      let val: u16 = unsafe { cif.call::<u16>(codePointer, &args) };
+      FFIValue::U16(val)
+    }
+    FFIType::U32 => {
+      let val: u32 = unsafe { cif.call::<u32>(codePointer, &args) };
+      FFIValue::U32(val)
+    }
+    FFIType::U64 => {
+      let val: u64 = unsafe { cif.call::<u64>(codePointer, &args) };
+      FFIValue::U64(val)
+    }
+    FFIType::Usize => {
+      let val: usize = unsafe { cif.call::<usize>(codePointer, &args) };
+      FFIValue::Usize(val)
+    }
+    FFIType::I8 => {
+      let val: i8 = unsafe { cif.call::<i8>(codePointer, &args) };
+      FFIValue::I8(val)
+    }
+    FFIType::I16 => {
+      let val: i16 = unsafe { cif.call::<i16>(codePointer, &args) };
+      FFIValue::I16(val)
+    }
+    FFIType::I32 => {
+      let val: i32 = unsafe { cif.call::<i32>(codePointer, &args) };
+      FFIValue::I32(val)
+    }
+    FFIType::I64 => {
+      let val: i64 = unsafe { cif.call::<i64>(codePointer, &args) };
+      FFIValue::I64(val)
+    }
+    FFIType::Isize => {
+      let val: isize = unsafe { cif.call::<isize>(codePointer, &args) };
+      FFIValue::Isize(val)
+    }
+    FFIType::F32 => {
+      let val: f32 = unsafe { cif.call::<f32>(codePointer, &args) };
+      FFIValue::F32(val)
+    }
+    FFIType::F64 => {
+      let val: f64 = unsafe { cif.call::<f64>(codePointer, &args) };
+      FFIValue::F64(val)
+    }
+    FFIType::Bool => {
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &args) };
+      FFIValue::Bool(val != 0)
+    }
+    FFIType::Pointer => {
+      FFIValue::None // todo Не знаю, я пока что ограничил это, ведь пространства то разные.
+    }
+  };
 
-  Ok(resultString)
+  Ok(result)
 }
 
 // =================================================================================================
@@ -296,15 +645,16 @@ impl WorkerManager
   // ===============================================================================================
   
   /// Отправляет запрос воркеру и ждёт ответ; всегда перезапускает воркер.
-  pub fn callExternal(&mut self, libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String> 
+  pub fn callExternal(&mut self, libraryPath: &str, methodName: &str, args: &[FFIValue], resultType: FFIType) -> Result<FFIValue, String> 
   {
-    let communicationResult: Result<String, String> = (|| 
+    let communicationResult: Result<FFIValue, String> = (|| 
     {
       // Запрос
       let request: WorkerRequest = WorkerRequest {
         libraryPath: libraryPath.to_string(),
         methodName: methodName.to_string(),
         args: args.to_vec(),
+        resultType
       };
 
       // Сериализация запроса в COBS-байты
@@ -390,14 +740,28 @@ impl Drop for WorkerManager
 static FFIWorker: OnceLock<Result<Mutex<WorkerManager>, String>> = OnceLock::new();
 
 /// Внешний интерфейс для вызова FFI-функции через ворке
-pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Result<String, String>
+pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &mut [Token], resultType: StructureType) -> Result<FFIValue, String>
 {
+  // Получаем worker
   let workerResult: &Result<Mutex<WorkerManager>, String> = FFIWorker.get_or_init(|| {
     WorkerManager::init()
       .map(Mutex::new)
       .map_err(|e| format!("Worker init error: {}", e))
   });
+  
+  // Обработка параметров
+  println!("parametersTokens: {:?}",parametersTokens);
+  let parameters: Vec<FFIValue> = parametersTokens
+    .iter_mut()
+    .map(FFIValue::try_from)  // автоматически использует реализацию TryFrom<&Token>
+    .collect::<Result<Vec<_>, _>>()?; // при первой ошибке возвращаем её
 
+  println!("FFI parameters (len={}):", parameters.len());
+  for (i, val) in parameters.iter().enumerate() {
+    println!("  [{}] = {:?}", i, val);
+  }
+  
+  //
   match workerResult 
   {
     Ok(workerMutex) => 
@@ -405,7 +769,12 @@ pub fn callExternal(libraryPath: &str, methodName: &str, args: &[String]) -> Res
       let mut worker: MutexGuard<WorkerManager> = workerMutex.lock()
         .map_err(|e| format!("Lock error: {}", e))?;
       // Делегирование вызова во внутренний механизм воркера
-      worker.callExternal(libraryPath, methodName, args)
+      worker.callExternal(
+        libraryPath, 
+        methodName, 
+        &parameters, 
+        FFIType::try_from(resultType)?
+      )
     }
     Err(e) => Err(e.clone()),
   }

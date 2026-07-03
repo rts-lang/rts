@@ -39,9 +39,9 @@ impl RTS
   pub fn new(name: String) -> Self 
   {
     // 
-    let mut main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
+    let main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
     main.pushStructure(
-      Structure::new(
+      Arc::new(RwLock::new(Structure::new(
         Some(name.clone()),
         StructureMut::Constant,
         StructureType::List,
@@ -58,7 +58,7 @@ impl RTS
           ))
         ]),
         Some( MainStructure.clone() ), // Ссылаемся на родителя
-      )
+      )))
     );
     
     //
@@ -79,9 +79,9 @@ impl RTS
     //
     let mainStructure: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
     let namespaceStructureLink: Arc<RwLock<Structure>> = mainStructure.getStructureByName(self.namespace.as_str()).unwrap();
-    let mut namespaceStructure: RwLockWriteGuard<Structure> = namespaceStructureLink.write().unwrap();
+    let namespaceStructure: RwLockWriteGuard<Structure> = namespaceStructureLink.write().unwrap();
     namespaceStructure.pushStructure(
-      Structure::new(
+      Arc::new(RwLock::new(Structure::new(
         Some(structureName),
         structureMut,
         structureType,
@@ -98,7 +98,7 @@ impl RTS
           ))
         ]),
         Some( namespaceStructureLink.clone() ), // Ссылаемся на родителя
-      )
+      )))
     );
   }
 
