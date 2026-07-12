@@ -11,9 +11,11 @@ use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
+
+// Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
 //
 // Изоляция FFI без дочерних процессов и без MMU per-process: mmap-арена + guard-страница +
-// sigsetjmp/signal. Дочерний процесс убран; runtime и FFI живут в одном адресном пространстве.
+// sigsetjmp/signal. FFI живут в одном адресном пространстве Runtime.
 //
 // На каждый вызов:
 //  1. ByteVector-аргументы копируются в свежую mmap-арену (не в обычный heap Vec).
@@ -24,22 +26,21 @@ use crate::tokenizer::types::tokenType::TokenType;
 //  4. По выходу из вызова арена дропается (munmap) целиком - что бы FFI в ней ни испортил,
 //     это не всплывает наружу.
 //
-// Что НЕ защищается (осознанно - это забота ОС, не рантайма): память, которую FFI-код успел
+// Что НЕ защищается - это забота ОС, не рантайма: память, которую FFI-код успел
 // испортить внутри собственной арены до трапа; сторонние ресурсы (файлы, сеть, чужой malloc-heap).
 //
 // Единственная дыра - дисциплинарная, не техническая: если в FFI передать сырой указатель на
-// runtime-объект вместо копии в арене - защиты нет. Правило прежнее: только copy-in, никаких
+// runtime-объект вместо копии в арене - защиты нет. Правило: только copy-in, никаких
 // прямых ссылок на runtime.
 //
-// Мьютекс убран: раньше он защищал общие stdin/stdout дочернего процесса, сейчас арена -
-// per-call, а recovery-стек - thread_local, разделяемого состояния между вызовами больше нет.
-// Однопоточность рантайма (как и раньше) не требуется явно - но recovery-стек thread_local,
-// а не общий static, специально: синхронные сигналы POSIX доставляет потоку-виновнику fault'а,
+// Сейчас арена - per-call, а recovery-стек - thread_local, разделяемого состояния между вызовами нет.
+// Однопоточность рантайма не требуется явно - но recovery-стек thread_local, а не общий static, 
+// специально: синхронные сигналы POSIX доставляет потоку-виновнику fault'а,
 // так что per-thread стек остаётся корректным, даже если рантайм когда-нибудь станет
 // многопоточным (в отличие от общего static, где это была бы гонка).
 //
 // todo (feature)
-//  Region table (RegionId -> FfiRegion) из обсуждения - не реализована: сейчас Pointer всегда
+//  Region table (RegionId -> FfiRegion) - не реализована: сейчас Pointer всегда
 //  возвращается как None (см. ниже), кросс-вызывной адресации внутри #ffi{}-блока пока нет.
 //  Понадобится, когда несколько FFI-вызовов должны будут ссылаться друг на друга по адресам
 //  внутри одного блока - тогда таблица регионов ложится поверх уже готовой арены/guard-страницы.
@@ -48,10 +49,8 @@ use crate::tokenizer::types::tokenType::TokenType;
 //  Если сама FFI-библиотека написана на Rust и паникует - unwind через границу extern "C"
 //  (не "C-unwind") это UB, и начиная с современных версий Rust компилятор сам вызывает abort()
 //  при попытке такого unwind'а. Это SIGABRT, не SIGSEGV/SIGBUS/SIGILL - наш обработчик его
-//  не перехватывает, и намеренно: ловить SIGABRT после потенциальной порчи malloc-кучи опаснее,
-//  чем честно упасть. Если библиотека может паниковать - она должна ловить панику на своей
-//  стороне (catch_unwind в самой .so) до пересечения границы FFI.
-//
+//  не перехватывает.
+
 // =================================================================================================
 
 // todo desc
@@ -105,8 +104,6 @@ impl TryFrom<&mut Token> for FFIValue
       Some(s) => s,
       None => return Err("Token data is empty".to_owned()),
     };
-
-    println!("try_from: {}:{}",data,dataType.to_string());
 
     match dataType
     {
@@ -224,7 +221,7 @@ impl TryFrom<StructureType> for FFIType
 
 /// Максимальная глубина вложенных FFI-вызовов (реентерабельность: FFI зовёт колбэк в runtime,
 /// тот делает ещё один FFI-вызов - у каждого уровня своя точка восстановления).
-const MaxFfiDepth: usize = 64;
+const MaxFfiDepth: usize = 64; // todo Будет удалено при решение issue #79
 
 /// Непрозрачный буфер под sigjmp_buf. На glibc/x86_64 реальный размер - 200 байт;
 /// берём с запасом на 512, чтобы не зависеть от точного layout на других платформах.
@@ -233,11 +230,12 @@ struct SigJmpBuf([u8; 512]);
 
 extern "C"
 {
-  // sigsetjmp в C - макрос, реальный экспортируемый символ называется __sigsetjmp
-  // (сохраняет маску сигналов - без этого после восстановления SIGSEGV мог бы остаться
-  // заблокированным и следующий трап убил бы процесс).
+  /// sigsetjmp в C - макрос, реальный экспортируемый символ называется __sigsetjmp
+  /// (сохраняет маску сигналов - без этого после восстановления SIGSEGV мог бы остаться
+  /// заблокированным и следующий трап убил бы процесс).
   #[link_name = "__sigsetjmp"]
   fn ffiSigSetJmp(env: *mut SigJmpBuf, savesigs: c_int) -> c_int;
+  /// todo desc
   fn siglongjmp(env: *mut SigJmpBuf, val: c_int) -> !;
 }
 
@@ -264,6 +262,7 @@ thread_local!
   static AltStack: UnsafeCell<Option<Vec<u8>>> = UnsafeCell::new(None);
 }
 
+/// todo desc
 extern "C" fn onFfiTrap(signum: c_int)
 {
   Recovery.with(|cell| unsafe {
@@ -282,6 +281,7 @@ extern "C" fn onFfiTrap(signum: c_int)
   });
 }
 
+/// todo desc
 fn ensureAltStackInstalled()
 {
   AltStack.with(|cell| unsafe {
@@ -300,6 +300,7 @@ fn ensureAltStackInstalled()
   });
 }
 
+/// todo desc
 fn installSignalHandlersOnce()
 {
   static InstallOnce: Once = Once::new();
@@ -316,9 +317,12 @@ fn installSignalHandlersOnce()
 }
 
 /// Выполняет `f` под защитой setjmp/signal.
-/// `Ok(None)`  - поймали SIGSEGV/SIGBUS/SIGILL: `f` не доработала, но рантайм цел.
-/// `Ok(Some)`  - вызов отработал штатно.
-/// `Err`       - превышена глубина вложенности (логический лимит, не крах).
+/// 
+/// `Ok(None)` - поймали SIGSEGV/SIGBUS/SIGILL: `f` не доработала, но рантайм цел.
+/// 
+/// `Ok(Some)` - вызов отработал штатно.
+/// 
+/// `Err` - превышена глубина вложенности (логический лимит, не крах).
 fn protectedFfiCall<T>(f: impl FnOnce() -> T) -> Result<Option<T>, String>
 {
   installSignalHandlersOnce();
@@ -356,13 +360,17 @@ fn protectedFfiCall<T>(f: impl FnOnce() -> T) -> Result<Option<T>, String>
 /// адресом) -> аппаратный SIGSEGV вместо тихой порчи памяти рантайма.
 struct FfiArena
 {
+  /// todo desc
   base: *mut u8,
+  /// todo desc
   dataSize: usize,
+  /// todo desc
   mapSize: usize,
 }
 
 impl FfiArena
 {
+  /// todo desc
   fn new(requestedSize: usize) -> Result<Self, String>
   {
     unsafe {
@@ -395,9 +403,10 @@ impl FfiArena
     }
   }
 
+  /// todo desc
   fn basePtr(&self) -> *mut u8 { self.base }
 
-  /// # Safety: offset + bytes.len() <= dataSize (гарантируется раскладкой в performCall).
+  /// Safety: offset + bytes.len() <= dataSize (гарантируется раскладкой в performCall)
   unsafe fn writeAt(&mut self, offset: usize, bytes: &[u8])
   {
     std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.base.add(offset), bytes.len());
@@ -406,7 +415,7 @@ impl FfiArena
 
 impl Drop for FfiArena
 {
-  /// Освобождает mmap целиком - что бы FFI внутри арены ни испортил, оно уходит вместе с ней.
+  /// Освобождает mmap целиком - что бы FFI внутри арены ни испортил, оно уходит вместе с ней
   fn drop(&mut self)
   {
     unsafe { libc::munmap(self.base as *mut c_void, self.mapSize); }
@@ -414,12 +423,11 @@ impl Drop for FfiArena
 }
 
 // =================================================================================================
-// Сам вызов
+// FFI вызов
 // =================================================================================================
 
-/// Загружает библиотеку, копирует ByteVector-аргументы в изолированную арену и выполняет
-/// FFI-вызов под защитой setjmp/signal. Раньше это делал дочерний процесс - теперь всё
-/// synchronно в текущем потоке рантайма.
+/// Загружает библиотеку, копирует ByteVector-аргументы в изолированную арену 
+/// и выполняет FFI-вызов под защитой setjmp/signal.
 fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultType: FFIType) -> Result<FFIValue, String>
 {
   // 1. Библиотека
@@ -593,7 +601,7 @@ fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultTyp
       FFIType::Bool => FFIValue::Bool(cif.call::<u8>(codePointer, &ffiArgs) != 0),
       FFIType::Pointer => {
         FFIValue::None // Пространства теперь общие, но кросс-вызывная адресация (table/region)
-                        // ещё не реализована - см. todo вверху файла. Пока осознанно None.
+                       // ещё не реализована - см. todo вверху файла. Пока осознанно None.
       }
     }
   })?;
@@ -605,25 +613,20 @@ fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultTyp
 
 // =================================================================================================
 
-/// Внешний интерфейс для вызова FFI-функции. Дочерних процессов больше нет: изоляция -
-/// mmap-арена + guard-страница + sigsetjmp/signal на каждый вызов, весь синхронный поток
-/// рантайма выполняется как и раньше, без своей многопоточности/асинхронности.
+/// Безопасный вызов внешней FFI-функции;
+/// 
+/// mmap-арена + guard-страница + sigsetjmp/signal на каждый вызов;
+/// весь поток синхронный, без своей многопоточности/асинхронности.
 pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &mut [Token], resultType: StructureType) -> Result<FFIValue, String>
 {
   // Обработка параметров
-  println!("parametersTokens: {:?}",parametersTokens);
   let parameters: Vec<FFIValue> = parametersTokens
     .iter_mut()
-    .map(FFIValue::try_from)  // автоматически использует реализацию TryFrom<&Token>
-    .collect::<Result<Vec<_>, _>>()?; // при первой ошибке возвращаем её
-
-  println!("FFI parameters (len={}):", parameters.len());
-  for (i, val) in parameters.iter().enumerate() {
-    println!("  [{}] = {:?}", i, val);
-  }
+    .map(FFIValue::try_from)  // Автоматически использует реализацию TryFrom<&Token>
+    .collect::<Result<Vec<_>, _>>()?; // При первой ошибке возвращаем её
 
   // catch_unwind - отдельный рубеж от setjmp/signal: ловит Rust-панику в коде разметки/маршалинга
-  // (не в самом чужом вызове - тот уже под protectedFfiCall). Поведение и текст ошибки - как раньше.
+  // (не в самом чужом вызове - тот уже под protectedFfiCall).
   let outcome: Result<Result<FFIValue, String>, Box<dyn Any + Send>> =
     catch_unwind(AssertUnwindSafe(|| {
       performCall(libraryPath, methodName, &parameters, FFIType::try_from(resultType)?)

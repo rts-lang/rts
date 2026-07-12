@@ -99,8 +99,6 @@ impl TryFrom<&mut Token> for FFIValue
       Some(s) => s,
       None => return Err("Token data is empty".to_owned()),
     };
-    
-    println!("try_from: {}:{}",data,dataType.to_string());
 
     match dataType
     {
