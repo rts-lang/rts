@@ -235,7 +235,8 @@ extern "C"
   /// заблокированным и следующий трап убил бы процесс).
   #[link_name = "__sigsetjmp"]
   fn ffiSigSetJmp(env: *mut SigJmpBuf, savesigs: c_int) -> c_int;
-  /// todo desc
+  /// Прыжок обратно в точку, сохранённую `ffiSigSetJmp`: восстанавливает стек, регистры
+  /// и маску сигналов на момент вызова. Вызывается только из `onFfiTrap`, никогда напрямую.
   fn siglongjmp(env: *mut SigJmpBuf, val: c_int) -> !;
 }
 
@@ -262,7 +263,10 @@ thread_local!
   static AltStack: UnsafeCell<Option<Vec<u8>>> = UnsafeCell::new(None);
 }
 
-/// todo desc
+/// Глобальный обработчик SIGSEGV/SIGBUS/SIGILL. Если трап случился внутри защищённого
+/// FFI-вызова (depth > 0) - прыгает через `siglongjmp` на верх recovery-стека текущего потока,
+/// вызов прерывается, рантайм продолжает работу. Если depth == 0 - сигнал не от FFI, а от бага
+/// в самом рантайме: обработчик снимается, сигнал перевызывается, процесс падает по-настоящему.
 extern "C" fn onFfiTrap(signum: c_int)
 {
   Recovery.with(|cell| unsafe {
@@ -281,7 +285,10 @@ extern "C" fn onFfiTrap(signum: c_int)
   });
 }
 
-/// todo desc
+/// Ставит альтернативный стек сигнала для текущего потока (один раз за поток, лениво).
+/// Без него обработчик SIGSEGV/SIGBUS/SIGILL не сможет выполниться, если сама FFI-функция
+/// переполнит основной стек вызовов (не арену) - на переполненном стеке для кадра
+/// обработчика просто не останется места, и процесс упадёт даже с установленным sigaction.
 fn ensureAltStackInstalled()
 {
   AltStack.with(|cell| unsafe {
@@ -300,7 +307,9 @@ fn ensureAltStackInstalled()
   });
 }
 
-/// todo desc
+/// Регистрирует `onFfiTrap` на SIGSEGV/SIGBUS/SIGILL один раз на процесс (`Once`, не на поток -
+/// sigaction процессо-глобален в POSIX). `SA_NODEFER` - разрешает повторный вход при вложенных
+/// FFI-вызовах, `SA_ONSTACK` - использует альтстек, поставленный `ensureAltStackInstalled`.
 fn installSignalHandlersOnce()
 {
   static InstallOnce: Once = Once::new();
@@ -360,17 +369,18 @@ fn protectedFfiCall<T>(f: impl FnOnce() -> T) -> Result<Option<T>, String>
 /// адресом) -> аппаратный SIGSEGV вместо тихой порчи памяти рантайма.
 struct FfiArena
 {
-  /// todo desc
+  /// Начало полезной (доступной для записи FFI) области арены.
   base: *mut u8,
-  /// todo desc
+  /// Размер полезной области в байтах, округлённый вверх до целой страницы - без guard-страницы.
   dataSize: usize,
-  /// todo desc
+  /// Полный размер mmap-региона: `dataSize` + одна guard-страница. Нужен только для `munmap`.
   mapSize: usize,
 }
 
 impl FfiArena
 {
-  /// todo desc
+  /// Выделяет арену под `requestedSize` байт: `mmap` на округлённый до страницы размер + ещё
+  /// одна страница сразу за ним, которую `mprotect` переводит в `PROT_NONE` (guard-страница).
   fn new(requestedSize: usize) -> Result<Self, String>
   {
     unsafe {
@@ -403,7 +413,7 @@ impl FfiArena
     }
   }
 
-  /// todo desc
+  /// Сырой указатель на начало арены - то, что передаётся в FFI как аргумент-буфер.
   fn basePtr(&self) -> *mut u8 { self.base }
 
   /// Safety: offset + bytes.len() <= dataSize (гарантируется раскладкой в performCall)
