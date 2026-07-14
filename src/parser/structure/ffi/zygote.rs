@@ -260,6 +260,14 @@ fn readMessage(socket: &mut UnixStream) -> io::Result<Vec<u8>>
 }
 
 /// todo desc
-fn encode<T: Serialize>(value: &T) -> Vec<u8> { bincode::serialize(value).expect("encode failed") }
+fn encode<T: Serialize>(value: &T) -> Vec<u8> {
+  let config = bincode::config::standard();
+  bincode::serde::encode_to_vec(value, config).expect("encode failed")
+}
 /// todo desc
-fn decode<T: for<'a> Deserialize<'a>>(bytes: &[u8]) -> Result<T, bincode::Error> { bincode::deserialize(bytes) }
+fn decode<T: for<'a> Deserialize<'a>>(bytes: &[u8]) -> Result<T, bincode::error::DecodeError> {
+  let config = bincode::config::standard();
+  // Обратите внимание: функция возвращает кортеж (T, usize), где usize — количество прочитанных байт.
+  // Нам нужен только сам объект T.
+  bincode::serde::decode_from_slice(bytes, config).map(|(decoded, _bytes_read)| decoded)
+}

@@ -10,7 +10,7 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// todo desc
+/// todo desc
 #[derive(Clone, Serialize, Deserialize)]
 #[derive(Debug)] // todo remove
 pub enum FFIValue
@@ -40,7 +40,7 @@ pub enum FFIValue
                       //  Мб легче проброс данных по адресам или что-то?
 }
 
-// todo desc
+/// todo desc
 //
 // todo Работает так же как getStructureType() - и они могут быть вынесены в абстракцию?
 //
@@ -52,7 +52,7 @@ impl TryFrom<&mut Token> for FFIValue
 {
   type Error = String;
 
-  // todo desc
+  /// todo desc
   fn try_from(token: &mut Token) -> Result<Self, Self::Error>
   {
     let dataType: &TokenType = token.getDataType();
@@ -116,7 +116,7 @@ impl TryFrom<&mut Token> for FFIValue
 
 // =================================================================================================
 
-// todo desc
+/// todo desc
 #[derive(Serialize, Deserialize)]
 pub enum FFIType
 {
@@ -145,7 +145,7 @@ impl TryFrom<StructureType> for FFIType
 {
   type Error = String;
 
-  // todo desc
+  /// todo desc
   fn try_from(ty: StructureType) -> Result<Self, Self::Error>
   {
     match ty
