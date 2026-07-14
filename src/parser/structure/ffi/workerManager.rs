@@ -1,60 +1,17 @@
 use std::any::Any;
-use std::cell::UnsafeCell;
-use std::ffi::c_void;
-use std::mem::MaybeUninit;
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::Once;
-use libc::c_int;
-use libffi::middle::{Arg, Cif, CodePtr, Type};
 use libloading::Library;
+use libffi::middle::{Arg, Cif, CodePtr, Type};
+use std::ffi::c_void;
+use serde::{Deserialize, Serialize};
+use crate::parser::structure::ffi::zygote;
+use crate::parser::structure::ffi::zygote::{FFIRequest, FFIResponse};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
-//
-// Изоляция FFI без дочерних процессов и без MMU per-process: mmap-арена + guard-страница +
-// sigsetjmp/signal. FFI живут в одном адресном пространстве Runtime.
-//
-// На каждый вызов:
-//  1. ByteVector-аргументы копируются в свежую mmap-арену (не в обычный heap Vec).
-//  2. Сразу за арену ставится guard-страница (PROT_NONE) - любой выход FFI за пределы своих
-//     данных (даже вычисленным внутри FFI адресом) -> аппаратный page fault, а не тихая порча.
-//  3. Сам вызов идёт под sigsetjmp; SIGSEGV/SIGBUS/SIGILL перехватывается глобальным обработчиком,
-//     который делает siglongjmp обратно - runtime не падает, результатом вызова становится None.
-//  4. По выходу из вызова арена дропается (munmap) целиком - что бы FFI в ней ни испортил,
-//     это не всплывает наружу.
-//
-// Что НЕ защищается - это забота ОС, не рантайма: память, которую FFI-код успел
-// испортить внутри собственной арены до трапа; сторонние ресурсы (файлы, сеть, чужой malloc-heap).
-//
-// Единственная дыра - дисциплинарная, не техническая: если в FFI передать сырой указатель на
-// runtime-объект вместо копии в арене - защиты нет. Правило: только copy-in, никаких
-// прямых ссылок на runtime.
-//
-// Сейчас арена - per-call, а recovery-стек - thread_local, разделяемого состояния между вызовами нет.
-// Однопоточность рантайма не требуется явно - но recovery-стек thread_local, а не общий static, 
-// специально: синхронные сигналы POSIX доставляет потоку-виновнику fault'а,
-// так что per-thread стек остаётся корректным, даже если рантайм когда-нибудь станет
-// многопоточным (в отличие от общего static, где это была бы гонка).
-//
-// todo (feature)
-//  Region table (RegionId -> FfiRegion) - не реализована: сейчас Pointer всегда
-//  возвращается как None (см. ниже), кросс-вызывной адресации внутри #ffi{}-блока пока нет.
-//  Понадобится, когда несколько FFI-вызовов должны будут ссылаться друг на друга по адресам
-//  внутри одного блока - тогда таблица регионов ложится поверх уже готовой арены/guard-страницы.
-//
-// todo (feature)
-//  Если сама FFI-библиотека написана на Rust и паникует - unwind через границу extern "C"
-//  (не "C-unwind") это UB, и начиная с современных версий Rust компилятор сам вызывает abort()
-//  при попытке такого unwind'а. Это SIGABRT, не SIGSEGV/SIGBUS/SIGILL - наш обработчик его
-//  не перехватывает.
-
-// =================================================================================================
-
-// todo desc
-#[derive(Clone)]
+/// todo desc
+#[derive(Clone, Serialize, Deserialize)]
 #[derive(Debug)] // todo remove
 pub enum FFIValue
 {
@@ -83,7 +40,7 @@ pub enum FFIValue
                       //  Мб легче проброс данных по адресам или что-то?
 }
 
-// todo desc
+/// todo desc
 //
 // todo Работает так же как getStructureType() - и они могут быть вынесены в абстракцию?
 //
@@ -95,7 +52,7 @@ impl TryFrom<&mut Token> for FFIValue
 {
   type Error = String;
 
-  // todo desc
+  /// todo desc
   fn try_from(token: &mut Token) -> Result<Self, Self::Error>
   {
     let dataType: &TokenType = token.getDataType();
@@ -104,6 +61,8 @@ impl TryFrom<&mut Token> for FFIValue
       Some(s) => s,
       None => return Err("Token data is empty".to_owned()),
     };
+
+    // todo println!("try_from: {}:{}",data,dataType.to_string());
 
     match dataType
     {
@@ -157,8 +116,8 @@ impl TryFrom<&mut Token> for FFIValue
 
 // =================================================================================================
 
-// todo desc
-#[derive(Clone, Copy)]
+/// todo desc
+#[derive(Serialize, Deserialize)]
 pub enum FFIType
 {
   None, // Просто пустое значение
@@ -186,7 +145,7 @@ impl TryFrom<StructureType> for FFIType
 {
   type Error = String;
 
-  // todo desc
+  /// todo desc
   fn try_from(ty: StructureType) -> Result<Self, Self::Error>
   {
     match ty
@@ -216,248 +175,73 @@ impl TryFrom<StructureType> for FFIType
 }
 
 // =================================================================================================
-// Recovery-механизм: sigsetjmp/siglongjmp + сигналы
-// =================================================================================================
 
-/// Максимальная глубина вложенных FFI-вызовов (реентерабельность: FFI зовёт колбэк в runtime,
-/// тот делает ещё один FFI-вызов - у каждого уровня своя точка восстановления).
-const MaxFfiDepth: usize = 64; // todo Будет удалено при решение issue #79
-
-/// Непрозрачный буфер под sigjmp_buf. На glibc/x86_64 реальный размер - 200 байт;
-/// берём с запасом на 512, чтобы не зависеть от точного layout на других платформах.
-#[repr(C, align(16))]
-struct SigJmpBuf([u8; 512]);
-
-extern "C"
+/// Формирует запрос и отправляет его Зиготе;
+/// сама эта функция ничего не форкает и не грузит — только сериализация и IPC;
+///
+/// Принимает путь к библиотеке, имя функции, аргументы в виде токенов и ожидаемый тип результата;
+///
+/// Возвращает результат как FFIValue или ошибку.
+pub fn callExternal(
+  libraryPath: &str,
+  methodName: &str,
+  parametersTokens: &mut [Token],
+  resultType: StructureType,
+) -> Result<FFIValue, String>
 {
-  /// sigsetjmp в C - макрос, реальный экспортируемый символ называется __sigsetjmp
-  /// (сохраняет маску сигналов - без этого после восстановления SIGSEGV мог бы остаться
-  /// заблокированным и следующий трап убил бы процесс).
-  #[link_name = "__sigsetjmp"]
-  fn ffiSigSetJmp(env: *mut SigJmpBuf, savesigs: c_int) -> c_int;
-  /// Прыжок обратно в точку, сохранённую `ffiSigSetJmp`: восстанавливает стек, регистры
-  /// и маску сигналов на момент вызова. Вызывается только из `onFfiTrap`, никогда напрямую.
-  fn siglongjmp(env: *mut SigJmpBuf, val: c_int) -> !;
-}
+  // 1. Преобразуем токены в FFIValue
+  let args: Vec<FFIValue> = parametersTokens
+    .iter_mut()
+    .map(FFIValue::try_from)
+    .collect::<Result<Vec<_>, _>>()?;
 
-struct RecoveryStack
-{
-  bufs: [MaybeUninit<SigJmpBuf>; MaxFfiDepth],
-  depth: usize,
-}
+  // 2. Преобразуем тип результата
+  let ffiResultType: FFIType = FFIType::try_from(resultType)?;
 
-thread_local!
-{
-  /// Стек точек восстановления - по одной на каждый активный (в т.ч. вложенный) FFI-вызов
-  /// этого потока. thread_local, а не общий static: синхронные сигналы POSIX доставляет
-  /// именно потоку-виновнику fault'а, поэтому per-thread стек остаётся корректным даже при
-  /// гипотетической многопоточности (общий static тут был бы гонкой на depth/bufs).
-  static Recovery: UnsafeCell<RecoveryStack> = UnsafeCell::new(RecoveryStack {
-    bufs: unsafe { MaybeUninit::uninit().assume_init() }, // массив MaybeUninit - всегда валиден
-    depth: 0,
-  });
+  // 3. Собираем запрос и отправляем Зиготе
+  let request: FFIRequest = FFIRequest {
+    libraryPath:  libraryPath.to_string(),
+    functionName: methodName.to_string(),
+    args,
+    resultType:   ffiResultType,
+  };
 
-  /// Альтернативный стек сигнала на поток. Нужен на случай, если FFI-функция исчерпает не
-  /// арену, а свой реальный call-стек (глубокая рекурсия) - тогда на основном стеке может не
-  /// остаться места под кадр обработчика, и без sigaltstack процесс упадёt даже с sigaction.
-  static AltStack: UnsafeCell<Option<Vec<u8>>> = UnsafeCell::new(None);
-}
-
-/// Глобальный обработчик SIGSEGV/SIGBUS/SIGILL. Если трап случился внутри защищённого
-/// FFI-вызова (depth > 0) - прыгает через `siglongjmp` на верх recovery-стека текущего потока,
-/// вызов прерывается, рантайм продолжает работу. Если depth == 0 - сигнал не от FFI, а от бага
-/// в самом рантайме: обработчик снимается, сигнал перевызывается, процесс падает по-настоящему.
-extern "C" fn onFfiTrap(signum: c_int)
-{
-  Recovery.with(|cell| unsafe {
-    let stack: &mut RecoveryStack = &mut *cell.get();
-    if stack.depth == 0
-    {
-      // Сигнал пришёл не во время защищённого FFI-вызова - баг в самом рантайме,
-      // а не в FFI. Маскировать чужую ошибку опаснее, чем честно уронить процесс:
-      // восстанавливаем поведение по умолчанию и роняем по-настоящему.
-      libc::signal(signum, libc::SIG_DFL);
-      libc::raise(signum);
-      return;
-    }
-    let top: usize = stack.depth - 1;
-    siglongjmp(stack.bufs[top].as_mut_ptr(), 1);
-  });
-}
-
-/// Ставит альтернативный стек сигнала для текущего потока (один раз за поток, лениво).
-/// Без него обработчик SIGSEGV/SIGBUS/SIGILL не сможет выполниться, если сама FFI-функция
-/// переполнит основной стек вызовов (не арену) - на переполненном стеке для кадра
-/// обработчика просто не останется места, и процесс упадёт даже с установленным sigaction.
-fn ensureAltStackInstalled()
-{
-  AltStack.with(|cell| unsafe {
-    let slot: &mut Option<Vec<u8>> = &mut *cell.get();
-    if slot.is_some() { return; }
-
-    let size: usize = libc::SIGSTKSZ.max(64 * 1024);
-    let mut buf: Vec<u8> = vec![0u8; size];
-    let stack: libc::stack_t = libc::stack_t {
-      ss_sp: buf.as_mut_ptr() as *mut c_void,
-      ss_flags: 0,
-      ss_size: size,
-    };
-    libc::sigaltstack(&stack, std::ptr::null_mut());
-    *slot = Some(buf); // держим буфер живым весь срок жизни потока
-  });
-}
-
-/// Регистрирует `onFfiTrap` на SIGSEGV/SIGBUS/SIGILL один раз на процесс (`Once`, не на поток -
-/// sigaction процессо-глобален в POSIX). `SA_NODEFER` - разрешает повторный вход при вложенных
-/// FFI-вызовах, `SA_ONSTACK` - использует альтстек, поставленный `ensureAltStackInstalled`.
-fn installSignalHandlersOnce()
-{
-  static InstallOnce: Once = Once::new();
-  InstallOnce.call_once(|| unsafe {
-    let mut action: libc::sigaction = std::mem::zeroed();
-    action.sa_sigaction = onFfiTrap as usize;
-    action.sa_flags = libc::SA_NODEFER | libc::SA_ONSTACK;
-    libc::sigemptyset(&mut action.sa_mask);
-    for &signal in &[libc::SIGSEGV, libc::SIGBUS, libc::SIGILL]
-    {
-      libc::sigaction(signal, &action, std::ptr::null_mut());
-    }
-  });
-}
-
-/// Выполняет `f` под защитой setjmp/signal.
-/// 
-/// `Ok(None)` - поймали SIGSEGV/SIGBUS/SIGILL: `f` не доработала, но рантайм цел.
-/// 
-/// `Ok(Some)` - вызов отработал штатно.
-/// 
-/// `Err` - превышена глубина вложенности (логический лимит, не крах).
-fn protectedFfiCall<T>(f: impl FnOnce() -> T) -> Result<Option<T>, String>
-{
-  installSignalHandlersOnce();
-  ensureAltStackInstalled();
-
-  Recovery.with(|cell| {
-    let stack: &mut RecoveryStack = unsafe { &mut *cell.get() };
-    if stack.depth >= MaxFfiDepth
-    {
-      return Err("FFI recursion depth exceeded".to_string());
-    }
-    let slot: usize = stack.depth;
-    stack.depth += 1;
-
-    let jumped: c_int = unsafe { ffiSigSetJmp(stack.bufs[slot].as_mut_ptr(), 1) };
-    let outcome: Option<T> = if jumped == 0
-    {
-      Some(f())
-    } else {
-      None // сюда возвращаемся через siglongjmp из onFfiTrap
-    };
-
-    let stack: &mut RecoveryStack = unsafe { &mut *cell.get() };
-    stack.depth -= 1;
-    Ok(outcome)
-  })
-}
-
-// =================================================================================================
-// Арена: mmap + guard-страница
-// =================================================================================================
-
-/// Изолированная арена под один FFI-вызов: отдельный mmap-регион + guard-страница (PROT_NONE)
-/// сразу за данными. Любая запись FFI за пределы `dataSize` (даже вычисленным внутри FFI
-/// адресом) -> аппаратный SIGSEGV вместо тихой порчи памяти рантайма.
-struct FfiArena
-{
-  /// Начало полезной (доступной для записи FFI) области арены.
-  base: *mut u8,
-  /// Размер полезной области в байтах, округлённый вверх до целой страницы - без guard-страницы.
-  dataSize: usize,
-  /// Полный размер mmap-региона: `dataSize` + одна guard-страница. Нужен только для `munmap`.
-  mapSize: usize,
-}
-
-impl FfiArena
-{
-  /// Выделяет арену под `requestedSize` байт: `mmap` на округлённый до страницы размер + ещё
-  /// одна страница сразу за ним, которую `mprotect` переводит в `PROT_NONE` (guard-страница).
-  fn new(requestedSize: usize) -> Result<Self, String>
+  match zygote::call(request)?
   {
-    unsafe {
-      let pageSize: usize = libc::sysconf(libc::_SC_PAGESIZE) as usize;
-      let dataSize: usize = (requestedSize.max(1) + pageSize - 1) & !(pageSize - 1);
-      let mapSize: usize = dataSize + pageSize; // + guard-страница
-
-      let base: *mut c_void = libc::mmap(
-        std::ptr::null_mut(),
-        mapSize,
-        libc::PROT_READ | libc::PROT_WRITE,
-        libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-        -1,
-        0,
-      );
-      if base == libc::MAP_FAILED
-      {
-        return Err(format!("mmap failed: {}", std::io::Error::last_os_error()));
-      }
-
-      let guard: *mut c_void = base.add(dataSize);
-      if libc::mprotect(guard, pageSize, libc::PROT_NONE) != 0
-      {
-        let err = std::io::Error::last_os_error();
-        libc::munmap(base, mapSize);
-        return Err(format!("mprotect failed: {}", err));
-      }
-
-      Ok(Self { base: base as *mut u8, dataSize, mapSize })
-    }
-  }
-
-  /// Сырой указатель на начало арены - то, что передаётся в FFI как аргумент-буфер.
-  fn basePtr(&self) -> *mut u8 { self.base }
-
-  /// Safety: offset + bytes.len() <= dataSize (гарантируется раскладкой в performCall)
-  unsafe fn writeAt(&mut self, offset: usize, bytes: &[u8])
-  {
-    std::ptr::copy_nonoverlapping(bytes.as_ptr(), self.base.add(offset), bytes.len());
-  }
-}
-
-impl Drop for FfiArena
-{
-  /// Освобождает mmap целиком - что бы FFI внутри арены ни испортил, оно уходит вместе с ней
-  fn drop(&mut self)
-  {
-    unsafe { libc::munmap(self.base as *mut c_void, self.mapSize); }
+    FFIResponse::Ok(value) => Ok(value),
+    FFIResponse::Err(e)    => Err(e),
   }
 }
 
 // =================================================================================================
-// FFI вызов
-// =================================================================================================
 
-/// Загружает библиотеку, копирует ByteVector-аргументы в изолированную арену 
-/// и выполняет FFI-вызов под защитой setjmp/signal.
-fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultType: FFIType) -> Result<FFIValue, String>
+/// Выполняется ВНУТРИ форкнутого Зиготой воркера, не самой Зиготой;
+/// делает dlopen конкретной библиотеки и вызывает функцию через libffi;
+/// вызывается один раз на запрос, после чего воркер завершается.
+pub fn executeFFI(request: FFIRequest) -> Result<FFIValue, String>
 {
-  // 1. Библиотека
+  let FFIRequest{ libraryPath, functionName, args, resultType: ffiResultType } = request;
+
+  // ---- этот код выполняется в воркере, форкнутом от Зиготы ----
+  // (все ресурсы будут автоматически освобождены при завершении процесса)
+
+  // Загружаем библиотеку
   let library: Library = unsafe {
-    Library::new(libraryPath)
+    Library::new(&libraryPath)
       .map_err(|e| format!("Failed to load library: {}", e))?
   };
 
-  // 2. Указатель на функцию
+  // Получаем указатель на функцию
   let functionPointer: *mut c_void = unsafe {
     *library
-      .get::<*mut c_void>(methodName.as_bytes())
+      .get::<*mut c_void>(functionName.as_bytes())
       .map_err(|e| format!("Failed to find function: {}", e))?
   };
 
-  // 3. Типы аргументов
-  let argTypes: Vec<Type> = args
+  // Строим типы аргументов для CIF
+  let argsTypes: Vec<Type> = args
     .iter()
-    .map(|arg| match arg
-    {
+    .map(|arg| match arg {
       FFIValue::U8(_) => Ok(Type::u8()),
       FFIValue::U16(_) => Ok(Type::u16()),
       FFIValue::U32(_) => Ok(Type::u32()),
@@ -470,15 +254,13 @@ fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultTyp
       FFIValue::Isize(_) => Ok(Type::isize()),
       FFIValue::F32(_) => Ok(Type::f32()),
       FFIValue::F64(_) => Ok(Type::f64()),
-      FFIValue::Bool(_) => Ok(Type::u8()), // bool as u8
+      FFIValue::Bool(_) => Ok(Type::u8()),
       FFIValue::ByteVector(_) => Ok(Type::pointer()),
-      FFIValue::None => Err("Cannot pass None as argument".to_string())
+      FFIValue::None => Err("Cannot pass None as argument".to_string()),
     })
     .collect::<Result<Vec<_>, _>>()?;
 
-  // 4. Тип результата
-  let returnType: Type = match resultType
-  {
+  let returnType: Type = match ffiResultType {
     FFIType::None => Type::void(),
     FFIType::U8 => Type::u8(),
     FFIType::U16 => Type::u16(),
@@ -493,49 +275,14 @@ fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultTyp
     FFIType::F32 => Type::f32(),
     FFIType::F64 => Type::f64(),
     FFIType::Bool => Type::u8(),
-    FFIType::Pointer => Type::pointer()
+    FFIType::Pointer => Type::pointer(),
   };
 
-  // 5. CIF
-  let cif: Cif = Cif::new(argTypes.into_iter(), returnType);
+  let cif: Cif = Cif::new(argsTypes.into_iter(), returnType);
 
-  // 6. Разметка арены под все ByteVector-аргументы этого вызова (одна арена на вызов -
-  //    "зона под каждый ffi", как и требовалось; не одна арена на каждый отдельный аргумент).
-  let mut layout: Vec<(usize, usize)> = Vec::with_capacity(args.len());
-  let mut arenaNeeded: usize = 0;
-  for arg in args
-  {
-    if let FFIValue::ByteVector(v) = arg
-    {
-      let offset: usize = (arenaNeeded + 7) & !7; // выравнивание по 8 байт
-      layout.push((offset, v.len()));
-      arenaNeeded = offset + v.len();
-    } else {
-      layout.push((0, 0));
-    }
-  }
-
-  let mut arena: Option<FfiArena> = if arenaNeeded > 0
-  {
-    Some(FfiArena::new(arenaNeeded)?)
-  } else {
-    None // чисто скалярный вызов - арена не нужна, но setjmp/signal защита всё равно активна
-  };
-
-  if let Some(arenaRef) = arena.as_mut()
-  {
-    for (arg, &(offset, len)) in args.iter().zip(layout.iter())
-    {
-      if let FFIValue::ByteVector(v) = arg
-      {
-        unsafe { arenaRef.writeAt(offset, &v[..len]); }
-      }
-    }
-  }
-
-  // 7. Store all boxed values first (no references yet); ByteVector - указатель внутрь арены
+  // Подготавливаем хранилище для значений, на которые будут ссылаться аргументы
   let mut storage: Vec<Box<dyn Any>> = Vec::with_capacity(args.len());
-  for (i, arg) in args.iter().enumerate()
+  for arg in &args
   {
     match arg
     {
@@ -552,101 +299,146 @@ fn performCall(libraryPath: &str, methodName: &str, args: &[FFIValue], resultTyp
       FFIValue::F32(v) => storage.push(Box::new(*v)),
       FFIValue::F64(v) => storage.push(Box::new(*v)),
       FFIValue::Bool(b) => storage.push(Box::new(if *b { 1u8 } else { 0u8 })),
-      FFIValue::ByteVector(_) => {
-        let (offset, _len): (usize, usize) = layout[i];
-        let rawPointer: *mut c_void = unsafe {
-          arena.as_mut().unwrap().basePtr().add(offset) as *mut c_void
-        };
-        storage.push(Box::new(rawPointer));
+      FFIValue::ByteVector(v) => {
+        // Для байтового вектора передаём указатель на данные
+        let mut vec: Vec<u8> = v.clone();
+        let pointer: *mut c_void = vec.as_mut_ptr() as *mut c_void;
+        storage.push(Box::new((vec, pointer)));
       }
       FFIValue::None => return Err("Cannot pass None".to_string()),
     }
   }
 
-  // 8. Build arguments using references to the stored boxes (no further mutations)
-  let mut ffiArgs: Vec<Arg> = Vec::with_capacity(args.len());
-  for (i, arg) in args.iter().enumerate()
-  {
-    match arg
-    {
-      FFIValue::U8(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<u8>().unwrap())),
-      FFIValue::U16(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<u16>().unwrap())),
-      FFIValue::U32(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<u32>().unwrap())),
-      FFIValue::U64(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<u64>().unwrap())),
-      FFIValue::Usize(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<usize>().unwrap())),
-      FFIValue::I8(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<i8>().unwrap())),
-      FFIValue::I16(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<i16>().unwrap())),
-      FFIValue::I32(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<i32>().unwrap())),
-      FFIValue::I64(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<i64>().unwrap())),
-      FFIValue::Isize(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<isize>().unwrap())),
-      FFIValue::F32(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<f32>().unwrap())),
-      FFIValue::F64(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<f64>().unwrap())),
-      FFIValue::Bool(_) => ffiArgs.push(Arg::new(storage[i].downcast_ref::<u8>().unwrap())),
+  // Строим список аргументов для libffi
+  let mut argsFfi: Vec<Arg> = Vec::with_capacity(args.len());
+  for (i, arg) in args.iter().enumerate() {
+    match arg {
+      FFIValue::U8(_) => {
+        let val = storage[i].downcast_ref::<u8>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::U16(_) => {
+        let val = storage[i].downcast_ref::<u16>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::U32(_) => {
+        let val = storage[i].downcast_ref::<u32>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::U64(_) => {
+        let val = storage[i].downcast_ref::<u64>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::Usize(_) => {
+        let val = storage[i].downcast_ref::<usize>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::I8(_) => {
+        let val = storage[i].downcast_ref::<i8>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::I16(_) => {
+        let val = storage[i].downcast_ref::<i16>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::I32(_) => {
+        let val = storage[i].downcast_ref::<i32>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::I64(_) => {
+        let val = storage[i].downcast_ref::<i64>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::Isize(_) => {
+        let val = storage[i].downcast_ref::<isize>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::F32(_) => {
+        let val = storage[i].downcast_ref::<f32>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::F64(_) => {
+        let val = storage[i].downcast_ref::<f64>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
+      FFIValue::Bool(_) => {
+        let val = storage[i].downcast_ref::<u8>().unwrap();
+        argsFfi.push(Arg::new(val));
+      }
       FFIValue::ByteVector(_) => {
-        let dataPointer: &*mut c_void = storage[i].downcast_ref::<*mut c_void>().unwrap();
-        ffiArgs.push(Arg::new(dataPointer));
+        let (_, ptr) = storage[i]
+          .downcast_ref::<(Vec<u8>, *mut c_void)>()
+          .unwrap();
+        argsFfi.push(Arg::new(ptr));
       }
-      FFIValue::None => return Err("Cannot pass None".to_string())
+      FFIValue::None => return Err("Cannot pass None".to_string()),
     }
   }
 
-  // 9. Сам вызов - под защитой setjmp/signal. Всё unsafe здесь предполагает чужой код.
+  // Вызов функции
   let codePointer: CodePtr = CodePtr(functionPointer);
-  let trapped: Option<FFIValue> = protectedFfiCall(|| unsafe {
-    match resultType
-    {
-      FFIType::None => { cif.call::<()>(codePointer, &ffiArgs); FFIValue::None }
-      FFIType::U8 => FFIValue::U8(cif.call::<u8>(codePointer, &ffiArgs)),
-      FFIType::U16 => FFIValue::U16(cif.call::<u16>(codePointer, &ffiArgs)),
-      FFIType::U32 => FFIValue::U32(cif.call::<u32>(codePointer, &ffiArgs)),
-      FFIType::U64 => FFIValue::U64(cif.call::<u64>(codePointer, &ffiArgs)),
-      FFIType::Usize => FFIValue::Usize(cif.call::<usize>(codePointer, &ffiArgs)),
-      FFIType::I8 => FFIValue::I8(cif.call::<i8>(codePointer, &ffiArgs)),
-      FFIType::I16 => FFIValue::I16(cif.call::<i16>(codePointer, &ffiArgs)),
-      FFIType::I32 => FFIValue::I32(cif.call::<i32>(codePointer, &ffiArgs)),
-      FFIType::I64 => FFIValue::I64(cif.call::<i64>(codePointer, &ffiArgs)),
-      FFIType::Isize => FFIValue::Isize(cif.call::<isize>(codePointer, &ffiArgs)),
-      FFIType::F32 => FFIValue::F32(cif.call::<f32>(codePointer, &ffiArgs)),
-      FFIType::F64 => FFIValue::F64(cif.call::<f64>(codePointer, &ffiArgs)),
-      FFIType::Bool => FFIValue::Bool(cif.call::<u8>(codePointer, &ffiArgs) != 0),
-      FFIType::Pointer => {
-        FFIValue::None // Пространства теперь общие, но кросс-вызывная адресация (table/region)
-                       // ещё не реализована - см. todo вверху файла. Пока осознанно None.
-      }
+  let ffiResult: FFIValue = match ffiResultType {
+    FFIType::None => {
+      unsafe { cif.call::<()>(codePointer, &argsFfi) };
+      FFIValue::None
     }
-  })?;
-  // `arena` дропается тут обычным Rust scope-exit: она была создана ДО protectedFfiCall,
-  // поэтому siglongjmp этот Drop не пропускает - munmap отработает в любом исходе вызова.
+    FFIType::U8 => {
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &argsFfi) };
+      FFIValue::U8(val)
+    }
+    FFIType::U16 => {
+      let val: u16 = unsafe { cif.call::<u16>(codePointer, &argsFfi) };
+      FFIValue::U16(val)
+    }
+    FFIType::U32 => {
+      let val: u32 = unsafe { cif.call::<u32>(codePointer, &argsFfi) };
+      FFIValue::U32(val)
+    }
+    FFIType::U64 => {
+      let val: u64 = unsafe { cif.call::<u64>(codePointer, &argsFfi) };
+      FFIValue::U64(val)
+    }
+    FFIType::Usize => {
+      let val: usize = unsafe { cif.call::<usize>(codePointer, &argsFfi) };
+      FFIValue::Usize(val)
+    }
+    FFIType::I8 => {
+      let val: i8 = unsafe { cif.call::<i8>(codePointer, &argsFfi) };
+      FFIValue::I8(val)
+    }
+    FFIType::I16 => {
+      let val: i16 = unsafe { cif.call::<i16>(codePointer, &argsFfi) };
+      FFIValue::I16(val)
+    }
+    FFIType::I32 => {
+      let val: i32 = unsafe { cif.call::<i32>(codePointer, &argsFfi) };
+      FFIValue::I32(val)
+    }
+    FFIType::I64 => {
+      let val: i64 = unsafe { cif.call::<i64>(codePointer, &argsFfi) };
+      FFIValue::I64(val)
+    }
+    FFIType::Isize => {
+      let val: isize = unsafe { cif.call::<isize>(codePointer, &argsFfi) };
+      FFIValue::Isize(val)
+    }
+    FFIType::F32 => {
+      let val: f32 = unsafe { cif.call::<f32>(codePointer, &argsFfi) };
+      FFIValue::F32(val)
+    }
+    FFIType::F64 => {
+      let val: f64 = unsafe { cif.call::<f64>(codePointer, &argsFfi) };
+      FFIValue::F64(val)
+    }
+    FFIType::Bool => {
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &argsFfi) };
+      FFIValue::Bool(val != 0)
+    }
+    FFIType::Pointer => {
+      // Для указателей возвращаем None todo пока не поддерживаем
+      FFIValue::None
+    }
+  };
 
-  Ok(trapped.unwrap_or(FFIValue::None)) // None здесь = поймали трап; runtime цел, вызов - не удался
+  Ok(ffiResult)
 }
-
-// =================================================================================================
-
-/// Безопасный вызов внешней FFI-функции;
-/// 
-/// mmap-арена + guard-страница + sigsetjmp/signal на каждый вызов;
-/// весь поток синхронный, без своей многопоточности/асинхронности.
-pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &mut [Token], resultType: StructureType) -> Result<FFIValue, String>
-{
-  // Обработка параметров
-  let parameters: Vec<FFIValue> = parametersTokens
-    .iter_mut()
-    .map(FFIValue::try_from)  // Автоматически использует реализацию TryFrom<&Token>
-    .collect::<Result<Vec<_>, _>>()?; // При первой ошибке возвращаем её
-
-  // catch_unwind - отдельный рубеж от setjmp/signal: ловит Rust-панику в коде разметки/маршалинга
-  // (не в самом чужом вызове - тот уже под protectedFfiCall).
-  let outcome: Result<Result<FFIValue, String>, Box<dyn Any + Send>> =
-    catch_unwind(AssertUnwindSafe(|| {
-      performCall(libraryPath, methodName, &parameters, FFIType::try_from(resultType)?)
-    }));
-
-  match outcome
-  {
-    Ok(result) => result,
-    Err(_) => Err("FFI function panicked".to_string()),
-  }
-}
-
-// =================================================================================================

@@ -19,6 +19,7 @@ use std::{
 };
 use crate::logger::logger::{log, logExit, logSeparator};
 use crate::parser::parser::parseLines;
+use crate::parser::structure::ffi::zygote;
 use crate::tokenizer::tokenizer::readTokens;
 
 // todo удалить mods
@@ -54,6 +55,16 @@ fn help() -> ()
 /// Обладает режимом чтения файла или скрипта из строки;
 fn main() -> io::Result<()> 
 {
+  // Ветка процесса-Зиготы: не выполняет обычную логику RTS, уходит в zygoteLoop
+  if env::args().nth(1).as_deref() == Some(zygote::ZygoteFlag)
+  {
+    zygote::runAsZygote();
+  }
+
+  // Спавн Зиготы через Command — самой первой строкой, до прогрева рантайма
+  zygote::initZygote().expect("Failed to start Zygote");
+  
+  // ===============================================================================================
   let startTime: Instant = Instant::now();
 
   // args to key-values
