@@ -402,6 +402,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             match &parameters 
             { None => {} Some(parameters) =>
             {
+              println!("Parameters len: {:?}", parameters.len());
               for parameter in parameters
               {
                 newStructure.pushStructure(

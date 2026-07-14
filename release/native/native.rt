@@ -2,8 +2,8 @@
 # todo Нужно дописать авто Pointer, чтобы Addres -> Pointer. А еще мб переименовать их?
     типо адрес это ли все же поинтер? типо если различий нет. если есть - то стоит подумать.
 printc(pointer: Pointer, len: Usize)
-  #println(f"CODE: pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")
-  #println(f"CODE: len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
+  println(f"CODE: pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")
+  println(f"CODE: len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
   lib: Pointer = importNative("./libprint.so")
   lib.print(pointer, len)
 
@@ -17,24 +17,6 @@ printc(pointer: Pointer, len: Usize)
   или при импорте написать что надо обернуть в такое-то
 
 printc("Hello from RTS 222!", 19)
-
-
-
-
-
-#a~~: U16 = 0 # todo баг не присваивается к U16, а U8 почему-то стоит
-#println(f"CODE: a: '{a}' mut '{mut(a)}' stype '{stype(a)}'")
-
-
-
-
-
-
-
-
-
-
-
 # todo Строка сейчас, на деле должно быть выравнивание, полная типизация под ABI. #75
 
 #
