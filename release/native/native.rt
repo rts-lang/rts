@@ -2,8 +2,8 @@
 # todo Нужно дописать авто Pointer, чтобы Addres -> Pointer. А еще мб переименовать их?
     типо адрес это ли все же поинтер? типо если различий нет. если есть - то стоит подумать.
 printc(pointer: Pointer, len: Usize)
-  println(f"CODE: pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")
-  println(f"CODE: len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
+  #println(f"CODE: pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")
+  #println(f"CODE: len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
   lib: Pointer = importNative("./libprint.so")
   lib.print(pointer, len)
 

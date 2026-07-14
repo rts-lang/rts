@@ -1,57 +1,19 @@
 use std::any::Any;
-use std::io::{Read, Stdin, Stdout, Write};
-use std::sync::{Mutex, MutexGuard, OnceLock};
-use serde::{Deserialize, Serialize};
 use libloading::Library;
-use std::process::{Command, Stdio, Child, ChildStdin, ChildStdout};
-use std::env;
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::path::PathBuf;
-use crate::parser::structure::ffi::dynamicCobsAccumulator::{DynamicCobsAccumulator, DynamicFeedResult};
-use crate::parser::structure::ffi::stdoutRedirect::StdoutRedirect;
+use libffi::middle::{Arg, Cif, CodePtr, Type};
+use std::ffi::c_void;
+use serde::{Deserialize, Serialize};
+use crate::parser::structure::ffi::zygote;
+use crate::parser::structure::ffi::zygote::{FFIRequest, FFIResponse};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
-use libffi::middle::{Arg, Cif, CodePtr, Type};
-use std::ffi::c_void;
-// =================================================================================================
-
-// Это реализация изоляции для FFI - чтобы мы могли безопасно обрабатывать такие пограничные места.
-// 
-// Она также всегда перезапускается, чтобы мы могли её использовать постоянно;
-// А также синхронная, чтобы не нарушать поток и вести себя как обычный запуск чего-то.
-// Собственно, ей и не надо иметь многопоточность или асинхронность.
-//
-// Также worker не защищает от бесконечных циклов - это не обязанность языка;
-// Это проблема программы, как обычно, просто переписывается код - это нормально.
-// К тому же, это невозможно было бы сделать, так как нельзя определить - что задержка, а что нет.
-//
-// Сама изоляция накладывает небольшие расходы. Для примера - на легкой задаче это выглядит как
-// простой. В самих тестах скорость и работа быстрая, но за кадром есть 
-// нагрузка жизни самого дочернего процесса; На больших задачах она не заметна.
-//
-// todo (feature)
-//  В целом, для скорости мы можем выдать флаг на изоляцию - тогда код мог бы упасть, но смысл 
-//  как раз в том, чтобы ставить его в release. Но это может быть использовано неверно и 
-//  требует четкого механизма безопасности - потому что понапишут потом кода с ошибками.
-//
-// todo (feature)
-//  Мы также могли бы выдать флаги или какой-то механизм для регулирования WorkerManager;
-//  Потому что возможно, это будет гибко при написании чего-то для своего FFI в самом коде.
-//
-// todo (feature)
-//  Теоретически мы могли бы добавить многопоточность:
-//  - Несколько WorkerManager, 2 должно хватать для само-замены в горячих местах; Но мы не можем 
-//    знать горячие места чтобы понять, что надо 10 штук запустить, поэтому 2.
-//  - Реальные несколько потоков, но это потребовало бы четкой системы движения по строкам кода и
-//    решения зависимостей.
-
 // =================================================================================================
 
 // todo desc
 #[derive(Clone, Serialize, Deserialize)]
 #[derive(Debug)] // todo remove
-pub enum FFIValue 
+pub enum FFIValue
 {
   None, // Просто пустое значение
   //
@@ -86,10 +48,10 @@ pub enum FFIValue
 //
 // todo По факту не нарушает типизацию, но тип может если был Usize(19) то для вызова быть U8(19),
 //  что по факту ошибка, так как будет сменен тип данных - важно его сохранять?
-impl TryFrom<&mut Token> for FFIValue 
+impl TryFrom<&mut Token> for FFIValue
 {
   type Error = String;
-  
+
   // todo desc
   fn try_from(token: &mut Token) -> Result<Self, Self::Error>
   {
@@ -99,8 +61,8 @@ impl TryFrom<&mut Token> for FFIValue
       Some(s) => s,
       None => return Err("Token data is empty".to_owned()),
     };
-    
-    println!("try_from: {}:{}",data,dataType.to_string());
+
+    // todo println!("try_from: {}:{}",data,dataType.to_string());
 
     match dataType
     {
@@ -179,17 +141,17 @@ pub enum FFIType
   Pointer // Сырой указатель
 }
 
-impl TryFrom<StructureType> for FFIType 
+impl TryFrom<StructureType> for FFIType
 {
   type Error = String;
-  
+
   // todo desc
-  fn try_from(ty: StructureType) -> Result<Self, Self::Error> 
+  fn try_from(ty: StructureType) -> Result<Self, Self::Error>
   {
-    match ty 
+    match ty
     {
       StructureType::None => Ok(FFIType::None),
-      
+
       StructureType::U8 => Ok(FFIType::U8),
       StructureType::U16 => Ok(FFIType::U16),
       StructureType::U32 => Ok(FFIType::U32),
@@ -214,145 +176,72 @@ impl TryFrom<StructureType> for FFIType
 
 // =================================================================================================
 
-/// Запрос, отправляемый от родителя воркеру
-#[derive(Serialize, Deserialize)]
-struct WorkerRequest 
+/// Формирует запрос и отправляет его Зиготе;
+/// сама эта функция ничего не форкает и не грузит — только сериализация и IPC;
+///
+/// Принимает путь к библиотеке, имя функции, аргументы в виде токенов и ожидаемый тип результата;
+///
+/// Возвращает результат как FFIValue или ошибку.
+pub fn callExternal(
+  libraryPath: &str,
+  methodName: &str,
+  parametersTokens: &mut [Token],
+  resultType: StructureType,
+) -> Result<FFIValue, String>
 {
-  /// Путь к динамической библиотеке
-  libraryPath: String,
-  /// Имя вызываемой функции (символ)
-  methodName: String,
-  /// Аргументы
-  args: Vec<FFIValue>,
-  /// Тип результата todo По идее должен быть сам результат
-  resultType: FFIType
-}
+  // 1. Преобразуем токены в FFIValue
+  let args: Vec<FFIValue> = parametersTokens
+    .iter_mut()
+    .map(FFIValue::try_from)
+    .collect::<Result<Vec<_>, _>>()?;
 
-/// Ответ воркера родителю
-#[derive(Serialize, Deserialize)]
-struct WorkerResponse 
-{
-  /// Успешный результат
-  result: Option<FFIValue>,
-  /// Сообщение об ошибке
-  error: Option<String>,
-}
+  // 2. Преобразуем тип результата
+  let ffiResultType: FFIType = FFIType::try_from(resultType)?;
 
-/// Главный цикл воркера: чтение запросов, выполнение и отправка ответов
-pub fn workerMain() 
-{
-  // Поток входных данных
-  let mut inputStream: Stdin = std::io::stdin();
-  // Поток выходных данных
-  let mut outputStream: Stdout = std::io::stdout();
-  
-  // Буфер чтения
-  let mut rawBuffer: [u8; 8192] = [0u8; 8192];
-  // Аккумулятор COBS-пакетов
-  let mut cobsBuffer: DynamicCobsAccumulator = DynamicCobsAccumulator::new();
+  // 3. Собираем запрос и отправляем Зиготе
+  let request: FFIRequest = FFIRequest {
+    libraryPath:  libraryPath.to_string(),
+    functionName: methodName.to_string(),
+    args,
+    resultType:   ffiResultType,
+  };
 
-  loop 
-  { // Цикл обработки запросов
-    let bytesRead: usize = match inputStream.read(&mut rawBuffer) {
-      Ok(n) => n,
-      Err(_) => break,
-    };
-
-    // Проверка пустого чтения потока
-    if bytesRead == 0 {
-      break;
-    }
-
-    let mut window: &[u8] = &rawBuffer[..bytesRead];
-
-    // Разбор входного буфера по COBS окнам
-    while !window.is_empty() 
-    {
-      window = match cobsBuffer.feed::<WorkerRequest>(window) 
-      {
-        // Входные данные полностью потреблены, ожидание новых
-        DynamicFeedResult::Consumed => break,
-        // Ошибка десериализации пакета
-        DynamicFeedResult::DeserError(e) => 
-        {
-          let response: WorkerResponse = WorkerResponse {
-            result: None,
-            error: Some(format!("Deserialization error: {:?}", e)),
-          };
-          if let Ok(bytes) = postcard::to_allocvec_cobs(&response) {
-            let _ = outputStream.write_all(&bytes);
-            let _ = outputStream.flush();
-          }
-          cobsBuffer.clear();
-          break;
-        }
-        // Успешное извлечение запроса
-        DynamicFeedResult::Success { data, remaining } => 
-        {
-          // Перенаправляем stdout на время обработки запроса
-          let response: WorkerResponse = 
-          {
-            let _redirect: StdoutRedirect = StdoutRedirect::new();
-
-            let catchResult: Result<Result<FFIValue, String>, Box<dyn Any + Send>> =
-              catch_unwind(AssertUnwindSafe(|| processRequest(&data)));
-            // Если паника перехвачена внутри worker, он остается жив и возвращает ошибку родителю;
-            // Родитель получает штатный Err и не делает дорогостоящий restart.
-
-            match catchResult 
-            {
-              // Успешное выполнение запроса
-              Ok(Ok(res)) => 
-                WorkerResponse { result: Some(FFIValue::Usize(0/*res*/)), error: None }, // todo Сделать result type чтобы был а не ручной
-              // Логическая ошибка обработки запроса
-              Ok(Err(err)) => WorkerResponse { result: None, error: Some(err) },
-              // Паника внутри FFI
-              Err(_) => WorkerResponse {
-                result: None,
-                error: Some("FFI function panicked".to_string()),
-              },
-            }
-          }; // Здесь redirect уничтожается, stdout восстанавливается
-
-          if let Ok(bytes) = postcard::to_allocvec_cobs(&response) {
-            // Сериализация ответа в COBS-кадр
-            let _ = outputStream.write_all(&bytes);
-            // Немедленная отправка данных в stdout
-            let _ = outputStream.flush();
-          }
-          // Остаток буфера после извлечения пакета
-          remaining
-        }
-        //
-      };
-    }
-    //
+  match zygote::call(request)?
+  {
+    FFIResponse::Ok(value) => Ok(value),
+    FFIResponse::Err(e)    => Err(e),
   }
 }
 
-/// Загружает библиотеку, вызывает FFI-функцию с произвольными аргументами и 
-/// возвращает результат в виде FFIValue.
-fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String> 
+// =================================================================================================
+
+/// Выполняется ВНУТРИ форкнутого Зиготой воркера, не самой Зиготой;
+/// делает dlopen конкретной библиотеки и вызывает функцию через libffi;
+/// вызывается один раз на запрос, после чего воркер завершается.
+pub fn executeFFI(request: FFIRequest) -> Result<FFIValue, String>
 {
-  // 1. Load the library
+  let FFIRequest{ libraryPath, functionName, args, resultType: ffiResultType } = request;
+
+  // ---- этот код выполняется в воркере, форкнутом от Зиготы ----
+  // (все ресурсы будут автоматически освобождены при завершении процесса)
+
+  // Загружаем библиотеку
   let library: Library = unsafe {
-    Library::new(&request.libraryPath)
+    Library::new(&libraryPath)
       .map_err(|e| format!("Failed to load library: {}", e))?
   };
 
-  // 2. Get function pointer
-  let functionPointer: *mut c_void = unsafe { // todo return value? или оно ниже уже есть?
+  // Получаем указатель на функцию
+  let functionPointer: *mut c_void = unsafe {
     *library
-      .get::<*mut c_void>(request.methodName.as_bytes())
+      .get::<*mut c_void>(functionName.as_bytes())
       .map_err(|e| format!("Failed to find function: {}", e))?
   };
 
-  // 3. Build argument types
-  let argTypes: Vec<Type> = request
-    .args
+  // Строим типы аргументов для CIF
+  let argsTypes: Vec<Type> = args
     .iter()
-    .map(|arg| match arg 
-    {
+    .map(|arg| match arg {
       FFIValue::U8(_) => Ok(Type::u8()),
       FFIValue::U16(_) => Ok(Type::u16()),
       FFIValue::U32(_) => Ok(Type::u32()),
@@ -365,15 +254,13 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::Isize(_) => Ok(Type::isize()),
       FFIValue::F32(_) => Ok(Type::f32()),
       FFIValue::F64(_) => Ok(Type::f64()),
-      FFIValue::Bool(_) => Ok(Type::u8()), // bool as u8
+      FFIValue::Bool(_) => Ok(Type::u8()),
       FFIValue::ByteVector(_) => Ok(Type::pointer()),
-      FFIValue::None => Err("Cannot pass None as argument".to_string())
+      FFIValue::None => Err("Cannot pass None as argument".to_string()),
     })
     .collect::<Result<Vec<_>, _>>()?;
 
-  // 4. Return type
-  let returnType: Type = match request.resultType 
-  {
+  let returnType: Type = match ffiResultType {
     FFIType::None => Type::void(),
     FFIType::U8 => Type::u8(),
     FFIType::U16 => Type::u16(),
@@ -388,17 +275,16 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
     FFIType::F32 => Type::f32(),
     FFIType::F64 => Type::f64(),
     FFIType::Bool => Type::u8(),
-    FFIType::Pointer => Type::pointer()
+    FFIType::Pointer => Type::pointer(),
   };
 
-  // 5. Create CIF
-  let cif: Cif = Cif::new(argTypes.into_iter(), returnType);
+  let cif: Cif = Cif::new(argsTypes.into_iter(), returnType);
 
-  // 6. Store all boxed values first (no references yet)
-  let mut storage: Vec<Box<dyn Any>> = Vec::with_capacity(request.args.len());
-  for arg in &request.args 
+  // Подготавливаем хранилище для значений, на которые будут ссылаться аргументы
+  let mut storage: Vec<Box<dyn Any>> = Vec::with_capacity(args.len());
+  for arg in &args
   {
-    match arg 
+    match arg
     {
       FFIValue::U8(v) => storage.push(Box::new(*v)),
       FFIValue::U16(v) => storage.push(Box::new(*v)),
@@ -414,370 +300,145 @@ fn processRequest(request: &WorkerRequest) -> Result<FFIValue, String>
       FFIValue::F64(v) => storage.push(Box::new(*v)),
       FFIValue::Bool(b) => storage.push(Box::new(if *b { 1u8 } else { 0u8 })),
       FFIValue::ByteVector(v) => {
-        let mut byteVector: Vec<u8> = v.clone();
-        let rawPointer: *mut c_void = byteVector.as_mut_ptr() as *mut c_void;
-        storage.push(Box::new((byteVector, rawPointer)));
+        // Для байтового вектора передаём указатель на данные
+        let mut vec: Vec<u8> = v.clone();
+        let pointer: *mut c_void = vec.as_mut_ptr() as *mut c_void;
+        storage.push(Box::new((vec, pointer)));
       }
       FFIValue::None => return Err("Cannot pass None".to_string()),
     }
   }
 
-  // 7. Build arguments using references to the stored boxes (no further mutations)
-  let mut args: Vec<Arg> = Vec::with_capacity(request.args.len());
-  for (i, arg) in request.args.iter().enumerate() 
-  {
-    match arg 
-    {
+  // Строим список аргументов для libffi
+  let mut argsFfi: Vec<Arg> = Vec::with_capacity(args.len());
+  for (i, arg) in args.iter().enumerate() {
+    match arg {
       FFIValue::U8(_) => {
-        let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<u8>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::U16(_) => {
-        let val: &u16 = storage[i].downcast_ref::<u16>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<u16>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::U32(_) => {
-        let val: &u32 = storage[i].downcast_ref::<u32>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<u32>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::U64(_) => {
-        let val: &u64 = storage[i].downcast_ref::<u64>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<u64>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::Usize(_) => {
-        let val: &usize = storage[i].downcast_ref::<usize>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<usize>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::I8(_) => {
-        let val: &i8 = storage[i].downcast_ref::<i8>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<i8>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::I16(_) => {
-        let val: &i16 = storage[i].downcast_ref::<i16>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<i16>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::I32(_) => {
-        let val: &i32 = storage[i].downcast_ref::<i32>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<i32>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::I64(_) => {
-        let val: &i64 = storage[i].downcast_ref::<i64>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<i64>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::Isize(_) => {
-        let val: &isize = storage[i].downcast_ref::<isize>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<isize>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::F32(_) => {
-        let val: &f32 = storage[i].downcast_ref::<f32>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<f32>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::F64(_) => {
-        let val: &f64 = storage[i].downcast_ref::<f64>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<f64>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::Bool(_) => {
-        let val: &u8 = storage[i].downcast_ref::<u8>().unwrap();
-        args.push(Arg::new(val));
+        let val = storage[i].downcast_ref::<u8>().unwrap();
+        argsFfi.push(Arg::new(val));
       }
       FFIValue::ByteVector(_) => {
-        let dataTuple: &(Vec<u8>, *mut c_void) = 
-          storage[i].downcast_ref::<(Vec<u8>, *mut c_void)>().unwrap();
-        args.push(Arg::new(&dataTuple.1));
+        let (_, ptr) = storage[i]
+          .downcast_ref::<(Vec<u8>, *mut c_void)>()
+          .unwrap();
+        argsFfi.push(Arg::new(ptr));
       }
-      FFIValue::None => return Err("Cannot pass None".to_string())
+      FFIValue::None => return Err("Cannot pass None".to_string()),
     }
   }
 
-  // 8. Call the FFI function (all unsafe calls are wrapped)
+  // Вызов функции
   let codePointer: CodePtr = CodePtr(functionPointer);
-  let result: FFIValue = match request.resultType 
-  {
+  let ffiResult: FFIValue = match ffiResultType {
     FFIType::None => {
-      unsafe { cif.call::<()>(codePointer, &args) };
+      unsafe { cif.call::<()>(codePointer, &argsFfi) };
       FFIValue::None
     }
     FFIType::U8 => {
-      let val: u8 = unsafe { cif.call::<u8>(codePointer, &args) };
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &argsFfi) };
       FFIValue::U8(val)
     }
     FFIType::U16 => {
-      let val: u16 = unsafe { cif.call::<u16>(codePointer, &args) };
+      let val: u16 = unsafe { cif.call::<u16>(codePointer, &argsFfi) };
       FFIValue::U16(val)
     }
     FFIType::U32 => {
-      let val: u32 = unsafe { cif.call::<u32>(codePointer, &args) };
+      let val: u32 = unsafe { cif.call::<u32>(codePointer, &argsFfi) };
       FFIValue::U32(val)
     }
     FFIType::U64 => {
-      let val: u64 = unsafe { cif.call::<u64>(codePointer, &args) };
+      let val: u64 = unsafe { cif.call::<u64>(codePointer, &argsFfi) };
       FFIValue::U64(val)
     }
     FFIType::Usize => {
-      let val: usize = unsafe { cif.call::<usize>(codePointer, &args) };
+      let val: usize = unsafe { cif.call::<usize>(codePointer, &argsFfi) };
       FFIValue::Usize(val)
     }
     FFIType::I8 => {
-      let val: i8 = unsafe { cif.call::<i8>(codePointer, &args) };
+      let val: i8 = unsafe { cif.call::<i8>(codePointer, &argsFfi) };
       FFIValue::I8(val)
     }
     FFIType::I16 => {
-      let val: i16 = unsafe { cif.call::<i16>(codePointer, &args) };
+      let val: i16 = unsafe { cif.call::<i16>(codePointer, &argsFfi) };
       FFIValue::I16(val)
     }
     FFIType::I32 => {
-      let val: i32 = unsafe { cif.call::<i32>(codePointer, &args) };
+      let val: i32 = unsafe { cif.call::<i32>(codePointer, &argsFfi) };
       FFIValue::I32(val)
     }
     FFIType::I64 => {
-      let val: i64 = unsafe { cif.call::<i64>(codePointer, &args) };
+      let val: i64 = unsafe { cif.call::<i64>(codePointer, &argsFfi) };
       FFIValue::I64(val)
     }
     FFIType::Isize => {
-      let val: isize = unsafe { cif.call::<isize>(codePointer, &args) };
+      let val: isize = unsafe { cif.call::<isize>(codePointer, &argsFfi) };
       FFIValue::Isize(val)
     }
     FFIType::F32 => {
-      let val: f32 = unsafe { cif.call::<f32>(codePointer, &args) };
+      let val: f32 = unsafe { cif.call::<f32>(codePointer, &argsFfi) };
       FFIValue::F32(val)
     }
     FFIType::F64 => {
-      let val: f64 = unsafe { cif.call::<f64>(codePointer, &args) };
+      let val: f64 = unsafe { cif.call::<f64>(codePointer, &argsFfi) };
       FFIValue::F64(val)
     }
     FFIType::Bool => {
-      let val: u8 = unsafe { cif.call::<u8>(codePointer, &args) };
+      let val: u8 = unsafe { cif.call::<u8>(codePointer, &argsFfi) };
       FFIValue::Bool(val != 0)
     }
     FFIType::Pointer => {
-      FFIValue::None // todo Не знаю, я пока что ограничил это, ведь пространства то разные.
+      // Для указателей возвращаем None todo пока не поддерживаем
+      FFIValue::None
     }
   };
 
-  Ok(result)
+  Ok(ffiResult)
 }
-
-// =================================================================================================
-
-/// Управляет дочерним процессом-воркером
-struct WorkerManager 
-{
-  /// Дочерний процесс-воркер
-  childProcess: Child,
-  /// Канал записи в STDIN воркера
-  stdinHandle: ChildStdin,
-  /// Канал чтения из STDOUT воркера
-  stdoutHandle: ChildStdout,
-  /// Аккумулятор для декодирования COBS-ответов
-  cobsBuffer: DynamicCobsAccumulator,
-}
-
-impl WorkerManager 
-{
-  // ===============================================================================================
-  
-  /// Вспомогательный метод: Запуск дочернего процесса
-  fn spawnWorker() -> Result<Child, String> 
-  {
-    // Получение пути к текущему исполняемому файлу процесса
-    let executablePath: PathBuf = env::current_exe()
-      .map_err(|e| format!("Failed to get exe path: {}", e))?;
-    // Запускаем дубликат
-    Command::new(executablePath)
-      .arg("ffi")
-      .stdin(Stdio::piped())
-      .stdout(Stdio::piped())
-      .stderr(Stdio::inherit())
-      .spawn()
-      .map_err(|e| format!("Failed to spawn worker: {}", e))
-  }
-
-  /// Вспомогательный метод: Остановка текущего дочернего процесса
-  fn killChildProcess(&mut self) -> () 
-  {
-    let _ = self.childProcess.kill();
-    let _ = self.childProcess.wait();
-  }
-
-  // ===============================================================================================
-
-  /// Запускает новый экземпляр воркера (дочерний процесс)
-  fn init() -> Result<Self, String> 
-  {
-    // Создание дочернего процесса воркера
-    let mut childProcess: Child = Self::spawnWorker()?;
-
-    // Забираем канал stdin у процесса (для отправки данных в воркер)
-    let stdinHandle: ChildStdin = childProcess.stdin.take().ok_or("Failed to open stdin")?;
-    // Забираем канал stdout у процесса (для чтения ответов воркера)
-    let stdoutHandle: ChildStdout = childProcess.stdout.take().ok_or("Failed to open stdout")?;
-
-    //
-    Ok(Self {
-      childProcess,
-      stdinHandle,
-      stdoutHandle,
-      cobsBuffer: DynamicCobsAccumulator::new(),
-    })
-  }
-
-  // ===============================================================================================
-
-  /// Перезапускает воркера (убивает и создаёт заново)
-  fn restart(&mut self) -> Result<(), String> 
-  {
-    self.killChildProcess();
-
-    // Запуск нового процесса воркера
-    let newChildProcess: Child = Self::spawnWorker()?;
-    self.childProcess = newChildProcess;
-
-    // Перепривязка stdin для нового процесса
-    self.stdinHandle = self.childProcess.stdin.take().ok_or("Failed to open stdin")?;
-    // Перепривязка stdout для нового процесса
-    self.stdoutHandle = self.childProcess.stdout.take().ok_or("Failed to open stdout")?;
-    // Сброс буфера декодирования (COBS)
-    self.cobsBuffer = DynamicCobsAccumulator::new();
-
-    Ok(())
-  }
-
-  // ===============================================================================================
-  
-  /// Отправляет запрос воркеру и ждёт ответ; всегда перезапускает воркер.
-  pub fn callExternal(&mut self, libraryPath: &str, methodName: &str, args: &[FFIValue], resultType: FFIType) -> Result<FFIValue, String> 
-  {
-    let communicationResult: Result<FFIValue, String> = (|| 
-    {
-      // Запрос
-      let request: WorkerRequest = WorkerRequest {
-        libraryPath: libraryPath.to_string(),
-        methodName: methodName.to_string(),
-        args: args.to_vec(),
-        resultType
-      };
-
-      // Сериализация запроса в COBS-байты
-      let bytes: Vec<u8> = postcard::to_allocvec_cobs(&request)
-        .map_err(|e| format!("Serialization error: {}", e))?;
-
-      // Отправка запроса в воркер через stdin
-      if let Err(e) = 
-        self.stdinHandle
-        .write_all(&bytes)
-        .and_then(|_| self.stdinHandle
-        .flush()) 
-      {
-        return Err(format!("Write error: {}", e));
-      }
-
-      // Срез байтов из буфера чтения stdout;
-      // Содержит только реально прочитанные данные (без мусора хвоста массива).
-      let mut rawBuffer: [u8; 8192] = [0u8; 8192];
-
-      loop 
-      { // Чтение данных из stdout воркера
-        let bytesRead: usize = match self.stdoutHandle.read(&mut rawBuffer) {
-          Ok(0) => return Err("Worker terminated unexpectedly".to_string()),
-          Ok(n) => n,
-          Err(e) => return Err(format!("Read error: {}", e)),
-        };
-
-        let window: &[u8] = &rawBuffer[..bytesRead];
-
-        while !window.is_empty() 
-        { // Пока в текущем куске stdout есть необработанные байты
-          match self.cobsBuffer.feed::<WorkerResponse>(window) 
-          {
-            // Все данные уже обработаны буфером COBS
-            DynamicFeedResult::Consumed => break,
-            // Ошибка декодирования/десериализации COBS
-            DynamicFeedResult::DeserError(e) => return Err(format!("Deserialization error: {:?}", e)),
-            // Полный объект ответа восстановлен
-            DynamicFeedResult::Success { data, remaining: _ } => 
-            { // remaining не используется т.к. не нужны потоковые ответы.
-              return if let Some(err) = data.error {
-                Err(err)
-              } else {
-                data.result.ok_or("Empty result".to_string())
-              };
-            }
-          };
-          //
-        }
-      }
-      //
-    })();
-
-    let _ = self.restart(); 
-    // todo (feature)
-    //  Перезапускаем всегда - чтобы не делать освобождение памяти;
-    //  Иначе нужно использовать отчистку - которая разная будет и мы не сможем угадать её;
-    //  А также мы не можем знать что вот он испортил мало памяти, а этот немного испортил -
-    //  любой процесс должен быть изолирован.
-    //  Но в целом, мы могли бы дать 2 worker и их хватало бы с головой на горячие участки.
-
-    communicationResult
-  }
-
-  // ===============================================================================================
-}
-
-impl Drop for WorkerManager 
-{
-  /// Убивает воркера при уничтожении менеджера
-  fn drop(&mut self) 
-  {
-    self.killChildProcess();
-  }
-}
-
-// =================================================================================================
-
-/// Глобальный синглтон WorkerManager, инициализируемый при первом обращении
-/// и защищённый мьютексом для синхронной работы;
-/// Используется OnceLock для защиты от падений при загрузке WorkerManager.
-static FFIWorker: OnceLock<Result<Mutex<WorkerManager>, String>> = OnceLock::new();
-
-/// Внешний интерфейс для вызова FFI-функции через ворке
-pub fn callExternal(libraryPath: &str, methodName: &str, parametersTokens: &mut [Token], resultType: StructureType) -> Result<FFIValue, String>
-{
-  // Получаем worker
-  let workerResult: &Result<Mutex<WorkerManager>, String> = FFIWorker.get_or_init(|| {
-    WorkerManager::init()
-      .map(Mutex::new)
-      .map_err(|e| format!("Worker init error: {}", e))
-  });
-  
-  // Обработка параметров
-  println!("parametersTokens: {:?}",parametersTokens);
-  let parameters: Vec<FFIValue> = parametersTokens
-    .iter_mut()
-    .map(FFIValue::try_from)  // автоматически использует реализацию TryFrom<&Token>
-    .collect::<Result<Vec<_>, _>>()?; // при первой ошибке возвращаем её
-
-  println!("FFI parameters (len={}):", parameters.len());
-  for (i, val) in parameters.iter().enumerate() {
-    println!("  [{}] = {:?}", i, val);
-  }
-  
-  //
-  match workerResult 
-  {
-    Ok(workerMutex) => 
-    {
-      let mut worker: MutexGuard<WorkerManager> = workerMutex.lock()
-        .map_err(|e| format!("Lock error: {}", e))?;
-      // Делегирование вызова во внутренний механизм воркера
-      worker.callExternal(
-        libraryPath, 
-        methodName, 
-        &parameters, 
-        FFIType::try_from(resultType)?
-      )
-    }
-    Err(e) => Err(e.clone()),
-  }
-}
-
-// =================================================================================================
