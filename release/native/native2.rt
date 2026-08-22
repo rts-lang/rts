@@ -7,6 +7,18 @@ String
   pointer: Pointer
   length: Usize
 
+##
+Следи за мыслью:
+
+- У String есть bytes+len - это база
+- chillffi подставляет сам все теперь все 2 параметра в запрос - это хорошо
+- но у String в RTS должны поля pointer+length для работы - это логично
+- если я сделал lib.print(a.pointer, a.lenght) по сути я передал Pointer+Usize - 
+  что два типа StructureType - что работает. (я кстати сейчас в тесте так и делаю, только передаю отдельно pointer,length на ffi call)
+- но по сути я мог и передать просто a - тогда print() передал бы тип String. И тогда уже внутри языка было бы авто-каст в запросе
+
+По этому все верно.
+
 # Тестовая обертка для быстрого вызова
 printc(text: String) # todo Хотелось бы String | CString и ветвление логики ниже просто по типу
   lib: Pointer = importNative("./libprint.so")
