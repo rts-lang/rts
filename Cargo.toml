@@ -3,8 +3,7 @@ name = "rts"
 edition = "2021"
 authors = ["miruji <miruji@protonmail.com>"]
 description = "Real-Time Programming Language of Free Data Structures"
-license = "FCL"
-license-file = "LICENCE.md"
+license-file = "LICENSE.md" # FCL
 readme = "README.md"
 
 autobins = false
@@ -43,6 +42,8 @@ libffi = { version = "5.1.1", optional = true }
 # В отличие от статически зашитых обёрток, libffi позволяет конструировать 
 # вызов на лету на основе описания типов, что хорошо для FFI.
 
+# chillffi = { version = "0.1", optional = true } todo
+
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ['-Oz', '--enable-bulk-memory'] # Нужно было для билда wasm с opt
 
@@ -63,7 +64,7 @@ panic = "abort"
 strip = "symbols"
 overflow-checks = false
 debug  = false
-incremental = true
+incremental = false
 rpath = false
 
 [profile.dev]
@@ -80,7 +81,7 @@ incremental = true
 # cargo test --lib
 
 # cargo build
-default = ["termion","rand","serde","bincode","libloading","libc","libffi"]
+default = ["termion","rand","serde","bincode","libloading","libc","libffi","chillffi"]
 
 # Сборка на wasm
 # debug: cargo build --lib --target wasm32-unknown-unknown --features analyzer --no-default-features
