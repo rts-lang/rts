@@ -111,9 +111,11 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
     match &token.lines
     { None => {} Some(lines) =>
     { // Если есть вложения у токена, то рекурсивно обрабатываем их
-      for (i, line) in lines.iter().enumerate()
+      for (i, lineLink) in lines.iter().enumerate()
       {
+        let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
         outputTokens(&line.tokens.clone().unwrap_or_default(), lineIndent, &(indent+1));
+        
         match i != lines.len()-1
         { false => {}
           true => log("parserToken", &format!("{}\\b┃\\c", lineIndentString))

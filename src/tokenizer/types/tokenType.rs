@@ -158,6 +158,24 @@ pub enum TokenType
   // todo здесь должна быть троичная логика
 }
 
+impl TokenType
+{
+  /// Проверяет, подходит ли этот оператор для продолжения строки дальше; #85
+  pub fn isContinuationOperator(&self) -> bool
+  {
+    matches!(
+      self,
+      TokenType::Plus | TokenType::Minus | TokenType::Multiply | TokenType::Divide |
+      TokenType::Equals | TokenType::Modulo | TokenType::Exponent |
+      TokenType::GreaterThan | TokenType::LessThan |
+      TokenType::GreaterThanOrEquals | TokenType::LessThanOrEquals | TokenType::NotEquals |
+      TokenType::Colon | TokenType::Pointer | TokenType::Tilde | TokenType::DoubleTilde |
+      TokenType::Dot | TokenType::Comma |
+      TokenType::Joint | TokenType::Disjoint | TokenType::Inclusion | TokenType::Exclusion
+    )
+  }
+}
+
 impl ToString for TokenType
 { // todo convert -> fmt::Display ?
   fn to_string(&self) -> String 

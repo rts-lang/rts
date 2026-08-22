@@ -20,7 +20,7 @@ use std::{
 use crate::logger::logger::{log, logExit, logSeparator};
 use crate::parser::parser::parseLines;
 use crate::parser::structure::ffi::zygote;
-use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::tokenizer::readTokensSimple;
 
 // todo удалить mods
 mod tokenizer;
@@ -85,7 +85,7 @@ fn main() -> io::Result<()>
   
   // read key
   let mut runFile: bool = false;
-  let mut buffer:  Vec<u8> = Vec::new();
+  let mut buffer: Vec<u8> = Vec::new();
 
   let valuesLength: usize = (args.1).len();
 
@@ -221,7 +221,7 @@ fn main() -> io::Result<()>
   }
 
   // Начинаем чтение кода
-  parseLines( readTokens(buffer, unsafe{_debugMode}) );
+  parseLines( readTokensSimple(&mut buffer, unsafe{_debugMode}) );
   
   match unsafe{_debugMode} 
   {

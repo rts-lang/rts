@@ -9,7 +9,8 @@ pub struct Line
   /// Список вложенных токенов
   pub tokens: Option< Vec<Token> >,
   /// Уровень отступа
-  pub indent: Option<usize>,
+  pub indent: Option<usize>, // todo Indent больше не нужен - срочно убрать, но тесты надо переписать;
+                             //  Также это потянет за собой parser - а там кучу мест.
   /// Вложенные линии
   pub lines: Option< Vec< Arc<RwLock<Line>> > >,
   /// Ссылка на родителя

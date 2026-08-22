@@ -1,11 +1,12 @@
+use crate::tokenizer::read::primitives::skipWhitespaceBytes;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет что байт является одиночным знаком доступным для синтаксиса
-pub fn isSingleChar(c: &u8) -> bool
+/// Проверяет что байт является одиночным знаком
+pub fn isSingleChar(byte: &u8) -> bool
 {
-  matches!(*c, 
+  matches!(*byte, 
     b'+' | b'-' | b'*' | b'/' | b'=' | b'%' | b'^' |
     b'>' | b'<' | b'?' | b'!' | b'&' | b'|' | 
     b'(' | b')' | b'{' | b'}' | b'[' | b']' | 
@@ -25,7 +26,7 @@ pub const operators: &[(&str, TokenType)] = &[
   ("%", TokenType::Modulo),
   ("^", TokenType::Exponent),
 
-  // двойные математические
+  // Двойные математические
   ("++", TokenType::UnaryPlus),
   ("+=", TokenType::PlusEquals),
   ("--", TokenType::UnaryMinus),
@@ -39,7 +40,7 @@ pub const operators: &[(&str, TokenType)] = &[
   ("^^", TokenType::UnaryExponent),
   ("^=", TokenType::ExponentEquals),
 
-  // логические
+  // Логические
   (">", TokenType::GreaterThan),
   ("<", TokenType::LessThan),
   ("!", TokenType::Not),
@@ -68,21 +69,52 @@ pub const operators: &[(&str, TokenType)] = &[
 ];
 
 /// Проверяет buffer по index и так находит возможные двойные и одиночные операторы
-pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token 
+pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 {
-  let mut best: Option<(usize, TokenType)> = None;
-  for (pat, tt) in operators.iter() {
-    let len = pat.len();
-    if *index + len <= *bufferLength && &buffer[*index..*index + len] == pat.as_bytes() {
-      match best {
-        Some((best_len, _)) if len <= best_len => {} // keep the longer one
-        _ => best = Some((len, *tt)),
+  // Ищем паттерн
+  let mut best: Option<(usize, TokenType, usize)> = None;
+  for (pattern, tokenType) in operators.iter()
+  {
+    let byte1: u8 = buffer[*index];
+    let mut byte2: u8 = 0;
+    let mut endIndex: usize = *index + 1; // для одиночного знака
+
+    let patternLength: usize = pattern.len();
+    
+    // Пропуск пустот;
+    // Ожидает только знаки.
+    if patternLength == 2
+    {
+      let mut scanIndex: usize = *index + 1;
+      skipWhitespaceBytes(buffer, &mut scanIndex, *bufferLength, b" \t\n");
+      if scanIndex < *bufferLength && isSingleChar(&buffer[scanIndex]) {
+        byte2 = buffer[scanIndex];
+        endIndex = scanIndex + 1;
+      }
+    }
+
+    //
+    let bytes: &[u8] = if patternLength == 2 {
+      &[byte1, byte2]
+    } else {
+      &[byte1]
+    };
+
+    //
+    if bytes == pattern.as_bytes()
+    {
+      match best
+      {
+        Some((bestLength, _, _)) if patternLength <= bestLength => {} // keep the longer one
+        _ => best = Some((patternLength, *tokenType, endIndex)),
       }
     }
   }
-  if let Some((len, tt)) = best {
-    *index += len;
-    return Token::newEmpty(tt);
+
+  // result
+  if let Some((_length, tokenType, endIndex)) = best {
+    *index = endIndex;
+    return Token::newEmpty(tokenType);
   }
   Token::newEmpty(TokenType::None)
 }
@@ -146,9 +178,11 @@ mod tests
   {
     for (input, expectedType, expectedIndex) in [
       ("+ 1", TokenType::Plus, 1),
+      /* todo Может плохо работать с #85, нужен контроль
       ("++x", TokenType::UnaryPlus, 2),
       ("-=abc", TokenType::MinusEquals, 2),
       ("**123", TokenType::UnaryMultiply, 2),
+      */
       ("!=   ", TokenType::NotEquals, 2),
       ("->7", TokenType::Pointer, 2),
       ("~~ ", TokenType::DoubleTilde, 2),

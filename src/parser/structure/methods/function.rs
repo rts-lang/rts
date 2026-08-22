@@ -55,9 +55,10 @@ impl Function
     {
       //
       match parameters.get(0)
-      { None => {} Some(p0) =>
+      { None => {} Some(p0Link) =>
       { // Получаем 0 параметр
-  
+
+        let p0: RwLockReadGuard<Line> = p0Link.read().unwrap();
         match &p0.tokens
         { None => {} Some(tokens) =>
         { // Получаем список токенов
@@ -110,9 +111,10 @@ impl Function
   fn _mut(structure: &Structure, parameters: &Parameters, value: &mut Vec<Token>, i: usize)
   {
     match parameters.get(0)
-    { None => {} Some(p0) =>
+    { None => {} Some(p0Link) =>
     { // Получаем 0 параметр
       
+      let p0: RwLockReadGuard<Line> = p0Link.read().unwrap();
       match &p0.tokens 
       { None => {} Some(tokens) => 
       { // Получаем список токенов

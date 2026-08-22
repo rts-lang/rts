@@ -1,68 +1,90 @@
-
 // =================================================================================================
 
-#[cfg(not(feature = "analyzer"))]
-/// Проверяет buffer по index и так пропускаем возможные комментарии;
-/// Потом они будут удалены по меткам
-pub fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+/// Считает количество подряд идущих `#`, начиная с buffer[index];
+/// 
+/// Ограничено 3 - это максимальный уровень метки комментария
+fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usize
 {
-  *index += 1;
-  while *index < *bufferLength && buffer[*index] != b'\n' 
+  let mut length: usize = 0;
+  while length < 3 && index+length < bufferLength && buffer[index+length] == b'#'
   {
-    *index += 1;
+    length += 1;
   }
+  length
 }
 
-// =================================================================================================
-
-// todo desk
-#[cfg(feature = "analyzer")]
-pub fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, startIndent: &usize) -> () 
+/// Пропускает комментарий любого уровня, начиная с buffer[*index] == b'#';
+/// Определяет уровень по количеству `#` и передаёт чтение дальше
+///
+/// `#` - до конца строки строго; либо до `##`/`###`, если они встретились раньше
+/// 
+/// `##` - `\n` игнорируется, идёт до закрывающей `##`; либо до `#` или `###`
+/// 
+/// `###` - `\n`, `#` и `##` внутри игнорируются, идёт строго до закрывающей `###`;
+/// удобно для комментирования больших участков кода с комментами внутри
+pub fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
 {
-  // 1. Пропускаем первую строку комментария до конца строки или буфера
-  while *index < *bufferLength && buffer[*index] != b'\n' {
+  let level: usize = hashRunLength(buffer, *index, *bufferLength);
+  *index += level; // Пропускаем открывающую метку
+
+  match level
+  {
+    1 => deleteSingleComment(buffer, index, bufferLength),
+    2 => deleteDoubleComment(buffer, index, bufferLength),
+    _ => deleteTripleComment(buffer, index, bufferLength),
+  }
+  //
+}
+
+/// `#` - идёт строго до конца строки;
+/// 
+/// прерывается раньше, если встретил `##` или `###` - они не потребляются
+fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+{
+  while *index < *bufferLength && buffer[*index] != b'\n'
+  {
+    if buffer[*index] == b'#' && hashRunLength(buffer, *index, *bufferLength) >= 2
+    { // Началась ## или ### - строчный комментарий обрываем здесь
+      return;
+    }
     *index += 1;
   }
+  //
+}
 
-  // Если достигли конца буфера, то комментарий закончился, выходим
-  if *index >= *bufferLength {
-    return;
+/// `##` - `\n` игнорируется, читает до закрывающей `##`;
+/// 
+/// на одиночном `#` или на `###` обрывается раньше - они не потребляются
+fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+{
+  while *index < *bufferLength
+  {
+    if buffer[*index] == b'#'
+    {
+      match hashRunLength(buffer, *index, *bufferLength)
+      {
+        2 => { *index += 2; return; } // Нашли закрывающую ## - потребляем
+        _ => { return; }              // Одиночный # или ### - обрыв без потребления
+      }
+    }
+    *index += 1;
   }
+  //
+}
 
-  // Теперь *index указывает на '\n' (или конец буфера, но мы проверили)
-  loop {
-    let newlinePosition: usize = *index; // позиция '\n'
-    // Пропускаем '\n' только для проверки следующих строк, но не сдвигаем индекс навсегда, если продолжения нет
-    let mut nextIndex: usize = *index + 1;
-    if nextIndex >= *bufferLength {
-      // Нет следующей строки, оставляем индекс на '\n'
-      *index = newlinePosition;
-      break;
+/// `###` - `\n`, `#` и `##` внутри игнорируются;
+/// 
+/// читает строго до закрывающей `###`
+fn deleteTripleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+{
+  while *index < *bufferLength
+  {
+    if buffer[*index] == b'#' && hashRunLength(buffer, *index, *bufferLength) >= 3
+    { // Нашли закрывающую ### - потребляем
+      *index += 3;
+      return;
     }
-
-    let mut nextIndent: usize = 0;
-    // Считаем пробелы в начале следующей строки
-    while nextIndex < *bufferLength && buffer[nextIndex] == b' ' {
-      nextIndent += 1;
-      nextIndex += 1;
-    }
-
-    if nextIndent > *startIndent {
-      // Это продолжение комментария: пропускаем всю строку до конца
-      *index = nextIndex;
-      while *index < *bufferLength && buffer[*index] != b'\n' {
-        *index += 1;
-      }
-      // Если достигли конца буфера, выходим, иначе продолжаем loop
-      if *index >= *bufferLength {
-        break;
-      }
-      // Иначе *index указывает на '\n' следующей строки, продолжим loop
-    } else {
-      // Комментарий закончился, возвращаем индекс на исходный '\n'
-      *index = newlinePosition;
-      break;
-    }
+    *index += 1;
   }
   //
 }
@@ -72,102 +94,85 @@ pub fn deleteComments(buffer: &[u8], index: &mut usize, bufferLength: &usize, st
 #[cfg(test)]
 mod tests
 {
-  #[cfg(not(feature = "analyzer"))]
   use crate::tokenizer::read::primitives::comments::deleteComment;
-  #[cfg(feature = "analyzer")]
-  use crate::tokenizer::read::primitives::comments::deleteComments;
   // ===============================================================================================
-  
-  /// todo desk
-  #[test]
-  #[cfg(feature = "analyzer")]
-  fn singleLine()
+
+  /// Табличная проверка: buffer, ожидаемый index после чтения
+  fn checkCases(cases: Vec<(&str, usize)>) -> ()
   {
-    for (input, expectedIndex, indent) in vec![
-      ( "# short\nrest ", 7, 0),
-      ( "# end", 5, 0),
-      ( "# mid\n", 5, 0) // тут не 6 т.к. \n не символ
-    ] {
-      let buffer:  &[u8] = input.as_bytes();
+    for (input, expectedIndex) in cases
+    {
+      let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      
+
       //
-      deleteComments(buffer,  &mut index,  &bufferLength, &indent);
-      
-      //
-      assert_eq!(
-        index,
-        expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, получен {}",
-        input,
-        expectedIndex,
-        index
-      );
-    }
-    //
-  }
-  /// todo desk
-  #[test]
-  #[cfg(feature = "analyzer")]
-  fn multiLine()
-  {
-    for (input, expectedIndex, indent) in vec![
-      ( "# base\n  cont\nend ", 13, 0), // тут не 14 т.к. \n не символ
-      ( "# a\n# b\n", 3, 0)
-    ] {
-      let buffer:  &[u8] = input.as_bytes();
-      let bufferLength: usize = buffer.len();
-      let mut index: usize = 0;
-      
-      //
-      deleteComments(buffer,  &mut index,  &bufferLength, &indent);
-      
+      deleteComment(buffer, &mut index, &bufferLength);
+
       //
       assert_eq!(
-        index,
-        expectedIndex,
-        "Для '{}' индекс {} != {}",
-        input,
-        expectedIndex,
-        index
+        index, expectedIndex,
+        "Для '{}' индекс должен быть {}, получен {}", input, expectedIndex, index
       );
     }
-    //
   }
-  
+
   // ===============================================================================================
-  
-  /// todo desk
+
+  /// `#` идёт строго до конца строки
   #[test]
-  #[cfg(not(feature = "analyzer"))]
-  fn singleLine()
+  fn single() -> ()
   {
-    for (input, expectedIndex) in vec![
-      ( "# short\nrest ", 7),
-      ( "# end", 5),
-      ( "# mid\n", 5) // тут не 6 т.к. \n не символ
-    ] {
-      let buffer:  &[u8] = input.as_bytes();
-      let bufferLength: usize = buffer.len();
-      let mut index: usize = 0;
-      
-      //
-      deleteComment(buffer,  &mut index,  &bufferLength);
-      
-      //
-      assert_eq!(
-        index,
-        expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, получен {}",
-        input,
-        expectedIndex,
-        index
-      );
-    }
-    //
+    checkCases(vec![
+      ("# short\nrest ", 7), // Остановка перед \n
+      ("# end", 5), // Остановка в конце буфера
+    ]);
   }
-  
+
+  /// `#` обрывается раньше на `##` или `###`, не потребляя их
+  #[test]
+  fn singleInterruptedByHigherLevel() -> ()
+  {
+    checkCases(vec![
+      ("# text ## more\n", 7),  // "# text " -> обрыв на ##
+      ("# text ### more\n", 7), // "# text " -> обрыв на ###
+    ]);
+  }
+
+  // ===============================================================================================
+
+  /// `##` игнорирует \n и идёт до закрывающей ##
+  #[test]
+  fn double() -> ()
+  {
+    checkCases(vec![
+      ("## a\nb\nc ##rest", 11), // Потребляет закрывающую ##
+      ("## unterminated", 15), // До конца буфера, если нет закрытия
+    ]);
+  }
+
+  /// `##` обрывается раньше на одиночном `#` или на `###`, не потребляя их
+  #[test]
+  fn doubleInterruptedByOtherLevel() -> ()
+  {
+    checkCases(vec![
+      ("## a\n# rest", 5), // Обрыв на одиночном #
+      ("## a\n### rest", 5), // Обрыв на ###
+    ]);
+  }
+
+  // ===============================================================================================
+
+  /// `###` игнорирует \n, # и ##, идёт строго до закрывающей ###
+  #[test]
+  fn triple() -> ()
+  {
+    checkCases(vec![
+      ("### a\n# b\n## c\n###rest", 18), // # и ## внутри игнорируются
+      ( "### unterminated", 16), // До конца буфера, если нет закрытия
+    ]);
+  }
+
   // ===============================================================================================
 }
 

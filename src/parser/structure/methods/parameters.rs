@@ -1,3 +1,4 @@
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
@@ -10,7 +11,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[derive(Clone)]
 pub struct Parameters
 {
-  values: Option< Vec<Line> >,
+  values: Option< Vec< Arc<RwLock<Line>> > >,
 }
 
 impl Parameters
@@ -18,7 +19,7 @@ impl Parameters
   // ===============================================================================================
   
   /// Создает новую структуру
-  pub fn new(values: Option< Vec<Line> >) -> Self
+  pub fn new(values: Option< Vec< Arc<RwLock<Line>> > >) -> Self
   {
     Self { values }
   }
@@ -31,13 +32,13 @@ impl Parameters
   // ===============================================================================================
 
   /// Получает параметр по индексу, если он существует
-  pub fn get(&self, index: usize) -> Option<&Line>
+  pub fn get(&self, index: usize) -> Option< &Arc<RwLock<Line>> >
   {
     self.values.as_ref()?.get(index)
   }
 
   /// Возвращает все параметры, если они есть
-  pub fn getAll(&self) -> Option< &Vec<Line> >
+  pub fn getAll(&self) -> Option< &Vec< Arc<RwLock<Line>> > >
   {
     self.values.as_ref()
   }
@@ -51,8 +52,9 @@ impl Parameters
     match self.get(index)
     {
       None => None, // Элемента не было
-      Some(line) =>
+      Some(lineLink) =>
       { // Возвращаем результат выражения
+        let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
         match &line.tokens // todo Может быть не 0
         {
           None =>
@@ -154,7 +156,7 @@ impl Structure
   /// todo типы данных в параметрах
   pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
   {
-    let mut result: Option< Vec<Line> > = None;
+    let mut result: Option< Vec< Arc<RwLock<Line>> > > = None;
 
     // Проверка и получение скобки
     let bracketToken: Option<&Token> = value.get(i+1);

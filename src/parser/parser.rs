@@ -24,7 +24,9 @@ use crate::parser::structure::structureType::StructureType;
 fn isMathOperator(dataType: TokenType) -> bool 
 {
   matches!(dataType, 
-    TokenType::Equals         | // =
+    // todo А еще почему тут только 1 single оператор а не все math?
+    TokenType::Equals      /* | // =
+    todo Может плохо работать с #85, нужен контроль
     TokenType::UnaryPlus      | // ++
     TokenType::PlusEquals     | // +=
     TokenType::UnaryMinus     | // --
@@ -37,6 +39,7 @@ fn isMathOperator(dataType: TokenType) -> bool
     TokenType::ModuloEquals   | // %=
     TokenType::UnaryExponent  | // ^^
     TokenType::ExponentEquals   // ^=
+    */
   )
 }
 
@@ -343,9 +346,10 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                   if let Some(lines) = &lineTokens[1].lines 
                   { // Берём первую линию внутри скобок (там обычно перечислены параметры)
                     let mut result: Vec<(Bytes, StructureType)> = Vec::new();
-                    for line in lines
+                    for lineLink in lines
                     { // Берём вложенные токены в TokenType::CircleBracketBegin 
                       // получаем параметры из этих токенов, давая доступ к родительским структурам
+                      let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
                       let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
                       result.extend(
                         parentLink.read().unwrap().getStructureParameters(&mut paramTokens)

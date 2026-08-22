@@ -11,7 +11,7 @@ use crate::parser::bytes::Bytes;
 use crate::parser::parser::{parseLines, MainStructure};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
-use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 
@@ -106,8 +106,8 @@ impl RTS
   pub fn run(&self, script: &str) 
   {
     // unsafe{_debugMode = true;}
-    let buffer: Vec<u8> = script.as_bytes().to_vec();
-    parseLines( readTokens(buffer, unsafe{_debugMode}) );
+    let mut buffer: Vec<u8> = script.as_bytes().to_vec();
+    parseLines( readTokensSimple(&mut buffer, unsafe{_debugMode}) );
   }
   
   pub fn getNative(method: extern "C" fn(args: &[Token])) -> Bytes 

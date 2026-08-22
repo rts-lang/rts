@@ -1,6 +1,7 @@
 use std::fmt;
-use crate::parser::bytes::Bytes;
+use std::sync::{Arc, RwLock};
 use crate::tokenizer::read::primitives::words::keywords;
+use crate::parser::bytes::Bytes;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -16,7 +17,7 @@ pub struct Token
   /// Тип данных единицы хранения
   dataType: TokenType,
   /// Набор вложенных единиц хранения
-  pub lines: Option< Vec<Line> >,
+  pub lines: Option< Vec< Arc<RwLock<Line>> > >,
   
   /// Начало токена для analyzer
   #[cfg(feature = "analyzer")]
@@ -61,7 +62,7 @@ impl Token
   }
   /// Пустой, но выполняет роль держателя вложения
   pub fn newNesting(
-    lines: Vec<Line>
+    lines: Vec< Arc<RwLock<Line>> >
   ) -> Self
   {
     Token
