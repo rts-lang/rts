@@ -42,7 +42,7 @@ libffi = { version = "5.1.1", optional = true }
 # В отличие от статически зашитых обёрток, libffi позволяет конструировать 
 # вызов на лету на основе описания типов, что хорошо для FFI.
 
-chillffi = { version = "0.1", optional = true }
+chillffi = { version = "0.2.0", optional = true }
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ['-Oz', '--enable-bulk-memory'] # Нужно было для билда wasm с opt

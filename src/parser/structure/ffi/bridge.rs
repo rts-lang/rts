@@ -1,5 +1,6 @@
-use chillffi::ffi;
-use chillffi::ffi::value::{Type, Value};
+use chillffi::{call, ffi};
+use chillffi::ffi::errors::FFIError;
+use chillffi::ffi::value::{Pointer, Primitive, Type, Value};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::token::Token;
@@ -52,36 +53,12 @@ pub fn tokenToValue(token: &mut Token) -> Result<Value, String>
   }
 }
 
-/// StructureType -> chillffi::Type.
-pub fn structureTypeToChillType(structureType: StructureType) -> Result<Type, String>
-{
-  match structureType
-  {
-    StructureType::None => Ok(Type::None),
-    StructureType::U8 => Ok(Type::U8),
-    StructureType::U16 => Ok(Type::U16),
-    StructureType::U32 => Ok(Type::U32),
-    StructureType::U64 => Ok(Type::U64),
-    StructureType::Usize => Ok(Type::Usize),
-    StructureType::I8 => Ok(Type::I8),
-    StructureType::I16 => Ok(Type::I16),
-    StructureType::I32 => Ok(Type::I32),
-    StructureType::I64 => Ok(Type::I64),
-    StructureType::Isize => Ok(Type::Isize),
-    StructureType::F32 => Ok(Type::F32),
-    StructureType::F64 => Ok(Type::F64),
-    StructureType::Bool => Ok(Type::U8),
-    StructureType::Pointer => Ok(Type::Pointer),
-    _ => Err(format!("Unsupported FFI type: {}", structureType.to_string())),
-  }
-}
-
 /// chillffi::Value -> Token.
 pub fn valueToToken(value: Value) -> Token
 {
   let (tokenDataType, bytes): (TokenType, Bytes) = match value
   {
-    Value::U8(v)  => (TokenType::UInt, Bytes::from(v.to_string())),
+    Value::U8(v) => (TokenType::UInt, Bytes::from(v.to_string())),
     Value::U16(v) => (TokenType::UInt, Bytes::from(v.to_string())),
     Value::U32(v) => (TokenType::UInt, Bytes::from(v.to_string())),
     Value::U64(v) => (TokenType::UInt, Bytes::from(v.to_string())),
@@ -109,15 +86,44 @@ pub fn callExternal(
     .map(tokenToValue)
     .collect::<Result<Vec<_>, _>>()?;
 
-  let chillResultType: Type = structureTypeToChillType(resultType)?;
-
   let libPathOwned: String = libraryPath.to_string();
   let methodOwned: String = methodName.to_string();
 
   let result: Value = ffi!{
     let library: Library = Library::load(&libPathOwned)?;
-    Ok(library.call(&methodOwned, argsVec, chillResultType)?)
+
+    // T зависит от рантайм-значения resultType — generic-вывод тут невозможен,
+    // поэтому match вместо одного call!/.call::<T>() вызова.
+    //
+    // todo Возможно стоит сделать что-то вроде цепочки вызовов - тогда можно отказать от макроса
+    //   в пользу .arg() и также передать если нам надо преобразование или нет. Т.е. 2 выхода 
+    //   можно построить как .a() и .b() но они будут возвращать разное.
+    //   потому что по сути тут 1 лишнее преобразование, хотя я могу ошибаться.
+    //   ну и + это вручную все - а могло быть не вручную?
+    let value: Value = match resultType 
+    {
+      StructureType::None => { library.call::<()>(&methodOwned, argsVec)?; Value::None }
+      StructureType::U8 => library.call::<u8>(&methodOwned, argsVec)?.toValue(),
+      StructureType::U16 => library.call::<u16>(&methodOwned, argsVec)?.toValue(),
+      StructureType::U32 => library.call::<u32>(&methodOwned, argsVec)?.toValue(),
+      StructureType::U64 => library.call::<u64>(&methodOwned, argsVec)?.toValue(),
+      StructureType::Usize => library.call::<usize>(&methodOwned, argsVec)?.toValue(),
+      StructureType::I8 => library.call::<i8>(&methodOwned, argsVec)?.toValue(),
+      StructureType::I16 => library.call::<i16>(&methodOwned, argsVec)?.toValue(),
+      StructureType::I32 => library.call::<i32>(&methodOwned, argsVec)?.toValue(),
+      StructureType::I64 => library.call::<i64>(&methodOwned, argsVec)?.toValue(),
+      StructureType::Isize => library.call::<isize>(&methodOwned, argsVec)?.toValue(),
+      StructureType::F32 => library.call::<f32>(&methodOwned, argsVec)?.toValue(),
+      StructureType::F64 => library.call::<f64>(&methodOwned, argsVec)?.toValue(),
+      StructureType::Bool => library.call::<u8>(&methodOwned, argsVec)?.toValue(), // как в structureTypeToChillType
+      StructureType::Pointer => library.call::<Pointer>(&methodOwned, argsVec)?.toValue(),
+      other => return Err(FFIError::Other(format!("Unsupported FFI type: {}", other.to_string()))),
+    };
+
+    Ok(value)
   }.map_err(|e| e.to_string())?;
 
   Ok(valueToToken(result))
 }
+
+// =================================================================================================
