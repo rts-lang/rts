@@ -8,10 +8,10 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 #[cfg(not(target_family = "wasm"))]
 use rand::Rng;
+use crate::_filePath;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::line::Line;
-
 // =================================================================================================
 /// Это набор базовых функций
 struct Function;
@@ -362,6 +362,19 @@ impl Function
           return;
         }
 
+        // Путь должен быть относительно запущенного файла.
+        let libraryPath: String = 
+          if libraryPath.contains('/') && !std::path::Path::new(&libraryPath).is_absolute()
+          {
+            unsafe {
+              std::path::Path::new(&*_filePath)
+                .parent()
+                .map(|dir| dir.join(&libraryPath).to_string_lossy().into_owned())
+                .unwrap_or(libraryPath)
+            }
+          } else { libraryPath };
+
+        //
         #[cfg(not(target_family = "wasm"))]
         {
           value[i].setDataType(TokenType::String);

@@ -161,6 +161,21 @@ fn readTokens(
       bracketToken.lines = Some(innerLines);
       lineTokens.push(bracketToken);
     } else
+    if byte == b'['
+    { // Группировка выражения - как раньше, через Token.lines
+      index += 1; // Пропускаем открывающую скобку
+      // Возвращаем полученные линии и новый индекс
+      let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
+        readTokens(&buffer, index, Some(b']'), false);
+      index = newIndex;
+      if index < buffer.len() && // Выйдет при конце чтения
+        buffer[index] == b']' // buffer[index] должен быть closeByte, пропускаем его
+      { index += 1; }
+
+      let mut bracketToken: Token = Token::newEmpty(TokenType::SquareBracketBegin);
+      bracketToken.lines = Some(innerLines);
+      lineTokens.push(bracketToken);
+    } else
     if byte == b'{'
     { // Блок - замена отступа, вложение через Line.lines
       index += 1; // Пропускаем открывающую скобку
@@ -175,7 +190,7 @@ fn readTokens(
       // Добавляем новую линию.
       pushLineFromTokens(&mut lineTokens, Some(innerLines), &mut linesLinks);
     } else
-    if byte == b'}' || byte == b')' 
+    if byte == b'}' || byte == b')' || byte == b']'
     { // Закрытие вложения
       
       // Добавляем новую линию.

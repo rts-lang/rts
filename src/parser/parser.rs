@@ -1,6 +1,7 @@
 use std::sync::{Arc, LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
+use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
@@ -391,7 +392,50 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 //
               }
             } // Если параметров и результата не было, то просто пропускаем
-
+            
+            // Проверка блока тегов [ffi]
+            // todo Нет [ffi] {} т.е. это проверка если строка сверху но нет в 1 строку.
+            let isFfi: bool =
+              match unsafe{*lineIndex} == 0
+              { true => false, false =>
+              {
+                match parentLink.read().unwrap().lines.clone()
+                { None => false, Some(siblingLines) =>
+                {
+                  let prevLine: RwLockReadGuard<Line> = siblingLines[unsafe{*lineIndex} - 1].read().unwrap();
+                  match &prevLine.tokens
+                  { None => false, Some(prevTokens) =>
+                  {
+                    match prevTokens.is_empty()
+                      || *prevTokens[0].getDataType() != TokenType::SquareBracketBegin
+                      || prevLine.lines.is_some()
+                    { true => false, false =>
+                    {
+                      match &prevTokens[0].lines
+                      { None => false, Some(bracketLines) =>
+                      {
+                        let mut found: bool = false;
+                        for bracketLine in bracketLines
+                        {
+                          let bracketLineGuard: RwLockReadGuard<Line> = bracketLine.read().unwrap();
+                          match &bracketLineGuard.tokens
+                          { None => {} Some(bracketTokens) =>
+                          {
+                            for token in bracketTokens
+                            {
+                              if *token.getDataType() == TokenType::Word
+                                && token.getData().toString().unwrap_or_default() == "ffi"
+                              { found = true; }
+                            }
+                          }}
+                        }
+                        found
+                      }}
+                    }}
+                  }}
+                }}
+              }};
+            
             // Cоздаём новую структуру
             let mut newStructure: Structure = 
               Structure::new(
@@ -401,6 +445,8 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 Some(lineLine),
                 Some(parentLink.clone())
               );
+            newStructure.isFfiBlock = isFfi;
+            println!("isFfi {}",isFfi);
 
             // Ставим параметры структуры, если они были
             match &parameters 
@@ -510,7 +556,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
     // начинаем читать их условия и выполнять
     let mut conditionTruth: bool = false; // заранее создаём true/false ячейку
     for conditionLink in &mut conditions 
-    { // Итак, мы читает ссылки на условия в цикле;
+    { // Итак, мы читаем ссылки на условия в цикле;
       // после чего мы берём само условие на чтение
       let condition: RwLockReadGuard<Line> = conditionLink.read().unwrap();
       match &condition.tokens

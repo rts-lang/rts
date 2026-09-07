@@ -1,0 +1,52 @@
+# Стоит помнить - что каждый блок = структура.
+# Здесь проверяются именные и безымянные блоки.
+
+# ---
+# 1: Просто за блоком;
+# Метод при вызове автоматически обернутся в блок.
+lib: Pointer = importNative("./libhello.so")
+lib.hello(1)
+
+# ---
+# 2: Перед методом
+[ffi]
+test() {
+  lib: Pointer = importNative("./libhello.so")
+  lib.hello(2)
+}
+test()
+
+# 3: Перед методом (в одну строку)
+[ffi] test2() {
+  lib: Pointer = importNative("./libhello.so")
+  lib.hello(3)
+}
+test2()
+
+# ---
+# 4: Безымянный блок
+[ffi]
+{
+  lib: Pointer = importNative("./libhello.so")
+  lib.hello(4)
+}
+
+# 5: Безымянный блок (в одну строку)
+[ffi] {
+  lib: Pointer = importNative("./libhello.so")
+  lib.hello(5)
+}
+
+# ---
+# 6: Именной блок
+[ffi]
+name {
+  lib: Pointer = importNative("./libhello.so")
+  lib.hello(6)
+}
+
+# 6: Именной блок (в одну строку)
+[ffi] name {
+  lib: Pointer = importNative("./libhello.so")
+  lib.hello(7)
+}
