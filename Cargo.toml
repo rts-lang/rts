@@ -42,7 +42,7 @@ libffi = { version = "5.1.1", optional = true }
 # В отличие от статически зашитых обёрток, libffi позволяет конструировать 
 # вызов на лету на основе описания типов, что хорошо для FFI.
 
-chillffi = { git = "https://github.com/rts-lang/chillffi", rev="e8646959beeaef2b3c48a9952e29911d54a8bfe3", optional = true }
+chillffi = { git = "https://github.com/rts-lang/chillffi", rev="1c4701c9e744f95e487b8a5c143ee4b802cc7915", optional = true }
 # todo desc
 
 [package.metadata.wasm-pack.profile.release]
