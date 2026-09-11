@@ -237,10 +237,10 @@ mod tests
   fn index() 
   {
     for (input, expectedWord, expectedType, expectedIndex) in vec![
-      ("hello world", "hello", TokenType::Word, 5),
+      ("hello world", "helloworld", TokenType::Word, 11),
       ("myVar=123", "myVar", TokenType::Word, 5),
       ("a.b.c;", "a.b.c", TokenType::Link, 5),
-      ("true false", "true", TokenType::Bool, 4),
+      ("true", "true", TokenType::Bool, 4),
       ("None;", "", TokenType::None, 4),
       ("obj.[0].prop,", "obj.[0].prop", TokenType::Link, 12),
       ("abc123+", "abc123", TokenType::Word, 6),

@@ -1,6 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
-use crate::parser::structure::ffi::bridge::callExternal;
+use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope};
+use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::calculate;
@@ -82,6 +83,9 @@ pub struct Structure
   /// Ссылка на родителя
   pub parent: Option< Arc<RwLock<Structure>> >,
 
+  /// Создана ли структура из блока FFI.
+  pub isFfiBlock: bool,
+
   /// todo Комментарий + возможно не нужно т.к. можно лучше
   pub lineIndex: usize,
 }
@@ -107,6 +111,7 @@ impl Structure
       result: None,
       structures: Arc::new(RwLock::new(None)),
       parent,
+      isFfiBlock: false,
       lineIndex: 0
     }
   }
@@ -973,10 +978,24 @@ impl Structure
                     let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
                     let mut parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
 
-                    // Вызов через worker
-                    match callExternal(&libraryPath, &methodName, &mut parametersTokens, StructureType::None) // todo Заменить string на abi-ffi
+                    // Вызов через FFI.
+                    // Если мы внутри FFI блока — используем scope retention. 
+                    // Иначе —  временный scope через макрос.
+                    // todo Заменить string на abi-ffi
+                    let ffiResult: Result<(), String> = match scopeStack::withCurrentFfiScope(|scope| {
+                      callExternalWithScope(scope, &libraryPath, &methodName, &mut parametersTokens, StructureType::None)
+                    })
                     {
-                      Ok(_result) => {
+                      Some(result) =>
+                        // Мы внутри FFI блока — scope уже удержан
+                        result,
+                      None =>
+                        // Временный scope
+                        callExternal(&libraryPath, &methodName, &mut parametersTokens, StructureType::None)
+                    };
+                    match ffiResult
+                    {
+                      Ok(()) => {
                         // todo Обработка result
                       }
                       Err(_) => {
@@ -984,6 +1003,15 @@ impl Structure
                         value[i].setData(None);
                         break 'none;
                       }
+                      /* todo Вообще мог быть отдельный флаг для работы - чтобы выводить ошибки.
+                           Или можно сделать это частью скрытых полей вывода по типу .error и т.д.    
+                      Err(e) => {
+                        eprintln!("[rts FFI] lib='{}' method='{}' err='{}'", libraryPath, methodName, e);
+                        value[i].setDataType(TokenType::None);
+                        value[i].setData(None);
+                        break 'none;
+                      }
+                      */
                       //
                     }
                   }

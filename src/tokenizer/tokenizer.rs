@@ -18,7 +18,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 /// Вспомогательный макрос для добавления токенов start/end
 #[cfg(feature = "analyzer")]
-fn pushLineToken(token: &mut Token, lineTokens: &mut Vec<Token>, start: usize, end: usize) 
+fn pushLineToken(token: &mut Token, lineTokens: &mut Vec<Token>, start: usize, end: usize)
 {
   token.start = start;
   token.end = end;
@@ -28,7 +28,7 @@ fn pushLineToken(token: &mut Token, lineTokens: &mut Vec<Token>, start: usize, e
 // =================================================================================================
 
 /// Забирает все токены из `lineTokens`, создаёт из них `Line` и добавляет в `linesLinks`;
-/// 
+///
 /// Если токенов нет — ничего не делает.
 fn pushLineFromTokens(
   lineTokens: &mut Vec<Token>,
@@ -45,7 +45,7 @@ fn pushLineFromTokens(
         lines: innerLines,
         parent: None,
       })
-    ));
+      ));
     //
   }
 }
@@ -70,7 +70,7 @@ fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: &usize, li
 // =================================================================================================
 
 /// Обертка для простоты использования чтения токенайзера
-pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> > 
+pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
 {
   // Требуем обязательно \n в конце для правильного чтения;
   // Получаем buffer без mut.
@@ -83,19 +83,19 @@ pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLoc
       buffer.push(b'\n');
       &buffer
     };
-  
+
   readTokens(buffer, 0, None, debugMode).0
 }
 
 /// Основная функция для чтения токенов и получения чистых линий из них;
 /// Токены в этот момент не только сгруппированы в линии, но и имеют
 /// предварительные базовые типы данных
-/// 
+///
 /// **buffer** - Байты для чтения.
-
+///
 /// **index** - Основной индекс чтения.
 fn readTokens(
-  buffer: &Vec<u8>, 
+  buffer: &Vec<u8>,
   mut index: usize,
   stopByte: Option<u8>, // Если задан, читаем до этого байта
   debugMode: bool
@@ -117,8 +117,8 @@ fn readTokens(
   #[cfg(not(target_family = "wasm"))]
   #[cfg(not(test))]
   let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
-  
-  let   bufferLength: usize = buffer.len();    // Размер буфера байтов
+
+  let bufferLength: usize = buffer.len();    // Размер буфера байтов
   let mut lineTokens: Vec<Token> = Vec::new(); // Прочитанные токены текущей линии
 
   let mut linesLinks: Vec< Arc<RwLock<Line>> > = Vec::new(); // Ссылки на готовые линии
@@ -127,7 +127,7 @@ fn readTokens(
   while index < bufferLength
   { // Читаем байты
     byte = buffer[index]; // Текущий байт
-    
+
     // Смотрим, является ли это endline
     if byte == b'\n' || byte == b';'
     { // Проверяем: если последний токен - оператор, выражение не завершено; #85
@@ -150,14 +150,29 @@ fn readTokens(
     { // Группировка выражения - как раньше, через Token.lines
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
-      let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) = 
+      let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
         readTokens(&buffer, index, Some(b')'), false);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b')' // buffer[index] должен быть closeByte, пропускаем его
       { index += 1; }
-  
+
       let mut bracketToken: Token = Token::newEmpty(TokenType::CircleBracketBegin);
+      bracketToken.lines = Some(innerLines);
+      lineTokens.push(bracketToken);
+    } else
+    if byte == b'['
+    { // Группировка выражения - как раньше, через Token.lines
+      index += 1; // Пропускаем открывающую скобку
+      // Возвращаем полученные линии и новый индекс
+      let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
+        readTokens(&buffer, index, Some(b']'), false);
+      index = newIndex;
+      if index < buffer.len() && // Выйдет при конце чтения
+        buffer[index] == b']' // buffer[index] должен быть closeByte, пропускаем его
+      { index += 1; }
+
+      let mut bracketToken: Token = Token::newEmpty(TokenType::SquareBracketBegin);
       bracketToken.lines = Some(innerLines);
       lineTokens.push(bracketToken);
     } else
@@ -165,19 +180,33 @@ fn readTokens(
     { // Блок - замена отступа, вложение через Line.lines
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
-      let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) = 
+      let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
         readTokens(&buffer, index, Some(b'}'), false);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b'}' // buffer[index] должен быть closeByte, пропускаем его
       { index += 1; }
-      
-      // Добавляем новую линию.
-      pushLineFromTokens(&mut lineTokens, Some(innerLines), &mut linesLinks);
+
+      // Добавляем новую линию. ПРЕЖДЕ здесь был вызов
+      // `pushLineFromTokens(&mut lineTokens, Some(innerLines), &mut linesLinks)`,
+      // но он ТЕРЯЛ блок, если `lineTokens` пуст (например, когда блок
+      // `{ ... }` идёт первым в строке, как в многострочном анонимном
+      // `[ffi]\n{\n  ...\n}`). Фикс: пушим линию сами, причём с
+      // пустым `tokens = Some(vec![])` если в текущей строке до `{`
+      // ничего не было. `Some(vec![])` выбран, а не `None`, потому что
+      // `readLines` пропускает линии с `tokens == None`, а наш парсер
+      // ловит "пустые токены + есть вложение" как анонимный FFI-блок.
+      let tokens: Vec<Token> = std::mem::take(&mut lineTokens);
+      linesLinks.push(Arc::new(RwLock::new(Line {
+        tokens: if tokens.is_empty() { Some(vec![]) } else { Some(tokens) },
+        indent: None,
+        lines: Some(innerLines),
+        parent: None,
+      })));
     } else
-    if byte == b'}' || byte == b')' 
+    if byte == b'}' || byte == b')' || byte == b']'
     { // Закрытие вложения
-      
+
       // Добавляем новую линию.
       pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
 
@@ -212,9 +241,9 @@ fn readTokens(
       }
       #[cfg(not(feature = "analyzer"))]
       {
-        match getNumber(&buffer, &mut index, &bufferLength) 
+        match getNumber(&buffer, &mut index, &bufferLength)
         {
-          None => 
+          None =>
           { // Это был бинарный минус
             addSingleCharToken(buffer, &mut index, &bufferLength, &mut lineTokens);
           }
@@ -245,7 +274,7 @@ fn readTokens(
       #[cfg(feature = "analyzer")]
       let startPos: usize = index; // Начало кавычки (для обычного токена)
 
-      if isFormatted 
+      if isFormatted
       {
         // Удаляем токен `f`
         #[cfg(not(feature = "analyzer"))]
@@ -259,8 +288,8 @@ fn readTokens(
         let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
 
         // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
-        let tokenType: TokenType = 
-          match byte 
+        let tokenType: TokenType =
+          match byte
           {
             b'\'' => TokenType::FormattedChar,
             b'"' => TokenType::FormattedString,
@@ -275,7 +304,7 @@ fn readTokens(
           token.end = index;
         }
         lineTokens.push(token);
-      } else 
+      } else
       {
         // todo mut
         let mut token: Token = getQuotes(&buffer, &mut index, false);
@@ -299,7 +328,7 @@ fn readTokens(
       // Поэтому просто идём дальше
       index += 1;
     }
-  //
+    //
   }
 
   // debug output and return
@@ -315,7 +344,7 @@ fn readTokens(
     println!("     ┃");
     log("ok",&format!("xDuration: {:?}",duration));
   }}
-  
+
   // Возвращаем готовые ссылки на линии
   (linesLinks, index)
 }
@@ -608,5 +637,112 @@ println(a())
   // ===============================================================================================
 }
 */
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use super::readTokensSimple;
+  use crate::tokenizer::types::line::Line;
+  use std::sync::{Arc, RwLock, RwLockReadGuard};
+  // ===============================================================================================
+
+  /// Диагностика: как именно токенайзер разбирает многострочный анонимный
+  /// FFI-блок `[ffi] { ... }`. Это нужно парсеру, чтобы понять, как
+  /// подхватить блок `{ ... }` после тега `[ffi]`.
+  #[test]
+  fn multilineFfiBlock()
+  {
+    let mut buffer: Vec<u8> =
+      b"[ffi]\n{\n  lib: Pointer = importNative(\"./libhello.so\")\n  lib.hello(4)\n}\n".to_vec();
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer, false);
+    println!("total lines = {}", lines.len());
+    for (i, line) in lines.iter().enumerate()
+    {
+      let guard: RwLockReadGuard<Line> = line.read().unwrap();
+      let tokensStr: String = match guard.tokens.as_ref()
+      {
+        None => "<None>".to_string(),
+        Some(t) => t.iter()
+          .map(|tok| format!("{}", tok.getDataType().to_string()))
+          .collect::<Vec<_>>()
+          .join(","),
+      };
+      let innerStr: String = match guard.lines.as_ref()
+      {
+        None => "<None>".to_string(),
+        Some(inner) =>
+        {
+          let mut s = String::new();
+          for (j, il) in inner.iter().enumerate()
+          {
+            let ig = il.read().unwrap();
+            let it: String = match ig.tokens.as_ref()
+            {
+              None => "<None>".to_string(),
+              Some(t) => t.iter()
+                .map(|tok| format!("{}", tok.getDataType().to_string()))
+                .collect::<Vec<_>>()
+                .join(","),
+            };
+            s.push_str(&format!("  inner[{}] tokens=[{}]\n", j, it));
+          }
+          s
+        }
+      };
+      println!("line[{}] tokens=[{}] has_lines={}\n{}", i, tokensStr, guard.lines.is_some(), innerStr);
+    }
+  }
+
+  /// Однострочный анонимный `[ffi] { lib.hello(4) }` — для сравнения.
+  #[test]
+  fn oneLineFfiAnonymous()
+  {
+    let mut buffer: Vec<u8> =
+      b"[ffi] { lib.hello(4) }\n".to_vec();
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer, false);
+    println!("[one-line] total lines = {}", lines.len());
+    for (i, line) in lines.iter().enumerate()
+    {
+      let guard: RwLockReadGuard<Line> = line.read().unwrap();
+      let tokensStr: String = match guard.tokens.as_ref()
+      {
+        None => "<None>".to_string(),
+        Some(t) => t.iter()
+          .map(|tok| format!("{}", tok.getDataType().to_string()))
+          .collect::<Vec<_>>()
+          .join(","),
+      };
+      println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
+    }
+  }
+
+  /// Диагностика: только `{ lib.hello(4) }` в одной строке (без `[ffi]`).
+  /// Это базовая линия для сравнения.
+  #[test]
+  fn plainBlock()
+  {
+    let mut buffer: Vec<u8> =
+      b"{ lib.hello(4) }\n".to_vec();
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer, false);
+    println!("[plain block] total lines = {}", lines.len());
+    for (i, line) in lines.iter().enumerate()
+    {
+      let guard: RwLockReadGuard<Line> = line.read().unwrap();
+      let tokensStr: String = match guard.tokens.as_ref()
+      {
+        None => "<None>".to_string(),
+        Some(t) => t.iter()
+          .map(|tok| format!("{}", tok.getDataType().to_string()))
+          .collect::<Vec<_>>()
+          .join(","),
+      };
+      println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
+    }
+  }
+
+  // ===============================================================================================
+}
 
 // =================================================================================================
