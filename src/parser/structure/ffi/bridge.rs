@@ -2,18 +2,68 @@ use chillffi::ffi;
 use chillffi::ffi::errors::FFIError;
 use chillffi::ffi::library::{CallBuilder, Library};
 use chillffi::ffi::scope::Scope;
-use chillffi::ffi::types::Type;
+use std::sync::{Arc, RwLock};
+use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
+use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// todo Для расширения FFI остается сделать еще:
-//  1. Блоки с [ffi] {}, включая результат и работа внутри.
-//     Все сводится как в chillffi - только FFI работают с FFI scope, остальное просто RTS код.
-//  2. Использование RawString, CString, String - должны быть примитивами по идее.
-//     И для этого есть специальные заранее сделанные поля например pointer+len для String примитива.
-//     (вроде как уже что-то было подготовлено для этого и уже сейчас возможно).
+/// Мост Token -> ABI StructureType::String.
+///
+/// StructureType не-custom типы — хардкод примитивов,
+/// т.к. ABI chillffi сильно ограничен. String — единственный ABI-примитив,
+/// у которого есть заранее подготовленные поля (.pointer .length), поэтому
+/// только для него нужен явный мост из токена в 2 поля.
+/// CString = Pointer (алиас) и RawString — обычные скаляры, моста не требуют:
+/// данные и длина/NUL берутся прямо из токена в момент FFI-вызова (tokenToFfiArg).
+///
+/// Работает аддитивно: не трогает `.lines` структуры (там остаётся исходный
+/// токен, поэтому голое имя `str` в `lib.print(str)` по-прежнему резолвится
+/// в TokenType::String через обычный linkExpression() и идет в
+/// FfiArgValue::String ниже — chillffi сам разложит его на pointer+len).
+/// Вызывать после того, как `.lines` структуры уже выставлены.
+pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
+{
+  match token.getDataType()
+  {
+    TokenType::String => {}
+    _ => return None,
+  }
+  let bytes: String = token.getData().toString()?;
+  let length: usize = bytes.len();
+
+  let pointerField: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
+    Some("pointer".to_string()),
+    StructureMut::Constant,
+    StructureType::Pointer,
+    Some(vec![Arc::new(RwLock::new(Line
+    {
+      tokens: Some(vec![token.clone()]),
+      indent: None,
+      lines: None,
+      parent: None,
+    }))]),
+    None,
+  )));
+
+  let lengthField: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
+    Some("length".to_string()),
+    StructureMut::Constant,
+    StructureType::Usize,
+    Some(vec![Arc::new(RwLock::new(Line
+    {
+      tokens: Some(vec![Token::new(TokenType::UInt, length.to_string())]),
+      indent: None,
+      lines: None,
+      parent: None,
+    }))]),
+    None,
+  )));
+
+  Some([pointerField, lengthField])
+}
 
 // =================================================================================================
 
@@ -35,6 +85,8 @@ enum FfiArgValue
   I64(i64),
   F64(f64),
   String(String),
+  CString(std::ffi::CString),
+  RawString(Vec<u8>),
 }
 
 /// Token -> FfiArgValue, с приведением размера к наименьшему подходящему типу.
@@ -71,6 +123,7 @@ fn tokenToFfiArg(token: &mut Token) -> Result<FfiArgValue, String>
       Ok(FfiArgValue::F64(v))
     }
     TokenType::String => Ok(FfiArgValue::String(tokenData)),
+    TokenType::RawString => Ok(FfiArgValue::RawString(tokenData.into_bytes())),
     _ => Err(format!("Unsupported TokenType for FFI arg: {}", tokenDataType.to_string())),
   }
 }
@@ -90,6 +143,8 @@ fn pushArg<'a, 'g>(builder: CallBuilder<'a, 'g>, arg: FfiArgValue) -> CallBuilde
     FfiArgValue::I64(v) => builder.arg::<i64>(v),
     FfiArgValue::F64(v) => builder.arg::<f64>(v),
     FfiArgValue::String(v) => builder.arg::<String>(v),
+    FfiArgValue::CString(v) => builder.arg::<std::ffi::CString>(v),
+    FfiArgValue::RawString(v) => builder.arg::<Vec<u8>>(v),
   }
 }
 

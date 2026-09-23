@@ -1,0 +1,12 @@
+
+# Аннотация типа сама решает каст, литеральный префикс не обязателен
+
+a: String = ""
+b: CString = ""
+c: RawString = ""
+
+# todo Тут None в type(), а не String потому что мб что-то с токеном?
+# Хотя оно работает правильно и в целом выдает правильный тип структуры.
+print(f"{type(a)} | {stype(a)}\n") # String | String
+print(f"{type(b)} | {stype(b)}\n") # String | Pointer (CString = Pointer, алиас)
+print(f"{type(c)} | {stype(c)}\n") # String | RawString

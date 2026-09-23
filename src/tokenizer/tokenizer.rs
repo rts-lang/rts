@@ -265,8 +265,8 @@ fn readTokens(
         lineTokens.push(token);
       }
     } else
-    if matches!(byte, b'\'' | b'"' | b'`') {
-      // Проверяем, есть ли перед кавычкой токен `f`
+    if matches!(byte, b'\'' | b'"' | b'`') 
+    { // Проверяем, есть ли перед кавычкой токен `f`
       let isFormatted: bool = !lineTokens.is_empty()
         && lineTokens.last().unwrap().getDataType() == &TokenType::Word
         && lineTokens.last().unwrap().getData().toString().unwrap_or_default() == "f";

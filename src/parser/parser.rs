@@ -1,6 +1,7 @@
 use std::sync::{Arc, LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
+use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::tokenizer::types::line::Line;
@@ -343,26 +344,38 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       }}
 
       // Создаём структуру
-      parentStructure.pushStructure(
-        Arc::new(RwLock::new(Structure::new(
-          Some(structureName),
-          structureMutability,
-          structureType,
-          Some(vec![
-            Arc::new(RwLock::new(
-              Line {
-                tokens: rightValue,
-                indent: None,
-                lines:  None,
-                parent: None // todo Назначить родителя?
-              }
-            ))
-          ]),
-          None
-        )))
-      );
-      
+      let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
+        Some(structureName),
+        structureMutability,
+        structureType.clone(),
+        Some(vec![
+          Arc::new(RwLock::new(
+            Line {
+              tokens: rightValue.clone(),
+              indent: None,
+              lines:  None,
+              parent: None // todo Назначить родителя?
+            }
+          ))
+        ]),
+        None
+      )));
+
+      // ABI-композит String: .pointer/.length поверх исходного токена
+      if structureType == StructureType::String
+      {
+        if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.get(0))
+        {
+          if let Some(fields) = bridge::stringFields(valueToken)
+          {
+            let newStructure: RwLockReadGuard<Structure> = newStructureLink.read().unwrap();
+            for field in fields { newStructure.pushStructure(field); }
+          }
+        }
+      }
+
       //
+      parentStructure.pushStructure(newStructureLink);
       return true;
     }
   }
