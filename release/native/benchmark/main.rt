@@ -1,0 +1,8 @@
+
+printc(str: String) {
+  lib: Pointer = importNative("./libbench.so")
+  lib.print(str.pointer, str.length)
+  lib.print(str)
+}
+
+printc("Hello from RTS 222!")
