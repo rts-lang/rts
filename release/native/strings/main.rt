@@ -1,0 +1,10 @@
+# lib.print(str.pointer, str.length) — ручная распаковка полей
+# lib.print(str) — целиком, chillffi сам раскладывает String на ptr+len за счет chillffi
+
+printc(str: String) {
+  lib: Pointer = importNative("./libprint.so")
+  lib.print(str.pointer, str.length)
+  lib.print(str)
+}
+
+printc("Hello from RTS 222!")

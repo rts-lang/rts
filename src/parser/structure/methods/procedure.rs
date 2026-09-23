@@ -4,7 +4,9 @@ use std::thread::sleep;
 use std::time::Duration;
 use crate::{_exit, _exitCode};
 use crate::parser::parser::{readLines, searchStructure};
+use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::structure::Structure;
+use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::types::line::Line;
 #[cfg(not(target_family = "wasm"))]
 use std::io;
@@ -213,6 +215,14 @@ impl Structure
                         &mut token, 
                         calledStructureStructure.dataType.clone()
                       );
+
+                      // ABI-композит String: .pointer/.length;
+                      // Считаем ДО перемещения токена в lines ниже.
+                      let stringFields = match calledStructureStructure.dataType == StructureType::String
+                      {
+                        true => bridge::stringFields(&token),
+                        false => None,
+                      };
                       
                       // Устанавливаем lines параметра как линию с одним токеном – переданным значением
                       calledStructureStructure.lines = Some(vec![
@@ -223,6 +233,15 @@ impl Structure
                           parent: None,
                         }))
                       ]);
+
+                      if let Some(fields) = stringFields
+                      {
+                        // Сбрасываем возможные поля с предыдущего вызова — pushStructure
+                        // только добавляет, а calledStructureStructure переиспользуется
+                        // между вызовами (см. todo выше про отсутствие копии структуры).
+                        *calledStructureStructure.structures.write().unwrap() = None;
+                        for field in fields { calledStructureStructure.pushStructure(field); }
+                      }
                     }
                   }
                   //

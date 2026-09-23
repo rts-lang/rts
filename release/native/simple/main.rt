@@ -1,0 +1,11 @@
+
+# Простой тест вывода
+
+printc(pointer: Pointer; len: Usize) {
+  #println(f"pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")
+  #println(f"len: '{len}' mut '{mut(len)}' stype '{stype(len)}'")
+  lib: Pointer = importNative("./libprint.so")
+  lib.print(pointer; len)
+}
+
+printc("Hello from RTS 222!"; 19)

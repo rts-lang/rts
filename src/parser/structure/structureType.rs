@@ -21,7 +21,6 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum StructureType
 {
-// primitives
   None,
   Any,
   Link,
@@ -32,14 +31,20 @@ pub enum StructureType
   I8, I16, I32, I64,
   F32, F64,
   Usize, Isize,
-  Pointer, // Указатель (raw)
+  
+  /// Указатель (raw).
+  Pointer,
+  /// ABI-композит: 2 поля (.pointer .length), см. Structure::stringFields в ffi/bridge.rs.
+  String,
+  // CString = Pointer, алиас на уровне getStructureTypeSimple().
+  /// Байты без длины/NUL в самом StructureType — длина берётся из токена при FFI-вызове.
+  RawString,
 
   // todo Требует удаление для FFI-ABI?
   Method,
   // todo Требует удаление для FFI-ABI?
   List, // todo List<Type>
-
-// custom
+  
   /// Позволяет создавать пользовательские типы
   Custom(String),
 }
@@ -83,6 +88,8 @@ impl ToString for StructureType
 
       // Указатель
       StructureType::Pointer => String::from("Pointer"),
+      StructureType::RawString => String::from("RawString"),
+      StructureType::String => String::from("String"),
 
       // Служебные
       StructureType::Method => String::from("Method"),
@@ -491,6 +498,9 @@ impl Token
 
       // Указатель
       "Pointer" => StructureType::Pointer,
+      "CString" => StructureType::Pointer, // CString = Pointer (алиас)
+      "RawString" => StructureType::RawString,
+      "String" => StructureType::String,
 
       // Служебные
       // todo Под вопросом
