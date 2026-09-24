@@ -1,0 +1,155 @@
+# Возврат результата FFI-вызова
+#
+# Вариант 1: тип слева указан — он же тип возврата C-функции,
+#            правая часть кастуется к левой.
+# Вариант 2: тип слева не указан — левая часть получает тип от правой:
+#            то же авто-приведение по величине значения, что и для литералов
+#            (см. native/types, issue #63). Usize в результате не бывает.
+
+lib:  Pointer = importNative("./libreturns.so")
+libc: Pointer = importNative("libc.so.6")
+libm: Pointer = importNative("libm.so.6")
+
+# ---- Вариант 1: `a: Type = lib.f()`
+a1: U8    = lib.retU8()
+a2: U16   = lib.retU16()
+a3: U32   = lib.retU32()
+a4: U64   = lib.retU64()
+a5: Usize = lib.retUsize()
+a6: I8    = lib.retI8()
+a7: I16   = lib.retI16()
+a8: I32   = lib.retI32()
+a9: I64   = lib.retI64()
+b1: F32   = lib.retF32()
+b2: F64   = lib.retF64()
+println(f"typed U8    {a1} {stype(a1)}") # 200 U8
+println(f"typed U16   {a2} {stype(a2)}") # 60000 U16
+println(f"typed U32   {a3} {stype(a3)}") # 4000000000 U32
+println(f"typed U64   {a4} {stype(a4)}") # 18446744073709551615 U64
+println(f"typed Usize {a5} {stype(a5)}") # 123456789 Usize
+println(f"typed I8    {a6} {stype(a6)}") # -100 I8
+println(f"typed I16   {a7} {stype(a7)}") # -30000 I16
+println(f"typed I32   {a8} {stype(a8)}") # -2000000000 I32
+println(f"typed I64   {a9} {stype(a9)}") # -9000000000000000000 I64
+println(f"typed F32   {b1} {stype(b1)}") # -1.5 F32
+println(f"typed F64   {b2} {stype(b2)}") # 2.5 F64
+
+# Тот же вариант, но с libc / libm
+s1: Usize = libc.strnlen("hello world")
+s2: I32   = libc.abs(-5)
+s3: I32   = libc.close(999)
+s4: F64   = libm.sqrt(16.0)
+s5: F64   = libm.floor(-2.5)
+println(f"libc strnlen {s1} {stype(s1)}") # 11 Usize
+println(f"libc abs     {s2} {stype(s2)}") # 5 I32
+println(f"libc close   {s3} {stype(s3)}") # -1 I32
+println(f"libm sqrt    {s4} {stype(s4)}") # 4 F64
+println(f"libm floor   {s5} {stype(s5)}") # -3 F64
+
+# ---- Вариант 2: `a = lib.f()`
+# Тип структуры выводится из значения — так же, как для `a = 10` (native/types,
+# issue #63): округление по величине, не по фактической ширине C-функции.
+# Usize здесь не появляется никогда — ветка U64 перехватывает значение раньше
+# (u64::MAX == usize::MAX на 64-бит, см. structureType.rs).
+#
+# На ABI-уровне chillffi при этом всегда читает полный регистр (usize) —
+# отсюда точность гарантирована только для результатов размером со слово:
+# size_t, uint64_t, указатели. Для знаковых, узких (8/16/32 бит) и float
+# результатов указывайте тип слева.
+c1 = lib.retUsize()
+c2 = lib.retU64()
+c3 = libc.strnlen("hello world")
+println(f"infer retUsize {c1} {stype(c1)}") # 123456789 U32
+println(f"infer retU64   {c2} {stype(c2)}") # 18446744073709551615 U64
+println(f"infer strnlen  {c3} {stype(c3)}") # 11 U8
+
+# ---- Аргументы и результат
+d1: U16 = lib.addU8(200; 100)
+d2: F64 = lib.mulF64(1.5; 4.0)
+println(f"args addU8  {d1} {stype(d1)}") # 300 U16
+println(f"args mulF64 {d2} {stype(d2)}") # 6 F64
+
+# ---- Результат внутри выражения
+e1: Usize = lib.retUsize() + 1
+e2: I32   = lib.retI32() + 1
+e3        = libc.strnlen("abc") + 1
+println(f"expr {e1} {e2} {e3}") # 123456790 -1999999999 4
+
+# Тип слева применяется ко всем FFI-вызовам верхнего уровня выражения
+# todo В `a: I32 = f() + g()` оба вызова читаются как I32, отдельный тип на каждый вызов не задать
+t1: I32 = libc.abs(-2) + libc.abs(-3)
+println(f"sum {t1} {stype(t1)}") # 5 I32
+
+# ---- Аргумент из переменной
+y: I32 = libc.close(999)
+t2: I32 = libc.abs(y)
+println(f"argvar {t2}") # 1
+
+# ---- Присваивание в существующую структуру
+r1~ : I32 = 0
+r1 = lib.retI32()
+r2~~ = 0
+r2 = lib.retUsize()
+println(f"assign variable {r1} {stype(r1)}") # -2000000000 I32
+println(f"assign dynamic  {r2} {stype(r2)}") # 123456789 U32
+
+# ---- Вызов-оператор: результат не нужен
+lib.retVoid()
+lib.retI32()
+println("statement ok") # statement ok
+
+# ---- Pointer: адрес читается как число
+# todo Вне [ffi] блока scope временный, поэтому полученный адрес после вызова использовать нельзя
+p: Pointer = libc.malloc(16)
+println(f"pointer {stype(p)}") # Pointer
+
+# ---- Ошибки: неизвестный метод и тип без поддержки результата дают None → default типа
+z1: I32 = lib.noSuchFunction()
+println(f"missing method {z1}") # 0
+
+# ---- Внутри [ffi] блока (scope retention)
+[ffi]
+{
+  inner: Pointer = importNative("./libreturns.so")
+  f1: I32 = inner.retI32()
+  f2 = inner.retUsize()
+  println(f"ffi block {f1} {f2}") # -2000000000 123456789
+}
+
+# ---- Результат FFI-вызова как return функции (`= value`)
+# isFfi false — отладочный вывод rts на каждый вызов функции
+lenOf(s: String) {
+  libc: Pointer = importNative("libc.so.6")
+  = libc.strnlen(s)
+}
+w1 = lenOf("hello")
+println(f"func {w1} {stype(w1)}") # 5 U8
+w2: Usize = lenOf("hello world")
+println(f"func typed {w2} {stype(w2)}") # 11 Usize
+
+# todo Библиотека, объявленная снаружи функции, внутри неё не видна: `= libc.strnlen(s)` даёт None.
+
+# =================================================================================================
+# Известные проблемы и что не проверено:
+
+# todo CString-аргументы. Ожидается 5, у нас 5, 6, 6 от запуска к запуску:
+# String уходит как (ptr, len) без NUL, а FfiArgValue::CString нигде не создаётся
+#s1: Usize = libc.strlen("hello")
+#println(f"strlen {s1}") # ожидается 5
+
+# todo F32-аргументы. Ожидается 4, у нас 0: float-токен всегда уходит как F64
+#f1: F32 = libm.sqrtf(16.0)
+#println(f"sqrtf {f1}") # ожидается 4
+
+# todo Bool в результате (issue #65). Ожидается число 0 или 1, у нас None
+#b1: Bool = libc.abs(1)
+#println(f"bool {b1}") # ожидается 1
+
+# todo Вложенные скобки обрывают токенизацию — остаток файла молча отбрасывается.
+# Токенизатор (println((1+2)) ломается так же)
+#println(libc.abs(5)) # ожидается 5
+
+# todo Не проверено: x86-32 (build.sh 32). Usize/Isize там 32 бита, ожидается тот же вывод,
+# кроме U64/I64 в Infer (там читается слово Usize)
+# НО: Правильнее всего вырезать 32-бит сейчас по примеру chillffi.
+

@@ -117,11 +117,13 @@ fn tokenToFfiArg(token: &Token) -> Result<FfiArgValue, String>
       else                                                   { Ok(FfiArgValue::I64(v as i64)) }
     }
     TokenType::UFloat | TokenType::Float =>
-    {
+    { // todo F32-аргументы: float-токен всегда уходит как F64, поэтому `libm.sqrtf(16.0)` даёт 0 (ожидается 4)
       let v: f64 = tokenData.parse()
         .map_err(|_| format!("Failed to parse Float: {}", tokenData))?;
       Ok(FfiArgValue::F64(v))
     }
+    // todo CString-аргументы: FfiArgValue::CString нигде не создаётся, String уходит как (ptr, len) без NUL,
+    // поэтому `libc.strlen("hello")` ненадёжен (ожидается 5, бывает 6)
     TokenType::String => Ok(FfiArgValue::String(tokenData)),
     TokenType::RawString => Ok(FfiArgValue::RawString(tokenData.into_bytes())),
     _ => Err(format!("Unsupported TokenType for FFI arg: {}", tokenDataType.to_string()))
@@ -148,20 +150,132 @@ fn pushArg<'a, 'g>(builder: CallBuilder<'a, 'g>, arg: FfiArgValue) -> CallBuilde
   }
 }
 
+/// Что вызывающий код ждёт от результата FFI-вызова.
+///
+/// chillffi требует знать тип результата ДО вызова (`.result::<T>()`), потому что от него
+/// зависит, из какого регистра ABI читать значение. RTS же узнаёт этот тип из контекста:
+///
+/// ```text
+/// lib.print(x)                  # Discard       — результат не нужен
+/// a = libc.strnlen("abc")       # Infer         — тип берётся от правой части
+/// a: Usize = libc.strnlen("abc")  # Typed(Usize)  — правая часть приводится к левой
+/// ```
+#[derive(Clone, PartialEq)]
+pub enum FfiExpect
+{
+  /// Вызов-оператор, результат не используется (`.void()`).
+  Discard,
+  /// Тип слева не указан: ABI-вызов идёт как `usize`.
+  /// 
+  /// Итоговый тип структуры выводится из значения — так же, как для `a = 10`
+  /// (native/types, issue #63). Usize в результате не бывает: ветка U64
+  /// перехватывает значение раньше (structureType.rs).
+  Infer,
+  /// Тип слева указан: он же является типом возврата C-функции.
+  Typed(StructureType)
+}
+
+// =================================================================================================
+
+/// Целое число -> абстрактный токен (как у литералов: `>= 0` это UInt, `< 0` это Int).
+fn integerToken(value: i128) -> Token
+{
+  match value < 0
+  {
+    true  => Token::new(TokenType::Int,  value.to_string()),
+    false => Token::new(TokenType::UInt, value.to_string())
+  }
+}
+
+/// Число с плавающей точкой -> абстрактный токен (`>= 0` это UFloat, `< 0` это Float).
+/// `text` — уже отформатированное значение (для F32 оно отличается от F64).
+fn floatToken(text: String, negative: bool) -> Token
+{
+  let mut text: String = text;
+  // Rust печатает 4.0 как "4" — возвращаем точку, чтобы это оставалось числом с плавающей точкой.
+  if !text.contains(|c: char| c == '.' || c == 'e' || c == 'E' || c == 'N' || c == 'i')
+  {
+    text.push_str(".0");
+  }
+  match negative
+  {
+    true  => Token::new(TokenType::Float,  text),
+    false => Token::new(TokenType::UFloat, text)
+  }
+}
+
+/// Выполняет вызов и превращает результат C-функции в токен по ожиданию `expect`.
+fn callWithResult<'a, 'g>(builder: CallBuilder<'a, 'g>, expect: &FfiExpect) -> Result<Token, String>
+{
+  let error = |e: FFIError| -> String { e.to_string() };
+
+  // Тип слева не указан или "любой" — ABI-вызов идёт как usize (внутренний
+  // регистр-read, не итоговый stype() — тот выводится из значения ниже).
+  let expectType: &StructureType = match expect
+  {
+    FfiExpect::Discard =>
+    { // Результат не нужен — идём по fire-and-forget ветке.
+      builder.void().map_err(error)?;
+      return Ok(Token::newEmpty(TokenType::None));
+    }
+    // todo Infer читает Usize: у узких (8/16/32 бит), знаковых и float результатов старшие биты/регистр не те,
+    // для них тип слева обязателен. Не проверено на x86-32 (build.sh 32): там Usize это 32 бита
+    FfiExpect::Infer => &StructureType::Usize,
+    FfiExpect::Typed(structureType) => match structureType
+    {
+      StructureType::None | StructureType::Any => &StructureType::Usize,
+      // Адрес читаем как число; он живёт только пока жив FFI scope (см. chillffi Value::Pointer).
+      // todo Вне [ffi] блока scope временный — полученный адрес после вызова использовать нельзя
+      StructureType::Pointer => &StructureType::Usize,
+      other => other
+    }
+  };
+
+  match expectType
+  {
+    StructureType::U8    => Ok(integerToken(builder.result::<u8   >().map_err(error)? as i128)),
+    StructureType::U16   => Ok(integerToken(builder.result::<u16  >().map_err(error)? as i128)),
+    StructureType::U32   => Ok(integerToken(builder.result::<u32  >().map_err(error)? as i128)),
+    StructureType::U64   => Ok(integerToken(builder.result::<u64  >().map_err(error)? as i128)),
+    StructureType::Usize => Ok(integerToken(builder.result::<usize>().map_err(error)? as i128)),
+    StructureType::I8    => Ok(integerToken(builder.result::<i8   >().map_err(error)? as i128)),
+    StructureType::I16   => Ok(integerToken(builder.result::<i16  >().map_err(error)? as i128)),
+    StructureType::I32   => Ok(integerToken(builder.result::<i32  >().map_err(error)? as i128)),
+    StructureType::I64   => Ok(integerToken(builder.result::<i64  >().map_err(error)? as i128)),
+    StructureType::Isize => Ok(integerToken(builder.result::<isize>().map_err(error)? as i128)),
+    StructureType::F32 =>
+    {
+      let value: f32 = builder.result::<f32>().map_err(error)?;
+      Ok(floatToken(value.to_string(), value.is_sign_negative()))
+    }
+    StructureType::F64 =>
+    {
+      let value: f64 = builder.result::<f64>().map_err(error)?;
+      Ok(floatToken(value.to_string(), value.is_sign_negative()))
+    }
+    // todo Bool (issue #65), String/CString/RawString (нужна длина), Custom и т.д.
+    other => Err(format!("Unsupported FFI result type: {}", other.to_string()))
+  }
+}
+
+// =================================================================================================
+
 /// Загружает библиотеку и зовёт её метод через переданный `Scope<'g>`.
 ///
-/// Используется внутри `@ffi { ... }` блоков, чтобы удерживать один и тот же
-/// chillffi scope на всём протяжении блока (Scope Retention из PR #31).
+/// Используется внутри `[ffi] { ... }` блоков, чтобы удерживать один и тот же
+/// chillffi scope на всём протяжении блока (Scope Retention).
 /// На каждый вызов FFI внутри блока используется один и тот же scope —
 /// соответственно, загруженные через `scope.load(...)` библиотеки и
 /// `AllocatedMemory` живут, пока живёт блок, и освобождаются при его выходе.
+///
+/// Возвращает результат C-функции в виде токена; тип результата задаёт `expect`.
 pub fn callExternalWithScope<'g>(
   scope: &Scope<'g>,
   libraryPath: &str,
   methodName: &str,
   parametersTokens: &mut [Token],
-  _resultType: StructureType
-) -> Result<(), String>
+  expect: &FfiExpect
+) -> Result<Token, String>
 {
   // Загружаем библиотеку в удерживаемом scope.
   let library: Library<'g> = scope.load(libraryPath)
@@ -175,36 +289,28 @@ pub fn callExternalWithScope<'g>(
     builder = pushArg(builder, arg);
   }
 
-  // На текущей стадии интеграции результат вызова не используется
-  // (call-сайт в Structure::expression() всегда игнорирует возвращаемое
-  // значение — см. `Ok(_result) => { /* todo Обработка result */ }`).
-  // Поэтому идём по fire-and-forget ветке `.void()`.
-  // todo Когда появится нормальная обработка результата — выбирать
-  //  `.result::<T>()` по `_resultType` через диспетчер.
-  builder.void().map_err(|e| e.to_string())?;
-
-  Ok(())
+  // Тип результата выбирается диспетчером по ожиданию вызывающего кода.
+  callWithResult(builder, expect)
 }
 
 /// Старый путь вызова FFI — без удержания scope.
 ///
 /// Создаёт временный scope через `ffi!{...}` макрос на каждый вызов, как и раньше.
-/// Используется для обратной совместимости, когда вызов идёт вне `@ffi {}` блока:
+/// Используется, когда вызов идёт вне `[ffi]` блока:
 /// внутри блока — `callExternalWithScope`, снаружи — `callExternal`.
 pub fn callExternal(
   libraryPath: &str,
   methodName: &str,
   parametersTokens: &mut [Token],
-  resultType: StructureType
-) -> Result<(), String>
+  expect: &FfiExpect
+) -> Result<Token, String>
 {
-  // Используем ffi!{} макрос с замыканием, принимающим scope.
-  // Внутри замы scope живёт ровно столько, сколько и сам ffi!{} блок.
   // ffi!{} возвращает Result<_, FFIError> — конвертируем в String на выходе.
-  // Замы обязано вернуть Ok(_), поэтому оборачиваем callExternalWithScope в Ok.
-  let result: Result<(), FFIError> = ffi!(|scope| {
+  // Токен результата — обычные данные (не адрес и не ссылка на память scope),
+  // поэтому спокойно живёт после выхода из ffi!{}.
+  let result: Result<Token, FFIError> = ffi!(|scope| {
     Ok::<_, FFIError>(
-      callExternalWithScope(&scope, libraryPath, methodName, parametersTokens, resultType)
+      callExternalWithScope(&scope, libraryPath, methodName, parametersTokens, expect)
         .map_err(|e: String| FFIError::Other(e))?
     )
   });
@@ -212,3 +318,161 @@ pub fn callExternal(
 }
 
 // =================================================================================================
+#[cfg(test)]
+mod tests
+{
+  use super::*;
+  // ===============================================================================================
+
+  const LibcPath: &str = "libc.so.6";
+  const LibmPath: &str = "libm.so.6";
+
+  fn call(library: &str, method: &str, mut parameters: Vec<Token>, expect: FfiExpect) -> Result<Token, String>
+  {
+    callExternal(library, method, &mut parameters, &expect)
+  }
+
+  fn dataOf(token: &Token) -> (TokenType, String)
+  {
+    (*token.getDataType(), token.getData().toString().unwrap_or_default())
+  }
+
+  /// `a: Usize = libc.strnlen("hello world")` — тип слева является типом возврата.
+  #[test]
+  fn typedUsize() -> ()
+  {
+    let result: Token = call(
+      LibcPath, 
+      "strnlen", 
+      vec![Token::new(TokenType::String, "hello world")], 
+      FfiExpect::Typed(StructureType::Usize)
+    ).unwrap();
+    assert!(dataOf(&result) == (TokenType::UInt, String::from("11")));
+  }
+
+  /// `a = libc.strnlen("hello world")` — тип слева не указан, тип выводится
+  /// из величины значения (не Usize) — см. assert ниже: U8, не Usize.
+  #[test]
+  fn inferUnsigned() -> ()
+  {
+    let result: Token = call(
+      LibcPath, 
+      "strnlen", 
+      vec![Token::new(TokenType::String, "hello world")], 
+      FfiExpect::Infer
+    ).unwrap();
+    assert!(dataOf(&result) == (TokenType::UInt, String::from("11")));
+    assert!(result.clone().getStructureType() == StructureType::U8); // как у литерала `a = 11`
+  }
+
+  /// Знаковые результаты: `>= 0` это UInt, `< 0` это Int (как у литералов).
+  #[test]
+  fn typedSigned() -> ()
+  {
+    let positive: Token = call(
+      LibcPath, 
+      "abs", 
+      vec![Token::new(TokenType::Int, "-5")], 
+      FfiExpect::Typed(StructureType::I32)
+    ).unwrap();
+    assert!(dataOf(&positive) == (TokenType::UInt, String::from("5")));
+
+    let negative: Token = call(
+      LibcPath, 
+      "close", 
+      vec![Token::new(TokenType::UInt, "999")], 
+      FfiExpect::Typed(StructureType::I32)
+    ).unwrap();
+    assert!(dataOf(&negative) == (TokenType::Int, String::from("-1")));
+  }
+
+  /// Узкие и широкие целые: результат читается ровно тем типом, который указан слева.
+  #[test]
+  fn typedIntegerWidths() -> ()
+  {
+    let small: Token = call(
+      LibcPath, 
+      "toupper", 
+      vec![Token::new(TokenType::UInt, "97")], 
+      FfiExpect::Typed(StructureType::U8)
+    ).unwrap();
+    assert!(dataOf(&small) == (TokenType::UInt, String::from("65")));
+
+    let wide: Token = call(
+      LibcPath, 
+      "labs", 
+      vec![Token::new(TokenType::Int, "-7")], 
+      FfiExpect::Typed(StructureType::I64)
+    ).unwrap();
+    assert!(dataOf(&wide) == (TokenType::UInt, String::from("7")));
+  }
+
+  /// Числа с плавающей точкой: `>= 0` это UFloat, `< 0` это Float, точка сохраняется.
+  #[test]
+  fn typedFloat() -> ()
+  {
+    let positive: Token = call(
+      LibmPath, 
+      "sqrt", 
+      vec![Token::new(TokenType::UFloat, "16.0")], 
+      FfiExpect::Typed(StructureType::F64)
+    ).unwrap();
+    assert!(dataOf(&positive) == (TokenType::UFloat, String::from("4.0")));
+
+    let negative: Token = call(
+      LibmPath, 
+      "floor", 
+      vec![Token::new(TokenType::Float, "-2.5")], 
+      FfiExpect::Typed(StructureType::F64)
+    ).unwrap();
+    assert!(dataOf(&negative) == (TokenType::Float, String::from("-3.0")));
+  }
+
+  /// Вызов-оператор: результат не нужен, токен пустой.
+  #[test]
+  fn discard() -> ()
+  {
+    let result: Token = call(
+      LibcPath, 
+      "getpid", 
+      vec![], 
+      FfiExpect::Discard
+    ).unwrap();
+    assert!(*result.getDataType() == TokenType::None);
+  }
+
+  /// Вызов без аргументов.
+  #[test]
+  fn noParameters() -> ()
+  {
+    let result: Token = call(
+      LibcPath, 
+      "getpid", 
+      vec![], 
+      FfiExpect::Typed(StructureType::I32)
+    ).unwrap();
+    // chillffi исполняет вызовы в worker-процессе, поэтому pid не равен pid текущего процесса
+    assert!(dataOf(&result).1.parse::<i32>().unwrap() > 0);
+  }
+
+  /// Типы без поддержки результата и несуществующие методы — ошибка (в выражении станет None).
+  #[test]
+  fn errors() -> ()
+  {
+    assert!(call(
+      LibcPath, 
+      "abs", 
+      vec![Token::new(TokenType::Int, "-1")], 
+      FfiExpect::Typed(StructureType::String)
+    ).is_err());
+    
+    assert!(call(
+      LibcPath, 
+      "noSuchFunction", 
+      vec![], 
+      FfiExpect::Infer
+    ).is_err());
+  }
+
+  // ===============================================================================================
+}

@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::bytes::Bytes;
-use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope};
+use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope, FfiExpect};
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::{StructureType};
@@ -250,7 +250,18 @@ impl Structure
         // todo должен быть вариант с вложением ?
         // Если нет вложений
 
-        let mut rightPartValue: Token = self.expression(&mut rightPart.clone());
+        // Что ждём от FFI-вызова справа: у структуры уже есть тип — результат кастуется к нему;
+        // если типа нет (или Dynamic может его менять) — левая часть получит тип от правой.
+        let expect: FfiExpect =
+        {
+          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+          match structure.dataType == StructureType::None || leftPartMutable == StructureMut::Dynamic
+          {
+            true  => FfiExpect::Infer,
+            false => FfiExpect::Typed(structure.dataType.clone()),
+          }
+        };
+        let mut rightPartValue: Token = self.expressionWith(&mut rightPart.clone(), &expect);
 
         let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
 
@@ -851,7 +862,24 @@ impl Structure
   /// Основная функция, которая получает результат выражения состоящего из токенов;
   /// Сначала она проверяет что это single токен, но если нет,
   /// то в цикле перебирает возможные варианты
+  ///
+  /// Значение выражения нужно вызывающему коду, поэтому FFI-вызов внутри
+  /// вернёт результат ([`FfiExpect::Infer`]). Для вызовов-операторов и для
+  /// присваивания с типом слева используйте [`Structure::expressionWith`].
   pub fn expression(&self, value: &mut Vec<Token>) -> Token 
+  {
+    self.expressionWith(value, &FfiExpect::Infer)
+  }
+
+  /// То же, что [`Structure::expression`], но с явным ожиданием результата FFI-вызова:
+  /// - `Discard` — вызов-оператор (`lib.print(x)`), результат не нужен;
+  /// - `Infer`   — тип слева не указан (`a = lib.f(x)`), тип берётся от правой части;
+  /// - `Typed`   — тип слева указан (`a: I32 = lib.f(x)`), правая часть кастуется к левой.
+  ///
+  /// Ожидание относится только к вызовам верхнего уровня этого выражения;
+  /// вложенные выражения (параметры вызова, скобки) считаются через `expression`.
+  /// todo Ожидание общее для всех FFI-вызовов верхнего уровня: в `a: I32 = f() + g()` оба читаются как I32
+  pub fn expressionWith(&self, value: &mut Vec<Token>, expect: &FfiExpect) -> Token 
   {
     let mut valueLength: usize = value.len(); // Получаем количество токенов в выражении
     // todo: Возможно следует объединить с нижним циклом, всё равно проверять токены по очереди
@@ -972,19 +1000,24 @@ impl Structure
                     let libraryPath: String = tokens[0].getData().toString().unwrap();
                     let methodName: String = tokens[1].getData().toString().unwrap();
 
-                    // Получаем аргументы из value[i+1] - скобка
-                    let bracket: &Token = &value[i+1];
-                    
-                    let bracketLines: &Vec< Arc<RwLock<Line>> > = bracket.lines.as_ref().unwrap();
-                    let parameters: Parameters = Parameters::new(Some(bracketLines.to_vec()));
-                    let mut parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap();
+                    // Получаем аргументы из value[i+1] - скобка;
+                    // Без скобок это не вызов, а просто ссылка на метод.
+                    if !(i+1 < valueLength && *value[i+1].getDataType() == TokenType::CircleBracketBegin)
+                    {
+                      break 'none;
+                    }
+                    let bracketLines: Vec< Arc<RwLock<Line>> > =
+                      value[i+1].lines.clone().unwrap_or_default();
+                    let parameters: Parameters = Parameters::new(Some(bracketLines));
+                    let mut parametersTokens: Vec<Token> = parameters.getAllExpressions(self).unwrap_or_default();
 
                     // Вызов через FFI.
                     // Если мы внутри FFI блока — используем scope retention. 
                     // Иначе —  временный scope через макрос.
+                    // Тип результата задаёт expect: Discard / Infer / Typed (см. bridge::FfiExpect).
                     // todo Заменить string на abi-ffi
-                    let ffiResult: Result<(), String> = match scopeStack::withCurrentFfiScope(|scope| {
-                      callExternalWithScope(scope, &libraryPath, &methodName, &mut parametersTokens, StructureType::None)
+                    let ffiResult: Result<Token, String> = match scopeStack::withCurrentFfiScope(|scope| {
+                      callExternalWithScope(scope, &libraryPath, &methodName, &mut parametersTokens, expect)
                     })
                     {
                       Some(result) =>
@@ -992,17 +1025,18 @@ impl Structure
                         result,
                       None =>
                         // Временный scope
-                        callExternal(&libraryPath, &methodName, &mut parametersTokens, StructureType::None)
+                        callExternal(&libraryPath, &methodName, &mut parametersTokens, expect)
                     };
                     match ffiResult
                     {
-                      Ok(()) => {
-                        // todo Обработка result
+                      Ok(resultToken) =>
+                      { // Токен результата занимает место ссылки на метод
+                        value[i] = resultToken;
                       }
-                      Err(_) => {
+                      Err(_) =>
+                      {
                         value[i].setDataType(TokenType::None);
                         value[i].setData(None);
-                        break 'none;
                       }
                       /* todo Вообще мог быть отдельный флаг для работы - чтобы выводить ошибки.
                            Или можно сделать это частью скрытых полей вывода по типу .error и т.д.    
@@ -1010,11 +1044,14 @@ impl Structure
                         eprintln!("[rts FFI] lib='{}' method='{}' err='{}'", libraryPath, methodName, e);
                         value[i].setDataType(TokenType::None);
                         value[i].setData(None);
-                        break 'none;
                       }
                       */
                       //
                     }
+                    // Скобки с аргументами уже использованы вызовом — убираем их из выражения,
+                    // чтобы результат остался единственным значением (`libc.f(1) + 1`).
+                    value.remove(i+1);
+                    valueLength -= 1;
                   }
                   //
                 }
