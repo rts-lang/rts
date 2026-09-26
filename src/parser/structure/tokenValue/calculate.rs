@@ -102,7 +102,6 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   };
   // После того как значение было получено,
   // Смотрим какой точно тип выдать новому токену
-  // todo: if -> match
   if resultType != TokenType::Bool 
   {
     if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String

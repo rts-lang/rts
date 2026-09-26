@@ -50,7 +50,6 @@ pub fn formatPrint(string: &str) -> ()
   \cfg  clear foreground
   \cbg  clear background
 */
-// todo: if -> match
 pub fn formatString(inputString: &str) -> String 
 {
   let mut result: String = String::new();
