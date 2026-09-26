@@ -33,7 +33,7 @@ impl Token
     dataType: TokenType,
     data:     T,
   ) -> Self {
-    Token {
+    Self {
       data: data.into(),
       dataType,
       lines: None,
@@ -45,11 +45,11 @@ impl Token
   }
   
   /// Пустой, но имеет тип данных
-  pub fn newEmpty(
+  pub const fn newEmpty(
     dataType: TokenType
   ) -> Self 
   {
-    Token 
+    Self 
     {
       data: Bytes::empty(),
       dataType,
@@ -61,11 +61,11 @@ impl Token
     }
   }
   /// Пустой, но выполняет роль держателя вложения
-  pub fn newNesting(
+  pub const fn newNesting(
     lines: Vec< Arc<RwLock<Line>> >
   ) -> Self
   {
-    Token
+    Self
     {
       data: Bytes::empty(),
       dataType: TokenType::None,
@@ -83,7 +83,7 @@ impl Token
   //  а ожидается UInt или UFloat, то понятно,
   //  что результат будет 0
   // todo По идее это обрубание типов? константановое поведение.
-  fn convertData(&mut self) -> ()
+  const fn convertData(&mut self) -> ()
   {
     return; // todo Работает криво например для `Float | F32 = -3.4028234663852886e38` - было 0.0
     match self.data.toString()
@@ -111,12 +111,12 @@ impl Token
   }
 
   /// Получает тип данных
-  pub fn getDataType(&self) -> &TokenType
+  pub const fn getDataType(&self) -> &TokenType
   {
     &self.dataType
   }
   /// Устанавливает тип данных
-  pub fn setDataType(&mut self, newDataType: TokenType) -> ()
+  pub const fn setDataType(&mut self, newDataType: TokenType) -> ()
   {
     self.dataType = newDataType;
     self.convertData();
@@ -149,7 +149,7 @@ impl fmt::Display for Token
     {
       Some(data) =>
       { // Есть данные - печатаем как символы
-        write!(f, "{}", std::str::from_utf8(&data).unwrap_or_default())
+        write!(f, "{}", std::str::from_utf8(data).unwrap_or_default())
       }
       None =>
       { // Данных нет - печатаем тип
@@ -168,7 +168,7 @@ impl fmt::Debug for Token
     {
       Some(data) =>
       { // Есть данные - печатаем как символы
-        write!(f, "{}", std::str::from_utf8(&data).unwrap_or_default())
+        write!(f, "{}", std::str::from_utf8(data).unwrap_or_default())
       }
       None =>
       { // Данных нет - печатаем тип

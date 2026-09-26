@@ -36,7 +36,7 @@ pub const keywords: &[(&str, TokenType)] = &[
 
 /// Проверяет buffer по index и так находит возможные слова;
 /// Из них также выделяет сразу определяемые зарезервированные
-pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
+pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 {
   let mut savedIndex: usize = *index; // index buffer
   let mut result: String = String::from(buffer[savedIndex] as char);
@@ -44,7 +44,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
   let mut isLink: bool = false;
 
   let mut currentByte: u8; // Текущий символ
-  while savedIndex < *bufferLength
+  while savedIndex < bufferLength
   {
     currentByte = buffer[savedIndex]; // Значение текущего символа
 
@@ -70,8 +70,8 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
 
       // Пропуск пустот
       let mut temp: usize = savedIndex;
-      skipWhitespaceBytes(buffer, &mut temp, *bufferLength, b" \t\n");
-      if temp < *bufferLength && isLetter(&buffer[temp]) {
+      skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
+      if temp < bufferLength && isLetter(&buffer[temp]) {
         savedIndex = temp;
       }
     } else
@@ -136,7 +136,7 @@ mod tests
       let buffer: &[u8] = keyword.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getWord(buffer, &mut index, &bufferLength);
+      let token: Token = getWord(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();
@@ -197,7 +197,7 @@ mod tests
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getWord(buffer, &mut index, &bufferLength);
+      let token: Token = getWord(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();
@@ -248,7 +248,7 @@ mod tests
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getWord(buffer, &mut index, &bufferLength);
+      let token: Token = getWord(buffer, &mut index, bufferLength);
       
       //
       let tokenType: String = token.getDataType().to_string();

@@ -53,16 +53,16 @@ fn pushLineFromTokens(
 // =================================================================================================
 
 // todo desc - вспомогательная func
-fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: &usize, lineTokens: &mut Vec<Token>) -> () {
+fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: usize, lineTokens: &mut Vec<Token>) -> () {
   //
   #[cfg(feature = "analyzer")]
   {
-    let mut token: Token = getOperator(&buffer, &mut index, &bufferLength);
+    let mut token: Token = getOperator(&buffer, &mut index, bufferLength);
     pushLineToken(&mut token, &mut lineTokens, start, index);
   }
   #[cfg(not(feature = "analyzer"))]
   {
-    let token: Token = getOperator(&buffer, index, &bufferLength);
+    let token: Token = getOperator(buffer, index, bufferLength);
     lineTokens.push(token);
   }
 }
@@ -81,7 +81,7 @@ pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLoc
     } else
     { // Если нет, получаем новый
       buffer.push(b'\n');
-      &buffer
+      buffer
     };
 
   readTokens(buffer, 0, None, debugMode).0
@@ -132,7 +132,7 @@ fn readTokens(
     if byte == b'\n' || byte == b';'
     { // Проверяем: если последний токен - оператор, выражение не завершено; #85
       let isContinuation: bool = lineTokens.last()
-        .map_or(false, |token: &Token| token.getDataType().isContinuationOperator());
+        .is_some_and(|token: &Token| token.getDataType().isContinuationOperator());
 
       if isContinuation
       { // Перенос строки - просто пропускаем \n, чтение продолжается
@@ -151,7 +151,7 @@ fn readTokens(
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
-        readTokens(&buffer, index, Some(b')'), false);
+        readTokens(buffer, index, Some(b')'), false);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b')' // buffer[index] должен быть closeByte, пропускаем его
@@ -166,7 +166,7 @@ fn readTokens(
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
-        readTokens(&buffer, index, Some(b']'), false);
+        readTokens(buffer, index, Some(b']'), false);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b']' // buffer[index] должен быть closeByte, пропускаем его
@@ -181,7 +181,7 @@ fn readTokens(
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
-        readTokens(&buffer, index, Some(b'}'), false);
+        readTokens(buffer, index, Some(b'}'), false);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b'}' // buffer[index] должен быть closeByte, пропускаем его
@@ -217,7 +217,7 @@ fn readTokens(
     { // Комментарий # / ## / ###; deleteComment сам находит границу по правилам уровня
       #[cfg(feature = "analyzer")]
       let start: usize = index;
-      deleteComment(&buffer, &mut index, &bufferLength); // Пропускает комментарий
+      deleteComment(buffer, &mut index, bufferLength); // Пропускает комментарий
 
       #[cfg(feature = "analyzer")]
       {
@@ -236,16 +236,16 @@ fn readTokens(
     { // Получаем все возможные численные примитивные типы данных
       #[cfg(feature = "analyzer")]
       {
-        let mut token: Token = getNumber(&buffer, &mut index, &bufferLength);
+        let mut token: Token = getNumber(&buffer, &mut index, bufferLength);
         pushLineToken(&mut token, &mut lineTokens, start, index);
       }
       #[cfg(not(feature = "analyzer"))]
       {
-        match getNumber(&buffer, &mut index, &bufferLength)
+        match getNumber(buffer, &mut index, bufferLength)
         {
           None =>
           { // Это был бинарный минус
-            addSingleCharToken(buffer, &mut index, &bufferLength, &mut lineTokens);
+            addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
           }
           Some(token) => lineTokens.push(token)
         }
@@ -256,12 +256,12 @@ fn readTokens(
       //
       #[cfg(feature = "analyzer")]
       {
-        let mut token: Token = getWord(&buffer, &mut index, &bufferLength);
+        let mut token: Token = getWord(&buffer, &mut index, bufferLength);
         pushLineToken(&mut token, &mut lineTokens, start, index);
       }
       #[cfg(not(feature = "analyzer"))]
       {
-        let token: Token = getWord(&buffer, &mut index, &bufferLength);
+        let token: Token = getWord(buffer, &mut index, bufferLength);
         lineTokens.push(token);
       }
     } else
@@ -285,7 +285,7 @@ fn readTokens(
           let startF: usize = fToken.start;
         }
 
-        let mut token: Token = getQuotes(&buffer, &mut index, true); // formatted = true
+        let mut token: Token = getQuotes(buffer, &mut index, true); // formatted = true
 
         // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
         let tokenType: TokenType =
@@ -306,8 +306,12 @@ fn readTokens(
         lineTokens.push(token);
       } else
       {
-        // todo mut
+        #[cfg(feature = "analyzer")]
         let mut token: Token = getQuotes(&buffer, &mut index, false);
+        #[cfg(not(feature = "analyzer"))]
+        let token: Token = getQuotes(buffer, &mut index, false);
+        
+        //
         let tokenType: TokenType = *token.getDataType();
         if tokenType != TokenType::None {
           #[cfg(feature = "analyzer")]
@@ -322,7 +326,7 @@ fn readTokens(
     // Получаем возможные двойные и одиночные символы
     if isSingleChar(&byte)
     {
-      addSingleCharToken(buffer, &mut index, &bufferLength, &mut lineTokens);
+      addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
     } else
     { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
       // Поэтому просто идём дальше
@@ -339,7 +343,7 @@ fn readTokens(
   {
     let endTime:  Instant  = Instant::now();    // Получаем текущее время
     let duration: Duration = endTime-startTime; // Получаем сколько всего прошло
-    outputLines(&linesLinks,&2); // Выводим полученное AST дерево из линий
+    outputLines(&linesLinks,2); // Выводим полученное AST дерево из линий
     //
     println!("     ┃");
     log("ok",&format!("xDuration: {:?}",duration));

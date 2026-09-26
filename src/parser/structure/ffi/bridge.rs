@@ -86,11 +86,11 @@ enum FfiArgValue
   F64(f64),
   String(String),
   CString(std::ffi::CString),
-  RawString(Vec<u8>),
+  RawString(Vec<u8>)
 }
 
 /// Token -> FfiArgValue, с приведением размера к наименьшему подходящему типу.
-fn tokenToFfiArg(token: &mut Token) -> Result<FfiArgValue, String>
+fn tokenToFfiArg(token: &Token) -> Result<FfiArgValue, String>
 {
   let tokenDataType: &TokenType = token.getDataType();
   let tokenData: String = token.getData().toString()

@@ -12,15 +12,15 @@ pub struct Line
   pub indent: Option<usize>, // todo Indent больше не нужен - срочно убрать, но тесты надо переписать;
                              //  Также это потянет за собой parser - а там кучу мест.
   /// Вложенные линии
-  pub lines: Option< Vec< Arc<RwLock<Line>> > >,
+  pub lines: Option< Vec< Arc<RwLock<Self>> > >,
   /// Ссылка на родителя
-  pub parent: Option< Arc<RwLock<Line>> >
+  pub parent: Option< Arc<RwLock<Self>> >
 }
 impl Line 
 {
-  pub fn newEmpty() -> Self 
+  pub const fn newEmpty() -> Self 
   {
-    Line 
+    Self 
     {
       tokens: None,
       indent: None,

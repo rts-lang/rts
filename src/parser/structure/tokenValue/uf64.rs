@@ -25,7 +25,7 @@ impl std::ops::Add for uf64
   type Output = Self;
   fn add(self, other: Self) -> Self 
   {
-    uf64(self.0 + other.0)
+    Self(self.0 + other.0)
   }
 }
 // -
@@ -34,7 +34,7 @@ impl std::ops::Sub for uf64
   type Output = Self;
   fn sub(self, other: Self) -> Self 
   {
-    uf64(self.0 - other.0)
+    Self(self.0 - other.0)
   }
 }
 // *
@@ -43,7 +43,7 @@ impl std::ops::Mul for uf64
   type Output = Self;
   fn mul(self, other: Self) -> Self 
   {
-    uf64(self.0 * other.0)
+    Self(self.0 * other.0)
   }
 }
 // /
@@ -54,8 +54,8 @@ impl std::ops::Div for uf64
   {
     match other.0
     {
-      0.0 => { uf64(self.0) } // Если 0.0, то возвращаем левую часть
-      _   => { uf64(self.0 / other.0) } // Если не 0.0, то делим
+      0.0 => { Self(self.0) } // Если 0.0, то возвращаем левую часть
+      _ => { Self(self.0 / other.0) } // Если не 0.0, то делим
     }
   }
 }
@@ -70,8 +70,8 @@ impl From<f64> for uf64
   {
     match value >= 0.0 
     {
-      true  => { uf64(value) }  
-      false => { uf64(0.0) }
+      true => { Self(value) }  
+      false => { Self(0.0) }
     }
   }
 }
@@ -80,7 +80,7 @@ impl From<u64> for uf64
 {
   fn from(value: u64) -> Self 
   {
-    uf64(value as f64)
+    Self(value as f64)
   }
 }
 // i64 -> uf64
@@ -90,8 +90,8 @@ impl From<i64> for uf64
   {
     match value >= 0 
     {
-      true  => { uf64(value as f64) }  
-      false => { uf64(0.0) }
+      true => { Self(value as f64) }  
+      false => { Self(0.0) }
     }
   }
 }
@@ -111,7 +111,7 @@ impl From<uf64> for f64
 impl From<uf64> for u64 
 {
   fn from(value: uf64) -> Self {
-    value.0 as u64
+    value.0 as Self
   }
 }
 // uf64 -> i64
@@ -119,7 +119,7 @@ impl From<uf64> for i64
 {
   fn from(value: uf64) -> Self 
   {
-    value.0 as i64
+    value.0 as Self
   }
 }
 
@@ -132,8 +132,8 @@ impl uf64
   {
     match value >= 0.0 
     {
-      true  => { uf64(value) }  
-      false => { uf64(0.0) }
+      true => { Self(value) }  
+      false => { Self(0.0) }
     }
   }
 }

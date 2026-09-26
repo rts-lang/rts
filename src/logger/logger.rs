@@ -1,19 +1,15 @@
-/* /logger
-  Has both debug functions and for normal work
-*/
-
-use crate::{
-  _debugMode,
-};
-
+// =================================================================================================
+use crate::_debugMode;
 use termion::color::{Bg, Fg, Rgb, Reset};
 use termion::style;
+// =================================================================================================
 
 // hex str -> termion::color::Rgb
-fn hexToTermionColor(hex: &str) -> Option<Rgb> {
+fn hexToTermionColor(hex: &str) -> Option<Rgb>
+{
   match hex.len() != 6 
   { 
-    true  => { return None; }
+    true => None,
     false => {
       Some(Rgb(
         u8::from_str_radix(&hex[0..2], 16).ok()?, 
@@ -22,6 +18,7 @@ fn hexToTermionColor(hex: &str) -> Option<Rgb> {
       ))
     } 
   }
+  //
 }
 // devide white space, begin from the left
 fn divideWhitespace(input: &str) -> (&str, &str) 
@@ -31,19 +28,14 @@ fn divideWhitespace(input: &str) -> (&str, &str)
     .unwrap_or(input.len());
   (&input[..firstNonSpaceIndex], &input[firstNonSpaceIndex..])
 }
+
+// =================================================================================================
+
 // style log
 pub fn formatPrint(string: &str) -> ()
 {
-  print!("{}",&formatString(string));
+  print!("{}",formatString(string));
 }
-
-static mut _result: String = String::new();
-
-static mut _i:            usize = 0;
-static mut _stringLength: usize = 0;
-
-static mut _stringChars:   Vec<char>   = Vec::new();
-static mut _string:        String      = String::new();
 
 /*
   Formats a string, you can use flags:
@@ -59,147 +51,132 @@ static mut _string:        String      = String::new();
   \cbg  clear background
 */
 // todo: if -> match
-pub fn formatString(string: &str) -> String 
+pub fn formatString(inputString: &str) -> String 
 {
-  unsafe
-  {
-    _result = String::new();
+  let mut result: String = String::new();
 
-    _i = 0;
-    _stringChars  = string.chars().collect();
-    _stringLength = _stringChars.len();
+  let mut i: usize = 0;
+  let stringChars: Vec<char> = inputString.chars().collect();
+  let stringLength: usize = stringChars.len();
+  let mut string: String;
 
-    while _i < _stringLength 
-    { // special 
-      if _stringChars[_i] == '\\' && _i+1 < _stringLength &&
-         ((_i == 0) || (_i > 0 && _stringChars[_i-1] != '\\')) // Проверяем на экранировние
+  while i < stringLength 
+  { // special 
+    if stringChars[i] == '\\' && i+1 < stringLength &&
+       ((i == 0) || (i > 0 && stringChars[i-1] != '\\')) // Проверяем на экранировние
+    {
+      match stringChars[i+1] 
       {
-        match _stringChars[_i+1] 
+        // todo: Добавить \t и другие варианты
+        'n' => 
         {
-          // todo: Добавить \t и другие варианты
-          'n' => 
-          {
-            _i += 2;
-            _result.push_str("\n");
+          i += 2;
+          result.push('\n');
+          continue;
+        }
+        'b' => 
+        {
+          if i+2 < stringLength && stringChars[i+2] == 'g' 
+          { // bg
+            i += 5;
+            string = String::from_iter(
+              stringChars[i..stringLength]
+                .iter()
+                .take_while(|&&c| c != ')')
+            );
+            result.push_str(&format!(
+              "{}",
+              Bg(hexToTermionColor(string.as_str()).unwrap_or(Rgb(0, 0, 0)))
+            ));
+            i += string.len()+1;
             continue;
-          }
-          'b' => 
-          {
-            match _i+2 < _stringLength && _stringChars[_i+2] == 'g' 
-            {
-              true => 
-              { // bg
-                _i += 5;
-                _string = String::from_iter(
-                  _stringChars[_i.._stringLength]
-                    .iter()
-                    .take_while(|&&c| c != ')')
-                );
-                _result.push_str(&format!(
-                  "{}",
-                  Bg(hexToTermionColor(_string.as_str()).unwrap_or_else(|| Rgb(0, 0, 0)))
-                ));
-                _i += _string.len()+1;
-                continue;
-              }  
-              false => 
-              { // bold
-                _result.push_str( &format!("{}",style::Bold) );
-                _i += 2;
-                continue;
-              }
-            }
-          }
-          'f' => 
-          {
-            match _i+2 < _stringLength && _stringChars[_i+2] == 'g' 
-            {
-              true => 
-              { // fg
-                _i += 5;
-                _string = String::from_iter(
-                  _stringChars[_i.._stringLength]
-                    .iter()
-                    .take_while(|&&c| c != ')')
-                );
-                _result.push_str(&format!(
-                  "{}",
-                  Fg(hexToTermionColor(&_string).unwrap_or_else(|| Rgb(0, 0, 0)))
-                ));
-                _i += _string.len()+1;
-                continue;
-              }
-              false => {}
-            }
-          }
-          'c' => 
-          { // clear
-            if _i+2 < _stringLength && _stringChars[_i+2] == 'b' 
-            {
-              match _i+3 < _stringLength && _stringChars[_i+3] == 'g' 
-              {
-                true =>
-                { // cbg
-                  _i += 4;
-                  _result.push_str(&format!(
-                    "{}",
-                    Bg(Reset)
-                  ));
-                  continue;
-                } 
-                false =>
-                { // cb
-                  _i += 3;
-                  _result.push_str(&format!(
-                    "{}",
-                    style::NoBold
-                  ));
-                  continue;
-                }
-              }
-            } else
-            if _i+2 < _stringLength && _stringChars[_i+2] == 'f' 
-            {
-              match _i+3 < _stringLength && _stringChars[_i+3] == 'g' 
-              {
-                true => 
-                { // cfg
-                  _i += 4;
-                  _result.push_str(&format!(
-                    "{}",
-                    Fg(Reset)
-                  ));
-                  continue;
-                }
-                false => {}
-              }
-            } else 
-            { // clear all
-              _i += 2;
-              _result.push_str(&format!(
-                "{}",
-                style::Reset
-              ));
-              continue;
-            }
-          }
-          _ => 
-          {
-            _result.push_str("\\");
-            _i += 1;
+          }  
+          else
+          { // bold
+            result.push_str( &format!("{}",style::Bold) );
+            i += 2;
             continue;
           }
         }
-      // basic
-      } else 
-      {
-        _result.push( _stringChars[_i] );
+        'f' => 
+        {
+          if i+2 < stringLength && stringChars[i+2] == 'g' 
+          { // fg
+            i += 5;
+            string = String::from_iter(
+              stringChars[i..stringLength]
+                .iter()
+                .take_while(|&&c| c != ')')
+            );
+            result.push_str(&format!(
+              "{}",
+              Fg(hexToTermionColor(&string).unwrap_or(Rgb(0, 0, 0)))
+            ));
+            i += string.len()+1;
+            continue;
+          }
+        }
+        'c' => 
+        { // clear
+          if i+2 < stringLength && stringChars[i+2] == 'b' 
+          {
+            if i+3 < stringLength && stringChars[i+3] == 'g' 
+            { // cbg
+              i += 4;
+              result.push_str(&format!(
+                "{}",
+                Bg(Reset)
+              ));
+              continue;
+            } else
+            { // cb
+              i += 3;
+              result.push_str(&format!(
+                "{}",
+                style::NoBold
+              ));
+              continue;
+            }
+          } else
+          if i+2 < stringLength && stringChars[i+2] == 'f' 
+          {
+            if i+3 < stringLength && stringChars[i+3] == 'g' 
+            { // cfg
+              i += 4;
+              result.push_str(&format!(
+                "{}",
+                Fg(Reset)
+              ));
+              continue;
+            }
+          } else 
+          { // clear all
+            i += 2;
+            result.push_str(&format!(
+              "{}",
+              style::Reset
+            ));
+            continue;
+          }
+        }
+        _ => 
+        {
+          result.push_str("\\");
+          i += 1;
+          continue;
+        }
       }
-      _i += 1;
+    // basic
+    } else {
+      result.push( stringChars[i] );
     }
-    _result.clone()
+    i += 1;
   }
+  result.clone()
 }
+
+// =================================================================================================
+
 // separator log
 pub fn logSeparator(text: &str) -> ()
 {
@@ -208,6 +185,7 @@ pub fn logSeparator(text: &str) -> ()
     text
   ));
 }
+
 // Завершает программу и при необходимости в debug режиме
 // возвращает описание выхода;
 pub fn logExit(code: i32) -> !
@@ -216,37 +194,35 @@ pub fn logExit(code: i32) -> !
   {
     true => 
     { // В данном случае завершение успешно;
-      match unsafe{_debugMode}
-      {
-        true  => { formatPrint("   \\b┗\\fg(#1ae96b) Exit 0\\c \\fg(#f0f8ff)\\b:)\\c\n"); }
-        false => {}
+      if unsafe{_debugMode} {
+        formatPrint("   \\b┗\\fg(#1ae96b) Exit 0\\c \\fg(#f0f8ff)\\b:)\\c\n");
       }
       std::process::exit(0);
     }
     false => 
     { // В данном случае завершение не успешное;
-      match unsafe{_debugMode}
+      if unsafe{_debugMode}
       {
-        true => 
-        { 
-          formatPrint(
-            &format!(
-              "   \\b┗\\fg(#e91a34) Exit {}\\c \\fg(#f0f8ff)\\b:(\\c\n", 
-              code
-            )
-          );
-        }
-        false => {}
+        formatPrint(
+          &format!(
+            "   \\b┗\\fg(#e91a34) Exit {}\\c \\fg(#f0f8ff)\\b:(\\c\n", 
+            code
+          )
+        );
       }
       std::process::exit(code);
     }
   }
 }
+
+// =================================================================================================
+
 // basic style log
-static mut _parts:       Vec<String> = Vec::new();
-static mut _outputParts: Vec<String> = Vec::new();
 pub fn log(textType: &str, text: &str) -> ()
 {
+  let mut parts: Vec<String>;
+  let mut outputParts: Vec<String>;
+  
   match textType 
   {
     "syntax" => 
@@ -273,29 +249,29 @@ pub fn log(textType: &str, text: &str) -> ()
     } 
     "parserToken" => 
     { // AST token
-    unsafe{
-      _parts = text.split("|").map(|s| s.to_string()).collect();
-      _outputParts = Vec::new();
+    {
+      parts = text.split("|").map(|s| s.to_string()).collect();
+      outputParts = Vec::new();
       // first word no format
-      match _parts.first() 
+      match parts.first() 
       {
+        None => {}
         Some(firstPart) => 
         {
-          _outputParts.push( formatString(firstPart) );
+          outputParts.push( formatString(firstPart) );
         }
-        None => {}
       }
       // last word
-      for part in _parts.iter().skip(1) 
+      for part in parts.iter().skip(1) 
       {
-        _outputParts.push(
+        outputParts.push(
           formatString(&format!(
             "\\b\\fg(#d9d9d9){}\\c",
             part
           ))
         );
       }
-      println!("{}", _outputParts.join(""));
+      println!("{}", outputParts.join(""));
     }} 
     "ok" => 
     { // ok
@@ -347,42 +323,42 @@ pub fn log(textType: &str, text: &str) -> ()
     } 
     "path" => 
     { // path
-    unsafe{
-      _parts = text.split("->").map(|s| s.to_string()).collect();
-      _string = 
-        _parts.join(
+    {
+      parts = text.split("->").map(|s| s.to_string()).collect();
+      let string: String = 
+        parts.join(
           &formatString("\\fg(#f0f8ff)\\b->\\c")
         );
       formatPrint(&format!(
         "\\fg(#f0f8ff)\\b->\\c \\fg(#f0f8ff){}\\c\n",
-        _string
+        string
       ));
     }} 
     "line" => 
     { // line
-    unsafe{
-      _parts = text.split("|").map(|s| s.to_string()).collect();
-      _outputParts = Vec::new();
+    {
+      parts = text.split("|").map(|s| s.to_string()).collect();
+      outputParts = Vec::new();
       // left
-      match _parts.first() 
+      match parts.first() 
       {
         Some(firstPart) => 
         {
-          _outputParts.push(
+          outputParts.push(
             formatString(&format!(
               "  \\fg(#f0f8ff)\\b{} | \\c",
-              firstPart.to_string()
+              firstPart
             ))
           );
         }
         None => {}
       }
       // right
-      for part in _parts.iter().skip(1) 
+      for part in parts.iter().skip(1) 
       {
-        _outputParts.push(part.to_string());
+        outputParts.push(part.to_string());
       }
-      println!("{}",_outputParts.join(""));
+      println!("{}", outputParts.join(""));
     }}  
     _ => 
     { // basic
@@ -393,3 +369,5 @@ pub fn log(textType: &str, text: &str) -> ()
     }
   }
 }
+
+// =================================================================================================

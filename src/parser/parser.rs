@@ -23,7 +23,7 @@ use crate::parser::structure::structureType::StructureType;
 // =================================================================================================
 
 /// Проверяет, что переданный dataType является математическим оператором
-fn isMathOperator(dataType: TokenType) -> bool
+const fn isMathOperator(dataType: TokenType) -> bool
 {
   matches!(dataType, 
     // todo А еще почему тут только 1 single оператор а не все math?
@@ -190,15 +190,14 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
 // =================================================================================================
 
 /// Читает линейную запись
-fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) -> bool
+fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> bool
 {
   // Получаем тип операции
-  let opType: TokenType = lineTokens.iter().find_map(|token|
-  {
-    match isMathOperator( *token.getDataType() )
-    {
-      true => Some(*token.getDataType()),
-      false => None,
+  let opType: TokenType = lineTokens.iter().find_map(|token| {
+    if isMathOperator( *token.getDataType() ) {
+      Some(*token.getDataType())
+    } else {
+      None
     }
   }).unwrap_or(TokenType::None);
 
@@ -206,19 +205,16 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
   let leftValue: Vec<Token>;
   let mut rightValue: Option< Vec<Token> > = None;
   {
-    match opType == TokenType::None
-    {
-      false =>
-      {// Операция есть
-        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType]); // todo: Тут точно клонирование ?
+    if opType == TokenType::None
+    { // Операции не было
+      leftValue = std::mem::take(&mut lineTokens.to_owned()); // todo: Тут точно клонирование ?
+    }
+    else
+    {// Операция есть
+      let mut parts: Vec<Line> = splitByType(lineTokens.to_owned(), &[opType]); // todo: Тут точно клонирование ?
 
-        leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
-        rightValue = std::mem::take(&mut parts[1].tokens);
-      }
-      true =>
-      { // Операции не было
-        leftValue = std::mem::take(&mut lineTokens.clone()); // todo: Тут точно клонирование ?
-      }
+      leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
+      rightValue = std::mem::take(&mut parts[1].tokens);
     }
   }
 
@@ -229,10 +225,10 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     let (structureNameTokens, structureTypeTokens): (Vec<Token>, Option< Vec<Token> >) =
     {
       let mut parts: Vec<Line> = splitByType(leftValue.clone(), &[TokenType::Colon]);
-      match parts.len() == 2
-      {
-        false => (std::mem::take(&mut parts[0].tokens).unwrap(), None),
-        true => (std::mem::take(&mut parts[0].tokens).unwrap(), std::mem::take(&mut parts[1].tokens))
+      if parts.len() == 2 {
+        (std::mem::take(&mut parts[0].tokens).unwrap(), std::mem::take(&mut parts[1].tokens))
+      } else {
+        (std::mem::take(&mut parts[0].tokens).unwrap(), None)
       }
     };
 
@@ -314,34 +310,31 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       let parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
 
       // Вычисляем правое выражение?
-      match structureMutability == StructureMut::Final
-      { true => {} false =>
+      if structureMutability != StructureMut::Final
       { 
         let hasTokens: bool = rightValue.is_none();
         let mut value: Token = parentStructure.expression(&mut rightValue.unwrap());
-        match structureType == StructureType::None
-        {
-          true =>
-          { // Тип вычисляется если он не был изначально определён;
-            // Вычисляется он по типу из результата правой части выражения
-            structureType = value.getStructureType();
-          }
-          false =>
-            match structureMutability == StructureMut::Dynamic
-            { // Тип вычисляется, если флаг изменяемости Dynamic
-              // Вычисляется он по типу из результата правой части выражения
-              true => structureType = value.getStructureType(),
-              // Требуется выполнить преобразование в указанный тип данных
-              false => Structure::normalizeToken(&mut value, structureType.clone())
-            }
+        if structureType == StructureType::None
+        { // Тип вычисляется если он не был изначально определён;
+          // Вычисляется он по типу из результата правой части выражения
+          structureType = value.getStructureType();
+        } else
+        if structureMutability == StructureMut::Dynamic
+        { // Тип вычисляется, если флаг изменяемости Dynamic
+          // Вычисляется он по типу из результата правой части выражения
+          structureType = value.getStructureType();
+        } else 
+        { // Требуется выполнить преобразование в указанный тип данных
+          Structure::normalizeToken(&mut value, structureType.clone());
         }
+
         //
-        rightValue = match hasTokens
-        { true => None, false =>
-        {
-          Some(vec![ value ])
-        }}
-      }}
+        rightValue = if hasTokens {
+          None
+        } else {
+          Some(vec![value])
+        };
+      }
 
       // Создаём структуру
       let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
@@ -364,7 +357,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       // ABI-композит String: .pointer/.length поверх исходного токена
       if structureType == StructureType::String
       {
-        if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.get(0))
+        if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.first())
         {
           if let Some(fields) = bridge::stringFields(valueToken)
           {
@@ -393,11 +386,11 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
 /// - Условный блок (if/elif/else)   todo необходимо вынести в отдельный метод
 pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLock<Structure>>, lineIndex: *mut usize) -> bool
 {
-  let lineTokens: &Vec<Token> = // Ссылка на токены линии
+  let lineTokens: &Vec<Token> = // Ссылка на токены линии.
     match &line.tokens
     {
-      None => return false, // Если в линии нет токенов, то мы её не читаем
-      Some(tokens) => { tokens }
+      None => return false, // Если в линии нет токенов, то мы её не читаем.
+      Some(tokens) => tokens
     };
   let lineTokensLength: usize = lineTokens.len(); // размер токенов линии
 
@@ -423,7 +416,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   // -----------------------------------------------------------------------------
   if lineTokensLength == 0
     && lineLines.is_some()
-    && isPrevLineFfiTag(&parentLink, unsafe { *lineIndex })
+    && isPrevLineFfiTag(&parentLink, unsafe{ *lineIndex })
   {
     let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(
       Structure::new(
@@ -443,10 +436,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   }
 
   // Дальше идёт старая логика: пустые линии не интересуют.
-  match lineTokensLength == 0
+  if lineTokensLength == 0
   {
-    true => return false, // Если в линии нет токенов, то мы её не читаем
-    false => {}
+    return false; // Если в линии нет токенов, то мы её не читаем
   }
 
   let firstTokenType: &TokenType = lineTokens[0].getDataType(); // Тип первого токена в строке
@@ -467,7 +459,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   // -----------------------------------------------------------------------------
   if line.tokens.is_none() || lineTokens.is_empty()
     && lineLines.is_some()
-    && isPrevLineFfiTag(&parentLink, unsafe { *lineIndex })
+    && isPrevLineFfiTag(&parentLink, unsafe{ *lineIndex })
   {
     let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(
       Structure::new(
@@ -577,9 +569,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
               for lineLink in lines
               {
                 let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-                let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                let paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
                 result.extend(
-                  parentLink.read().unwrap().getStructureParameters(&mut paramTokens)
+                  parentLink.read().unwrap().getStructureParameters(&paramTokens)
                 );
               }
               Some(result)
@@ -616,9 +608,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             Arc::new(RwLock::new(Structure::new(
               parameter.0.toString(),
               StructureMut::Constant,
-              parameter.1.clone(),
+              parameter.1,
               None,
-              None,
+              None
             )))
           );
         }
@@ -626,7 +618,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
         newStructure.result = match newStructureResultType
         {
           Some(t) => Some(Token::newEmpty(*t)),
-          None    => None,
+          None => None
         };
 
         let newStructureLink: Arc<RwLock<Structure>> =
@@ -653,192 +645,180 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   if *firstTokenType == TokenType::Word
   { // Если мы видим TokenType::Word в начале строки, 
     // это значит, что это либо структура, либо линейная запись
-    match lineLines
+    if let Some(lineLines) = lineLines
     {
-      Some(lineLine) =>
-      { // Если в линии есть вложение, то это структура с вложением
-        match lineTokens[0].getData().toString()
-        { // Первый токен - имя структуры
-          None => {}
-          Some(newStructureName) =>
-          { // получаем имя структуры
-            let mut newStructureResultType: Option<&TokenType> = None; // результат структуры
-            let mut parameters: Option< Vec<(Bytes, StructureType)> > = None; // параметры структуры
-            match lineTokensLength > 1 && *lineTokens[1].getDataType() == TokenType::CircleBracketBegin
-            {
-              true =>
-              { // Если токенов > 1 и 1 токен это TokenType::CircleBracketBegin 
-                // значит это вариант параметры + возможно результат
+      // Если в линии есть вложение, то это структура с вложением.
+      if let Some(newStructureName) = lineTokens[0].getData().toString()
+      { // Здесь первый токен - имя структуры.
+        
+        // получаем имя структуры.
+        let mut newStructureResultType: Option<&TokenType> = None; // результат структуры
+        let mut parameters: Option< Vec<(Bytes, StructureType)> > = None; // параметры структуры
+        if lineTokensLength > 1 && *lineTokens[1].getDataType() == TokenType::CircleBracketBegin
+        { // Если токенов > 1 и 1 токен это TokenType::CircleBracketBegin 
+          // значит это вариант параметры + возможно результат
 
-                // Получаем параметры структуры
-                parameters =
-                  if let Some(lines) = &lineTokens[1].lines
-                  { // Берём первую линию внутри скобок (там обычно перечислены параметры)
-                    let mut result: Vec<(Bytes, StructureType)> = Vec::new();
-                    for lineLink in lines
-                    { // Берём вложенные токены в TokenType::CircleBracketBegin 
-                      // получаем параметры из этих токенов, давая доступ к родительским структурам
-                      let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-                      let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
-                      result.extend(
-                        parentLink.read().unwrap().getStructureParameters(&mut paramTokens)
-                      );
-                    }
-                    Some(result)
-                  } else {
-                    None
-                  };
-
-                // Если > 3 (т.е name () -> result)
-                // то значит это результат структуры 
-                // todo: Может быть объединено с блоком ниже
-                match lineTokensLength > 3 &&
-                  *lineTokens[2].getDataType() == TokenType::Pointer &&
-                  *lineTokens[3].getDataType() != TokenType::None
-                {
-                  false => {} // если результата не было, то просто пропускаем
-                  true =>
-                    { // в таком случае просто читаем тип результата структуры
-                      newStructureResultType = Some(lineTokens[3].getDataType());
-                    }
-                }
-
-                //
-              }
-              false =>
-              { // В этом случае это вариант только с результатом структуры
-                match lineTokensLength > 2 &&
-                  *lineTokens[1].getDataType() == TokenType::Pointer &&
-                  *lineTokens[2].getDataType() != TokenType::None
-                {
-                  false => {} // если результата не было, то просто пропускаем
-                  true =>
-                  { // в таком случае просто читаем тип результата структуры
-                    newStructureResultType = Some(lineTokens[2].getDataType());
-                  }
-                }
-                //
-              }
-            } // Если параметров и результата не было, то просто пропускаем
-
-            // Проверка блока тегов [ffi]
-            // todo Нет [ffi] {} т.е. это проверка если строка сверху но нет в 1 строку.
-            let isFfi: bool =
-              match unsafe{*lineIndex} == 0
-              { true => false, false =>
-              {
-                match parentLink.read().unwrap().lines.clone()
-                { None => false, Some(siblingLines) =>
-                {
-                  let prevLine: RwLockReadGuard<Line> = siblingLines[unsafe{*lineIndex} - 1].read().unwrap();
-                  match &prevLine.tokens
-                  { None => false, Some(prevTokens) =>
-                  {
-                    match prevTokens.is_empty()
-                      || *prevTokens[0].getDataType() != TokenType::SquareBracketBegin
-                      || prevLine.lines.is_some()
-                    { true => false, false =>
-                    {
-                      match &prevTokens[0].lines
-                      { None => false, Some(bracketLines) =>
-                      {
-                        let mut found: bool = false;
-                        for bracketLine in bracketLines
-                        {
-                          let bracketLineGuard: RwLockReadGuard<Line> = bracketLine.read().unwrap();
-                          match &bracketLineGuard.tokens
-                          { None => {} Some(bracketTokens) =>
-                          {
-                            for token in bracketTokens
-                            {
-                              if *token.getDataType() == TokenType::Word
-                                && token.getData().toString().unwrap_or_default() == "ffi"
-                              { found = true; }
-                            }
-                          }}
-                        }
-                        found
-                      }}
-                    }}
-                  }}
-                }}
-              }};
-            
-            // Cоздаём новую структуру
-            let mut newStructure: Structure =
-              Structure::new(
-                Some(newStructureName.clone()),
-                StructureMut::Constant, // todo По идее надо вычислять из синтаксиса
-                StructureType::Method, // todo По идее надо вычислять из синтаксиса
-                Some(lineLine),
-                Some(parentLink.clone())
-              );
-            newStructure.isFfiBlock = isFfi;
-            println!("isFfi {}",isFfi);
-
-            // Ставим параметры структуры, если они были
-            match &parameters
-            { None => {} Some(parameters) =>
-            {
-              for parameter in parameters
-              {
-                newStructure.pushStructure(
-                  Arc::new(RwLock::new(Structure::new(
-                    parameter.0.toString(),
-                    StructureMut::Constant, // todo По идее надо еще читать правила mut (в getStructureParameters)
-                    parameter.1.clone(),
-                    None,
-                    None,
-                  )))
+          // Получаем параметры структуры
+          parameters =
+            if let Some(lines) = &lineTokens[1].lines
+            { // Берём первую линию внутри скобок (там обычно перечислены параметры)
+              let mut result: Vec<(Bytes, StructureType)> = Vec::new();
+              for lineLink in lines
+              { // Берём вложенные токены в TokenType::CircleBracketBegin 
+                // получаем параметры из этих токенов, давая доступ к родительским структурам
+                let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
+                let paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                result.extend(
+                  parentLink.read().unwrap().getStructureParameters(&paramTokens)
                 );
               }
-            }}
-
-            // Ставим результат структуры, если он есть
-            newStructure.result = match newStructureResultType
-            {
-              Some(newStructureResultType) =>
-                Some( Token::newEmpty(*newStructureResultType) ),
-              None => None,
+              Some(result)
+            } else {
+              None
             };
 
-            // Запоминаем, была ли это форма МЕТОДА (с круглыми скобками) или
-            // просто именованного блока. Для метода body ждёт вызова `name()`,
-            // для именованного блока body выполняется СРАЗУ — иначе его никто
-            // никогда не выполнит (никто не пишет `name` без скобок для вызова).
-            let isMethodForm: bool = parameters.is_some();
-
-            let newStructureLink: Arc<RwLock<Structure>> =
-              Arc::new(RwLock::new(newStructure));
-            { // Добавляем новую структуру в родителя
-              parentLink.write().unwrap()
-                .pushStructure(newStructureLink.clone());
-            }
-            // Просматриваем строки этой новой структуры;
-            // todo: в целом, это можно заменить на чтение при первом обращении к структуре;
-            //       сейчас же все структуры читаются (подготавливаются),
-            //       если попали на lineIndex указатель.
-            // Для FFI-блоков (как анонимных, так и именованных) тело должно
-            // выполниться прямо здесь, иначе оно никогда не выполнится —
-            // никто не зовёт `name` без скобок. Метод (с круглыми скобками)
-            // ждёт явного вызова. `readLines` сам пушнет FFI scope, потому
-            // что `isFfiBlock=true`.
-            if isFfi && !isMethodForm
-            {
-              readLines(newStructureLink);
-            }
-            //            readLines(
-            //              parentLink.read().unwrap()
-            //                .getStructureByName(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше
-            //            );
-            return true;
+          // Если > 3 (т.е name () -> result)
+          // то значит это результат структуры 
+          // todo: Может быть объединено с блоком ниже
+          if lineTokensLength > 3 &&
+            *lineTokens[2].getDataType() == TokenType::Pointer &&
+            *lineTokens[3].getDataType() != TokenType::None
+          {
+            // В таком случае просто читаем тип результата структуры.
+            newStructureResultType = Some(lineTokens[3].getDataType());
           }
+          // Если результата не было, то просто пропускаем
+          
+        } else
+        { // В этом случае это вариант только с результатом структуры
+          
+          if lineTokensLength > 2 &&
+            *lineTokens[1].getDataType() == TokenType::Pointer &&
+            *lineTokens[2].getDataType() != TokenType::None
+          {
+            // В таком случае просто читаем тип результата структуры.
+            newStructureResultType = Some(lineTokens[2].getDataType());
+          }
+          // Если результата не было, то просто пропускаем.
+          
         }
+        // Если параметров и результата не было, то просто пропускаем.
+
+        // Проверка блока тегов [ffi]
+        // todo Нет [ffi] {} т.е. это проверка если строка сверху но нет в 1 строку.
+        let isFfi: bool =
+          match unsafe{*lineIndex} == 0
+          { true => false, false =>
+          {
+            match parentLink.read().unwrap().lines.clone()
+            { None => false, Some(siblingLines) =>
+            {
+              let prevLine: RwLockReadGuard<Line> = siblingLines[unsafe{*lineIndex} - 1].read().unwrap();
+              match &prevLine.tokens
+              { None => false, Some(prevTokens) =>
+              {
+                match prevTokens.is_empty()
+                  || *prevTokens[0].getDataType() != TokenType::SquareBracketBegin
+                  || prevLine.lines.is_some()
+                { true => false, false =>
+                {
+                  match &prevTokens[0].lines
+                  { None => false, Some(bracketLines) =>
+                  {
+                    let mut found: bool = false;
+                    for bracketLine in bracketLines
+                    {
+                      let bracketLineGuard: RwLockReadGuard<Line> = bracketLine.read().unwrap();
+                      match &bracketLineGuard.tokens
+                      { None => {} Some(bracketTokens) =>
+                      {
+                        for token in bracketTokens
+                        {
+                          if *token.getDataType() == TokenType::Word
+                            && token.getData().toString().unwrap_or_default() == "ffi"
+                          { found = true; }
+                        }
+                      }}
+                    }
+                    found
+                  }}
+                }}
+              }}
+            }}
+          }};
+        
+        // Cоздаём новую структуру
+        let mut newStructure: Structure =
+          Structure::new(
+            Some(newStructureName),
+            StructureMut::Constant, // todo По идее надо вычислять из синтаксиса
+            StructureType::Method, // todo По идее надо вычислять из синтаксиса
+            Some(lineLines),
+            Some(parentLink.clone())
+          );
+        newStructure.isFfiBlock = isFfi;
+        println!("isFfi {}",isFfi);
+
+        // Ставим параметры структуры, если они были
+        match &parameters
+        { None => {} Some(parameters) =>
+        {
+          for parameter in parameters
+          {
+            newStructure.pushStructure(
+              Arc::new(RwLock::new(Structure::new(
+                parameter.0.toString(),
+                StructureMut::Constant, // todo По идее надо еще читать правила mut (в getStructureParameters)
+                parameter.1.clone(),
+                None,
+                None,
+              )))
+            );
+          }
+        }}
+
+        // Ставим результат структуры, если он есть
+        newStructure.result = match newStructureResultType
+        {
+          Some(newStructureResultType) =>
+            Some( Token::newEmpty(*newStructureResultType) ),
+          None => None,
+        };
+
+        // Запоминаем, была ли это форма МЕТОДА (с круглыми скобками) или
+        // просто именованного блока. Для метода body ждёт вызова `name()`,
+        // для именованного блока body выполняется СРАЗУ — иначе его никто
+        // никогда не выполнит (никто не пишет `name` без скобок для вызова).
+        let isMethodForm: bool = parameters.is_some();
+
+        let newStructureLink: Arc<RwLock<Structure>> =
+          Arc::new(RwLock::new(newStructure));
+        { // Добавляем новую структуру в родителя
+          parentLink.write().unwrap()
+            .pushStructure(newStructureLink.clone());
+        }
+        // Просматриваем строки этой новой структуры;
+        // todo: в целом, это можно заменить на чтение при первом обращении к структуре;
+        //       сейчас же все структуры читаются (подготавливаются),
+        //       если попали на lineIndex указатель.
+        // Для FFI-блоков (как анонимных, так и именованных) тело должно
+        // выполниться прямо здесь, иначе оно никогда не выполнится —
+        // никто не зовёт `name` без скобок. Метод (с круглыми скобками)
+        // ждёт явного вызова. `readLines` сам пушнет FFI scope, потому
+        // что `isFfiBlock=true`.
+        if isFfi && !isMethodForm
+        {
+          readLines(newStructureLink);
+        }
+        //            readLines(
+        //              parentLink.read().unwrap()
+        //                .getStructureByName(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше
+        //            );
+        return true;
       }
-      None =>
-      { // Это линейная запись
-        return linearStructure(lineTokens, parentLink);
-      }
+    } else
+    { // Это линейная запись
+      return linearStructure(lineTokens, parentLink);
     }
   } else
   // В том случае, если это не структура и не линейная запись, 
@@ -942,11 +922,11 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                     StructureMut::Constant,
                     StructureType::Method, // todo может быть что-то другое ?
                     condition.lines.clone(),
-                    Some(parentLink.clone())
+                    Some(parentLink)
                   )
                 ));
               // После создания, читаем эту структуру
-              let _ = drop(condition);
+              drop(condition);
               readLines(structure);
               break; // end
             }}
@@ -962,11 +942,11 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                   StructureMut::Constant,
                   StructureType::Method, // todo может быть что-то другое ?
                   condition.lines.clone(),
-                  Some(parentLink.clone())
+                  Some(parentLink)
                 )
               ));
             // После создания, читаем эту структуру
-            let _ = drop(condition);
+            drop(condition);
             readLines(structure);
             break; // end
           }
@@ -1173,7 +1153,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
       // Берём линию по индексу линии (она точно будет, поскольку выше мы это проверили)
       let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
       let lines: &Vec< Arc<RwLock<Line>> > = structure.lines.as_ref().unwrap();
-      lines[unsafe { *lineIndex }].clone() // Клонируем нужную линию по индексу
+      lines[unsafe{ *lineIndex }].clone() // Клонируем нужную линию по индексу
     };
     let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
     // После чего проверяем, если линия пустая на токены, то не читаем и идём дальше

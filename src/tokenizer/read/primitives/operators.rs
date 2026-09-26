@@ -4,7 +4,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет что байт является одиночным знаком
-pub fn isSingleChar(byte: &u8) -> bool
+pub const fn isSingleChar(byte: &u8) -> bool
 {
   matches!(*byte, 
     b'+' | b'-' | b'*' | b'/' | b'=' | b'%' | b'^' |
@@ -69,7 +69,7 @@ pub const operators: &[(&str, TokenType)] = &[
 ];
 
 /// Проверяет buffer по index и так находит возможные двойные и одиночные операторы
-pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Token
+pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 {
   // Ищем паттерн
   let mut best: Option<(usize, TokenType, usize)> = None;
@@ -86,8 +86,8 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> To
     if patternLength == 2
     {
       let mut scanIndex: usize = *index + 1;
-      skipWhitespaceBytes(buffer, &mut scanIndex, *bufferLength, b" \t\n");
-      if scanIndex < *bufferLength && isSingleChar(&buffer[scanIndex]) {
+      skipWhitespaceBytes(buffer, &mut scanIndex, bufferLength, b" \t\n");
+      if scanIndex < bufferLength && isSingleChar(&buffer[scanIndex]) {
         byte2 = buffer[scanIndex];
         endIndex = scanIndex + 1;
       }
@@ -138,7 +138,7 @@ mod tests
       let buffer: &[u8] = pat.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getOperator(buffer, &mut index, &bufferLength);
+      let token: Token = getOperator(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();
@@ -191,7 +191,7 @@ mod tests
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getOperator(buffer, &mut index, &bufferLength);
+      let token: Token = getOperator(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();

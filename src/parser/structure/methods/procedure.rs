@@ -77,7 +77,7 @@ impl Procedure
           (lineIndexBuffer, lines[lineIndexBuffer].clone());
 
         // Используем линию parent а также сам parent для нового запуска
-        let _ = drop(parent);
+        drop(parent);
         searchStructure(
           &lineLink.read().unwrap(),
           parentLink.clone(),
@@ -172,7 +172,7 @@ impl Structure
         _ => 
         { // Если не найдено совпадений среди стандартных процедур,
           // значит это нестандартный метод.
-          match self.getStructureByName(&structureName) 
+          match self.getStructureByName(structureName) 
           {
             None => {}
             Some(calledStructureLink) => 
@@ -190,9 +190,9 @@ impl Structure
               // todo Они же потом не удаляются? Вообще по логике должна быть копия структуры,
               //  если он используется как метод? и там создание этого?
               {
-                let calledStructure: RwLockReadGuard<Structure> = calledStructureLink.read().unwrap();
+                let calledStructure: RwLockReadGuard<Self> = calledStructureLink.read().unwrap();
                 
-                let mut calledStructureStructuresLink: RwLockWriteGuard<Option< Vec< Arc<RwLock<Structure>> > >> = 
+                let mut calledStructureStructuresLink: RwLockWriteGuard<Option< Vec< Arc<RwLock<Self>> > >> = 
                   calledStructure.structures.write().unwrap();
                 
                 if let Some(calledStructureStructures) = calledStructureStructuresLink.deref_mut()
@@ -201,7 +201,7 @@ impl Structure
                   {
                     if idx < parametersValues.len() 
                     { // Проходит по количеству параметров, потому что первые структуры - это параметры.
-                      let mut calledStructureStructure: RwLockWriteGuard<Structure> = 
+                      let mut calledStructureStructure: RwLockWriteGuard<Self> = 
                         calledStructureStructureLink.write().unwrap();
 
                       // Забираем токен один раз
@@ -211,7 +211,7 @@ impl Structure
                       // todo:
                       //  Кстати не должен ли getAllExpressions сам делать приведение?
                       //  Много таких мест в коде с params.
-                      Structure::normalizeToken(
+                      Self::normalizeToken(
                         &mut token, 
                         calledStructureStructure.dataType.clone()
                       );

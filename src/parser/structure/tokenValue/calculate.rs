@@ -179,38 +179,38 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
     {
       tokenData.parse::<i64>()
         .map(Value::Int)
-        .unwrap_or(Value::Int(0))
+        .unwrap_or_else(|_| Value::Int(0))
     },
     TokenType::UInt =>
     {
       tokenData.parse::<u64>()
         .map(Value::UInt)
-        .unwrap_or(Value::UInt(0))
+        .unwrap_or_else(|_| Value::UInt(0))
     },
     TokenType::Float =>
     {
       tokenData.parse::<f64>()
         .map(Value::Float)
-        .unwrap_or(Value::Float(0.0))
+        .unwrap_or_else(|_| Value::Float(0.0))
     },
     TokenType::UFloat =>
     {
       tokenData.parse::<f64>()
         .map(uf64::from)
         .map(Value::UFloat)
-        .unwrap_or(Value::UFloat(uf64::from(0.0)))
+        .unwrap_or_else(|_| Value::UFloat(uf64::from(0.0)))
     },
     TokenType::Char =>
     { // todo: добавить поддержку операций с TokenType::formattedChar
       tokenData.parse::<char>()
-        .map(|x| Value::Char(x))
-        .unwrap_or(Value::Char('\0'))
+        .map(Value::Char)
+        .unwrap_or_else(|_| Value::Char('\0'))
     },
     TokenType::String =>
     {
       tokenData.parse::<String>()
-        .map(|x| Value::String(x))
-        .unwrap_or(Value::String("".to_string()))
+        .map(Value::String)
+        .unwrap_or_else(|_| Value::String(String::new()))
     },
     TokenType::Bool =>
     {

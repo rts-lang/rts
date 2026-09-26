@@ -60,43 +60,43 @@ impl ToString for StructureType
   {
     match self
     { //
-      StructureType::None => String::from("None"),
-      StructureType::Any => String::from("Any"),
-      StructureType::Link => String::from("Link"),
-      StructureType::Bool => String::from("Bool"), // todo Требует True/False по issue #65
+      Self::None => String::from("None"),
+      Self::Any => String::from("Any"),
+      Self::Link => String::from("Link"),
+      Self::Bool => String::from("Bool"), // todo Требует True/False по issue #65
 
       // Беззнаковые
-      StructureType::U8 => String::from("U8"),
-      StructureType::U16 => String::from("U16"),
-      StructureType::U32 => String::from("U32"),
-      StructureType::U64 => String::from("U64"),
+      Self::U8 => String::from("U8"),
+      Self::U16 => String::from("U16"),
+      Self::U32 => String::from("U32"),
+      Self::U64 => String::from("U64"),
       // U128 нет т.к. это не FFI совместимый тип данных
-      StructureType::Usize => String::from("Usize"),
+      Self::Usize => String::from("Usize"),
 
       // Знаковые
-      StructureType::I8 => String::from("I8"),
-      StructureType::I16 => String::from("I16"),
-      StructureType::I32 => String::from("I32"),
-      StructureType::I64 => String::from("I64"),
+      Self::I8 => String::from("I8"),
+      Self::I16 => String::from("I16"),
+      Self::I32 => String::from("I32"),
+      Self::I64 => String::from("I64"),
       // I128 нет т.к. это не FFI совместимый тип данных
-      StructureType::Isize => String::from("Isize"),
+      Self::Isize => String::from("Isize"),
 
       // Плавающие
       // F16 нет т.к. это не FFI совместимый тип данных
-      StructureType::F32 => String::from("F32"),
-      StructureType::F64 => String::from("F64"),
+      Self::F32 => String::from("F32"),
+      Self::F64 => String::from("F64"),
 
       // Указатель
-      StructureType::Pointer => String::from("Pointer"),
-      StructureType::RawString => String::from("RawString"),
-      StructureType::String => String::from("String"),
+      Self::Pointer => String::from("Pointer"),
+      Self::RawString => String::from("RawString"),
+      Self::String => String::from("String"),
 
       // Служебные
-      StructureType::Method => String::from("Method"),
-      StructureType::List => String::from("List"),
+      Self::Method => String::from("Method"),
+      Self::List => String::from("List"),
 
       // custom
-      StructureType::Custom(value) => value.clone(),
+      Self::Custom(value) => value.clone(),
     }
   }
 }
@@ -370,12 +370,12 @@ impl Token
   /// todo Было бы круто убрать как-то mut отсюда.
   pub fn getStructureType(&mut self) -> StructureType
   {
-    let result = |selfToken: &mut Token, structureType: StructureType| -> StructureType
+    let result = |selfToken: &mut Self, structureType: StructureType| -> StructureType
     {
       if structureType == StructureType::None {
         selfToken.setData(None);
       }
-      return structureType;
+      structureType
     };
     
     //
