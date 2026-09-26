@@ -57,7 +57,7 @@ impl RTS
             }
           ))
         ]),
-        Some( MainStructure.clone() ), // Ссылаемся на родителя
+        Some( MainStructure.clone() ) // Ссылаемся на родителя
       )))
     );
     
@@ -97,7 +97,7 @@ impl RTS
             }
           ))
         ]),
-        Some( namespaceStructureLink.clone() ), // Ссылаемся на родителя
+        Some( namespaceStructureLink.clone() ) // Ссылаемся на родителя
       )))
     );
   }

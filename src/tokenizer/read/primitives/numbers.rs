@@ -39,8 +39,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       savedIndex += 1;
       continue;
     }
-
-    // todo: use match case
+    
     if !negative && buffer[*index] == b'-'
     { // Int/Float
       // Логика тут простая - токенайзер должен вложить минус в число, потому что он рядом.

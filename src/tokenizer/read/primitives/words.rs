@@ -56,7 +56,6 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
       continue;
     }
     
-    // todo: use match case
     if (isDigit(&currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка
       (isLink && (currentByte == b'[' || currentByte == b']')) // В случае ссылки мы можем читать динамические []
     {

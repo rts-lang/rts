@@ -45,4 +45,4 @@ pub static mut _exitCode: i32 = 0;
 /// Завершилась ли программа?
 pub static mut _exit: bool = false; // todo Зачем ты нужен если есть exit code?
 /// version
-pub static _version: &str = "241206";
+pub static _version: &str = "241201";
