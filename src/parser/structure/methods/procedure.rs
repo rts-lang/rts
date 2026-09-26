@@ -26,68 +26,62 @@ impl Procedure
   // ===============================================================================================
   
   /// Выводит несколько значений;
+  /// 
   /// Выводит несколько значений и \n в конце.
   fn print(structure: &Structure, parameters: &Parameters, newline: bool)
   {
     #[cfg(not(target_family = "wasm"))]
-    match parameters.getAllExpressions(structure)
-    { None => {} Some(parameters) =>
+    if let Some(parameters) = parameters.getAllExpressions(structure)
     {
-      for p in parameters.iter()
+      for parameter in parameters.iter()
       {
-        formatPrint( p.getData().toString().unwrap_or_default().as_str() );
-        match newline
-        {
-          false => {},
-          true => formatPrint("\n")
+        formatPrint( parameter.getData().toString().unwrap_or_default().as_str() );
+        if newline {
+          formatPrint("\n")
         }
         io::stdout().flush().unwrap();
       }
-    }}
+    }
   }
   
   // ===============================================================================================
   
-  /// Отчищаем вывод
+  /// Отчищаем вывод.
   ///
   /// todo Можно выдавать результат boolean при ошибке
   fn clear()
   {
     let _ = Command::new("clear")
-      .status(); // Игнорируем ошибки
+      .status(); // Игнорируем ошибки.
   }
   
   // ===============================================================================================
   
-  /// Запускаем линию выше заново
+  /// Запускаем линию выше заново.
   ///
   /// todo Должна принимать количество на которое поднимает наверх
   fn go(structure: &Structure)
   {
-    match &structure.parent
-    { None => {} Some(parentLink) =>
-    { // Получаем ссылку на линию
+    if let Some(parentLink) = &structure.parent
+    { // Получаем ссылку на линию.
       let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
       let lineIndexBuffer: usize = parent.lineIndex;
 
-      match &parent.lines
-      { None => {} Some(lines) =>
+      if let Some(lines) = &parent.lines
       {
         let (mut lineIndex, lineLink): (usize, Arc<RwLock<Line>>) =
           (lineIndexBuffer, lines[lineIndexBuffer].clone());
 
-        // Используем линию parent а также сам parent для нового запуска
+        // Используем линию parent а также сам parent для нового запуска.
         drop(parent);
         searchStructure(
           &lineLink.read().unwrap(),
           parentLink.clone(),
-          &mut lineIndex,
+          &mut lineIndex
         );
-        //
-      }}
+      }
       //
-    }}
-    //
+    }
   }
   
   // ===============================================================================================
@@ -104,20 +98,17 @@ impl Procedure
   /// Ожидает определённое количество ms
   fn sleep(structure: &Structure, parameters: &Parameters)
   {
-    match parameters.getExpression(structure, 0)
-    { None => {} Some(p0) => 
+    if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
-      let valueNumber: u64 =
-        p0
-          .getData().toString().unwrap_or_default()
-          .parse::<u64>().unwrap_or_default(); // todo: depends on Value.rs ?
-      match valueNumber > 0
+      let valueNumber: u64 = parameter0
+        .getData().toString().unwrap_or_default()
+        .parse::<u64>().unwrap_or_default(); // todo: depends on Value.rs ?
+      if valueNumber > 0
       {
-        false => {}
-        true => { sleep(Duration::from_millis(valueNumber)); }
+        sleep(Duration::from_millis(valueNumber));
       }
       //
-    } }
+    }
     //
   }
   
@@ -126,14 +117,12 @@ impl Procedure
   /// Завершает чтение всех структур с определённым кодом или кодом ошибки
   fn exit(structure: &Structure, parameters: &Parameters)
   {
-    match parameters.getExpression(structure,0)
-    { None => {} Some(p0) => unsafe
-    {
+    if let Some(parameter0) = parameters.getExpression(structure,0)
+    {unsafe{
       _exit = true;
-      _exitCode =
-        p0
-          .getData().toString().unwrap_or_default()
-          .parse::<i32>().unwrap_or(1);
+      _exitCode = parameter0
+        .getData().toString().unwrap_or_default()
+        .parse::<i32>().unwrap_or(1);
     }}
   }
   
@@ -172,85 +161,79 @@ impl Structure
         _ => 
         { // Если не найдено совпадений среди стандартных процедур,
           // значит это нестандартный метод.
-          match self.getStructureByName(structureName) 
+          if let Some(calledStructureLink) = self.getStructureByName(structureName) 
           {
-            None => {}
-            Some(calledStructureLink) => 
+            // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны;
+            // Они здесь точно есть, но в Some мы оборачиваем чтобы не делать clone ниже при take.
+            let mut parametersValues: Vec<Option<Token>> = parameters
+              .getAllExpressions(self)
+              .unwrap_or_default()
+              .into_iter()
+              .map(Some)
+              .collect();
+
+            // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции
+            // todo Они же потом не удаляются? Вообще по логике должна быть копия структуры,
+            //  если он используется как метод? и там создание этого?
             {
-              // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны;
-              // Они здесь точно есть, но в Some мы оборачиваем чтобы не делать clone ниже при take.
-              let mut parametersValues: Vec<Option<Token>> = parameters
-                .getAllExpressions(self)
-                .unwrap_or_default()
-                .into_iter()
-                .map(Some)
-                .collect();
-
-              // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции
-              // todo Они же потом не удаляются? Вообще по логике должна быть копия структуры,
-              //  если он используется как метод? и там создание этого?
+              let calledStructure: RwLockReadGuard<Self> = calledStructureLink.read().unwrap();
+              
+              let mut calledStructureStructuresLink: RwLockWriteGuard<Option< Vec< Arc<RwLock<Self>> > >> = 
+                calledStructure.structures.write().unwrap();
+              
+              if let Some(calledStructureStructures) = calledStructureStructuresLink.deref_mut()
               {
-                let calledStructure: RwLockReadGuard<Self> = calledStructureLink.read().unwrap();
-                
-                let mut calledStructureStructuresLink: RwLockWriteGuard<Option< Vec< Arc<RwLock<Self>> > >> = 
-                  calledStructure.structures.write().unwrap();
-                
-                if let Some(calledStructureStructures) = calledStructureStructuresLink.deref_mut()
+                for (idx, calledStructureStructureLink) in calledStructureStructures.iter_mut().enumerate() 
                 {
-                  for (idx, calledStructureStructureLink) in calledStructureStructures.iter_mut().enumerate() 
-                  {
-                    if idx < parametersValues.len() 
-                    { // Проходит по количеству параметров, потому что первые структуры - это параметры.
-                      let mut calledStructureStructure: RwLockWriteGuard<Self> = 
-                        calledStructureStructureLink.write().unwrap();
+                  if idx < parametersValues.len() 
+                  { // Проходит по количеству параметров, потому что первые структуры - это параметры.
+                    let mut calledStructureStructure: RwLockWriteGuard<Self> = 
+                      calledStructureStructureLink.write().unwrap();
 
-                      // Забираем токен один раз
-                      let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть
-                      
-                      // Нормализируем под тип параметра
-                      // todo:
-                      //  Кстати не должен ли getAllExpressions сам делать приведение?
-                      //  Много таких мест в коде с params.
-                      Self::normalizeToken(
-                        &mut token, 
-                        calledStructureStructure.dataType.clone()
-                      );
+                    // Забираем токен один раз
+                    let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть
+                    
+                    // Нормализируем под тип параметра
+                    // todo:
+                    //  Кстати не должен ли getAllExpressions сам делать приведение?
+                    //  Много таких мест в коде с params.
+                    Self::normalizeToken(
+                      &mut token, 
+                      calledStructureStructure.dataType.clone()
+                    );
 
-                      // ABI-композит String: .pointer/.length;
-                      // Считаем ДО перемещения токена в lines ниже.
-                      let stringFields = match calledStructureStructure.dataType == StructureType::String
-                      {
-                        true => bridge::stringFields(&token),
-                        false => None,
-                      };
-                      
-                      // Устанавливаем lines параметра как линию с одним токеном – переданным значением
-                      calledStructureStructure.lines = Some(vec![
-                        Arc::new(RwLock::new(Line {
-                          tokens: Some(vec![token]),
-                          indent: None,
-                          lines: None,
-                          parent: None,
-                        }))
-                      ]);
+                    // ABI-композит String: .pointer/.length;
+                    // Считаем ДО перемещения токена в lines ниже.
+                    let stringFields: Option<[Arc<RwLock<Structure>>; 2]> = 
+                      if calledStructureStructure.dataType == StructureType::String {
+                        bridge::stringFields(&token)
+                      } else { None };
+                    
+                    // Устанавливаем lines параметра как линию с одним токеном – переданным значением
+                    calledStructureStructure.lines = Some(vec![
+                      Arc::new(RwLock::new(Line {
+                        tokens: Some(vec![token]),
+                        indent: None,
+                        lines: None,
+                        parent: None
+                      }))
+                    ]);
 
-                      if let Some(fields) = stringFields
-                      {
-                        // Сбрасываем возможные поля с предыдущего вызова — pushStructure
-                        // только добавляет, а calledStructureStructure переиспользуется
-                        // между вызовами (см. todo выше про отсутствие копии структуры).
-                        *calledStructureStructure.structures.write().unwrap() = None;
-                        for field in fields { calledStructureStructure.pushStructure(field); }
-                      }
+                    if let Some(fields) = stringFields
+                    { // Сбрасываем возможные поля с предыдущего вызова — pushStructure
+                      // только добавляет, а calledStructureStructure переиспользуется
+                      // между вызовами (см. todo выше про отсутствие копии структуры).
+                      *calledStructureStructure.structures.write().unwrap() = None;
+                      for field in fields { calledStructureStructure.pushStructure(field); }
                     }
                   }
-                  //
                 }
+                //
               }
-
-              // 3. Запускаем исполнение тела функции
-              readLines(calledStructureLink);
             }
+
+            // 3. Запускаем исполнение тела функции
+            readLines(calledStructureLink);
           }
         }
         // -----------------------------------------------------------------------------------------

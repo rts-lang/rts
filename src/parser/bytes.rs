@@ -5,7 +5,7 @@
 pub struct Bytes 
 {
   /// Набор байтов или пустота
-  data: Option< Vec<u8> >,
+  data: Option< Vec<u8> >
 }
 
 impl Bytes 
@@ -20,9 +20,10 @@ impl Bytes
   pub fn new<T: Into<Vec<u8>>>(data: T) -> Self 
   {
     let vec: Vec<u8> = data.into();
-    match vec.is_empty() {
-      true => Self { data: None },
-      false => Self { data: Some(vec) },
+    if vec.is_empty() {
+      Self { data: None }
+    } else {
+      Self { data: Some(vec) }
     }
   }
 

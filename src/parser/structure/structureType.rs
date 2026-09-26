@@ -382,10 +382,9 @@ impl Token
     let dataType: &TokenType = self.getDataType();
     
     // Получаем строку из данных токена
-    let data: String = match self.getData().toString() {
-      Some(s) => s,
-      None => return result(self, StructureType::None),
-    };
+    let data: String = if let Some(string) = 
+      self.getData().toString() { string }
+      else { return result(self, StructureType::None) };
 
     result(self, match dataType 
     {
