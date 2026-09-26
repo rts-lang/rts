@@ -674,10 +674,10 @@ mod tests
         None => "<None>".to_string(),
         Some(inner) =>
         {
-          let mut s = String::new();
+          let mut s: String = String::new();
           for (j, il) in inner.iter().enumerate()
           {
-            let ig = il.read().unwrap();
+            let ig: RwLockReadGuard<Line> = il.read().unwrap();
             let it: String = match ig.tokens.as_ref()
             {
               None => "<None>".to_string(),
