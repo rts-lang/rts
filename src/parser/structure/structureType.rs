@@ -117,15 +117,12 @@ impl Structure
     let dataType: &TokenType = token.getDataType();
 
     // Получаем строку из данных
-    let tokenData: String = match token.getData().toString()
-    {
-      Some(s) => s,
-      None =>
+    let tokenData: String = if let Some(tokenData) =
+      token.getData().toString() { tokenData } else 
       { // Нет данных
         token.setDefaultValue(structureType);
         return;
-      }
-    };
+      };
 
     // Обработка типов
     match structureType 

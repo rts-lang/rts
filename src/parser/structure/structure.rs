@@ -300,20 +300,20 @@ impl Structure
         let leftValue: Token = 
         {
           let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
-          match &structure.lines
+          if let Some(lines) = &structure.lines
           {
-            None => Token::newEmpty(TokenType::None),
-            Some(lines) =>
-              match lines.len() > 0
-              {
-                false => Token::newEmpty(TokenType::None),
-                true =>
-                  self.expression(
-                    &mut lines[0].read().unwrap()
-                      .tokens.clone()
-                      .unwrap_or_default() // todo плохо
-                )
-              }
+            if lines.len() > 0
+            {
+              self.expression(
+                &mut lines[0].read().unwrap()
+                  .tokens.clone()
+                  .unwrap_or_default() // todo плохо
+              )
+            } else {
+              Token::newEmpty(TokenType::None)
+            }
+          } else {
+            Token::newEmpty(TokenType::None)
           }
           //
         };

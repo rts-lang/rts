@@ -43,9 +43,9 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
       tokens: Some(vec![token.clone()]),
       indent: None,
       lines: None,
-      parent: None,
+      parent: None
     }))]),
-    None,
+    None
   )));
 
   let lengthField: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
@@ -57,9 +57,9 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
       tokens: Some(vec![Token::new(TokenType::UInt, length.to_string())]),
       indent: None,
       lines: None,
-      parent: None,
+      parent: None
     }))]),
-    None,
+    None
   )));
 
   Some([pointerField, lengthField])
@@ -160,7 +160,7 @@ pub fn callExternalWithScope<'g>(
   libraryPath: &str,
   methodName: &str,
   parametersTokens: &mut [Token],
-  _resultType: StructureType,
+  _resultType: StructureType
 ) -> Result<(), String>
 {
   // Загружаем библиотеку в удерживаемом scope.
@@ -195,7 +195,7 @@ pub fn callExternal(
   libraryPath: &str,
   methodName: &str,
   parametersTokens: &mut [Token],
-  resultType: StructureType,
+  resultType: StructureType
 ) -> Result<(), String>
 {
   // Используем ffi!{} макрос с замыканием, принимающим scope.

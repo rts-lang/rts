@@ -387,7 +387,7 @@ impl Function
   /// 
   /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
   ///   а после этого было уничтожено из-за конца структуры или конца вызова.
-  fn Usize(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize) 
+  fn usize(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize) 
   {
     match parameters.getExpression(structure, 0)
     {
@@ -503,7 +503,7 @@ impl Structure
           "exec" => Function::exec(self, &parameters, value, i),
           "execs" => Function::execs(self, &parameters, value, i),
           "importNative" => Function::importNative(self, &parameters, value, i),
-          "Usize" => Function::Usize(self, &parameters, value, i),
+          "Usize" => Function::usize(self, &parameters, value, i),
           _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
         }
         return;
