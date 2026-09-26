@@ -40,7 +40,7 @@ impl ToString for StructureMut
       Self::Final => String::from("Final"),
       Self::Constant => String::from("Constant"),
       Self::Variable => String::from("Variable"),
-      Self::Dynamic => String::from("Dynamic"),
+      Self::Dynamic => String::from("Dynamic")
     }
   }
 }
@@ -87,7 +87,7 @@ pub struct Structure
   pub isFfiBlock: bool,
 
   /// todo Комментарий + возможно не нужно т.к. можно лучше
-  pub lineIndex: usize,
+  pub lineIndex: usize
 }
 
 impl Structure 
@@ -682,7 +682,7 @@ impl Structure
                       ]),
                       indent: None,
                       lines: None,
-                      parent: None,
+                      parent: None
                     }
                   ))
                 ]);

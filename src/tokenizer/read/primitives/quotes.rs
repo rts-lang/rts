@@ -67,7 +67,7 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
       { // Одинарные кавычки должны содержать только один символ - если не formatted
         Token::new(
           if formatted { TokenType::FormattedChar } else { TokenType::Char },
-          result,
+          result
         )
       } else {
         Token::newEmpty(TokenType::None)
@@ -75,7 +75,7 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
     }
     b'"' => Token::new(TokenType::String, result),
     b'`' => Token::new(TokenType::RawString, result),
-    _ => Token::newEmpty(TokenType::None),
+    _ => Token::newEmpty(TokenType::None)
   }
 }
 

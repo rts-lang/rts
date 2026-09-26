@@ -154,7 +154,7 @@ pub enum TokenType
   /// | (or)
   Inclusion,
   /// ! (not)
-  Exclusion,
+  Exclusion
   // todo здесь должна быть троичная логика
 }
 

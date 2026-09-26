@@ -116,7 +116,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       (true, true)  => Token::new( TokenType::Float,  result ),
       (true, false) => Token::new( TokenType::UFloat, result ),
       (false, true) => Token::new( TokenType::Int,    result ),
-      _             => Token::new( TokenType::UInt,   result ),
+      _             => Token::new( TokenType::UInt,   result )
     }
   )
   //

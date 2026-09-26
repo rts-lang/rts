@@ -46,7 +46,7 @@ pub enum StructureType
   List, // todo List<Type>
   
   /// Позволяет создавать пользовательские типы
-  Custom(String),
+  Custom(String)
 }
 
 // =================================================================================================
@@ -96,7 +96,7 @@ impl ToString for StructureType
       Self::List => String::from("List"),
 
       // custom
-      Self::Custom(value) => value.clone(),
+      Self::Custom(value) => value.clone()
     }
   }
 }
@@ -507,7 +507,7 @@ impl Token
       "List" => StructureType::List,
 
       // Всё остальное — кастомное
-      _ => StructureType::Custom(data),
+      _ => StructureType::Custom(data)
     }
     //
   }

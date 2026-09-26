@@ -86,7 +86,7 @@ pub fn ensureFfiScope() -> Option<Rc<RefCell<Option<FFIScope>>>>
         Ok(scope) => *cell = Some(scope),
         // Если не смогли войти в scope — оставляем слот пустым.
         // Вызывающий код обработает как обычный FFI-вызов и вернёт ошибку.
-        Err(_) => return None,
+        Err(_) => return None
       }
     }
   }

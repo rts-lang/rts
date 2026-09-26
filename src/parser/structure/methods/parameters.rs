@@ -11,7 +11,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[derive(Clone)]
 pub struct Parameters
 {
-  values: Option< Vec< Arc<RwLock<Line>> > >,
+  values: Option< Vec< Arc<RwLock<Line>> > >
 }
 
 impl Parameters

@@ -29,7 +29,7 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
   match token.getDataType()
   {
     TokenType::String => {}
-    _ => return None,
+    _ => return None
   }
   let bytes: String = token.getData().toString()?;
   let length: usize = bytes.len();
@@ -124,7 +124,7 @@ fn tokenToFfiArg(token: &Token) -> Result<FfiArgValue, String>
     }
     TokenType::String => Ok(FfiArgValue::String(tokenData)),
     TokenType::RawString => Ok(FfiArgValue::RawString(tokenData.into_bytes())),
-    _ => Err(format!("Unsupported TokenType for FFI arg: {}", tokenDataType.to_string())),
+    _ => Err(format!("Unsupported TokenType for FFI arg: {}", tokenDataType.to_string()))
   }
 }
 
@@ -144,7 +144,7 @@ fn pushArg<'a, 'g>(builder: CallBuilder<'a, 'g>, arg: FfiArgValue) -> CallBuilde
     FfiArgValue::F64(v) => builder.arg::<f64>(v),
     FfiArgValue::String(v) => builder.arg::<String>(v),
     FfiArgValue::CString(v) => builder.arg::<std::ffi::CString>(v),
-    FfiArgValue::RawString(v) => builder.arg::<Vec<u8>>(v),
+    FfiArgValue::RawString(v) => builder.arg::<Vec<u8>>(v)
   }
 }
 
