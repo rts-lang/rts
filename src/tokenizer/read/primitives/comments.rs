@@ -3,7 +3,7 @@
 /// Считает количество подряд идущих `#`, начиная с buffer[index];
 /// 
 /// Ограничено 3 - это максимальный уровень метки комментария
-fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usize
+const fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usize
 {
   let mut length: usize = 0;
   while length < 3 && index+length < bufferLength && buffer[index+length] == b'#'
@@ -22,9 +22,9 @@ fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usize
 /// 
 /// `###` - `\n`, `#` и `##` внутри игнорируются, идёт строго до закрывающей `###`;
 /// удобно для комментирования больших участков кода с комментами внутри
-pub fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
-  let level: usize = hashRunLength(buffer, *index, *bufferLength);
+  let level: usize = hashRunLength(buffer, *index, bufferLength);
   *index += level; // Пропускаем открывающую метку
 
   match level
@@ -39,11 +39,11 @@ pub fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> 
 /// `#` - идёт строго до конца строки;
 /// 
 /// прерывается раньше, если встретил `##` или `###` - они не потребляются
-fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+const fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
-  while *index < *bufferLength && buffer[*index] != b'\n'
+  while *index < bufferLength && buffer[*index] != b'\n'
   {
-    if buffer[*index] == b'#' && hashRunLength(buffer, *index, *bufferLength) >= 2
+    if buffer[*index] == b'#' && hashRunLength(buffer, *index, bufferLength) >= 2
     { // Началась ## или ### - строчный комментарий обрываем здесь
       return;
     }
@@ -55,13 +55,13 @@ fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -
 /// `##` - `\n` игнорируется, читает до закрывающей `##`;
 /// 
 /// на одиночном `#` или на `###` обрывается раньше - они не потребляются
-fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
-  while *index < *bufferLength
+  while *index < bufferLength
   {
     if buffer[*index] == b'#'
     {
-      match hashRunLength(buffer, *index, *bufferLength)
+      match hashRunLength(buffer, *index, bufferLength)
       {
         2 => { *index += 2; return; } // Нашли закрывающую ## - потребляем
         _ => { return; }              // Одиночный # или ### - обрыв без потребления
@@ -75,11 +75,11 @@ fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -
 /// `###` - `\n`, `#` и `##` внутри игнорируются;
 /// 
 /// читает строго до закрывающей `###`
-fn deleteTripleComment(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> ()
+const fn deleteTripleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
-  while *index < *bufferLength
+  while *index < bufferLength
   {
-    if buffer[*index] == b'#' && hashRunLength(buffer, *index, *bufferLength) >= 3
+    if buffer[*index] == b'#' && hashRunLength(buffer, *index, bufferLength) >= 3
     { // Нашли закрывающую ### - потребляем
       *index += 3;
       return;
@@ -107,7 +107,7 @@ mod tests
       let mut index: usize = 0;
 
       //
-      deleteComment(buffer, &mut index, &bufferLength);
+      deleteComment(buffer, &mut index, bufferLength);
 
       //
       assert_eq!(

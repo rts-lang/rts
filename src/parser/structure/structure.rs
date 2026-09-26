@@ -37,10 +37,10 @@ impl ToString for StructureMut
   {
     match self
     {
-      StructureMut::Final => String::from("Final"),
-      StructureMut::Constant => String::from("Constant"),
-      StructureMut::Variable => String::from("Variable"),
-      StructureMut::Dynamic => String::from("Dynamic"),
+      Self::Final => String::from("Final"),
+      Self::Constant => String::from("Constant"),
+      Self::Variable => String::from("Variable"),
+      Self::Dynamic => String::from("Dynamic"),
     }
   }
 }
@@ -76,12 +76,12 @@ pub struct Structure
   /// Ссылки на вложенные структуры
   pub structures: Arc<RwLock< // Нужно, чтобы не мутировать методы и иметь доступ
     Option< // Может не быть
-      Vec< Arc<RwLock<Structure>> > // Гибкий список вложенных структур
+      Vec< Arc<RwLock<Self>> > // Гибкий список вложенных структур
     >
   >>,
 
   /// Ссылка на родителя
-  pub parent: Option< Arc<RwLock<Structure>> >,
+  pub parent: Option< Arc<RwLock<Self>> >,
 
   /// Создана ли структура из блока FFI.
   pub isFfiBlock: bool,
@@ -98,10 +98,10 @@ impl Structure
     mutable:  StructureMut,
     dataType: StructureType,
     lines:    Option< Vec< Arc<RwLock<Line>> > >,
-    parent:   Option< Arc<RwLock<Structure>> >,
+    parent:   Option< Arc<RwLock<Self>> >,
   ) -> Self 
   {
-    Structure 
+    Self 
     {
       name,
       mutable,
@@ -134,7 +134,7 @@ impl Structure
   ///   3. "grandchild" в дочерних структурах "child"
   /// 
   /// todo Не смотрит выше self. Должен ли?
-  pub fn getStructureByName(&self, name: &str) -> Option<Arc<RwLock<Structure>>> 
+  pub fn getStructureByName(&self, name: &str) -> Option< Arc<RwLock<Self>> > 
   {
     // "a.b.c" -> ["a", "b", "c"]
     let segments: Vec<String> = Self::parseLink(name);
@@ -147,7 +147,7 @@ impl Structure
     }
 
     // Начинаем с корневого уровня (None)
-    let mut currentStructure: Option< Arc<RwLock<Structure>> > = None;
+    let mut currentStructure: Option< Arc<RwLock<Self>> > = None;
 
     // Пошагово проходим по каждому сегменту имени
     for segment in segments.iter() 
@@ -155,20 +155,20 @@ impl Structure
       // Определяем список структур для поиска на текущем уровне:
       // если currentStructure = None, это означает корневой уровень self.structures
       // иначе — получаем дочерние структуры текущей найденной структуры
-      let childrenLink: Arc<RwLock< Option<Vec< Arc<RwLock<Structure>> >> >> = match &currentStructure 
+      let childrenLink: Arc<RwLock< Option<Vec< Arc<RwLock<Self>> >> >> = match &currentStructure 
       {
         None => self.structures.clone(), // Корневые структуры
         Some(structureRef) => {
-          let structureGuard: RwLockReadGuard<Structure> = structureRef.read().unwrap();
+          let structureGuard: RwLockReadGuard<Self> = structureRef.read().unwrap();
           structureGuard.structures.clone() // Дочерние структуры текущей
         }
       };
-      let childrenOption: RwLockReadGuard< Option<Vec< Arc<RwLock<Structure>> >> > = childrenLink.read().unwrap();
+      let childrenOption: RwLockReadGuard< Option<Vec< Arc<RwLock<Self>> >> > = childrenLink.read().unwrap();
 
       // Флаг найденной структуры
       let mut found: bool = false;
       // Следующая структура, если сегмент найден
-      let mut nextStructure: Option< Arc<RwLock<Structure>> > = None;
+      let mut nextStructure: Option< Arc<RwLock<Self>> > = None;
 
       // Обрабатываем наличие дочерних структур
       match childrenOption.as_deref()
@@ -176,7 +176,7 @@ impl Structure
       {
         for child in children 
         {
-          let childGuard: RwLockReadGuard<Structure> = child.read().unwrap();
+          let childGuard: RwLockReadGuard<Self> = child.read().unwrap();
           match &childGuard.name 
           {
             Some(childName) if childName == segment => 
@@ -208,9 +208,9 @@ impl Structure
   /// Добавляет новую вложенную структуру в текущую структуру;
   /// 
   /// Нет &mut self - что хорошо.
-  pub fn pushStructure(&self, structureLink: Arc<RwLock<Structure>>) -> ()
+  pub fn pushStructure(&self, structureLink: Arc<RwLock<Self>>) -> ()
   {
-    let mut children: RwLockWriteGuard<Option< Vec< Arc<RwLock<Structure>> > >> =
+    let mut children: RwLockWriteGuard<Option< Vec< Arc<RwLock<Self>> > >> =
       self.structures.write().unwrap();
     
     if let Some(childrenVec) = children.as_mut() 
@@ -228,7 +228,13 @@ impl Structure
   /// для этого требует левую и правую часть выражения,
   /// кроме того, требует передачи родительской структуры,
   /// чтобы было видно возможные объявления в ней
-  pub fn structureOp(&self, structureLink: Arc<RwLock<Structure>>, op: TokenType, leftPartMutable: StructureMut, rightPart: Vec<Token>) -> ()
+  pub fn structureOp(
+    &self, 
+    structureLink: Arc<RwLock<Self>>, 
+    op: TokenType, 
+    leftPartMutable: StructureMut, 
+    rightPart: Vec<Token>
+  ) -> ()
   {
     match op
     { // Принимаем только математические операции
@@ -251,7 +257,7 @@ impl Structure
 
         let mut rightPartValue: Token = self.expression(&mut rightPart.clone());
 
-        let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
+        let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
 
         // Изменяем тип структуры если он не был указан
         match
@@ -268,7 +274,7 @@ impl Structure
           }
           false =>
           { // Требуется выполнить преобразование в указанный тип данных
-            Structure::normalizeToken(&mut rightPartValue, structure.dataType.clone())
+            Self::normalizeToken(&mut rightPartValue, structure.dataType.clone())
           }
         }
 
@@ -298,7 +304,7 @@ impl Structure
         // todo сейчас тут много ошибок
         let leftValue: Token = 
         {
-          let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+          let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
           match &structure.lines
           {
             None => Token::newEmpty(TokenType::None),
@@ -354,9 +360,9 @@ impl Structure
   // ===============================================================================================
 
   /// Вычисляем значение для struct имени типа TokenType::Word
-  fn replaceStructureByName(&self, value: &mut Vec<Token>, index: usize) -> ()
+  fn replaceStructureByName(&self, value: &mut [Token], index: usize) -> ()
   {
-    fn setNone(value: &mut Vec<Token>, index: usize) 
+    fn setNone(value: &mut [Token], index: usize) 
     { // Возвращаем пустое значение
       value[index].setData(None);
       value[index].setDataType(TokenType::None);
@@ -372,7 +378,7 @@ impl Structure
           None => { setNone(value, index); } // Не нашли структуру
           Some(structureLink) => 
           {
-            let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+            let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
             // Если это просто обращение к имени структуры
             match &structure.lines
             { None => {} Some(lines) =>
@@ -386,9 +392,9 @@ impl Structure
                     &mut lines[0]
                       .read().unwrap()
                       .tokens.clone().unwrap_or_default(); // todo плохо
-                  let _ = drop(structure);
+                  drop(structure);
                   let result: Token = self.expression(tokens);
-                  value[index].setData    ( result.getData().clone() );
+                  value[index].setData    ( result.getData() );
                   value[index].setDataType( *result.getDataType() );
                 }
                 structureLinesLen if structureLinesLen > 1 =>
@@ -435,7 +441,7 @@ impl Structure
   /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
   pub fn linkExpression(
     &self, // Текущая структура - текущее пространство;
-    currentStructureLink: Option< Arc<RwLock<Structure>> >, // Структура предыдущего уровня ссылки;
+    currentStructureLink: Option< Arc<RwLock<Self>> >, // Структура предыдущего уровня ссылки;
     link: &mut Vec<String>, // Осталось читать;
     parameters: Option< Vec<Token> >
   ) -> Token
@@ -457,7 +463,7 @@ impl Structure
         if let Some(ref currentStructureLock) = currentStructureLink 
         { // Это структура, которая была передана предыдущем уровнем ссылки;
           // Только в ней мы можем найти нужную линию
-          let currentStructure: RwLockReadGuard<Structure> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок
+          let currentStructure: RwLockReadGuard<Self> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок
 
           match &currentStructure.lines
           { None => {} Some(lines) =>
@@ -488,17 +494,17 @@ impl Structure
                     )
                     { None => {} Some(_) =>
                     {
-                      let _ = drop(currentStructure);
+                      drop(currentStructure);
                       return currentStructureLock.read().unwrap()
                         .linkExpression(None, link, parameters);
                     }}
                     // А если такой ссылки там не было, то значит она в self
-                    let _ = drop(currentStructure);
+                    drop(currentStructure);
                     return self.linkExpression(currentStructureLink, link, parameters);
                   } else
-                  if let Some(_) = parameters
+                  if parameters.is_some()
                   { // Если это был просто запуск метода, то запускаем его
-                    let _ = drop(currentStructure);
+                    drop(currentStructure);
 
                     let mut parametersToken: Token = Token::newNesting( Vec::new() ); // todo: add parameters
                     parametersToken.setDataType( TokenType::CircleBracketBegin );
@@ -535,7 +541,7 @@ impl Structure
                             match &childStructure.lines
                             { None => {} Some(lines) =>
                             {
-                              match lines.get(0)
+                              match lines.first()
                               { None => {} Some(line) =>
                               { // По сути это просто 0 линия через expression
                                 let mut lineTokens: Vec<Token> =
@@ -543,7 +549,7 @@ impl Structure
                                     line.read().unwrap()
                                       .tokens.clone().unwrap_or_default() // todo плохо
                                   };
-                                let _ = drop(childStructure);
+                                drop(childStructure);
                                 return self.expression(&mut lineTokens);
                                 //
                               }}
@@ -572,16 +578,16 @@ impl Structure
       { // Если мы не нашли цифры в ссылке, значит это просто struct name;
         // Они работают в пространстве первого self, но могут и внутри себя,
         // поэтому блок далее определяет ссылку на необходимую структуру;
-        let structureLink: Option< Arc<RwLock<Structure>> > =
+        let structureLink: Option< Arc<RwLock<Self>> > =
           match currentStructureLink
           { // Если нет в локальном окружении, то просто берём из self
             None => self.getStructureByName(&link[0]),
             Some(currentStructureLink) => 
             { // Если есть в локальном окружении
-              let structure: RwLockReadGuard<Structure> = currentStructureLink.read().unwrap();
+              let structure: RwLockReadGuard<Self> = currentStructureLink.read().unwrap();
               let hasLines: bool = 
               {
-                let childStructureLink: Option< Arc<RwLock<Structure>> > = structure.getStructureByName(&link[0]);
+                let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureByName(&link[0]);
                 match childStructureLink 
                 { None => false, Some(childStructureLink) =>
                 {
@@ -621,7 +627,7 @@ impl Structure
             if !link.is_empty() 
             {
               // Читаем структуру, которая представляет загруженную библиотеку
-              let structureGuard: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+              let structureGuard: RwLockReadGuard<Self> = structureLink.read().unwrap();
 
               // Если структура имеет тип Pointer — это динамическая библиотека
               if structureGuard.dataType == StructureType::Pointer
@@ -647,7 +653,7 @@ impl Structure
                   None => return Token::newEmpty(TokenType::None),
                 };
                 // Берём первый (и единственный) токен
-                let nativeToken: &Token = match tokensVec.get(0) {
+                let nativeToken: &Token = match tokensVec.first() {
                   Some(t) => t,
                   None => return Token::newEmpty(TokenType::None),
                 };
@@ -699,7 +705,7 @@ impl Structure
               }  
               true =>
               { // Если это конец, то берём последнюю структуру и работаем с ней
-                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+                let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
                 match &structure.lines
                 { None => {} Some(lines) =>
                 {
@@ -713,7 +719,7 @@ impl Structure
                         lines[0].read().unwrap()
                           .tokens.clone().unwrap_or_default() // todo плохо
                       };
-                      let _ = drop(structure);
+                      drop(structure);
                       return self.expression(&mut lineTokens);
                     }
                     false => match parameters
@@ -748,7 +754,7 @@ impl Structure
                         match structure.parent.clone()
                         { None => {} Some(structureParent) =>
                         {
-                          let _ = drop(structure);
+                          drop(structure);
                           return structureParent.read().unwrap()
                             .expression(&mut expressionTokens);
                         }}
@@ -957,9 +963,9 @@ impl Structure
           // todo Правда это выглядит криво, вдруг другие nested будут. Мб тип ему сделать? Типо nativeCall.
           'none: 
           {
-            if let Some(lines) = &linkResult.lines 
+            if let Some(lines) = &linkResult.lines
             {
-              if let Some(firstLineLink) = lines.get(0) 
+              if let Some(firstLineLink) = lines.first()
               {
                 let firstLine: RwLockReadGuard<Line> = firstLineLink.read().unwrap();
                 if let Some(tokens) = &firstLine.tokens 
@@ -1059,7 +1065,7 @@ impl Structure
             };
             // Меняем отрицание
             let tokenData: String = value[i+1].getData().toString().unwrap_or_default();
-            match tokenData.starts_with(|c: char| c == '-')
+            match tokenData.starts_with('-')
             {
               true =>
               { // Если это было отрицательное выражение, то делаем его положительным
@@ -1073,9 +1079,7 @@ impl Structure
                 //value[i+1].setData(
                 //  format!("-{}", tokenData)
                 //);
-                value[i+1].setData(
-                  format!("{}", tokenData)
-                );
+                value[i+1].setData(tokenData.to_string());
               }
             }
 
@@ -1128,7 +1132,7 @@ impl Structure
                 None => {} // Если структуры не было, то пропускаем;
                 Some(structureLink) =>
                 { // Мы должны проверить, что структура имеет только одно вложение;
-                  let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+                  let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
                   match &structure.lines
                   {
                     None => {} // Если линий нет, то пропускаем

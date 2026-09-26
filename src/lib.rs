@@ -62,7 +62,7 @@ impl RTS
     );
     
     //
-    RTS {
+    Self {
       namespace: name
     }
   }

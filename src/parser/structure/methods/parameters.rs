@@ -19,13 +19,13 @@ impl Parameters
   // ===============================================================================================
   
   /// Создает новую структуру
-  pub fn new(values: Option< Vec< Arc<RwLock<Line>> > >) -> Self
+  pub const fn new(values: Option< Vec< Arc<RwLock<Line>> > >) -> Self
   {
     Self { values }
   }
 
   /// Проверяет, есть ли значения
-  pub fn isNone(&self) -> bool {
+  pub const fn isNone(&self) -> bool {
     self.values.is_none()
   }
 
@@ -38,7 +38,7 @@ impl Parameters
   }
 
   /// Возвращает все параметры, если они есть
-  pub fn getAll(&self) -> Option< &Vec< Arc<RwLock<Line>> > >
+  pub const fn getAll(&self) -> Option< &Vec< Arc<RwLock<Line>> > >
   {
     self.values.as_ref()
   }
@@ -89,7 +89,7 @@ impl Parameters
       match self.getExpression(structure, index)
       {
         None => {} // Если элемент отсутствует, то просто идём дальше
-        Some(token) => tokens.push(token.clone()), // Добавляем результаты
+        Some(token) => tokens.push(token), // Добавляем результаты
       }
     }
     
@@ -104,7 +104,7 @@ impl Parameters
 impl Structure 
 {
   /// Получает параметры структуры вычисляя их значения
-  pub fn getStructureParameters(&self, value: &mut Vec<Token>) -> Vec<(Bytes, StructureType)> 
+  pub fn getStructureParameters(&self, value: &[Token]) -> Vec<(Bytes, StructureType)> 
   {
     let mut result: Vec<(Bytes, StructureType)> = Vec::new();
     

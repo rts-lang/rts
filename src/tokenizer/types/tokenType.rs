@@ -161,17 +161,17 @@ pub enum TokenType
 impl TokenType
 {
   /// Проверяет, подходит ли этот оператор для продолжения строки дальше; #85
-  pub fn isContinuationOperator(&self) -> bool
+  pub const fn isContinuationOperator(&self) -> bool
   {
     matches!(
       self,
-      TokenType::Plus | TokenType::Minus | TokenType::Multiply | TokenType::Divide |
-      TokenType::Equals | TokenType::Modulo | TokenType::Exponent |
-      TokenType::GreaterThan | TokenType::LessThan |
-      TokenType::GreaterThanOrEquals | TokenType::LessThanOrEquals | TokenType::NotEquals |
-      TokenType::Colon | TokenType::Pointer | TokenType::Tilde | TokenType::DoubleTilde |
-      TokenType::Dot | TokenType::Comma |
-      TokenType::Joint | TokenType::Disjoint | TokenType::Inclusion | TokenType::Exclusion
+      Self::Plus | Self::Minus | Self::Multiply | Self::Divide |
+      Self::Equals | Self::Modulo | Self::Exponent |
+      Self::GreaterThan | Self::LessThan |
+      Self::GreaterThanOrEquals | Self::LessThanOrEquals | Self::NotEquals |
+      Self::Colon | Self::Pointer | Self::Tilde | Self::DoubleTilde |
+      Self::Dot | Self::Comma |
+      Self::Joint | Self::Disjoint | Self::Inclusion | Self::Exclusion
     )
   }
 }
@@ -183,92 +183,92 @@ impl ToString for TokenType
     match self 
     {
       // basic
-      TokenType::None    => String::from("None"),
-      TokenType::Any    => String::from("Any"),
-      TokenType::Word    => String::from("Word"),
-      TokenType::Endline => String::from("\\n"),
-      TokenType::Comma   => String::from(","),
-      TokenType::Dot     => String::from("."),
+      Self::None    => String::from("None"),
+      Self::Any    => String::from("Any"),
+      Self::Word    => String::from("Word"),
+      Self::Endline => String::from("\\n"),
+      Self::Comma   => String::from(","),
+      Self::Dot     => String::from("."),
 
-      TokenType::Comment => String::from("Comment"),
+      Self::Comment => String::from("Comment"),
       
       // quotes
-      TokenType::RawString          => String::from("RawString"),
-      TokenType::String             => String::from("String"),
-      TokenType::Char               => String::from("Char"),
-      TokenType::FormattedRawString => String::from("FormattedRawString"),
-      TokenType::FormattedString    => String::from("FormattedString"),
-      TokenType::FormattedChar      => String::from("FormattedChar"),
+      Self::RawString          => String::from("RawString"),
+      Self::String             => String::from("String"),
+      Self::Char               => String::from("Char"),
+      Self::FormattedRawString => String::from("FormattedRawString"),
+      Self::FormattedString    => String::from("FormattedString"),
+      Self::FormattedChar      => String::from("FormattedChar"),
      
       // single math
-      TokenType::Plus     => String::from("+"),
-      TokenType::Minus    => String::from("-"),
-      TokenType::Multiply => String::from("*"),
-      TokenType::Divide   => String::from("/"),
-      TokenType::Equals   => String::from("="),
-      TokenType::Modulo   => String::from("%"),
-      TokenType::Exponent => String::from("^"),
+      Self::Plus     => String::from("+"),
+      Self::Minus    => String::from("-"),
+      Self::Multiply => String::from("*"),
+      Self::Divide   => String::from("/"),
+      Self::Equals   => String::from("="),
+      Self::Modulo   => String::from("%"),
+      Self::Exponent => String::from("^"),
       
       // double math
-      TokenType::UnaryPlus      => String::from("++"),
-      TokenType::PlusEquals     => String::from("+="),
+      Self::UnaryPlus      => String::from("++"),
+      Self::PlusEquals     => String::from("+="),
 
-      TokenType::UnaryMinus     => String::from("--"),
-      TokenType::MinusEquals    => String::from("-="),
+      Self::UnaryMinus     => String::from("--"),
+      Self::MinusEquals    => String::from("-="),
 
-      TokenType::UnaryMultiply  => String::from("**"),
-      TokenType::MultiplyEquals => String::from("*="),
+      Self::UnaryMultiply  => String::from("**"),
+      Self::MultiplyEquals => String::from("*="),
 
-      TokenType::UnaryDivide    => String::from("//"),
-      TokenType::DivideEquals   => String::from("/="),
+      Self::UnaryDivide    => String::from("//"),
+      Self::DivideEquals   => String::from("/="),
 
-      TokenType::UnaryModulo    => String::from("%%"),
-      TokenType::ModuloEquals   => String::from("%="),
+      Self::UnaryModulo    => String::from("%%"),
+      Self::ModuloEquals   => String::from("%="),
 
-      TokenType::UnaryExponent  => String::from("^^"),
-      TokenType::ExponentEquals => String::from("^="),
+      Self::UnaryExponent  => String::from("^^"),
+      Self::ExponentEquals => String::from("^="),
 
       // single logical
-      TokenType::GreaterThan => String::from(">"),
-      TokenType::LessThan    => String::from("<"),
-      TokenType::Question    => String::from("?"),
-      TokenType::Not         => String::from("!"),
+      Self::GreaterThan => String::from(">"),
+      Self::LessThan    => String::from("<"),
+      Self::Question    => String::from("?"),
+      Self::Not         => String::from("!"),
       
       // double logical
-      TokenType::GreaterThanOrEquals => String::from(">="),
-      TokenType::LessThanOrEquals    => String::from("<="),
-      TokenType::NotEquals           => String::from("!="),
+      Self::GreaterThanOrEquals => String::from(">="),
+      Self::LessThanOrEquals    => String::from("<="),
+      Self::NotEquals           => String::from("!="),
       
       // brackets
-      TokenType::CircleBracketBegin => String::from("("),
-      TokenType::CircleBracketEnd   => String::from(")"),
-      TokenType::SquareBracketBegin => String::from("["),
-      TokenType::SquareBracketEnd   => String::from("]"),
-      TokenType::FigureBracketBegin => String::from("{"),
-      TokenType::FigureBracketEnd   => String::from("}"),
+      Self::CircleBracketBegin => String::from("("),
+      Self::CircleBracketEnd   => String::from(")"),
+      Self::SquareBracketBegin => String::from("["),
+      Self::SquareBracketEnd   => String::from("]"),
+      Self::FigureBracketBegin => String::from("{"),
+      Self::FigureBracketEnd   => String::from("}"),
       
       // other
-      TokenType::Colon   => String::from(":"),
-      TokenType::Pointer => String::from("->"),
+      Self::Colon   => String::from(":"),
+      Self::Pointer => String::from("->"),
 
-      TokenType::Tilde       => String::from("~"),
-      TokenType::DoubleTilde => String::from("~~"),
+      Self::Tilde       => String::from("~"),
+      Self::DoubleTilde => String::from("~~"),
 
-      TokenType::Link => String::from("Link"),
+      Self::Link => String::from("Link"),
       
       //
-      TokenType::Int      => String::from("Int"),
-      TokenType::UInt     => String::from("UInt"),
-      TokenType::Float    => String::from("Float"),
-      TokenType::UFloat   => String::from("UFloat"),
+      Self::Int      => String::from("Int"),
+      Self::UInt     => String::from("UInt"),
+      Self::Float    => String::from("Float"),
+      Self::UFloat   => String::from("UFloat"),
 
       //
-      TokenType::Bool      => String::from("Bool"), // todo issue #65
-      
-      TokenType::Joint     => String::from("Joint"),
-      TokenType::Disjoint  => String::from("Disjoint"),
-      TokenType::Inclusion => String::from("Inclusion"),
-      TokenType::Exclusion => String::from("Exclusion")
+      Self::Bool      => String::from("Bool"), // todo issue #65
+
+      Self::Joint     => String::from("Joint"),
+      Self::Disjoint  => String::from("Disjoint"),
+      Self::Inclusion => String::from("Inclusion"),
+      Self::Exclusion => String::from("Exclusion")
     }
     //
   }
@@ -278,7 +278,7 @@ impl Default for TokenType
 {
   fn default() -> Self 
   {
-    TokenType::None
+    Self::None
   }
 }
 

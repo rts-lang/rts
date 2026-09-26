@@ -32,13 +32,13 @@ impl Value
   {
     match self 
     {
-      Value::None() => false, // todo непонятно что нужно возвращать здесь
-      Value::Int(v) => *v!=0,
-      Value::UInt(v) => *v!=0,
-      Value::Float(v) => *v!=0.0,
-      Value::UFloat(v) => *v!=uf64::from(0.0),
-      Value::Char(c) => *c!='\0',
-      Value::String(s) => !s.is_empty(),
+      Self::None() => false, // todo непонятно что нужно возвращать здесь
+      Self::Int(v) => *v!=0,
+      Self::UInt(v) => *v!=0,
+      Self::Float(v) => *v!=0.0,
+      Self::UFloat(v) => *v!=uf64::from(0.0),
+      Self::Char(c) => *c!='\0',
+      Self::String(s) => !s.is_empty(),
     }
   }
 }
@@ -49,13 +49,13 @@ impl fmt::Display for Value
   {
     match *self 
     {
-      Value::None() => write!(f, "None"), // todo непонятно что нужно возвращать здесь
-      Value::Int(val) => write!(f, "{}", val),
-      Value::UInt(val) => write!(f, "{}", val),
-      Value::Float(val) => write!(f, "{}", val),
-      Value::UFloat(val) => write!(f, "{}", val),
-      Value::Char(val) => write!(f, "{}", val),
-      Value::String(ref val) => write!(f, "{}", val),
+      Self::None() => write!(f, "None"), // todo непонятно что нужно возвращать здесь
+      Self::Int(val) => write!(f, "{}", val),
+      Self::UInt(val) => write!(f, "{}", val),
+      Self::Float(val) => write!(f, "{}", val),
+      Self::UFloat(val) => write!(f, "{}", val),
+      Self::Char(val) => write!(f, "{}", val),
+      Self::String(ref val) => write!(f, "{}", val),
     }
   }
 }
@@ -72,77 +72,65 @@ impl std::ops::Add for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y))    => Value::Int(y),
-      (Value::None(), Value::UInt(y))   => Value::UInt(y),
-      (Value::None(), Value::Float(y))  => Value::Float(y),
-      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y))   => Value::Char(y),
-      (Value::None(), Value::String(y)) => Value::String(y),
+      (Self::None(), Self::Int(y))    => Self::Int(y),
+      (Self::None(), Self::UInt(y))   => Self::UInt(y),
+      (Self::None(), Self::Float(y))  => Self::Float(y),
+      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None(), Self::Char(y))   => Self::Char(y),
+      (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Value::Int(x), Value::Int(y))    => Value::Int   (x+y),
-      (Value::Int(x), Value::UInt(y))   => Value::Int   (x+ y as i64),
-      (Value::Int(x), Value::Float(y))  => Value::Float (x as f64 +y),
-      (Value::Int(x), Value::UFloat(y)) => Value::Float (x as f64 +f64::from(y)),
-      (Value::Int(x), Value::Char(y))   => Value::Int   (x+ y as i64),
-      (Value::Int(x), Value::String(y)) => Value::String(x.to_string() +&y),
+      (Self::Int(x), Self::Int(y))    => Self::Int   (x+y),
+      (Self::Int(x), Self::UInt(y))   => Self::Int   (x+ y as i64),
+      (Self::Int(x), Self::Float(y))  => Self::Float (x as f64 +y),
+      (Self::Int(x), Self::UFloat(y)) => Self::Float (x as f64 +f64::from(y)),
+      (Self::Int(x), Self::Char(y))   => Self::Int   (x+ y as i64),
+      (Self::Int(x), Self::String(y)) => Self::String(x.to_string() +&y),
       // UInt
-      (Value::UInt(x), Value::UInt(y))   => Value::UInt  (x+y),
-      (Value::UInt(x), Value::Int(y))    => Value::Int   (x as i64 +y),
-      (Value::UInt(x), Value::Float(y))  => Value::Float (x as f64 +y),
-      (Value::UInt(x), Value::UFloat(y)) => Value::UFloat(uf64::from(x) +y),
-      (Value::UInt(x), Value::Char(y))   => Value::UInt  (x+ y as u64),
-      (Value::UInt(x), Value::String(y)) => Value::String(x.to_string() +&y),
+      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x+y),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 +y),
+      (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 +y),
+      (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) +y),
+      (Self::UInt(x), Self::Char(y))   => Self::UInt  (x+ y as u64),
+      (Self::UInt(x), Self::String(y)) => Self::String(x.to_string() +&y),
       // Float
-      (Value::Float(x), Value::Float(y))  => Value::Float (x+y),
-      (Value::Float(x), Value::Int(y))    => Value::Float (x+ y as f64),
-      (Value::Float(x), Value::UInt(y))   => Value::Float (x+ y as f64),
-      (Value::Float(x), Value::UFloat(y)) => Value::Float (x+ f64::from(y)),
-      (Value::Float(x), Value::String(y)) => Value::String(x.to_string() +&y),
+      (Self::Float(x), Self::Float(y))  => Self::Float (x+y),
+      (Self::Float(x), Self::Int(y))    => Self::Float (x+ y as f64),
+      (Self::Float(x), Self::UInt(y))   => Self::Float (x+ y as f64),
+      (Self::Float(x), Self::UFloat(y)) => Self::Float (x+ f64::from(y)),
+      (Self::Float(x), Self::String(y)) => Self::String(x.to_string() +&y),
       // UFloat
-      (Value::UFloat(x), Value::UFloat(y)) => Value::UFloat(x+y),
-      (Value::UFloat(x), Value::Int(y))    => Value::Float (f64::from(x)+ y as f64),
-      (Value::UFloat(x), Value::UInt(y))   => Value::UFloat(x+ uf64::from(y)),
-      (Value::UFloat(x), Value::Float(y))  => Value::Float (f64::from(x) +y),
-      (Value::UFloat(x), Value::String(y)) => Value::String(x.to_string() +&y),
+      (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x+y),
+      (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)+ y as f64),
+      (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x+ uf64::from(y)),
+      (Self::UFloat(x), Self::Float(y))  => Self::Float (f64::from(x) +y),
+      (Self::UFloat(x), Self::String(y)) => Self::String(x.to_string() +&y),
       // Char
-      (Value::Char(x), Value::Char(y)) => 
+      (Self::Char(x), Self::Char(y)) => 
       {
-        Value::Char(
-          match std::char::from_u32(x as u32 + y as u32)
-          {
-            Some(resultChar) => {resultChar} 
-            None             => {'\0'}
-          }
+        Self::Char(
+          char::from_u32(x as u32 + y as u32).unwrap_or('\0')
         )
       },
-      (Value::Char(x), Value::Int(y)) => 
+      (Self::Char(x), Self::Int(y)) => 
       {
-        Value::Char(
-          match std::char::from_u32((x as i64 +y) as u32)
-          {
-            Some(resultChar) => {resultChar} 
-            None             => {'\0'}
-          }
+        Self::Char(
+          char::from_u32((x as i64 +y) as u32).unwrap_or('\0')
         )
       },
-      (Value::Char(x), Value::UInt(y)) => 
+      (Self::Char(x), Self::UInt(y)) => 
       {
-        Value::Char(
-          match std::char::from_u32((x as u64 +y) as u32) 
-          {
-            Some(resultChar) => {resultChar} 
-            None             => {'\0'}
-          }
+        Self::Char(
+          char::from_u32((x as u64 +y) as u32).unwrap_or('\0')
         )
       },
-      (Value::Char(x), Value::String(y)) => Value::String(x.to_string()+ &y),
+      (Self::Char(x), Self::String(y)) => Self::String(x.to_string()+ &y),
       // String
-      (Value::String(x), Value::String(y)) => Value::String(x+ &y),
-      (Value::String(x), Value::Int(y))    => Value::String(x+ &y.to_string()),
-      (Value::String(x), Value::UInt(y))   => Value::String(x+ &y.to_string()),
-      (Value::String(x), Value::Float(y))  => Value::String(x+ &y.to_string()),
-      (Value::String(x), Value::UFloat(y)) => Value::String(x+ &y.to_string()),
-      (Value::String(x), Value::Char(y))   => Value::String(x+ &y.to_string()),
+      (Self::String(x), Self::String(y)) => Self::String(x+ &y),
+      (Self::String(x), Self::Int(y))    => Self::String(x+ &y.to_string()),
+      (Self::String(x), Self::UInt(y))   => Self::String(x+ &y.to_string()),
+      (Self::String(x), Self::Float(y))  => Self::String(x+ &y.to_string()),
+      (Self::String(x), Self::UFloat(y)) => Self::String(x+ &y.to_string()),
+      (Self::String(x), Self::Char(y))   => Self::String(x+ &y.to_string()),
       //
       _ => self
     }
@@ -161,70 +149,58 @@ impl std::ops::Sub for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y))    => Value::Int(y),
-      (Value::None(), Value::UInt(y))   => Value::UInt(y),
-      (Value::None(), Value::Float(y))  => Value::Float(y),
-      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y))   => Value::Char(y),
-      (Value::None(), Value::String(y)) => Value::String(y),
+      (Self::None(), Self::Int(y))    => Self::Int(y),
+      (Self::None(), Self::UInt(y))   => Self::UInt(y),
+      (Self::None(), Self::Float(y))  => Self::Float(y),
+      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None(), Self::Char(y))   => Self::Char(y),
+      (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Value::Int(x), Value::Int(y))    => Value::Int  (x-y),
-      (Value::Int(x), Value::UInt(y))   => Value::Int  (x- y as i64),
-      (Value::Int(x), Value::Float(y))  => Value::Float(x as f64 -y),
-      (Value::Int(x), Value::UFloat(y)) => Value::Float(x as f64 -f64::from(y)),
-      (Value::Int(x), Value::Char(y))   => Value::Int  (x- y as i64),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x-y),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x- y as i64),
+      (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 -y),
+      (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 -f64::from(y)),
+      (Self::Int(x), Self::Char(y))   => Self::Int  (x- y as i64),
       // UInt
-      (Value::UInt(x), Value::UInt(y)) => 
+      (Self::UInt(x), Self::UInt(y)) => 
       {
         match y > x 
         {
-          true  => { Value::UInt(0) }  
-          false => { Value::UInt(x-y) }
+          true  => { Self::UInt(0) }  
+          false => { Self::UInt(x-y) }
         }
       },
-      (Value::UInt(x), Value::Int(y))    => Value::Int   (x as i64 -y),
-      (Value::UInt(x), Value::Float(y))  => Value::Float (x as f64 -y),
-      (Value::UInt(x), Value::UFloat(y)) => Value::UFloat(uf64::from(x) -y),
-      (Value::UInt(x), Value::Char(y))   => Value::UInt  (x- y as u64),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 -y),
+      (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 -y),
+      (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) -y),
+      (Self::UInt(x), Self::Char(y))   => Self::UInt  (x- y as u64),
       // Float
-      (Value::Float(x), Value::Float(y))  => Value::Float(x-y),
-      (Value::Float(x), Value::Int(y))    => Value::Float(x- y as f64),
-      (Value::Float(x), Value::UInt(y))   => Value::Float(x- y as f64),
-      (Value::Float(x), Value::UFloat(y)) => Value::Float(x- f64::from(y)),
+      (Self::Float(x), Self::Float(y))  => Self::Float(x-y),
+      (Self::Float(x), Self::Int(y))    => Self::Float(x- y as f64),
+      (Self::Float(x), Self::UInt(y))   => Self::Float(x- y as f64),
+      (Self::Float(x), Self::UFloat(y)) => Self::Float(x- f64::from(y)),
       // UFloat
-      (Value::UFloat(x), Value::UFloat(y)) => Value::UFloat(x-y),
-      (Value::UFloat(x), Value::Int(y))    => Value::Float (f64::from(x)- y as f64),
-      (Value::UFloat(x), Value::UInt(y))   => Value::UFloat(x- uf64::from(y)),
-      (Value::UFloat(x), Value::Float(y))  => Value::Float (f64::from(x) -y),
+      (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x-y),
+      (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)- y as f64),
+      (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x- uf64::from(y)),
+      (Self::UFloat(x), Self::Float(y))  => Self::Float (f64::from(x) -y),
       // Char
-      (Value::Char(x), Value::Char(y)) => 
+      (Self::Char(x), Self::Char(y)) => 
       {
-        Value::Char(
-          match std::char::from_u32(x as u32 - y as u32)
-          {
-            Some(resultChar) => {resultChar} 
-            None => {'\0'}
-          }
+        Self::Char(
+          char::from_u32(x as u32 - y as u32).unwrap_or('\0')
         )
       },
-      (Value::Char(x), Value::Int(y)) => 
+      (Self::Char(x), Self::Int(y)) => 
       {
-        Value::Char(
-          match std::char::from_u32((x as i64 -y) as u32)
-          {
-            Some(resultChar) => {resultChar} 
-            None => {'\0'}
-          }
+        Self::Char(
+          char::from_u32((x as i64 -y) as u32).unwrap_or('\0')
         )
       },
-      (Value::Char(x), Value::UInt(y)) => 
+      (Self::Char(x), Self::UInt(y)) => 
       {
-        Value::Char(
-          match std::char::from_u32((x as u64 -y) as u32)
-          {
-            Some(resultChar) => {resultChar} 
-            None => {'\0'}
-          }
+        Self::Char(
+          char::from_u32((x as u64 - y) as u32).unwrap_or('\0')
         )
       },
       //
@@ -245,32 +221,32 @@ impl std::ops::Mul for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y))    => Value::Int(y),
-      (Value::None(), Value::UInt(y))   => Value::UInt(y),
-      (Value::None(), Value::Float(y))  => Value::Float(y),
-      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y))   => Value::Char(y),
-      (Value::None(), Value::String(y)) => Value::String(y),
+      (Self::None(), Self::Int(y))    => Self::Int(y),
+      (Self::None(), Self::UInt(y))   => Self::UInt(y),
+      (Self::None(), Self::Float(y))  => Self::Float(y),
+      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None(), Self::Char(y))   => Self::Char(y),
+      (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Value::Int(x), Value::Int(y))    => Value::Int  (x*y),
-      (Value::Int(x), Value::UInt(y))   => Value::Int  (x* y as i64),
-      (Value::Int(x), Value::Float(y))  => Value::Float(x as f64 *y),
-      (Value::Int(x), Value::UFloat(y)) => Value::Float(x as f64 /f64::from(y)),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x*y),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x* y as i64),
+      (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 *y),
+      (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
       // UInt
-      (Value::UInt(x), Value::UInt(y))   => Value::UInt  (x*y),
-      (Value::UInt(x), Value::Int(y))    => Value::Int   (x as i64 *y),
-      (Value::UInt(x), Value::Float(y))  => Value::Float (x as f64 *y),
-      (Value::UInt(x), Value::UFloat(y)) => Value::UFloat(uf64::from(x) *y),
+      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x*y),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 *y),
+      (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 *y),
+      (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) *y),
       // Float
-      (Value::Float(x), Value::Float(y))  => Value::Float(x*y),
-      (Value::Float(x), Value::Int(y))    => Value::Float(x* y as f64),
-      (Value::Float(x), Value::UInt(y))   => Value::Float(x* y as f64),
-      (Value::Float(x), Value::UFloat(y)) => Value::Float(x* f64::from(y)),
+      (Self::Float(x), Self::Float(y))  => Self::Float(x*y),
+      (Self::Float(x), Self::Int(y))    => Self::Float(x* y as f64),
+      (Self::Float(x), Self::UInt(y))   => Self::Float(x* y as f64),
+      (Self::Float(x), Self::UFloat(y)) => Self::Float(x* f64::from(y)),
       // UFloat
-      (Value::UFloat(x), Value::UFloat(y)) => Value::UFloat(x*y),
-      (Value::UFloat(x), Value::Int(y))    => Value::Float (f64::from(x)* y as f64),
-      (Value::UFloat(x), Value::UInt(y))   => Value::UFloat(x* uf64::from(y)),
-      (Value::UFloat(x), Value::Float(y))  => Value::Float (f64::from(x) *y),
+      (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x*y),
+      (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)* y as f64),
+      (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x* uf64::from(y)),
+      (Self::UFloat(x), Self::Float(y))  => Self::Float (f64::from(x) *y),
       //
       _ => self
     }
@@ -289,32 +265,32 @@ impl std::ops::Div for Value
     {
       // None
       // None + None обрабатывается в _
-      (Value::None(), Value::Int(y))    => Value::Int(y),
-      (Value::None(), Value::UInt(y))   => Value::UInt(y),
-      (Value::None(), Value::Float(y))  => Value::Float(y),
-      (Value::None(), Value::UFloat(y)) => Value::UFloat(y),
-      (Value::None(), Value::Char(y))   => Value::Char(y),
-      (Value::None(), Value::String(y)) => Value::String(y),
+      (Self::None(), Self::Int(y))    => Self::Int(y),
+      (Self::None(), Self::UInt(y))   => Self::UInt(y),
+      (Self::None(), Self::Float(y))  => Self::Float(y),
+      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None(), Self::Char(y))   => Self::Char(y),
+      (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Value::Int(x), Value::Int(y))    => Value::Int  (x/y),
-      (Value::Int(x), Value::UInt(y))   => Value::Int  (x/ y as i64),
-      (Value::Int(x), Value::Float(y))  => Value::Float(x as f64 /y),
-      (Value::Int(x), Value::UFloat(y)) => Value::Float(x as f64 /f64::from(y)),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x/y),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x/ y as i64),
+      (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 /y),
+      (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
       // UInt
-      (Value::UInt(x), Value::UInt(y))   => Value::UInt  (x/y),
-      (Value::UInt(x), Value::Int(y))    => Value::Int   (x as i64 /y),
-      (Value::UInt(x), Value::Float(y))  => Value::Float (x as f64 /y),
-      (Value::UInt(x), Value::UFloat(y)) => Value::UFloat(uf64::from(x) /y),
+      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x/y),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 /y),
+      (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 /y),
+      (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) /y),
       // Float
-      (Value::Float(x), Value::Float(y))  => Value::Float(x/y),
-      (Value::Float(x), Value::Int(y))    => Value::Float(x/ y as f64),
-      (Value::Float(x), Value::UInt(y))   => Value::Float(x/ y as f64),
-      (Value::Float(x), Value::UFloat(y)) => Value::Float(x/ f64::from(y)),
+      (Self::Float(x), Self::Float(y))  => Self::Float(x/y),
+      (Self::Float(x), Self::Int(y))    => Self::Float(x/ y as f64),
+      (Self::Float(x), Self::UInt(y))   => Self::Float(x/ y as f64),
+      (Self::Float(x), Self::UFloat(y)) => Self::Float(x/ f64::from(y)),
       // UFloat
-      (Value::UFloat(x), Value::UFloat(y)) => Value::UFloat(x/y),
-      (Value::UFloat(x), Value::Int(y))    => Value::Float (f64::from(x)/ y as f64),
-      (Value::UFloat(x), Value::UInt(y))   => Value::UFloat(x/ uf64::from(y)),
-      (Value::UFloat(x), Value::Float(y))  => Value::Float (f64::from(x) /y),
+      (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x/y),
+      (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)/ y as f64),
+      (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x/ uf64::from(y)),
+      (Self::UFloat(x), Self::Float(y))  => Self::Float (f64::from(x) /y),
       //
       _ => self
     }

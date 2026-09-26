@@ -4,7 +4,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет что байт является цифрой
-pub fn isDigit(byte: &u8) -> bool
+pub const fn isDigit(byte: &u8) -> bool
 {
   *byte >= b'0' && *byte <= b'9'
 }
@@ -19,7 +19,7 @@ pub fn isDigit(byte: &u8) -> bool
 ///   Речь о синтаксическом виде и разложении их в парсере - что могло бы быть удобно.
 ///
 /// todo: Ввести работу float с .1 или . как 0.0; (опасно -. или -.1 - они сложные по логике).
-pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Option<Token>
+pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Option<Token>
 {
   let mut savedIndex: usize = *index; // index buffer
   let mut result: String = String::new();
@@ -29,7 +29,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Opti
   let mut hasExponential: bool = false; // e, e+, e-
   
   let mut currentByte: u8; // Текущий символ
-  while savedIndex < *bufferLength
+  while savedIndex < bufferLength
   {
     currentByte = buffer[savedIndex]; // Значение текущего символа
 
@@ -55,8 +55,8 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Opti
 
       // Пропуск пустот
       let mut temp: usize = savedIndex;
-      skipWhitespaceBytes(buffer, &mut temp, *bufferLength, b" \t\n");
-      if temp < *bufferLength && isDigit(&buffer[temp]) {
+      skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
+      if temp < bufferLength && isDigit(&buffer[temp]) {
         savedIndex = temp;
       } else {
         return None; // Это было не число
@@ -73,8 +73,8 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Opti
       // Нужно, чтобы читать: `12 34 . 20`
       let mut hasDigitAfterDot: bool = false;
       let mut temp: usize = savedIndex + 1;
-      skipWhitespaceBytes(buffer, &mut temp, *bufferLength, b" \t");
-      if temp < *bufferLength && isDigit(&buffer[temp]) {
+      skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t");
+      if temp < bufferLength && isDigit(&buffer[temp]) {
         hasDigitAfterDot = true;
       }
 
@@ -100,8 +100,8 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: &usize) -> Opti
 
       // Нужно, чтобы читать: `12 34 e + 2`
       let mut temp: usize = savedIndex;
-      skipWhitespaceBytes(buffer, &mut temp, *bufferLength, b" \t");
-      if temp < *bufferLength && (buffer[temp] == b'+' || buffer[temp] == b'-') {
+      skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t");
+      if temp < bufferLength && (buffer[temp] == b'+' || buffer[temp] == b'-') {
         result.push(buffer[temp] as char);
         savedIndex = temp + 1;
       }
@@ -166,7 +166,7 @@ mod tests
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getNumber(buffer, &mut index, &bufferLength);
+      let token: Token = getNumber(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();
@@ -210,7 +210,7 @@ mod tests
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
-      let token: Token = getNumber(buffer, &mut index, &bufferLength);
+      let token: Token = getNumber(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();
@@ -264,7 +264,7 @@ mod tests
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
 
-      let token: Token = getNumber(buffer, &mut index, &bufferLength);
+      let token: Token = getNumber(buffer, &mut index, bufferLength);
 
       //
       let tokenType: String = token.getDataType().to_string();

@@ -7,7 +7,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // todo issue #57
 /// Выводит токен, его тип данных
-pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> ()
+pub fn outputTokens(tokens: &[Token], lineIndent: usize, indent: &usize) -> ()
 {
   let lineIndentString: String = " ".repeat(lineIndent*2+1); // Отступ для линии
   let identString:      String = " ".repeat(indent*2+1);     // Отступ для вложения токенов
@@ -127,7 +127,7 @@ pub fn outputTokens(tokens: &Vec<Token>, lineIndent: &usize, indent: &usize) -> 
 }
 // todo issue #57
 /// Выводит информацию о линии, а также токены линии
-pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
+pub fn outputLines(linesLinks: &[ Arc<RwLock<Line>> ], indent: usize) -> ()
 {
   let identStr1: String = " ".repeat(indent*2);   // Это отступ для главной строки
   let identStr2: String = format!("{} ", identStr1); // Это для дочерних токенов
@@ -148,7 +148,7 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
       { // Заголовок для начала вложенных токенов
         formatPrint(&format!("{}\\b┣ \\fg(#90df91)Tokens\\c\n",identStr2));
         // todo плохо используются tokens
-        outputTokens(tokens, &indent, &1); // выводим вложенные токены
+        outputTokens(tokens, indent, &1); // выводим вложенные токены
       }
     }
 
@@ -156,7 +156,7 @@ pub fn outputLines(linesLinks: &Vec< Arc<RwLock<Line>> >, indent: &usize) -> ()
     { None => {} Some(lineLines) =>
     { // Заголовок для начала вложенных линий
       formatPrint(&format!("{}\\b┗ \\fg(#90df91)Lines\\c\n",identStr2));
-      outputLines(lineLines, &(indent+1)); // выводим вложенные линии
+      outputLines(lineLines, indent+1); // выводим вложенные линии
     }}
   }
   //

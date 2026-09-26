@@ -58,19 +58,17 @@ fn main() -> io::Result<()>
 
   // args to key-values
   let mut args: (String, Vec<String>) = (String::new(), Vec::new());
-  let input:    Vec<String> = env::args().collect();
-  match input.len() > 1 
+  let input: Vec<String> = env::args().collect();
+  
+  if input.len() > 1 
   {
-    false => { help() }
-    true => 
-    {
-      // first argument is treated as key, others as values
-      let command: String      = input[1].clone();
-      let values:  Vec<String> = input.iter().skip(2).cloned().collect();
-      // store key and values in args vector
-      args = (command.clone(), values.clone());
-    }
-  }
+    // first argument is treated as key, others as values
+    let command: String = input[1].clone();
+    let values:  Vec<String> = input.iter().skip(2).cloned().collect();
+    
+    // store key and values in args vector
+    args = (command, values);
+  } else { help() }
   
   // read key
   let mut runFile: bool = false;
@@ -78,150 +76,128 @@ fn main() -> io::Result<()>
 
   let valuesLength: usize = (args.1).len();
 
-  match !args.0.is_empty() 
+  if !args.0.is_empty() 
   {
-    false => {}
-    true => {
-      let key: &str = args.0.as_str();
-      match key
-      {
-        "version" => 
-        { // get version
-          log("ok", &format!("RTS v{}", _version));
-          logExit(0);
+    let key: &str = args.0.as_str();
+    match key
+    {
+      "version" => 
+      { // get version
+        log("ok", &format!("RTS v{}", _version));
+        logExit(0);
+      }
+      "help" => help(),
+      "package" =>
+      { // package
+        // packageApi(&args.1,valuesLength).await; todo
+        logExit(0);
+      },
+      _ if (key == "run" || key == "drun") && valuesLength >= 1 =>
+      { // run
+
+        if key == "drun" 
+        { // debug mode ?
+          unsafe{_debugMode = true;}
         }
-        "help" => help(),
-        "package" =>
-        { // package
-          // packageApi(&args.1,valuesLength).await; todo
-          logExit(0);
-        },
-        _ if (key == "run" || key == "drun") && valuesLength >= 1 =>
-        { // run
 
-          match key == "drun" 
-          { // debug mode ?
-            false => {}
-            true  => unsafe{_debugMode = true;}
-          }
-
-          unsafe
-          {
-            _argc = valuesLength-1;
-            _argv = (args.1)[1..].to_vec();
-            _filePath = args.1[0].clone();
-          }
-
-          match unsafe{_debugMode} 
-          {
-            false => {}
-            true  => { log("ok",&format!("Run [{}]",unsafe{&*_filePath})); }
-          }
-
-          unsafe{
-            // Проверяем, что мы запускаем файл или скрипт;
-            // todo: В данном случае это является временным решением,
-            //       чтобы сохранить run и drun, а также разделить скрипт и файлы;
-            let filePathEnd: String =
-              _filePath
-                .chars().rev().take(3)
-                .collect::<Vec<_>>().iter().rev().collect();
-            runFile = filePathEnd == ".rt";
-          }
-
-          // run package
-          // todo: run package
+        unsafe{
+          _argc = valuesLength-1;
+          _argv = args.1[1..].to_vec();
+          _filePath = args.1[0].clone();
         }
-        _ => {
-          log("err","Use [rts help] to get help");
-          logExit(1)
+
+        if unsafe{_debugMode} {
+          log("ok",&format!("Run [{}]",unsafe{&*_filePath}));
         }
+
+        unsafe{
+          // Проверяем, что мы запускаем файл или скрипт;
+          // todo: В данном случае это является временным решением,
+          //       чтобы сохранить run и drun, а также разделить скрипт и файлы;
+          let filePathEnd: String =
+            _filePath
+              .chars().rev().take(3)
+              .collect::<Vec<_>>().iter().rev().collect();
+          runFile = filePathEnd == ".rt";
+        }
+
+        // run package
+        // todo: run package
+      }
+      _ => {
+        log("err","Use [rts help] to get help");
+        logExit(1)
       }
     }
   }
 
-  match unsafe{_debugMode}
+  if unsafe{_debugMode}
   {
-    false => {}
-    true => 
-    {
-      logSeparator("Arguments");
-      log("ok","Debug mode");
-    }
+    logSeparator("Arguments");
+    log("ok","Debug mode");
   }
 
   // run file
-  match runFile 
-  {
-    true => 
-    { // Обработка файла
-      match unsafe{_debugMode} 
+  if runFile 
+  { // Обработка файла
+    
+    if unsafe{_debugMode} {
+      logSeparator(&format!("Running the file [{}] in debug mode",unsafe{&*_filePath}));
+    }
+    
+    // open file
+    let mut file: File = match File::open(unsafe{&*_filePath}) 
+    {
+      Ok(file) => 
       {
-        true  => { logSeparator(&format!("Running the file [{}] in debug mode",unsafe{&*_filePath})); }
-        false => {}
+        if unsafe{_debugMode} 
+        {
+          log("ok","Opening was successful");
+        }
+        file
+      },
+      Err(_) => 
+      {
+        log("err","Unable to opening file");
+        logExit(1)
       }
-      // open file
-      let mut file: File = match File::open(unsafe{&*_filePath}) 
+    };
+    
+    // read file into buffer
+    match file.read_to_end(&mut buffer) 
+    {
+      Ok(_) => 
       {
-        Ok(file) => 
+        if unsafe{_debugMode} 
         {
-          match unsafe{_debugMode} 
-          {
-            true  => { log("ok","Opening was successful"); }
-            false => {}
-          }
-          file
-        },
-        Err(_) => 
-        {
-          log("err","Unable to opening file");
-          logExit(1)
+          log("ok","Reading was successful");
         }
-      };
-      // read file into buffer
-      match file.read_to_end(&mut buffer) 
+      }
+      Err(_) => 
       {
-        Ok(_) => 
-        {
-          match unsafe{_debugMode} 
-          {
-            true  => { log("ok","Reading was successful"); }
-            false => {}
-          }
-        }
-        Err(_) => 
-        {
-          log("err","Unable to read file");
-          logExit(1)
-        }
+        log("err","Unable to read file");
+        logExit(1)
       }
     }
-    false =>
-    { // Обработка скрипта
-      // run script
-      match unsafe{_debugMode}
-      {
-        false => {}
-        true  => { logSeparator("Running the script in debug mode"); }
-      }
+  } else
+  { // Обработка скрипта
+    // run script
+    if unsafe{_debugMode} { 
+      logSeparator("Running the script in debug mode"); 
+    }
 
-      unsafe{ buffer = _filePath.clone().into_bytes(); }
-    }
+    unsafe{ buffer = _filePath.clone().into_bytes(); }
   }
+
 
   // Начинаем чтение кода
   parseLines( readTokensSimple(&mut buffer, unsafe{_debugMode}) );
-  
-  match unsafe{_debugMode} 
-  {
-    // Замеры всего прошедшего времени работы
-    false => {}
-    true => 
-    { 
-      let endTime:  Instant  = Instant::now();
-      let duration: Duration = endTime-startTime;
-      log("ok",&format!("All duration [{:?}]",duration));
-    }
+
+  if unsafe{_debugMode} 
+  { // Замеры всего прошедшего времени работы
+    let endTime:  Instant  = Instant::now();
+    let duration: Duration = endTime-startTime;
+    log("ok",&format!("All duration [{:?}]",duration));
   }
   // ** Для дополнительных тестов можно использовать hyperfine/perf
 

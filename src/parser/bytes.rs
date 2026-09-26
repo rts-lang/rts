@@ -11,7 +11,7 @@ pub struct Bytes
 impl Bytes 
 {
   /// Empty bytes
-  pub fn empty() -> Self 
+  pub const fn empty() -> Self 
   {
     Self { data: None }
   }
@@ -48,7 +48,7 @@ impl From<Vec<u8>> for Bytes
 {
   fn from(value: Vec<u8>) -> Self 
   {
-    Bytes::new(value)
+    Self::new(value)
   }
 }
 
@@ -56,7 +56,7 @@ impl From<&[u8]> for Bytes
 {
   fn from(value: &[u8]) -> Self 
   {
-    Bytes::new(value)
+    Self::new(value)
   }
 }
 
@@ -64,7 +64,7 @@ impl From<String> for Bytes
 {
   fn from(value: String) -> Self 
   {
-    Bytes::new(value.into_bytes())
+    Self::new(value.into_bytes())
   }
 }
 
@@ -72,7 +72,7 @@ impl From<&str> for Bytes
 {
   fn from(value: &str) -> Self 
   {
-    Bytes::new(value.as_bytes())
+    Self::new(value.as_bytes())
   }
 }
 
@@ -82,8 +82,8 @@ impl From< Option<Vec<u8>> > for Bytes
   {
     match value 
     {
-      Some(data) if !data.is_empty() => Bytes { data: Some(data) },
-      _ => Bytes::empty(),
+      Some(data) if !data.is_empty() => Self { data: Some(data) },
+      _ => Self::empty()
     }
   }
 }

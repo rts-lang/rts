@@ -23,7 +23,7 @@ use crate::parser::structure::structureType::StructureType;
 // =================================================================================================
 
 /// Проверяет, что переданный dataType является математическим оператором
-fn isMathOperator(dataType: TokenType) -> bool
+const fn isMathOperator(dataType: TokenType) -> bool
 {
   matches!(dataType, 
     // todo А еще почему тут только 1 single оператор а не все math?
@@ -364,7 +364,7 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       // ABI-композит String: .pointer/.length поверх исходного токена
       if structureType == StructureType::String
       {
-        if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.get(0))
+        if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.first())
         {
           if let Some(fields) = bridge::stringFields(valueToken)
           {
@@ -443,10 +443,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   }
 
   // Дальше идёт старая логика: пустые линии не интересуют.
-  match lineTokensLength == 0
+  if lineTokensLength == 0
   {
-    true => return false, // Если в линии нет токенов, то мы её не читаем
-    false => {}
+    return false; // Если в линии нет токенов, то мы её не читаем
   }
 
   let firstTokenType: &TokenType = lineTokens[0].getDataType(); // Тип первого токена в строке
@@ -577,9 +576,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
               for lineLink in lines
               {
                 let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-                let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                let paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
                 result.extend(
-                  parentLink.read().unwrap().getStructureParameters(&mut paramTokens)
+                  parentLink.read().unwrap().getStructureParameters(&paramTokens)
                 );
               }
               Some(result)
@@ -616,9 +615,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             Arc::new(RwLock::new(Structure::new(
               parameter.0.toString(),
               StructureMut::Constant,
-              parameter.1.clone(),
+              parameter.1,
               None,
-              None,
+              None
             )))
           );
         }
@@ -626,7 +625,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
         newStructure.result = match newStructureResultType
         {
           Some(t) => Some(Token::newEmpty(*t)),
-          None    => None,
+          None => None
         };
 
         let newStructureLink: Arc<RwLock<Structure>> =
@@ -679,9 +678,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                     { // Берём вложенные токены в TokenType::CircleBracketBegin 
                       // получаем параметры из этих токенов, давая доступ к родительским структурам
                       let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-                      let mut paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                      let paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
                       result.extend(
-                        parentLink.read().unwrap().getStructureParameters(&mut paramTokens)
+                        parentLink.read().unwrap().getStructureParameters(&paramTokens)
                       );
                     }
                     Some(result)
@@ -767,7 +766,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             // Cоздаём новую структуру
             let mut newStructure: Structure =
               Structure::new(
-                Some(newStructureName.clone()),
+                Some(newStructureName),
                 StructureMut::Constant, // todo По идее надо вычислять из синтаксиса
                 StructureType::Method, // todo По идее надо вычислять из синтаксиса
                 Some(lineLine),
@@ -942,11 +941,11 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                     StructureMut::Constant,
                     StructureType::Method, // todo может быть что-то другое ?
                     condition.lines.clone(),
-                    Some(parentLink.clone())
+                    Some(parentLink)
                   )
                 ));
               // После создания, читаем эту структуру
-              let _ = drop(condition);
+              drop(condition);
               readLines(structure);
               break; // end
             }}
@@ -962,11 +961,11 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                   StructureMut::Constant,
                   StructureType::Method, // todo может быть что-то другое ?
                   condition.lines.clone(),
-                  Some(parentLink.clone())
+                  Some(parentLink)
                 )
               ));
             // После создания, читаем эту структуру
-            let _ = drop(condition);
+            drop(condition);
             readLines(structure);
             break; // end
           }
