@@ -49,32 +49,28 @@ impl Parameters
   /// вычисляет его значение его выражения
   pub fn getExpression(&self, structure: &Structure, index: usize) -> Option<Token>
   {
-    match self.get(index)
-    {
-      None => None, // Элемента не было
-      Some(lineLink) =>
-      { // Возвращаем результат выражения
-        let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-        match &line.tokens // todo Может быть не 0
-        {
-          None =>
-          { // Один токен
-          //  Some(structure.expression(
-          //    &mut vec![token.clone()]
-          //  )) // Клонируется, поскольку может использоваться многократно
-            None // todo По идее здесь только None, т.к. ветка пустая ?
-          }
-          Some(tokens) =>
-          { // Выражение из токенов
-            Some(structure.expression(
-              &mut tokens.clone() // Клонируется, поскольку может использоваться многократно
-            ))
-          }
-          //
+    if let Some(lineLink) = self.get(index)
+    { // Возвращаем результат выражения.
+      let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
+      // todo Изменить match -> if.
+      match &line.tokens // todo Может быть не 0
+      {
+        None =>
+        { // Один токен
+        //  Some(structure.expression(
+        //    &mut vec![token.clone()]
+        //  )) // Клонируется, поскольку может использоваться многократно
+          None // todo По идее здесь только None, т.к. ветка пустая ?
         }
+        Some(tokens) =>
+        { // Выражение из токенов
+          Some(structure.expression(
+            &mut tokens.clone() // Клонируется, поскольку может использоваться многократно
+          ))
+        }
+        //
       }
-      //
-    }
+    } else { None } // Элемента не было
     
   }
   
@@ -86,14 +82,14 @@ impl Parameters
 
     for index in 0..self.getAll()?.len()
     {
-      match self.getExpression(structure, index)
+      if let Some(token) = self.getExpression(structure, index)
       {
-        None => {} // Если элемент отсутствует, то просто идём дальше
-        Some(token) => tokens.push(token), // Добавляем результаты
+        tokens.push(token); // Добавляем результаты.
       }
+      // Если элемент отсутствует, то просто идём дальше.
     }
     
-    Some(tokens)  // Возвращаем все токены
+    Some(tokens) // Возвращаем все токены.
   }
 
   // ===============================================================================================
@@ -111,40 +107,35 @@ impl Structure
     let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
     for (l, token) in value.iter().enumerate() 
     { // read tokens
-      match *token.getDataType() == TokenType::Comma || l+1 == value.len()
+      if *token.getDataType() == TokenType::Comma || l+1 == value.len()
       {
-        true => 
-        { // comma or line end
-          match *token.getDataType() != TokenType::Comma
-          { false => {} true =>
-          {
-            expressionBuffer.push( token.clone() );
-          }}
-          
-          // todo Тут еще надо определять structure mutable
-          
-          // Это типизация параметра
-          if expressionBuffer.len() == 3 
-          {
-            let parameterType: StructureType = expressionBuffer[2].getStructureTypeSimple();
-            result.push((
-              expressionBuffer[0].getData(),
-              parameterType
-            ));
-          } else {
-            result.push((
-              expressionBuffer[0].getData(),
-              StructureType::Any
-            ));
-          }
-          
-          //
-          expressionBuffer.clear();
-        }  
-        false => 
-        { // push new expression token
+        // comma or line end
+        if *token.getDataType() != TokenType::Comma {
           expressionBuffer.push( token.clone() );
         }
+        
+        // todo Тут еще надо определять structure mutable
+        
+        // Это типизация параметра
+        if expressionBuffer.len() == 3 
+        {
+          let parameterType: StructureType = expressionBuffer[2].getStructureTypeSimple();
+          result.push((
+            expressionBuffer[0].getData(),
+            parameterType
+          ));
+        } else {
+          result.push((
+            expressionBuffer[0].getData(),
+            StructureType::Any
+          ));
+        }
+        
+        //
+        expressionBuffer.clear();
+      } else
+      { // push new expression token
+        expressionBuffer.push( token.clone() );
       }
     }
     
@@ -160,20 +151,17 @@ impl Structure
 
     // Проверка и получение скобки
     let bracketToken: Option<&Token> = value.get(i+1);
-    match bracketToken
-    { None => {} Some(bracketToken) =>
+    if let Some(bracketToken) = bracketToken
     {
 
       // Проверка, что это круглая скобка
-      match bracketToken.getDataType() != &TokenType::CircleBracketBegin
-      {
-        false => {}
-        true => return Parameters::new(None)
+      if bracketToken.getDataType() != &TokenType::CircleBracketBegin {
+        return Parameters::new(None)
       }
 
       // Получаем линии
       result = bracketToken.lines.clone(); // todo Тут точно клонирование?
-    }}
+    }
     
     // Удаление скобки
     value.remove(i+1);

@@ -69,9 +69,9 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
 
 /// Конкретный типизированный аргумент FFI, который можно положить в `CallBuilder::arg::<T>`.
 ///
-/// chillffi 0.2 жёстко разделяет `Value` (приватный enum) и публичный
+/// chillffi жёстко разделяет `Value` (приватный enum) и публичный
 /// `CallBuilder::arg::<T: FfiArg>(...)` — `Value` снаружи не сконструируешь,
-/// поэтому единственный путь — превратить наш динамический `Token` в один
+/// поэтому единственный путь — превратить динамический `Token` в один
 /// из известных типов и завернуть через typed builder.
 enum FfiArgValue
 {

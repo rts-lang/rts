@@ -29,73 +29,73 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     TokenType::Inclusion => 
     { 
       resultType = TokenType::Bool;
-      match leftValue.toBool() || rightValue.toBool() 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue.toBool() || rightValue.toBool() {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::Joint => 
     { 
       resultType = TokenType::Bool;
-      match leftValue.toBool() && rightValue.toBool() 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue.toBool() && rightValue.toBool() {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::Equals => 
     { 
       resultType = TokenType::Bool;
-      match leftValue == rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue == rightValue {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::NotEquals => 
     { 
       resultType = TokenType::Bool;
-      match leftValue != rightValue
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue != rightValue {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::GreaterThan => 
     { 
       resultType = TokenType::Bool;
-      match leftValue > rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue > rightValue {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::LessThan => 
     { 
       resultType = TokenType::Bool;
-      match leftValue < rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue < rightValue {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::GreaterThanOrEquals => 
     { 
       resultType = TokenType::Bool;
-      match leftValue >= rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue >= rightValue {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     TokenType::LessThanOrEquals => 
     { 
       resultType = TokenType::Bool;
-      match leftValue <= rightValue 
-      {
-        true  => String::from("1"),
-        false => String::from("0")
+      if leftValue <= rightValue {
+        String::from("1")
+      } else {
+        String::from("0")
       }
     }
     _ => "0".to_string(),
@@ -103,64 +103,59 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   // После того как значение было получено,
   // Смотрим какой точно тип выдать новому токену
   // todo: if -> match
-  match resultType != TokenType::Bool 
+  if resultType != TokenType::Bool 
   {
-    false => {}
-    true => 
+    if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
     {
-      if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
+      resultType = TokenType::String;
+    } else
+    if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
+        rightTokenDataType == TokenType::Char
+    { //
+      resultType = leftTokenDataType;
+    } else
+    if leftTokenDataType == TokenType::Char
+    {
+      resultType = TokenType::Char;
+    } else
+    if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
+    {
+      // Проверяем смену типа
+      if let Ok(value) = resultValue.parse::<f64>() 
       {
-        resultType = TokenType::String;
-      } else
-      if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
-          rightTokenDataType == TokenType::Char
-      { //
-        resultType = leftTokenDataType;
-      } else
-      if leftTokenDataType == TokenType::Char
-      {
-        resultType = TokenType::Char;
-      } else
-      if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
-      {
-        // Проверяем смену типа
-        if let Ok(value) = resultValue.parse::<f64>() 
-        {
-          if value < 0.0 {
-            resultType = TokenType::Float;
-          } else {
-            resultType = TokenType::UFloat;
-          }
+        if value < 0.0 {
+          resultType = TokenType::Float;
         } else {
-          resultType = TokenType::None;
-          resultValue = String::new();
+          resultType = TokenType::UFloat;
         }
-      } else
-      if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
-      {
-        resultType = TokenType::Float;
-      } else
-      if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
-      {
-        // Проверяем смену типа
-        if let Ok(value) = resultValue.parse::<i64>() 
-        {
-          if value < 0 {
-            resultType = TokenType::Int;
-          } else {
-            resultType = TokenType::UInt;
-          }
-        } else {
-          resultType = TokenType::None;
-          resultValue = String::new();
-        }
-      } else
-      if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int
-      {
-        resultType = TokenType::Int;
+      } else {
+        resultType = TokenType::None;
+        resultValue = String::new();
       }
-      //
+    } else
+    if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
+    {
+      resultType = TokenType::Float;
+    } else
+    if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
+    {
+      // Проверяем смену типа
+      if let Ok(value) = resultValue.parse::<i64>() 
+      {
+        if value < 0 {
+          resultType = TokenType::Int;
+        } else {
+          resultType = TokenType::UInt;
+        }
+      } else {
+        resultType = TokenType::None;
+        resultValue = String::new();
+      }
+    } else
+    if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {
+      resultType = TokenType::Int;
     }
+    //
   }
   // return
   Token::new(resultType, resultValue)
@@ -214,10 +209,10 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
     },
     TokenType::Bool =>
     {
-      match tokenData == "true"
-      {
-        true  => Value::UInt(1),
-        false => Value::UInt(0)
+      if tokenData == "true" {
+        Value::UInt(1)
+      } else {
+        Value::UInt(0)
       }
     },
     _ => Value::UInt(0)

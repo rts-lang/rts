@@ -79,8 +79,10 @@ pub fn ensureFfiScope() -> Option<Rc<RefCell<Option<FFIScope>>>>
   // Используем обычный `borrow_mut` — мы единственные владельцы слота.
   {
     let mut cell = slot.borrow_mut();
-    if cell.is_none() {
-      match FFIScope::enter() {
+    if cell.is_none() 
+    {
+      match FFIScope::enter() 
+      {
         Ok(scope) => *cell = Some(scope),
         // Если не смогли войти в scope — оставляем слот пустым.
         // Вызывающий код обработает как обычный FFI-вызов и вернёт ошибку.
