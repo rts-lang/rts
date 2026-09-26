@@ -1,10 +1,9 @@
 ## Free Contribution License
-#### Version 09.06.2025
-#### [Licenses](https://realtime.su/en/licenses)
+#### Version 26.09.2026
 
-Copyright (c) 
- - Anatoly Sergeev (miruji) <miruji@protonmail.com> 
- - and RTS contributors
+Copyright (c)
+- Anatoly Sergeev (miruji) <miruji@protonmail.com>
+- and RTS contributors
 
 ---
 
