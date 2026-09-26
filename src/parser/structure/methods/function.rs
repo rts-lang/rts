@@ -366,7 +366,7 @@ impl Function
         let libraryPath: String = 
           if libraryPath.contains('/') && !std::path::Path::new(&libraryPath).is_absolute()
           {
-            unsafe {
+            unsafe{
               std::path::Path::new(&*_filePath)
                 .parent()
                 .map(|dir| dir.join(&libraryPath).to_string_lossy().into_owned())

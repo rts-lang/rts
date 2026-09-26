@@ -190,15 +190,14 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
 // =================================================================================================
 
 /// Читает линейную запись
-fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) -> bool
+fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> bool
 {
   // Получаем тип операции
-  let opType: TokenType = lineTokens.iter().find_map(|token|
-  {
-    match isMathOperator( *token.getDataType() )
-    {
-      true => Some(*token.getDataType()),
-      false => None,
+  let opType: TokenType = lineTokens.iter().find_map(|token| {
+    if isMathOperator( *token.getDataType() ) {
+      Some(*token.getDataType())
+    } else {
+      None
     }
   }).unwrap_or(TokenType::None);
 
@@ -206,19 +205,16 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
   let leftValue: Vec<Token>;
   let mut rightValue: Option< Vec<Token> > = None;
   {
-    match opType == TokenType::None
-    {
-      false =>
-      {// Операция есть
-        let mut parts: Vec<Line> = splitByType(lineTokens.clone(), &[opType]); // todo: Тут точно клонирование ?
+    if opType == TokenType::None
+    { // Операции не было
+      leftValue = std::mem::take(&mut lineTokens.to_owned()); // todo: Тут точно клонирование ?
+    }
+    else
+    {// Операция есть
+      let mut parts: Vec<Line> = splitByType(lineTokens.to_owned(), &[opType]); // todo: Тут точно клонирование ?
 
-        leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
-        rightValue = std::mem::take(&mut parts[1].tokens);
-      }
-      true =>
-      { // Операции не было
-        leftValue = std::mem::take(&mut lineTokens.clone()); // todo: Тут точно клонирование ?
-      }
+      leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
+      rightValue = std::mem::take(&mut parts[1].tokens);
     }
   }
 
@@ -229,10 +225,10 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
     let (structureNameTokens, structureTypeTokens): (Vec<Token>, Option< Vec<Token> >) =
     {
       let mut parts: Vec<Line> = splitByType(leftValue.clone(), &[TokenType::Colon]);
-      match parts.len() == 2
-      {
-        false => (std::mem::take(&mut parts[0].tokens).unwrap(), None),
-        true => (std::mem::take(&mut parts[0].tokens).unwrap(), std::mem::take(&mut parts[1].tokens))
+      if parts.len() == 2 {
+        (std::mem::take(&mut parts[0].tokens).unwrap(), std::mem::take(&mut parts[1].tokens))
+      } else {
+        (std::mem::take(&mut parts[0].tokens).unwrap(), None)
       }
     };
 
@@ -314,34 +310,31 @@ fn linearStructure(lineTokens: &Vec<Token>, parentLink: Arc<RwLock<Structure>>) 
       let parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
 
       // Вычисляем правое выражение?
-      match structureMutability == StructureMut::Final
-      { true => {} false =>
+      if structureMutability != StructureMut::Final
       { 
         let hasTokens: bool = rightValue.is_none();
         let mut value: Token = parentStructure.expression(&mut rightValue.unwrap());
-        match structureType == StructureType::None
-        {
-          true =>
-          { // Тип вычисляется если он не был изначально определён;
-            // Вычисляется он по типу из результата правой части выражения
-            structureType = value.getStructureType();
-          }
-          false =>
-            match structureMutability == StructureMut::Dynamic
-            { // Тип вычисляется, если флаг изменяемости Dynamic
-              // Вычисляется он по типу из результата правой части выражения
-              true => structureType = value.getStructureType(),
-              // Требуется выполнить преобразование в указанный тип данных
-              false => Structure::normalizeToken(&mut value, structureType.clone())
-            }
+        if structureType == StructureType::None
+        { // Тип вычисляется если он не был изначально определён;
+          // Вычисляется он по типу из результата правой части выражения
+          structureType = value.getStructureType();
+        } else
+        if structureMutability == StructureMut::Dynamic
+        { // Тип вычисляется, если флаг изменяемости Dynamic
+          // Вычисляется он по типу из результата правой части выражения
+          structureType = value.getStructureType();
+        } else 
+        { // Требуется выполнить преобразование в указанный тип данных
+          Structure::normalizeToken(&mut value, structureType.clone());
         }
+
         //
-        rightValue = match hasTokens
-        { true => None, false =>
-        {
-          Some(vec![ value ])
-        }}
-      }}
+        rightValue = if hasTokens {
+          None
+        } else {
+          Some(vec![value])
+        };
+      }
 
       // Создаём структуру
       let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
@@ -423,7 +416,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   // -----------------------------------------------------------------------------
   if lineTokensLength == 0
     && lineLines.is_some()
-    && isPrevLineFfiTag(&parentLink, unsafe { *lineIndex })
+    && isPrevLineFfiTag(&parentLink, unsafe{ *lineIndex })
   {
     let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(
       Structure::new(
@@ -466,7 +459,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   // -----------------------------------------------------------------------------
   if line.tokens.is_none() || lineTokens.is_empty()
     && lineLines.is_some()
-    && isPrevLineFfiTag(&parentLink, unsafe { *lineIndex })
+    && isPrevLineFfiTag(&parentLink, unsafe{ *lineIndex })
   {
     let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(
       Structure::new(
@@ -1172,7 +1165,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
       // Берём линию по индексу линии (она точно будет, поскольку выше мы это проверили)
       let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
       let lines: &Vec< Arc<RwLock<Line>> > = structure.lines.as_ref().unwrap();
-      lines[unsafe { *lineIndex }].clone() // Клонируем нужную линию по индексу
+      lines[unsafe{ *lineIndex }].clone() // Клонируем нужную линию по индексу
     };
     let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
     // После чего проверяем, если линия пустая на токены, то не читаем и идём дальше
