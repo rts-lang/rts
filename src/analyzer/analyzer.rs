@@ -36,7 +36,7 @@ pub struct AnalyzeToken
   // todo desc
   pub end: usize,
   // todo desc
-  pub kind: String,
+  pub kind: String
 }
 
 // todo issue #67 (возможно не все убирать)
@@ -47,7 +47,7 @@ pub struct AnalyzedLine
   // todo desc
   pub indent: usize,
   // todo desc
-  pub tokens: Vec<AnalyzeToken>,
+  pub tokens: Vec<AnalyzeToken>
 }
 
 // =================================================================================================

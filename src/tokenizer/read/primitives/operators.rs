@@ -106,7 +106,7 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
       match best
       {
         Some((bestLength, _, _)) if patternLength <= bestLength => {} // keep the longer one
-        _ => best = Some((patternLength, *tokenType, endIndex)),
+        _ => best = Some((patternLength, *tokenType, endIndex))
       }
     }
   }

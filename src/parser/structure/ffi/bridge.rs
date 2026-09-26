@@ -29,7 +29,7 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
   match token.getDataType()
   {
     TokenType::String => {}
-    _ => return None,
+    _ => return None
   }
   let bytes: String = token.getData().toString()?;
   let length: usize = bytes.len();
@@ -43,9 +43,9 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
       tokens: Some(vec![token.clone()]),
       indent: None,
       lines: None,
-      parent: None,
+      parent: None
     }))]),
-    None,
+    None
   )));
 
   let lengthField: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
@@ -57,9 +57,9 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
       tokens: Some(vec![Token::new(TokenType::UInt, length.to_string())]),
       indent: None,
       lines: None,
-      parent: None,
+      parent: None
     }))]),
-    None,
+    None
   )));
 
   Some([pointerField, lengthField])
@@ -69,9 +69,9 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
 
 /// Конкретный типизированный аргумент FFI, который можно положить в `CallBuilder::arg::<T>`.
 ///
-/// chillffi 0.2 жёстко разделяет `Value` (приватный enum) и публичный
+/// chillffi жёстко разделяет `Value` (приватный enum) и публичный
 /// `CallBuilder::arg::<T: FfiArg>(...)` — `Value` снаружи не сконструируешь,
-/// поэтому единственный путь — превратить наш динамический `Token` в один
+/// поэтому единственный путь — превратить динамический `Token` в один
 /// из известных типов и завернуть через typed builder.
 enum FfiArgValue
 {
@@ -124,7 +124,7 @@ fn tokenToFfiArg(token: &Token) -> Result<FfiArgValue, String>
     }
     TokenType::String => Ok(FfiArgValue::String(tokenData)),
     TokenType::RawString => Ok(FfiArgValue::RawString(tokenData.into_bytes())),
-    _ => Err(format!("Unsupported TokenType for FFI arg: {}", tokenDataType.to_string())),
+    _ => Err(format!("Unsupported TokenType for FFI arg: {}", tokenDataType.to_string()))
   }
 }
 
@@ -144,7 +144,7 @@ fn pushArg<'a, 'g>(builder: CallBuilder<'a, 'g>, arg: FfiArgValue) -> CallBuilde
     FfiArgValue::F64(v) => builder.arg::<f64>(v),
     FfiArgValue::String(v) => builder.arg::<String>(v),
     FfiArgValue::CString(v) => builder.arg::<std::ffi::CString>(v),
-    FfiArgValue::RawString(v) => builder.arg::<Vec<u8>>(v),
+    FfiArgValue::RawString(v) => builder.arg::<Vec<u8>>(v)
   }
 }
 
@@ -160,7 +160,7 @@ pub fn callExternalWithScope<'g>(
   libraryPath: &str,
   methodName: &str,
   parametersTokens: &mut [Token],
-  _resultType: StructureType,
+  _resultType: StructureType
 ) -> Result<(), String>
 {
   // Загружаем библиотеку в удерживаемом scope.
@@ -195,7 +195,7 @@ pub fn callExternal(
   libraryPath: &str,
   methodName: &str,
   parametersTokens: &mut [Token],
-  resultType: StructureType,
+  resultType: StructureType
 ) -> Result<(), String>
 {
   // Используем ffi!{} макрос с замыканием, принимающим scope.

@@ -22,7 +22,7 @@ pub enum Value
   UFloat(uf64),
   
   Char(char),
-  String(String),
+  String(String)
 }
 
 impl Value 
@@ -38,7 +38,7 @@ impl Value
       Self::Float(v) => *v!=0.0,
       Self::UFloat(v) => *v!=uf64::from(0.0),
       Self::Char(c) => *c!='\0',
-      Self::String(s) => !s.is_empty(),
+      Self::String(s) => !s.is_empty()
     }
   }
 }
@@ -55,7 +55,7 @@ impl fmt::Display for Value
       Self::Float(val) => write!(f, "{}", val),
       Self::UFloat(val) => write!(f, "{}", val),
       Self::Char(val) => write!(f, "{}", val),
-      Self::String(ref val) => write!(f, "{}", val),
+      Self::String(ref val) => write!(f, "{}", val)
     }
   }
 }

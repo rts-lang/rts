@@ -30,7 +30,7 @@ mod analyzer;
 /// Основная структура-прокладка для создания оболочки между RTS-lib и другим проектом;
 pub struct RTS 
 {
-  namespace: String,
+  namespace: String
 }
 
 impl RTS 
@@ -57,7 +57,7 @@ impl RTS
             }
           ))
         ]),
-        Some( MainStructure.clone() ), // Ссылаемся на родителя
+        Some( MainStructure.clone() ) // Ссылаемся на родителя
       )))
     );
     
@@ -97,7 +97,7 @@ impl RTS
             }
           ))
         ]),
-        Some( namespaceStructureLink.clone() ), // Ссылаемся на родителя
+        Some( namespaceStructureLink.clone() ) // Ссылаемся на родителя
       )))
     );
   }

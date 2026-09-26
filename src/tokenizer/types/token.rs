@@ -145,16 +145,12 @@ impl fmt::Display for Token
 { // todo: debug only ?
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
   {
-    match self.data.getAll()
-    {
-      Some(data) =>
-      { // Есть данные - печатаем как символы
-        write!(f, "{}", std::str::from_utf8(data).unwrap_or_default())
-      }
-      None =>
-      { // Данных нет - печатаем тип
-        write!(f, "{}", self.getDataType().to_string())
-      }
+    if let Some(data) = self.data.getAll()
+    { // Есть данные - печатаем как символы.
+      write!(f, "{}", std::str::from_utf8(data).unwrap_or_default())
+    } else
+    { // Данных нет - печатаем тип.
+      write!(f, "{}", self.getDataType().to_string())
     }
     //
   }
@@ -164,16 +160,12 @@ impl fmt::Debug for Token
 { // todo: debug only ?
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
   {
-    match self.data.getAll()
-    {
-      Some(data) =>
-      { // Есть данные - печатаем как символы
-        write!(f, "{}", std::str::from_utf8(data).unwrap_or_default())
-      }
-      None =>
-      { // Данных нет - печатаем тип
-        write!(f, "{}", self.getDataType().to_string())
-      }
+    if let Some(data) = self.data.getAll()
+    { // Есть данные - печатаем как символы.
+      write!(f, "{}", std::str::from_utf8(data).unwrap_or_default())
+    } else
+    { // Данных нет - печатаем тип.
+      write!(f, "{}", self.getDataType().to_string())
     }
     //
   }

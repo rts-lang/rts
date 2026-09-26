@@ -43,9 +43,9 @@ fn pushLineFromTokens(
         tokens: Some(tokens),
         indent: None, // todo Устаревшее поле, можно убрать позже
         lines: innerLines,
-        parent: None,
+        parent: None
       })
-      ));
+    ));
     //
   }
 }
@@ -201,7 +201,7 @@ fn readTokens(
         tokens: if tokens.is_empty() { Some(vec![]) } else { Some(tokens) },
         indent: None,
         lines: Some(innerLines),
-        parent: None,
+        parent: None
       })));
     } else
     if byte == b'}' || byte == b')' || byte == b']'
@@ -241,13 +241,11 @@ fn readTokens(
       }
       #[cfg(not(feature = "analyzer"))]
       {
-        match getNumber(buffer, &mut index, bufferLength)
-        {
-          None =>
-          { // Это был бинарный минус
-            addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
-          }
-          Some(token) => lineTokens.push(token)
+        if let Some(token) = getNumber(buffer, &mut index, bufferLength) {
+          lineTokens.push(token)
+        } else
+        { // Это был бинарный минус.
+          addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
         }
       }
     } else
@@ -324,8 +322,7 @@ fn readTokens(
       }
     } else
     // Получаем возможные двойные и одиночные символы
-    if isSingleChar(&byte)
-    {
+    if isSingleChar(&byte) {
       addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
     } else
     { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
@@ -338,8 +335,7 @@ fn readTokens(
   // debug output and return
   #[cfg(not(target_family = "wasm"))]
   #[cfg(not(test))]
-  match debugMode
-  { false => {} true =>
+  if debugMode
   {
     let endTime:  Instant  = Instant::now();    // Получаем текущее время
     let duration: Duration = endTime-startTime; // Получаем сколько всего прошло
@@ -347,7 +343,7 @@ fn readTokens(
     //
     println!("     ┃");
     log("ok",&format!("xDuration: {:?}",duration));
-  }}
+  }
 
   // Возвращаем готовые ссылки на линии
   (linesLinks, index)
@@ -671,24 +667,24 @@ mod tests
         Some(t) => t.iter()
           .map(|tok| format!("{}", tok.getDataType().to_string()))
           .collect::<Vec<_>>()
-          .join(","),
+          .join(",")
       };
       let innerStr: String = match guard.lines.as_ref()
       {
         None => "<None>".to_string(),
         Some(inner) =>
         {
-          let mut s = String::new();
+          let mut s: String = String::new();
           for (j, il) in inner.iter().enumerate()
           {
-            let ig = il.read().unwrap();
+            let ig: RwLockReadGuard<Line> = il.read().unwrap();
             let it: String = match ig.tokens.as_ref()
             {
               None => "<None>".to_string(),
               Some(t) => t.iter()
                 .map(|tok| format!("{}", tok.getDataType().to_string()))
                 .collect::<Vec<_>>()
-                .join(","),
+                .join(",")
             };
             s.push_str(&format!("  inner[{}] tokens=[{}]\n", j, it));
           }
@@ -716,7 +712,7 @@ mod tests
         Some(t) => t.iter()
           .map(|tok| format!("{}", tok.getDataType().to_string()))
           .collect::<Vec<_>>()
-          .join(","),
+          .join(",")
       };
       println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }
@@ -740,7 +736,7 @@ mod tests
         Some(t) => t.iter()
           .map(|tok| format!("{}", tok.getDataType().to_string()))
           .collect::<Vec<_>>()
-          .join(","),
+          .join(",")
       };
       println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }

@@ -22,106 +22,95 @@ pub fn outputTokens(tokens: &[Token], lineIndent: usize, indent: &usize) -> ()
 
     // Слева помечаем что это за токен;
     // В случае с X это завершающий токен
-    c =
-      match i == tokenCount
-      {
-        true  => { 'X' }
-        false => { '┃' }
-      };
+    c = if i == tokenCount { 'X' } else { '┃' };
 
     tokenType = token.getDataType(); // Тип токена
-    match token.getData().toString()
-    {
-      Some(tokenData) =>
-      { // Если токен содержит данные
-        match *tokenType
-        { // Проверяем что за токен
-          TokenType::Char | TokenType::FormattedChar =>
-          { // Если токен это Char | FormattedChar
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b'\\c{}\\c\\fg(#f0f8ff)\\b'\\c  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          TokenType::String | TokenType::FormattedString =>
-          { // Если токен это String | FormattedString
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b\"\\c{}\\c\\fg(#f0f8ff)\\b\"\\c  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          TokenType::RawString | TokenType::FormattedRawString =>
-          { // Если токен это RawString | FormattedRawString
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}\\fg(#f0f8ff)\\b`\\c{}\\c\\fg(#f0f8ff)\\b`\\c  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          _ =>
-          { // Если это обычный токен
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}{}  |{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenData,
-              tokenType.to_string()
-            ));
-          }
-          //
+    if let Some(tokenData) = token.getData().toString()
+    { // Если токен содержит данные
+      match *tokenType
+      { // Проверяем что за токен
+        TokenType::Char | TokenType::FormattedChar =>
+        { // Если токен это Char | FormattedChar
+          log("parserToken",&format!(
+            "{}\\b{}\\c{}\\fg(#f0f8ff)\\b'\\c{}\\c\\fg(#f0f8ff)\\b'\\c  |{}",
+            lineIndentString,
+            c,
+            identString,
+            tokenData,
+            tokenType.to_string()
+          ));
         }
-      }
-      _ =>
-      { // Если это токен только с типом, то выводим тип как символ
-        match token.isPrimitive()
-        {
-          true =>
-            log("parserToken",&format!(
-              "{}\\b{}\\c{}|{}",
-              lineIndentString,
-              c,
-              identString,
-              tokenType.to_string()
-            )),
-          false =>
-            formatPrint(&format!(
-              "{}\\b{}\\c{}{}\n",
-              lineIndentString,
-              c,
-              identString,
-              tokenType.to_string()
-            ))
+        TokenType::String | TokenType::FormattedString =>
+        { // Если токен это String | FormattedString
+          log("parserToken",&format!(
+            "{}\\b{}\\c{}\\fg(#f0f8ff)\\b\"\\c{}\\c\\fg(#f0f8ff)\\b\"\\c  |{}",
+            lineIndentString,
+            c,
+            identString,
+            tokenData,
+            tokenType.to_string()
+          ));
+        }
+        TokenType::RawString | TokenType::FormattedRawString =>
+        { // Если токен это RawString | FormattedRawString
+          log("parserToken",&format!(
+            "{}\\b{}\\c{}\\fg(#f0f8ff)\\b`\\c{}\\c\\fg(#f0f8ff)\\b`\\c  |{}",
+            lineIndentString,
+            c,
+            identString,
+            tokenData,
+            tokenType.to_string()
+          ));
+        }
+        _ =>
+        { // Если это обычный токен
+          log("parserToken",&format!(
+            "{}\\b{}\\c{}{}  |{}",
+            lineIndentString,
+            c,
+            identString,
+            tokenData,
+            tokenType.to_string()
+          ));
         }
         //
       }
+    } else
+    { // Если это токен только с типом, то выводим тип как символ
+      if token.isPrimitive()
+      {
+        log("parserToken", &format!(
+          "{}\\b{}\\c{}|{}",
+          lineIndentString,
+          c,
+          identString,
+          tokenType.to_string()
+        ));
+      } else
+      {
+        formatPrint(&format!(
+          "{}\\b{}\\c{}{}\n",
+          lineIndentString,
+          c,
+          identString,
+          tokenType.to_string()
+        ));
+      }
+      //
     }
 
-    match &token.lines
-    { None => {} Some(lines) =>
+    if let Some(lines) = &token.lines
     { // Если есть вложения у токена, то рекурсивно обрабатываем их
       for (i, lineLink) in lines.iter().enumerate()
       {
         let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
         outputTokens(&line.tokens.clone().unwrap_or_default(), lineIndent, &(indent+1));
         
-        match i != lines.len()-1
-        { false => {}
-          true => log("parserToken", &format!("{}\\b┃\\c", lineIndentString))
+        if i != lines.len()-1 {
+          log("parserToken", &format!("{}\\b┃\\c", lineIndentString));
         }
       }
-    }}
+    }
     //
   }
 }
@@ -138,26 +127,21 @@ pub fn outputLines(linesLinks: &[ Arc<RwLock<Line>> ], indent: usize) -> ()
     line = lineLink.read().unwrap();
     log("parserBegin", &format!("{} {}",identStr1,i));
 
-    match &line.tokens
-    {
-      None =>
-      { // Заголовок для разделителей
-        formatPrint(&format!("{}\\b┗ \\fg(#90df91)Separator\\c\n",identStr2));
-      }
-      Some(tokens) =>
-      { // Заголовок для начала вложенных токенов
-        formatPrint(&format!("{}\\b┣ \\fg(#90df91)Tokens\\c\n",identStr2));
-        // todo плохо используются tokens
-        outputTokens(tokens, indent, &1); // выводим вложенные токены
-      }
+    if let Some(tokens) = &line.tokens
+    { // Заголовок для начала вложенных токенов
+      formatPrint(&format!("{}\\b┣ \\fg(#90df91)Tokens\\c\n",identStr2));
+      // todo плохо используются tokens
+      outputTokens(tokens, indent, &1); // выводим вложенные токены
+    } else 
+    { // Заголовок для разделителей
+      formatPrint(&format!("{}\\b┗ \\fg(#90df91)Separator\\c\n",identStr2));
     }
 
-    match &line.lines
-    { None => {} Some(lineLines) =>
+    if let Some(lineLines) = &line.lines
     { // Заголовок для начала вложенных линий
       formatPrint(&format!("{}\\b┗ \\fg(#90df91)Lines\\c\n",identStr2));
       outputLines(lineLines, indent+1); // выводим вложенные линии
-    }}
+    }
   }
   //
 }

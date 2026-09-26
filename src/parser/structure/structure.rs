@@ -40,7 +40,7 @@ impl ToString for StructureMut
       Self::Final => String::from("Final"),
       Self::Constant => String::from("Constant"),
       Self::Variable => String::from("Variable"),
-      Self::Dynamic => String::from("Dynamic"),
+      Self::Dynamic => String::from("Dynamic")
     }
   }
 }
@@ -87,7 +87,7 @@ pub struct Structure
   pub isFfiBlock: bool,
 
   /// todo Комментарий + возможно не нужно т.к. можно лучше
-  pub lineIndex: usize,
+  pub lineIndex: usize
 }
 
 impl Structure 
@@ -139,69 +139,64 @@ impl Structure
     // "a.b.c" -> ["a", "b", "c"]
     let segments: Vec<String> = Self::parseLink(name);
     
-    // Если имя пустое - нечего искать
-    match segments.is_empty() 
-    {
-      false => (),
-      true => return None
+    // Если имя пустое - нечего искать.
+    if segments.is_empty() {
+      return None
     }
 
-    // Начинаем с корневого уровня (None)
+    // Начинаем с корневого уровня (None).
     let mut currentStructure: Option< Arc<RwLock<Self>> > = None;
 
-    // Пошагово проходим по каждому сегменту имени
+    // Пошагово проходим по каждому сегменту имени.
     for segment in segments.iter() 
     {
       // Определяем список структур для поиска на текущем уровне:
-      // если currentStructure = None, это означает корневой уровень self.structures
-      // иначе — получаем дочерние структуры текущей найденной структуры
+      // если currentStructure = None, это означает корневой уровень self.structures;
+      // иначе — получаем дочерние структуры текущей найденной структуры.
       let childrenLink: Arc<RwLock< Option<Vec< Arc<RwLock<Self>> >> >> = match &currentStructure 
       {
-        None => self.structures.clone(), // Корневые структуры
+        None => self.structures.clone(), // Корневые структуры.
         Some(structureRef) => {
           let structureGuard: RwLockReadGuard<Self> = structureRef.read().unwrap();
-          structureGuard.structures.clone() // Дочерние структуры текущей
+          structureGuard.structures.clone() // Дочерние структуры текущей.
         }
       };
       let childrenOption: RwLockReadGuard< Option<Vec< Arc<RwLock<Self>> >> > = childrenLink.read().unwrap();
 
-      // Флаг найденной структуры
+      // Флаг найденной структуры.
       let mut found: bool = false;
-      // Следующая структура, если сегмент найден
+      // Следующая структура, если сегмент найден.
       let mut nextStructure: Option< Arc<RwLock<Self>> > = None;
 
-      // Обрабатываем наличие дочерних структур
-      match childrenOption.as_deref()
-      { None => {} Some(children) => 
+      // Обрабатываем наличие дочерних структур.
+      if let Some(children) = childrenOption.as_deref()
       {
         for child in children 
         {
           let childGuard: RwLockReadGuard<Self> = child.read().unwrap();
-          match &childGuard.name 
+          if let Some(childName) = &childGuard.name 
           {
-            Some(childName) if childName == segment => 
+            if childName == segment
             {
               found = true;
               nextStructure = Some(child.clone());
               break;
             }
-            _ => ()
           }
+          //
         }
-      }}
-
-      // Если не найдено соответствие текущему сегменту - путь невалиден
-      match found
-      {
-        true => (),
-        false => return None
       }
 
-      // Переходим на следующий уровень структуры
+      // Если не найдено соответствие текущему сегменту - путь невалиден.
+      if !found {
+        return None
+      }
+
+      // Переходим на следующий уровень структуры.
       currentStructure = nextStructure;
     }
 
-    // После успешного прохождения всех сегментов возвращаем найденную структуру
+    // После успешного прохождения всех сегментов возвращаем найденную структуру.
     currentStructure
   }
 
@@ -214,10 +209,10 @@ impl Structure
       self.structures.write().unwrap();
     
     if let Some(childrenVec) = children.as_mut() 
-    { // Если уже есть структуры, то просто push делаем
+    { // Если уже есть структуры, то просто push делаем.
       childrenVec.push(structureLink);
     } else 
-    { // Если не было ещё структур, то создаём новый вектор
+    { // Если не было ещё структур, то создаём новый вектор.
       *children = Some(vec![structureLink]);
     }
   }
@@ -227,7 +222,7 @@ impl Structure
   /// Выполняет операцию со структурой,
   /// для этого требует левую и правую часть выражения,
   /// кроме того, требует передачи родительской структуры,
-  /// чтобы было видно возможные объявления в ней
+  /// чтобы было видно возможные объявления в ней.
   pub fn structureOp(
     &self, 
     structureLink: Arc<RwLock<Self>>, 
@@ -305,20 +300,20 @@ impl Structure
         let leftValue: Token = 
         {
           let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
-          match &structure.lines
+          if let Some(lines) = &structure.lines
           {
-            None => Token::newEmpty(TokenType::None),
-            Some(lines) =>
-              match lines.len() > 0
-              {
-                false => Token::newEmpty(TokenType::None),
-                true =>
-                  self.expression(
-                    &mut lines[0].read().unwrap()
-                      .tokens.clone()
-                      .unwrap_or_default() // todo плохо
-                )
-              }
+            if lines.len() > 0
+            {
+              self.expression(
+                &mut lines[0].read().unwrap()
+                  .tokens.clone()
+                  .unwrap_or_default() // todo плохо
+              )
+            } else {
+              Token::newEmpty(TokenType::None)
+            }
+          } else {
+            Token::newEmpty(TokenType::None)
           }
           //
         };
@@ -687,7 +682,7 @@ impl Structure
                       ]),
                       indent: None,
                       lines: None,
-                      parent: None,
+                      parent: None
                     }
                   ))
                 ]);

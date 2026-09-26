@@ -31,7 +31,7 @@ pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize
   {
     1 => deleteSingleComment(buffer, index, bufferLength),
     2 => deleteDoubleComment(buffer, index, bufferLength),
-    _ => deleteTripleComment(buffer, index, bufferLength),
+    _ => deleteTripleComment(buffer, index, bufferLength)
   }
   //
 }

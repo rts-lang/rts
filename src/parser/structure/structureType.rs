@@ -46,7 +46,7 @@ pub enum StructureType
   List, // todo List<Type>
   
   /// Позволяет создавать пользовательские типы
-  Custom(String),
+  Custom(String)
 }
 
 // =================================================================================================
@@ -96,7 +96,7 @@ impl ToString for StructureType
       Self::List => String::from("List"),
 
       // custom
-      Self::Custom(value) => value.clone(),
+      Self::Custom(value) => value.clone()
     }
   }
 }
@@ -117,15 +117,12 @@ impl Structure
     let dataType: &TokenType = token.getDataType();
 
     // Получаем строку из данных
-    let tokenData: String = match token.getData().toString()
-    {
-      Some(s) => s,
-      None =>
+    let tokenData: String = if let Some(tokenData) =
+      token.getData().toString() { tokenData } else 
       { // Нет данных
         token.setDefaultValue(structureType);
         return;
-      }
-    };
+      };
 
     // Обработка типов
     match structureType 
@@ -382,10 +379,9 @@ impl Token
     let dataType: &TokenType = self.getDataType();
     
     // Получаем строку из данных токена
-    let data: String = match self.getData().toString() {
-      Some(s) => s,
-      None => return result(self, StructureType::None),
-    };
+    let data: String = if let Some(string) = 
+      self.getData().toString() { string }
+      else { return result(self, StructureType::None) };
 
     result(self, match dataType 
     {
@@ -508,7 +504,7 @@ impl Token
       "List" => StructureType::List,
 
       // Всё остальное — кастомное
-      _ => StructureType::Custom(data),
+      _ => StructureType::Custom(data)
     }
     //
   }

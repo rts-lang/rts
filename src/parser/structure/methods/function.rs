@@ -28,20 +28,17 @@ impl Function
       value[i].setData(None);
     } else
     {
-      match parameters.getExpression(structure, 0)
+      if let Some(parameter0) = parameters.getExpression(structure, 0)
       {
-        None => 
-        {
-          value[i].setDataType(TokenType::None);
-          value[i].setData(None);
-        },
-        Some(p0) =>
-        {
-          value[i].setDataType( TokenType::String );
-          value[i].setData( p0.getDataType().to_string() );
-        }
-      };
+        value[i].setDataType( TokenType::String );
+        value[i].setData( parameter0.getDataType().to_string() );
+      } else 
+      {
+        value[i].setDataType(TokenType::None);
+        value[i].setData(None);
+      }
     }
+    //
   }
   
   /// Возвращает тип данных структуры
@@ -53,52 +50,39 @@ impl Function
       value[i].setData(None);
     } else
     {
-      //
-      match parameters.get(0)
-      { None => {} Some(p0Link) =>
-      { // Получаем 0 параметр
-
-        let p0: RwLockReadGuard<Line> = p0Link.read().unwrap();
-        match &p0.tokens
-        { None => {} Some(tokens) =>
-        { // Получаем список токенов
+      if let Some(parameter0Link) = parameters.get(0)
+      { // Получаем 0 параметр.
+        let parameter0: RwLockReadGuard<Line> = parameter0Link.read().unwrap();
+        if let Some(tokens) = &parameter0.tokens
+        { // Получаем список токенов.
       
-          let token: &Token = tokens.first().unwrap(); // Получаем 0 токен
+          let token: &Token = tokens.first().unwrap(); // Получаем 0 токен.
           
           let structureName: String = token.getData().toString().unwrap_or_default();
-          match structureName.is_empty()
-          { true => {} false =>
-          { // Ищем структуру
-            match structure.getStructureByName(&structureName)
+          if !structureName.is_empty()
+          { // Ищем структуру.
+            if let Some(structureLink) = structure.getStructureByName(&structureName)
+            { // Это custom structure.
+              let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+              value[i].setDataType(TokenType::String);
+              value[i].setData(structure.dataType.to_string());
+            } else
             {
-              Some(structureLink) =>
-              { // Это custom structure
-                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-                value[i].setDataType(TokenType::String);
-                value[i].setData(structure.dataType.to_string());
+              value[i].setDataType(TokenType::String);
+              if token.isPrimitive()
+              { // Это примитивное значение.
+                value[i].setData(token.getData());
+              } else 
+              { // Это то, чего нет как типа данных.
+                value[i].setDataType(TokenType::None);
+                value[i].setData(None);
               }
-              None =>
-              {
-                value[i].setDataType(TokenType::String);
-                match token.isPrimitive()
-                { // Это примитивное значение
-                  true => value[i].setData(token.getData()),
-                  // Это то, чего нет как типа данных
-                  false => {
-                    value[i].setDataType(TokenType::None);
-                    value[i].setData(None);
-                  }
-                }
-                //
-              }
+              //
             }
-            //
-          }}
+          }
           //
-        }}
-        //
-      }}
-      
+        }
+      }
       //
     }
   }
@@ -403,7 +387,7 @@ impl Function
   /// 
   /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
   ///   а после этого было уничтожено из-за конца структуры или конца вызова.
-  fn Usize(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize) 
+  fn usize(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize) 
   {
     match parameters.getExpression(structure, 0)
     {
@@ -421,7 +405,7 @@ impl Function
             lines: None,
             parent: None,
           }))]),
-          None,
+          None
         );
     
         // Нормализуем
@@ -493,126 +477,113 @@ impl Structure
   pub fn functionCall(&self, value: &mut Vec<Token>, valueLength: &mut usize, i: usize) -> ()
   {
     let parameters: Parameters = self.getCallParameters(value, i, valueLength);
-    match value[i].getData().toString()
-    {
-      // -------------------------------------------------------------------------------------------
-      None =>
-      { // Вариант в котором тип токена может быть типом данных => это cast в другой тип;
-        match *value[i].getDataType()
-        {
-          TokenType::UInt =>
-          { // Получаем значение выражения в типе
-            // todo: Float, UFloat
-            match parameters.getExpression(self,0)
-            { None => {} Some(p0) =>
-            {
-              value[i].setDataType( TokenType::UInt );
-              value[i].setData( p0.getData().toString().unwrap_or_default() );
-            }}
-          }
-          TokenType::Int =>
-          { // Получаем значение выражения в типе
-            match parameters.getExpression(self,0)
-            { None => {} Some(p0) =>
-            {
-              value[i].setDataType( TokenType::Int );
-              value[i].setData( p0.getData().toString().unwrap_or_default() );
-              //
-            }}
-            //
-          }
-          TokenType::String =>
-          { // Получаем значение выражение в типе String
-            // todo: подумать над formatted типами
-            match parameters.getExpression(self,0)
-            { None => {} Some(p0) =>
-            {
-              value[i].setDataType( TokenType::String  );
-              value[i].setData( p0.getData().toString().unwrap_or_default() );
-              //
-            }}
-            //
-          }
-          TokenType::Char =>
-          { // Получаем значение выражения в типе Char
-            // todo: проверить работу
-            match parameters.getExpression(self,0)
-            { None => {} Some(p0) =>
-            {
-              value[i].setDataType( TokenType::Char );
-              value[i].setData(
-                (p0.getData().toString().unwrap_or_default()
-                  .parse::<u8>().unwrap() as char
-                ).to_string()
-              );
-              //
-            }}
-            //
-          }
-          _ => {} // todo: Возможно custom варианты преобразований из custom ?
+
+    // ---------------------------------------------------------------------------------------------
+    if let Some(structureName) = value[i].getData().toString()
+    { // Вариант в котором это обращение к стандартной или custom функции;
+      // todo: проверка на нижний регистр
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      // Далее идут базовые методы;
+      // Эти методы ожидают аргументов
+      'basicMethods:
+      { // Это позволит выйти, если мы ожидаем не стандартные варианты
+        match structureName.as_str()
+        { // Проверяем на сходство стандартных функций
+
+          // todo: создать resultType() ?
+          //       для возвращения результата ожидаемого структурой
+
+          "type" => Function::_type(self, &parameters, value, i),
+          "stype" => Function::stype(self, &parameters, value, i),
+          "mut" => Function::_mut(self, &parameters, value, i),
+          "randUInt" => Function::randUInt(self, &parameters, value, i),
+          "len" => Function::len(self, &parameters, value, i),
+          "input" => Function::input(self, &parameters, value, i),
+          "exec" => Function::exec(self, &parameters, value, i),
+          "execs" => Function::execs(self, &parameters, value, i),
+          "importNative" => Function::importNative(self, &parameters, value, i),
+          "Usize" => Function::usize(self, &parameters, value, i),
+          _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
+        }
+        return;
+      }
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      // Если код не завершился ранее, то далее идут custom методы;
+
+      // Передаём параметры, они также могут быть None
+//        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
+//        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
+      self.procedureCall(&structureName, parameters);
+      // После чего решаем какой результат оставить
+      if let Some(structureLink) = self.getStructureByName(&structureName)
+      { // По результату структуры, определяем пустой он или нет
+        if let Some(result) = &structureLink.read().unwrap().result
+        { // Результат не пустой, значит оставляем его
+          value[i].setData    ( result.getData() );
+          value[i].setDataType( *result.getDataType() );
+        } else
+        { // Если результата структуры не было,
+          // значит это была действительно процедура
+          value[i].setData(None);
+          value[i].setDataType( TokenType::None );
         }
       }
-      // -------------------------------------------------------------------------------------------
-      Some(structureName) =>
-      { // Вариант в котором это обращение к стандартной или custom функции;
-        // todo: проверка на нижний регистр
-
-        // Далее идут базовые методы;
-        // Эти методы ожидают аргументов
-        'basicMethods:
-        { // Это позволит выйти, если мы ожидаем не стандартные варианты
-          match structureName.as_str()
-          { // Проверяем на сходство стандартных функций
-
-            // todo: создать resultType() ?
-            //       для возвращения результата ожидаемого структурой
-
-            "type" => Function::_type(self, &parameters, value, i),
-            "stype" => Function::stype(self, &parameters, value, i),
-            "mut" => Function::_mut(self, &parameters, value, i),
-            "randUInt" => Function::randUInt(self, &parameters, value, i),
-            "len" => Function::len(self, &parameters, value, i),
-            "input" => Function::input(self, &parameters, value, i),
-            "exec" => Function::exec(self, &parameters, value, i),
-            "execs" => Function::execs(self, &parameters, value, i),
-            "importNative" => Function::importNative(self, &parameters, value, i),
-            "Usize" => Function::Usize(self, &parameters, value, i),
-            _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
-          }
-          return;
-        }
-        // -----------------------------------------------------------------------------------------
-        // Если код не завершился ранее, то далее идут custom методы;
-
-        // Передаём параметры, они также могут быть None
-//        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
-//\        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
-        self.procedureCall(&structureName, parameters);
-        // После чего решаем какой результат оставить
-        match self.getStructureByName(&structureName)
-        { None => {} Some(structureLink) =>
-        { // По результату структуры, определяем пустой он или нет
-          match
-            &structureLink.read().unwrap()
-              .result
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    } else
+    // ---------------------------------------------------------------------------------------------
+    { // Вариант в котором тип токена может быть типом данных => это cast в другой тип;
+      match *value[i].getDataType()
+      {
+        TokenType::UInt =>
+        { // Получаем значение выражения в типе
+          // todo: Float, UFloat
+          if let Some(parameter0) = parameters.getExpression(self,0)
           {
-            Some(result) =>
-            { // Результат не пустой, значит оставляем его
-              value[i].setData    ( result.getData() );
-              value[i].setDataType( *result.getDataType() );
-            }
-            None =>
-            { // Если результата структуры не было,
-              // значит это была действительно процедура
-              value[i].setData(None);
-              value[i].setDataType( TokenType::None );
-            }
+            value[i].setDataType( TokenType::UInt );
+            value[i].setData( parameter0.getData().toString().unwrap_or_default() );
           }
-        }}
-        // -----------------------------------------------------------------------------------------
+        }
+        TokenType::Int =>
+        { // Получаем значение выражения в типе
+          if let Some(parameter0) = parameters.getExpression(self,0)
+          {
+            value[i].setDataType( TokenType::Int );
+            value[i].setData( parameter0.getData().toString().unwrap_or_default() );
+            //
+          }
+          //
+        }
+        TokenType::String =>
+        { // Получаем значение выражение в типе String
+          // todo: подумать над formatted типами
+          if let Some(parameter0) = parameters.getExpression(self,0)
+          {
+            value[i].setDataType( TokenType::String  );
+            value[i].setData( parameter0.getData().toString().unwrap_or_default() );
+            //
+          }
+          //
+        }
+        TokenType::Char =>
+        { // Получаем значение выражения в типе Char
+          // todo: проверить работу
+          if let Some(parameter0) = parameters.getExpression(self,0)
+          {
+            value[i].setDataType( TokenType::Char );
+            value[i].setData(
+              (parameter0.getData().toString().unwrap_or_default()
+                .parse::<u8>().unwrap() as char
+              ).to_string()
+            );
+            //
+          }
+          //
+        }
+        _ => {} // todo: Возможно custom варианты преобразований из custom ?
       }
     }
-    //
+    // ---------------------------------------------------------------------------------------------
   }
   
   // ===============================================================================================

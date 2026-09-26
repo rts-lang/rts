@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell, RefMut};
 use std::rc::Rc;
 use chillffi::ffi::scope::{FFIScope, Scope};
 // =================================================================================================
@@ -71,20 +71,22 @@ pub fn currentFfiBlock() -> Option<Rc<RefCell<Option<FFIScope>>>>
 ///    `FFIScope::enter()` (читай: никакого fork зигота) не происходит;
 ///  - на первом вызове `FFIScope::enter()` дёргается ровно один раз,
 ///    последующие вызовы переиспользуют тот же scope.
-pub fn ensureFfiScope() -> Option<Rc<RefCell<Option<FFIScope>>>>
+pub fn ensureFfiScope() -> Option< Rc<RefCell< Option<FFIScope> >> >
 {
-  let slot: Rc<RefCell<Option<FFIScope>>> = currentFfiBlock()?;
+  let slot: Rc<RefCell< Option<FFIScope> >> = currentFfiBlock()?;
 
   // Создаём FFIScope, если ещё не создан.
   // Используем обычный `borrow_mut` — мы единственные владельцы слота.
   {
-    let mut cell = slot.borrow_mut();
-    if cell.is_none() {
-      match FFIScope::enter() {
+    let mut cell: RefMut< Option<FFIScope> > = slot.borrow_mut();
+    if cell.is_none() 
+    {
+      match FFIScope::enter() 
+      {
         Ok(scope) => *cell = Some(scope),
         // Если не смогли войти в scope — оставляем слот пустым.
         // Вызывающий код обработает как обычный FFI-вызов и вернёт ошибку.
-        Err(_) => return None,
+        Err(_) => return None
       }
     }
   }
@@ -100,15 +102,15 @@ pub fn ensureFfiScope() -> Option<Rc<RefCell<Option<FFIScope>>>>
 /// должен отработать fallback (старый `ffi!{}` макрос без удержания).
 pub fn withCurrentFfiScope<R>(
   f: impl FnOnce(&Scope<'_>) -> Result<R, String>
-) -> Option<Result<R, String>>
+) -> Option< Result<R, String> >
 {
   // 1) Берём Rc на слот текущего блока (или None, если не в @ffi).
-  let slot: Rc<RefCell<Option<FFIScope>>> = ensureFfiScope()?;
+  let slot: Rc<RefCell< Option<FFIScope> >> = ensureFfiScope()?;
 
   // 2) Borrow-им FFIScope, чтобы получить &Scope<'_>.
   //    borrow живёт ровно столько, сколько нужно для вызова `f`,
   //    что и держит lifetime Scope<'_> валидным.
-  let cell = slot.borrow();
+  let cell: Ref< Option<FFIScope> > = slot.borrow();
   let ffi_scope: &FFIScope = cell.as_ref()?;
   let scope: Scope<'_> = ffi_scope.scope();
 
@@ -157,7 +159,7 @@ mod tests
   #[test]
   fn scopeReusedAcrossCalls() -> ()
   {
-    let _slot = enterFfiBlock();
+    let _slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
     let first: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
     let second: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
     assert!(first.is_some());
@@ -178,7 +180,7 @@ mod tests
     use chillffi::ffi::library::Library;
     use chillffi::ffi::scope::Scope;
 
-    let _slot = enterFfiBlock();
+    let _slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
 
     let pid1: Option<Result<i32, String>> = withCurrentFfiScope(|scope: &Scope<'_>| {
       let libc: Library = scope.load("libc.so.6")
