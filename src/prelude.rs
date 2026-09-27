@@ -1,7 +1,5 @@
 /// run file path
 pub static mut _filePath: String = String::new();
-/// Вывод дебага>
-pub static mut _debugMode: bool = false;
 
 /// arguments count
 pub static mut _argc: usize = 0;

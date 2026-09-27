@@ -1,16 +1,9 @@
 use std::sync::{Arc, RwLock};
-#[cfg(all(not(target_family = "wasm"), not(test)))]
-use std::time::{Instant, Duration};
-#[cfg(all(not(target_family = "wasm"), not(test)))]
-use crate::logger::logger::{log, logSeparator};
 use crate::tokenizer::read::primitives::comments::{deleteComment};
 use crate::tokenizer::read::primitives::numbers::{getNumber, isDigit};
 use crate::tokenizer::read::primitives::operators::{getOperator, isSingleChar};
 use crate::tokenizer::read::primitives::quotes::getQuotes;
 use crate::tokenizer::read::primitives::words::{getWord, isLetter};
-#[cfg(not(target_family = "wasm"))]
-#[cfg(not(test))]
-use crate::tokenizer::tools::output::outputLines;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -70,7 +63,7 @@ fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: usize, lin
 // =================================================================================================
 
 /// Обертка для простоты использования чтения токенайзера
-pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLock<Line>> >
+pub fn readTokensSimple(buffer: &mut Vec<u8>) -> Vec< Arc<RwLock<Line>> >
 {
   // Требуем обязательно \n в конце для правильного чтения;
   // Получаем buffer без mut.
@@ -84,7 +77,7 @@ pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLoc
       buffer
     };
 
-  readTokens(buffer, 0, None, debugMode).0
+  readTokens(buffer, 0).0
 }
 
 /// Основная функция для чтения токенов и получения чистых линий из них;
@@ -96,28 +89,9 @@ pub fn readTokensSimple(buffer: &mut Vec<u8>, debugMode: bool) -> Vec< Arc<RwLoc
 /// **index** - Основной индекс чтения.
 fn readTokens(
   buffer: &Vec<u8>,
-  mut index: usize,
-  stopByte: Option<u8>, // Если задан, читаем до этого байта
-  debugMode: bool
+  mut index: usize
 ) -> (Vec<Arc<RwLock<Line>>>, usize) // Возвращаем линии и новый индекс
 {
-  //
-  #[cfg(not(target_family = "wasm"))]
-  #[cfg(not(test))]
-  match debugMode
-  {
-    true =>
-    {
-      logSeparator("AST");
-      log("ok","+Generation");
-      println!("     ┃");
-    }
-    false => {}
-  }
-  #[cfg(not(target_family = "wasm"))]
-  #[cfg(not(test))]
-  let startTime: Instant = Instant::now(); // Замеряем текущее время для debug
-
   let bufferLength: usize = buffer.len();    // Размер буфера байтов
   let mut lineTokens: Vec<Token> = Vec::new(); // Прочитанные токены текущей линии
 
@@ -151,7 +125,7 @@ fn readTokens(
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
-        readTokens(buffer, index, Some(b')'), false);
+        readTokens(buffer, index);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b')' // buffer[index] должен быть closeByte, пропускаем его
@@ -166,7 +140,7 @@ fn readTokens(
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
-        readTokens(buffer, index, Some(b']'), false);
+        readTokens(buffer, index);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b']' // buffer[index] должен быть closeByte, пропускаем его
@@ -181,7 +155,7 @@ fn readTokens(
       index += 1; // Пропускаем открывающую скобку
       // Возвращаем полученные линии и новый индекс
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
-        readTokens(buffer, index, Some(b'}'), false);
+        readTokens(buffer, index);
       index = newIndex;
       if index < buffer.len() && // Выйдет при конце чтения
         buffer[index] == b'}' // buffer[index] должен быть closeByte, пропускаем его
@@ -332,19 +306,6 @@ fn readTokens(
     //
   }
 
-  // debug output and return
-  #[cfg(not(target_family = "wasm"))]
-  #[cfg(not(test))]
-  if debugMode
-  {
-    let endTime:  Instant  = Instant::now();    // Получаем текущее время
-    let duration: Duration = endTime-startTime; // Получаем сколько всего прошло
-    outputLines(&linesLinks,2); // Выводим полученное AST дерево из линий
-    //
-    println!("     ┃");
-    log("ok",&format!("xDuration: {:?}",duration));
-  }
-
   // Возвращаем готовые ссылки на линии
   (linesLinks, index)
 }
@@ -367,7 +328,7 @@ mod testsReadTokens
   fn emptyBuffer() -> ()
   {
     let buffer: Vec<u8> = vec![];
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     assert_eq!(result.len(), 1, "Пустой буфер даёт 1 разделитель");
@@ -384,7 +345,7 @@ mod testsReadTokens
   fn autoNewline() -> ()
   {
     let buffer: Vec<u8> = b"a".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     assert_eq!(result.len(), 1, "Автодобавление \\n не ломает структуру");
@@ -402,7 +363,7 @@ mod testsReadTokens
   fn indentHierarchy() -> () 
   {
     let buffer: Vec<u8> = b"a\n  b\n    c\n".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     #[cfg(not(feature = "analyzer"))]
@@ -437,7 +398,7 @@ mod testsReadTokens
   fn indentReset() -> () 
   {
     let buffer: Vec<u8> = b"a\n  b\nc\n  d\n".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     #[cfg(not(feature = "analyzer"))]
@@ -461,7 +422,7 @@ mod testsReadTokens
   fn bracketInLine() -> ()
   {
     let buffer: Vec<u8> = b"(x + y)\n".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     let lineGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
@@ -507,7 +468,7 @@ println(a())
     */
     
     //let buffer: Vec<u8> =
-    //let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    //let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     #[cfg(not(feature = "analyzer"))]
     {
@@ -527,7 +488,7 @@ println(a())
   fn fullCommentLine() -> ()
   {
     let buffer: Vec<u8> = b"# only comment\n".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     #[cfg(feature = "analyzer")]
@@ -550,7 +511,7 @@ println(a())
   fn complexBlock() -> ()
   {
     let buffer: Vec<u8> = b"a\n  10\ntype(a)\n# test comment\nmut(a)".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     #[cfg(not(feature = "analyzer"))]
@@ -605,7 +566,7 @@ println(a())
   fn nestedBracketsWithCommas() -> ()
   {
     let buffer: Vec<u8> = b"((a), (b))\n".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     //
     let lineGuard: RwLockReadGuard<Line> = result[0].read().unwrap();
@@ -626,7 +587,7 @@ println(a())
   fn semicolonEndline() -> () 
   {
     let buffer: Vec<u8> = b"x; y;".to_vec();
-    let result: Vec<Arc<RwLock<Line>>> = readTokens(buffer, false);
+    let result: Vec<Arc<RwLock<Line>>> = readTokens(&buffer, 0, None).0;
 
     #[cfg(not(feature = "analyzer"))]
     assert_eq!(result.len(), 2, "2 линии через ;");
@@ -656,7 +617,7 @@ mod tests
   {
     let mut buffer: Vec<u8> =
       b"[ffi]\n{\n  lib: Pointer = importNative(\"./libhello.so\")\n  lib.hello(4)\n}\n".to_vec();
-    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer, false);
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
     println!("total lines = {}", lines.len());
     for (i, line) in lines.iter().enumerate()
     {
@@ -701,7 +662,7 @@ mod tests
   {
     let mut buffer: Vec<u8> =
       b"[ffi] { lib.hello(4) }\n".to_vec();
-    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer, false);
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
     println!("[one-line] total lines = {}", lines.len());
     for (i, line) in lines.iter().enumerate()
     {
@@ -725,7 +686,7 @@ mod tests
   {
     let mut buffer: Vec<u8> =
       b"{ lib.hello(4) }\n".to_vec();
-    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer, false);
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
     println!("[plain block] total lines = {}", lines.len());
     for (i, line) in lines.iter().enumerate()
     {

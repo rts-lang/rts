@@ -37,7 +37,7 @@ mod tests
   pub(super) fn getTokensFromBuffer(src: &str) -> Vec<Token>
   {
     let mut buffer: Vec<u8> = src.as_bytes().to_vec();
-    let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer, false);
+    let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
 
     let mut types: Vec<Token> = Vec::new();
     for lineLink in lines

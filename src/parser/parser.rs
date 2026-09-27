@@ -8,12 +8,6 @@ use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{TokenType};
 use crate::tokenizer::tools::splitByType::splitByType;
-#[cfg(not(target_family = "wasm"))]
-use crate::_debugMode;
-#[cfg(not(target_family = "wasm"))]
-use crate::logger::logger::{log, logSeparator};
-#[cfg(not(target_family = "wasm"))]
-use std::time::{Duration, Instant};
 use crate::parser::structure::structureType::StructureType;
 // =================================================================================================
 
@@ -946,11 +940,6 @@ pub static MainStructure: LazyLock< Arc<RwLock<Structure>> > =
 /// Она разделена на подготовительную часть, и часть запуска readLine()
 pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 { // Начинается подготовка к запуску.
-  #[cfg(not(target_family = "wasm"))]
-  if unsafe{_debugMode} {
-    logSeparator("Preparation");
-  }
-
   { // Присваиваем в главную структуру.
     let mut main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
 
@@ -1016,37 +1005,9 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
     );
   }
 
-  // Выводим arch & argv
-  #[cfg(not(target_family = "wasm"))]
-  unsafe{
-    if _debugMode
-    {
-      log("ok", &format!("argc [{}]", _argc));
-      if _argc > 0 {
-        log("ok", &format!("argv {:?}", _argv));
-      }
-    }
-  }
-
   // Подготовка закончена, читаем линии
-  #[cfg(not(target_family = "wasm"))]
-  let startTime: Instant = Instant::now(); // Получаем текущее время для debug замера.
-  #[cfg(not(target_family = "wasm"))]
-  if unsafe{ _debugMode } {
-    logSeparator("Interpretation");
-  }
-  
   // Передаём ссылку на структуру и запускаем
   readLines(MainStructure.clone());
-  // Далее идут debug замеры
-  #[cfg(not(target_family = "wasm"))]
-  if unsafe{_debugMode}
-  {
-    let endTime: Instant = Instant::now(); // Получаем текущее время.
-    let duration: Duration = endTime-startTime; // Получаем сколько всего прошло.
-    logSeparator("End");
-    log("ok",&format!("Parser duration [{:?}]",duration));
-  }
 }
 /// Эта функция занимается чтением блоков по ссылке на них
 /// todo: исправить переполнение стека

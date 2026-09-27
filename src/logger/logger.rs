@@ -1,5 +1,4 @@
 // =================================================================================================
-use crate::_debugMode;
 use termion::color::{Bg, Fg, Rgb, Reset};
 use termion::style;
 // =================================================================================================
@@ -189,37 +188,16 @@ pub fn logSeparator(text: &str) -> ()
 // возвращает описание выхода;
 pub fn logExit(code: i32) -> !
 {
-  match code == 0 
-  {
-    true => 
-    { // В данном случае завершение успешно;
-      if unsafe{_debugMode} {
-        formatPrint("   \\b┗\\fg(#1ae96b) Exit 0\\c \\fg(#f0f8ff)\\b:)\\c\n");
-      }
-      std::process::exit(0);
-    }
-    false => 
-    { // В данном случае завершение не успешное;
-      if unsafe{_debugMode}
-      {
-        formatPrint(
-          &format!(
-            "   \\b┗\\fg(#e91a34) Exit {}\\c \\fg(#f0f8ff)\\b:(\\c\n", 
-            code
-          )
-        );
-      }
-      std::process::exit(code);
-    }
-  }
+  std::process::exit(code);
 }
+
 
 // =================================================================================================
 
 // basic style log
 pub fn log(textType: &str, text: &str) -> ()
 {
-  let mut parts: Vec<String>;
+  let parts: Vec<String>;
   let mut outputParts: Vec<String>;
   
   match textType 

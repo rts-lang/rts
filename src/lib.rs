@@ -105,9 +105,8 @@ impl RTS
   /// Запускает код
   pub fn run(&self, script: &str) 
   {
-    // unsafe{_debugMode = true;}
     let mut buffer: Vec<u8> = script.as_bytes().to_vec();
-    parseLines( readTokensSimple(&mut buffer, unsafe{_debugMode}) );
+    parseLines( readTokensSimple(&mut buffer) );
   }
   
   pub fn getNative(method: extern "C" fn(args: &[Token])) -> Bytes 
