@@ -742,7 +742,6 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             Some(parentLink.clone())
           );
         newStructure.isFfiBlock = isFfi;
-        println!("isFfi {}",isFfi);
 
         // Ставим параметры структуры, если они были
         if let Some(parameters) = &parameters
