@@ -36,7 +36,7 @@ if (!wasmOk) {
   process.exit(1);
 }
 
-const { default: init, analyzeLines } = await import("../pkg/rts.js");
+const { default: init, analyzeLinesTree } = await import("../pkg/rts.js");
 
 // ---------- ANSI ----------
 const BOLD: string = "\x1b[1m";
@@ -54,7 +54,7 @@ function FG(color: string): string {
 const COLOR_TOKEN: string = FG("#f0f8ff");
 const COLOR_LABEL: string = FG("#90df91");
 
-// ---------- Types ----------
+// ---------- Types (nested AST from analyzer) ----------
 interface Token {
   kind: string;
   start: number;
@@ -66,27 +66,11 @@ interface Token {
 
 interface Line {
   indent: number;
-  tokens?: Token[];
-  lines?: Line[];
+  tokens?: Token[] | null;
+  lines?: Line[] | null;
 }
 
-// ---------- Source helpers ----------
-const encoder: TextEncoder = new TextEncoder();
-const decoder: TextDecoder = new TextDecoder();
-
-function getTokenText(start: number, end: number): string {
-  const bytes: Uint8Array = encoder.encode(sourceCode);
-  return decoder.decode(bytes.slice(start, end));
-}
-
-function resolveTokenText(token: Token): string | undefined {
-  if (token.data !== undefined) return token.data;
-  if (token.start !== undefined && token.end !== undefined && token.end > token.start) {
-    return getTokenText(token.start, token.end);
-  }
-  return undefined;
-}
-
+/** Как в Rust: кавычки вокруг data; data уже без внешних кавычек */
 function formatTokenDisplay(kind: string, text: string): string {
   switch (kind) {
     case "Char":
@@ -103,7 +87,7 @@ function formatTokenDisplay(kind: string, text: string): string {
   }
 }
 
-// ---------- Tree print ----------
+// ---------- Tree print (порт Rust outputTokens / outputLines) ----------
 
 function outputTokens(tokens: Token[], lineIndent: number, indent: number): void {
   if (tokens.length === 0) return;
@@ -116,10 +100,9 @@ function outputTokens(tokens: Token[], lineIndent: number, indent: number): void
     const isLast: boolean = i === tokenCount;
     const c: string = isLast ? "X" : "┃";
     const tokenType: string = token.kind;
-    const tokenText: string | undefined = resolveTokenText(token);
 
-    if (tokenText !== undefined) {
-      const displayed: string = formatTokenDisplay(tokenType, tokenText);
+    if (token.data !== undefined && token.data !== "") {
+      const displayed: string = formatTokenDisplay(tokenType, token.data);
       console.log(
         `${lineIndentString}${BOLD}${c}${RESET}${identString}${COLOR_TOKEN}${displayed}${RESET}  |${tokenType}`
       );
@@ -133,9 +116,12 @@ function outputTokens(tokens: Token[], lineIndent: number, indent: number): void
       );
     }
 
+    // Вложения токена (тело скобок)
     if (token.lines && token.lines.length > 0) {
       token.lines.forEach((line: Line, idx: number) => {
-        outputTokens(line.tokens ?? [], lineIndent, indent + 1);
+        if (line.tokens && line.tokens.length > 0) {
+          outputTokens(line.tokens, lineIndent, indent + 1);
+        }
         if (idx !== token.lines!.length - 1) {
           console.log(`${lineIndentString}${BOLD}┃${RESET}`);
         }
@@ -169,7 +155,7 @@ function outputLines(lines: Line[], indent: number): void {
 
 await init();
 
-const resultJson: string = analyzeLines(sourceCode);
+const resultJson: string = analyzeLinesTree(sourceCode);
 const lines: Line[] = JSON.parse(resultJson) as Line[];
 
 outputLines(lines, 0);
