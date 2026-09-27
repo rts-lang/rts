@@ -1,17 +1,22 @@
 #!/usr/bin/env bun
 /**
- * Build WASM package for tools (analyzer).
- *
- * From Cargo.toml:
- *   wasm-pack build --target web --features analyzer --no-default-features
- *
- * Usage:
- *   bun run tools/build.ts           # release wasm → ./pkg
- *   bun run tools/build.ts --dev     # dev profile (faster, larger)
- *   bun run tools/build.ts --force   # rebuild even if pkg looks ok
- *
- * Other tools can call ensureWasm() so pkg/rts.js exists before import.
- */
+  Build WASM package for tools (analyzer).
+ 
+  From Cargo.toml:
+    wasm-pack build --target web --features analyzer --no-default-features
+ 
+  Usage:
+    bun run tools/build.ts           # release wasm → ./pkg
+    bun run tools/build.ts --dev     # dev profile (faster, larger)
+    bun run tools/build.ts --force   # rebuild even if pkg looks ok
+ 
+ Other tools can call ensureWasm() so pkg/rts.js exists before import.
+ 
+ todo Тут еще по сути если не будет wasm-pack - оно не установится.
+   Поэтому нужно отдельный шаг на эту установку или предупреждение.
+   Возможно даже выбор ручной или автоматической установки.
+   Но на разных платформах - автоматика может сломаться я думаю.
+*/
 
 import { $ } from "bun";
 import { existsSync, statSync } from "fs";

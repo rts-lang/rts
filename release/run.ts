@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * RTS run script
- *
- * Usage:
- *   ./run.ts <file.rt>            # debug build + run
- *   ./run.ts --release <file.rt>  # release build + run
- */
+  RTS run script
+ 
+  Usage:
+    ./run.ts <file.rt>            # debug build + run
+    ./run.ts --release <file.rt>  # release build + run
+*/
 
 import { $ } from "bun";
 import { existsSync, rmSync } from "fs";

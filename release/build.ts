@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 /**
- * RTS build script for x86-64
- *
- * Usage:
- *   bun run build.ts            # debug
- *   bun run build.ts --release  # release
- */
+  RTS build script for x86-64
+ 
+  Usage:
+    bun run build.ts            # debug
+    bun run build.ts --release  # release
+*/
 
 import { $ } from "bun";
 import { existsSync, unlinkSync, renameSync } from "fs";

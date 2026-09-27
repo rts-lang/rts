@@ -1,17 +1,17 @@
 #!/usr/bin/env bun
 /**
- * RTS AST console viewer
- *
- * Uses WASM analyzer (pkg/rts.js) to tokenize source and print
- * a tree similar to the old Rust debug output (outputLines / outputTokens).
- * No timing measurements.
- *
- * Usage:
- *   bun run tools/ast.ts <file.rt>
- *   bun run tools/ast.ts -e 'print("hi")'
- *   echo 'print(1)' | bun run tools/ast.ts
- *   bun run tools/ast.ts   # reads stdin if no args
- */
+  RTS AST console viewer
+ 
+  Uses WASM analyzer (pkg/rts.js) to tokenize source and print
+  a tree similar to the old Rust debug output (outputLines / outputTokens).
+  No timing measurements.
+ 
+  Usage:
+    bun run tools/ast.ts <file.rt>
+    bun run tools/ast.ts -e 'print("hi")'
+    echo 'print(1)' | bun run tools/ast.ts
+    bun run tools/ast.ts   # reads stdin if no args
+*/
 
 import { readFileSync } from "fs";
 import { ensureWasm } from "./build.ts";
