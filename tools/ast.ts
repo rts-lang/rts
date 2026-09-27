@@ -1,10 +1,12 @@
 #!/usr/bin/env bun
 /**
-  RTS AST console viewer
+  RTS AST console viewer.
 
   Usage:
-    bun run tools/ast.ts <file.rt>
- 
+    bun run tools/ast.ts <file.rt>            # debug
+    bun run tools/ast.ts --release <file.rt>  # release
+    bun run tools/ast.ts <file.rt> --release  # release
+
   // todo Нужны комментарии обычные.
 */
 
@@ -12,10 +14,12 @@ import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { ensureWasm } from "./build.ts";
 
-const fileArg: string | undefined = process.argv[2];
+const args: string[] = process.argv.slice(2);
+const isRelease: boolean = args.includes("--release");
+const fileArg: string | undefined = args.find((arg: string) => !arg.startsWith("-"));
 
 if (!fileArg) {
-  console.error("Usage: bun run tools/ast.ts <file.rt>");
+  console.error("Usage: bun run tools/ast.ts [--release] <file.rt>");
   process.exit(1);
 }
 
@@ -28,7 +32,8 @@ if (!existsSync(filePath)) {
 
 const sourceCode: string = readFileSync(filePath, "utf8");
 
-const wasmOk: boolean = await ensureWasm();
+// build.ts: dev=true → --dev, dev=false → --release
+const wasmOk: boolean = await ensureWasm({ dev: !isRelease });
 if (!wasmOk) {
   process.exit(1);
 }
