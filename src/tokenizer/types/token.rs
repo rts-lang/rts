@@ -86,6 +86,7 @@ impl Token
   const fn convertData(&mut self) -> ()
   {
     return; // todo Работает криво например для `Float | F32 = -3.4028234663852886e38` - было 0.0
+    /*
     match self.data.toString()
     {
       None => {}
@@ -107,7 +108,7 @@ impl Token
         //
       }
     }
-    //
+    */
   }
 
   /// Получает тип данных

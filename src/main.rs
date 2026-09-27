@@ -12,12 +12,11 @@ include!("prelude.rs");
 // =================================================================================================
 
 use std::{
-  time::{Instant,Duration},
   env,
   io::{self, Read},
   fs::File
 };
-use crate::logger::logger::{log, logExit, logSeparator};
+use crate::logger::logger::{log, logExit};
 use crate::parser::parser::parseLines;
 use crate::tokenizer::tokenizer::readTokensSimple;
 
@@ -36,9 +35,6 @@ fn help() -> ()
   log("ok","version");
   log("ok","<empty>");
   log("ok","help");
-  log("ok","drun");
-  log("ok","drun <filename>");
-  log("ok","drun \"<script>\"");
   log("ok","run");
   log("ok","run <filename>");
   log("ok","run \"<script>\"");
@@ -54,8 +50,6 @@ fn help() -> ()
 /// Обладает режимом чтения файла или скрипта из строки;
 fn main() -> io::Result<()> 
 {
-  let startTime: Instant = Instant::now();
-
   // args to key-values
   let mut args: (String, Vec<String>) = (String::new(), Vec::new());
   let input: Vec<String> = env::args().collect();
@@ -92,28 +86,18 @@ fn main() -> io::Result<()>
         // packageApi(&args.1,valuesLength).await; todo
         logExit(0);
       },
-      _ if (key == "run" || key == "drun") && valuesLength >= 1 =>
+      "run" if valuesLength >= 1 =>
       { // run
-
-        if key == "drun" 
-        { // debug mode ?
-          unsafe{_debugMode = true;}
-        }
-
         unsafe{
           _argc = valuesLength-1;
           _argv = args.1[1..].to_vec();
           _filePath = args.1[0].clone();
         }
 
-        if unsafe{_debugMode} {
-          log("ok",&format!("Run [{}]",unsafe{&*_filePath}));
-        }
-
         unsafe{
           // Проверяем, что мы запускаем файл или скрипт;
           // todo: В данном случае это является временным решением,
-          //       чтобы сохранить run и drun, а также разделить скрипт и файлы;
+          //       чтобы разделить скрипт и файлы;
           let filePathEnd: String =
             _filePath
               .chars().rev().take(3)
@@ -131,31 +115,14 @@ fn main() -> io::Result<()>
     }
   }
 
-  if unsafe{_debugMode}
-  {
-    logSeparator("Arguments");
-    log("ok","Debug mode");
-  }
-
   // run file
   if runFile 
   { // Обработка файла
     
-    if unsafe{_debugMode} {
-      logSeparator(&format!("Running the file [{}] in debug mode",unsafe{&*_filePath}));
-    }
-    
     // open file
     let mut file: File = match File::open(unsafe{&*_filePath}) 
     {
-      Ok(file) => 
-      {
-        if unsafe{_debugMode} 
-        {
-          log("ok","Opening was successful");
-        }
-        file
-      },
+      Ok(file) => file,
       Err(_) => 
       {
         log("err","Unable to opening file");
@@ -166,13 +133,7 @@ fn main() -> io::Result<()>
     // read file into buffer
     match file.read_to_end(&mut buffer) 
     {
-      Ok(_) => 
-      {
-        if unsafe{_debugMode} 
-        {
-          log("ok","Reading was successful");
-        }
-      }
+      Ok(_) => {}
       Err(_) => 
       {
         log("err","Unable to read file");
@@ -181,24 +142,12 @@ fn main() -> io::Result<()>
     }
   } else
   { // Обработка скрипта
-    // run script
-    if unsafe{_debugMode} { 
-      logSeparator("Running the script in debug mode"); 
-    }
-
     unsafe{ buffer = _filePath.clone().into_bytes(); }
   }
 
-
   // Начинаем чтение кода
-  parseLines( readTokensSimple(&mut buffer, unsafe{_debugMode}) );
+  parseLines( readTokensSimple(&mut buffer) );
 
-  if unsafe{_debugMode} 
-  { // Замеры всего прошедшего времени работы
-    let endTime:  Instant  = Instant::now();
-    let duration: Duration = endTime-startTime;
-    log("ok",&format!("All duration [{:?}]",duration));
-  }
   // ** Для дополнительных тестов можно использовать hyperfine/perf
 
   // Возвращаем код завершения

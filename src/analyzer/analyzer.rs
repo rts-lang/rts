@@ -1,35 +1,32 @@
 use std::collections::HashSet;
 use std::sync::{RwLock, RwLockReadGuard};
 use std::sync::Arc;
-use lazy_static::lazy_static;
 use wasm_bindgen::prelude::wasm_bindgen;
 use serde::Serialize;
 use serde_json::to_string;
-use crate::tokenizer::tokenizer::readTokens;
+use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-lazy_static!
+/// Множество встроенных процедур и функций
+///
+/// todo Должно автоматически собираться из парсера
+fn builtins() -> HashSet<&'static str>
 {
-  /// Множество встроенных процедур и функций
-  ///
-  /// todo Должно автоматически собираться из парсера
-  static ref Builtins: HashSet<&'static str> = {
-    HashSet::from([
-      "println", "print", "clear", "go", "sleep", "exit",
-      "type", "mut", "randUInt", "len", "input", "exec", "execs"
-    ])
-  };
+  HashSet::from([
+    "println", "print", "clear", "go", "sleep", "exit",
+    "type", "mut", "randUInt", "len", "input", "exec", "execs"
+  ])
 }
 
 // =================================================================================================
 
 // todo issue #67 (возможно не все убирать)
-/// Выходной токен
+/// Выходной токен (плоский формат — tools/syntax-analyzer.ts)
 #[derive(Serialize, Clone)]
-pub struct AnalyzeToken 
+pub struct AnalyzeToken
 {
   // todo desc
   pub start: usize,
@@ -40,9 +37,9 @@ pub struct AnalyzeToken
 }
 
 // todo issue #67 (возможно не все убирать)
-/// Выходная линия
+/// Выходная линия (плоский формат — tools/syntax-analyzer.ts)
 #[derive(Serialize)]
-pub struct AnalyzedLine 
+pub struct AnalyzedLine
 {
   // todo desc
   pub indent: usize,
@@ -54,11 +51,12 @@ pub struct AnalyzedLine
 
 // todo issue #67
 // todo desc
+/// Плоский AST JSON — API для tools/syntax-analyzer.ts (форму не менять)
 #[wasm_bindgen]
-pub fn analyzeLines(code: &str) -> String 
+pub fn analyzeLines(code: &str) -> String
 {
-  let buffer: Vec<u8> = code.as_bytes().to_vec();
-  let lines: Vec< Arc<RwLock<Line>> > = readTokens(buffer, false);
+  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+  let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
   let mut result: Vec<AnalyzedLine> = Vec::new();
   collectLines(&lines, &mut result);
   to_string(&result).unwrap_or_else(|_| "[]".to_string())
@@ -85,20 +83,20 @@ fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
 }
 
 // todo desc
-fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>) 
+fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
 {
-  for token in tokens 
+  let builtinsSet: HashSet<&'static str> = builtins();
+  for token in tokens
   {
     let mut kind: String = token.getDataType().to_string();
-    if token.getDataType() == &TokenType::Word 
+    if token.getDataType() == &TokenType::Word
     {
-      if let Some(data) = token.getData().toString() 
+      if let Some(data) = token.getData().toString()
       {
-        if Builtins.contains(data.as_str()) 
+        if builtinsSet.contains(data.as_str())
         {
           kind = String::from("Builtin");
         }
-        //
       }
     }
     out.push(AnalyzeToken {
@@ -106,19 +104,117 @@ fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
       end: token.end,
       kind,
     });
-    if let Some(lines) = &token.lines 
+    if let Some(nestedLines) = &token.lines
     {
-      for line in lines 
+      for lineLink in nestedLines
       {
-        if let Some(toks) = &line.tokens 
+        let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
+        if let Some(toks) = &line.tokens
         {
           flattenTokensTo(toks, out);
         }
       }
-      //
     }
   }
-  //
+}
+
+// =================================================================================================
+
+/// Токен с вложениями — для tools/ast.ts (дерево как в старом debug)
+///
+/// todo rewrite desc + desc для параметров
+#[derive(Serialize, Clone)]
+pub struct TreeToken
+{
+  pub start: usize,
+  pub end: usize,
+  pub kind: String,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub data: Option<String>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub primitive: Option<bool>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub lines: Option<Vec<TreeLine>>
+}
+
+/// Линия с вложениями — для tools/ast.ts
+///
+/// todo rewrite desc + desc для параметров
+#[derive(Serialize, Clone)]
+pub struct TreeLine
+{
+  pub indent: usize,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub tokens: Option<Vec<TreeToken>>,
+  #[serde(skip_serializing_if = "Option::is_none")]
+  pub lines: Option<Vec<TreeLine>>
+}
+
+/// Дерево AST JSON — API для tools/ast.ts
+///
+/// todo rewrite desc
+#[wasm_bindgen]
+pub fn analyzeLinesTree(code: &str) -> String
+{
+  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+  let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
+  let result: Vec<TreeLine> = convertTreeLines(&lines);
+  to_string(&result).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// todo desc + внутренние comments
+fn convertTreeLines(lines: &[Arc<RwLock<Line>>]) -> Vec<TreeLine>
+{
+  let mut out: Vec<TreeLine> = Vec::new();
+  for link in lines
+  {
+    let line: RwLockReadGuard<Line> = link.read().unwrap();
+    let indent: usize = line.indent.unwrap_or(0);
+    let tokens: Option<Vec<TreeToken>> = line.tokens.as_ref().map(|t| convertTreeTokens(t));
+    let nested: Option<Vec<TreeLine>> = line.lines.as_ref().map(|n| convertTreeLines(n));
+    out.push(TreeLine { indent, tokens, lines: nested });
+  }
+  out
+}
+
+/// todo desc + внутренние comments
+fn convertTreeTokens(tokens: &[Token]) -> Vec<TreeToken>
+{
+  let builtinsSet: HashSet<&'static str> = builtins();
+  let mut out: Vec<TreeToken> = Vec::new();
+  for token in tokens
+  {
+    let dataType: &TokenType = token.getDataType();
+    let mut kind: String = dataType.to_string();
+    let dataOpt: Option<String> = token.getData().toString();
+
+    if dataType == &TokenType::Word
+    {
+      if let Some(ref data) = dataOpt
+      {
+        if builtinsSet.contains(data.as_str())
+        {
+          kind = String::from("Builtin");
+        }
+      }
+    }
+
+    let isComment: bool = kind == "Comment";
+    let hasUsefulData: bool = dataOpt.as_ref().map(|s| !s.is_empty()).unwrap_or(false);
+    let primitive: Option<bool> = if isComment || !hasUsefulData { Some(true) } else { None };
+    let data: Option<String> = if isComment || !hasUsefulData { None } else { dataOpt };
+    let nestedLines: Option<Vec<TreeLine>> = token.lines.as_ref().map(|n| convertTreeLines(n));
+
+    out.push(TreeToken {
+      start: token.start,
+      end: token.end,
+      kind,
+      data,
+      primitive,
+      lines: nestedLines
+    });
+  }
+  out
 }
 
 // =================================================================================================

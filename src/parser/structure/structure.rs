@@ -818,10 +818,8 @@ impl Structure
 
           let mut expressionBufferTokens: Vec<Token> = 
           {
-            readTokensSimple(
-              &mut expressionBuffer.as_bytes().to_vec(), 
-              false
-            )[0] // Получаем результат выражения в виде ссылки на буферную линию
+            readTokensSimple(&mut expressionBuffer.as_bytes().to_vec())[0] 
+              // Получаем результат выражения в виде ссылки на буферную линию
               .read().unwrap() // Читаем ссылку и
               .tokens.clone()  // получаем все токены линии
               .unwrap_or_default() // todo плохо
