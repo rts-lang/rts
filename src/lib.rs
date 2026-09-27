@@ -28,8 +28,6 @@ pub mod tokenizer;
 pub mod parser;
 #[cfg(all(not(target_family = "wasm"), not(feature = "analyzer")))]
 mod logger;
-#[cfg(not(feature = "analyzer"))]
-mod packages;
 #[cfg(feature = "analyzer")]
 mod analyzer;
 
