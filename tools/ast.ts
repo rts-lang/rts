@@ -112,19 +112,19 @@ function outputTokens(tokens: Token[], lineIndent: number, indent: number): void
 
     if (token.data !== undefined && token.data !== "") {
       const displayed: string = formatTokenDisplay(tokenType, token.data);
-      // data совпадает с kind (например ":") — один раз, без "|:"
+      // data совпадает с kind (например ":")
       if (token.data === tokenType || displayed === tokenType) {
         console.log(
           `${lineIndentString}${Bold}${c}${Reset}${identString}${ColorToken}${displayed}${Reset}`
         );
       } else {
-        // как старый output: data  |Type
+        // `data  Type`
         console.log(
-          `${lineIndentString}${Bold}${c}${Reset}${identString}${ColorToken}${displayed}${Reset}  |${tokenType}`
+          `${lineIndentString}${Bold}${c}${Reset}${identString}${ColorToken}${displayed}${Reset}  ${tokenType}`
         );
       }
     } else {
-      // Comment, скобки без data — только тип, без ведущего |
+      // Comment, без data — только тип
       console.log(
         `${lineIndentString}${Bold}${c}${Reset}${identString}${tokenType}`
       );
