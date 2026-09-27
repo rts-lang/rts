@@ -17,8 +17,6 @@ pub enum TokenType
   Any,
   /// Обычная связка букв
   Word,
-  /// ; или \n
-  Endline,
   /// ,
   Comma,
   /// .
@@ -186,7 +184,6 @@ impl ToString for TokenType
       Self::None    => String::from("None"),
       Self::Any    => String::from("Any"),
       Self::Word    => String::from("Word"),
-      Self::Endline => String::from("\\n"),
       Self::Comma   => String::from(","),
       Self::Dot     => String::from("."),
 
