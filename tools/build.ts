@@ -9,13 +9,11 @@
     bun run tools/build.ts           # release wasm → ./pkg
     bun run tools/build.ts --dev     # dev profile (faster, larger)
     bun run tools/build.ts --force   # rebuild even if pkg looks ok
+
+  todo Не понятно по wasm-pack, соберётся ли он нормально вне Linux.
+    Возможно ошибки путей или автоматизации. Надо подумать.
  
- Other tools can call ensureWasm() so pkg/rts.js exists before import.
- 
- todo Тут еще по сути если не будет wasm-pack - оно не установится.
-   Поэтому нужно отдельный шаг на эту установку или предупреждение.
-   Возможно даже выбор ручной или автоматической установки.
-   Но на разных платформах - автоматика может сломаться я думаю.
+  todo Еще надо комментарии обычные по стадиям.
 */
 
 import { $ } from "bun";
@@ -29,39 +27,21 @@ const pkgWasm: string = join(pkgDir, "rts_bg.wasm");
 
 const args: string[] = process.argv.slice(2);
 const isDev: boolean = args.includes("--dev");
-const force: boolean = args.includes("--force");
 
-function pkgLooksReady(): boolean {
-  return existsSync(pkgJs) && existsSync(pkgWasm);
-}
-
-/**
- * Build wasm into ./pkg. Returns true on success.
- * Safe to call from other tools before importing ../pkg/rts.js.
- */
 export async function ensureWasm(options?: {
   dev?: boolean;
-  force?: boolean;
 }): Promise<boolean> {
-  const dev: boolean = options?.dev ?? false;
-  const doForce: boolean = options?.force ?? false;
+  const dev: boolean = options?.dev ?? isDev;
 
-  if (!doForce && pkgLooksReady()) {
-    return true;
-  }
-
-  // wasm-pack must be available
   const which = await $`which wasm-pack`.quiet().nothrow();
   if (which.exitCode !== 0) {
     console.error(
       "[tools/build] wasm-pack not found.\n" +
-        "  Install: cargo install wasm-pack\n" +
-        "  Or: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh"
+      "  Install: cargo install wasm-pack"
     );
     return false;
   }
 
-  // target wasm32-unknown-unknown
   const targetCheck = await $`rustup target list --installed`.quiet().nothrow();
   const hasWasmTarget: boolean =
     targetCheck.exitCode === 0 &&
@@ -83,15 +63,17 @@ export async function ensureWasm(options?: {
     `[tools/build] wasm-pack build --target web ${profileFlag} --features analyzer --no-default-features`
   );
 
-  const result = await $`wasm-pack build --target web ${profileFlag} --features analyzer --no-default-features`.nothrow();
+  const result =
+    await $`wasm-pack build --target web ${profileFlag} --features analyzer --no-default-features`.nothrow();
 
   if (result.exitCode !== 0) {
     console.error("[tools/build] wasm-pack failed");
     console.error(result.stderr.toString());
+    console.error(result.stdout.toString());
     return false;
   }
 
-  if (!pkgLooksReady()) {
+  if (!existsSync(pkgJs) || !existsSync(pkgWasm)) {
     console.error(`[tools/build] expected ${pkgJs} and ${pkgWasm} after build`);
     return false;
   }
@@ -101,8 +83,7 @@ export async function ensureWasm(options?: {
   return true;
 }
 
-// CLI entry
 if (import.meta.main) {
-  const ok: boolean = await ensureWasm({ dev: isDev, force: force || !pkgLooksReady() });
+  const ok: boolean = await ensureWasm({ dev: isDev });
   if (!ok) process.exit(1);
 }

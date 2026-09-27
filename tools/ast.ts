@@ -1,14 +1,11 @@
 #!/usr/bin/env bun
 /**
   RTS AST console viewer
- 
-  Uses WASM analyzer (pkg/rts.js) to tokenize a source file and print
-  a tree similar to the old Rust debug output.
- 
+
   Usage:
     bun run tools/ast.ts <file.rt>
  
-  If pkg/ is missing, builds it via tools/build.ts first.
+  // todo Нужны комментарии обычные.
 */
 
 import { readFileSync, existsSync } from "fs";
@@ -36,11 +33,23 @@ if (!wasmOk) {
   process.exit(1);
 }
 
-const { default: init, analyzeLinesTree } = await import("../pkg/rts.js");
+const pkgMod = await import(`../pkg/rts.js?t=${Date.now()}`);
+const init = pkgMod.default as (module?: unknown) => Promise<void>;
+const analyzeLinesTree = pkgMod.analyzeLinesTree as
+  | ((code: string) => string)
+  | undefined;
+
+if (typeof analyzeLinesTree !== "function") {
+  console.error(
+    "[ast] analyzeLinesTree is not exported from pkg/rts.js\n" +
+      "  Run: bun run tools/build.ts --force"
+  );
+  process.exit(1);
+}
 
 // ---------- ANSI ----------
-const BOLD: string = "\x1b[1m";
-const RESET: string = "\x1b[0m";
+const Bold: string = "\x1b[1m";
+const Reset: string = "\x1b[0m";
 
 function hexToRgb(hex: string): [number, number, number] {
   const num: number = parseInt(hex.slice(1), 16);
@@ -51,16 +60,14 @@ function FG(color: string): string {
   return `\x1b[38;2;${hexToRgb(color).join(";")}m`;
 }
 
-const COLOR_TOKEN: string = FG("#f0f8ff");
-const COLOR_LABEL: string = FG("#90df91");
+const ColorToken: string = FG("#f0f8ff");
+const ColorLabel: string = FG("#90df91");
 
-// ---------- Types (nested AST from analyzer) ----------
 interface Token {
   kind: string;
   start: number;
   end: number;
   data?: string;
-  primitive?: boolean;
   lines?: Line[];
 }
 
@@ -70,7 +77,6 @@ interface Line {
   lines?: Line[] | null;
 }
 
-/** Как в Rust: кавычки вокруг data; data уже без внешних кавычек */
 function formatTokenDisplay(kind: string, text: string): string {
   switch (kind) {
     case "Char":
@@ -87,8 +93,6 @@ function formatTokenDisplay(kind: string, text: string): string {
   }
 }
 
-// ---------- Tree print (порт Rust outputTokens / outputLines) ----------
-
 function outputTokens(tokens: Token[], lineIndent: number, indent: number): void {
   if (tokens.length === 0) return;
 
@@ -103,27 +107,31 @@ function outputTokens(tokens: Token[], lineIndent: number, indent: number): void
 
     if (token.data !== undefined && token.data !== "") {
       const displayed: string = formatTokenDisplay(tokenType, token.data);
-      console.log(
-        `${lineIndentString}${BOLD}${c}${RESET}${identString}${COLOR_TOKEN}${displayed}${RESET}  |${tokenType}`
-      );
-    } else if (token.primitive) {
-      console.log(
-        `${lineIndentString}${BOLD}${c}${RESET}${identString}|${tokenType}`
-      );
+      // data совпадает с kind (например ":") — один раз, без "|:"
+      if (token.data === tokenType || displayed === tokenType) {
+        console.log(
+          `${lineIndentString}${Bold}${c}${Reset}${identString}${ColorToken}${displayed}${Reset}`
+        );
+      } else {
+        // как старый output: data  |Type
+        console.log(
+          `${lineIndentString}${Bold}${c}${Reset}${identString}${ColorToken}${displayed}${Reset}  |${tokenType}`
+        );
+      }
     } else {
+      // Comment, скобки без data — только тип, без ведущего |
       console.log(
-        `${lineIndentString}${BOLD}${c}${RESET}${identString}${tokenType}`
+        `${lineIndentString}${Bold}${c}${Reset}${identString}${tokenType}`
       );
     }
 
-    // Вложения токена (тело скобок)
     if (token.lines && token.lines.length > 0) {
       token.lines.forEach((line: Line, idx: number) => {
         if (line.tokens && line.tokens.length > 0) {
           outputTokens(line.tokens, lineIndent, indent + 1);
         }
         if (idx !== token.lines!.length - 1) {
-          console.log(`${lineIndentString}${BOLD}┃${RESET}`);
+          console.log(`${lineIndentString}${Bold}┃${Reset}`);
         }
       });
     }
@@ -138,20 +146,18 @@ function outputLines(lines: Line[], indent: number): void {
     console.log(`${identStr1} ${i}`);
 
     if (!line.tokens || line.tokens.length === 0) {
-      console.log(`${identStr2}${BOLD}┗${RESET} ${COLOR_LABEL}Separator${RESET}`);
+      console.log(`${identStr2}${Bold}┗${Reset} ${ColorLabel}Separator${Reset}`);
     } else {
-      console.log(`${identStr2}${BOLD}┣${RESET} ${COLOR_LABEL}Tokens${RESET}`);
+      console.log(`${identStr2}${Bold}┣${Reset} ${ColorLabel}Tokens${Reset}`);
       outputTokens(line.tokens, indent, 1);
     }
 
     if (line.lines && line.lines.length > 0) {
-      console.log(`${identStr2}${BOLD}┗${RESET} ${COLOR_LABEL}Lines${RESET}`);
+      console.log(`${identStr2}${Bold}┗${Reset} ${ColorLabel}Lines${Reset}`);
       outputLines(line.lines, indent + 1);
     }
   });
 }
-
-// ---------- Main ----------
 
 await init();
 
