@@ -50,8 +50,9 @@ fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: usize, lin
   //
   #[cfg(feature = "analyzer")]
   {
-    let mut token: Token = getOperator(&buffer, &mut index, bufferLength);
-    pushLineToken(&mut token, &mut lineTokens, start, index);
+    let start: usize = *index;
+    let mut token: Token = getOperator(buffer, index, bufferLength);
+    pushLineToken(&mut token, lineTokens, start, *index);
   }
   #[cfg(not(feature = "analyzer"))]
   {
@@ -210,8 +211,13 @@ fn readTokens(
     { // Получаем все возможные численные примитивные типы данных
       #[cfg(feature = "analyzer")]
       {
-        let mut token: Token = getNumber(&buffer, &mut index, bufferLength);
-        pushLineToken(&mut token, &mut lineTokens, start, index);
+        let start: usize = index;
+        if let Some(mut token) = getNumber(buffer, &mut index, bufferLength) {
+          pushLineToken(&mut token, &mut lineTokens, start, index);
+        } else
+        { // Это был бинарный минус.
+          addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
+        }
       }
       #[cfg(not(feature = "analyzer"))]
       {
@@ -228,7 +234,8 @@ fn readTokens(
       //
       #[cfg(feature = "analyzer")]
       {
-        let mut token: Token = getWord(&buffer, &mut index, bufferLength);
+        let start: usize = index;
+        let mut token: Token = getWord(buffer, &mut index, bufferLength);
         pushLineToken(&mut token, &mut lineTokens, start, index);
       }
       #[cfg(not(feature = "analyzer"))]
@@ -249,12 +256,14 @@ fn readTokens(
       if isFormatted
       {
         // Удаляем токен `f`
-        #[cfg(not(feature = "analyzer"))]
-        lineTokens.pop().unwrap();
         #[cfg(feature = "analyzer")]
-        {
+        let startF: usize = {
           let fToken: Token = lineTokens.pop().unwrap();
-          let startF: usize = fToken.start;
+          fToken.start
+        };
+        #[cfg(not(feature = "analyzer"))]
+        {
+          lineTokens.pop().unwrap();
         }
 
         let mut token: Token = getQuotes(buffer, &mut index, true); // formatted = true

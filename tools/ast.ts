@@ -2,21 +2,35 @@
 /**
   RTS AST console viewer
  
-  Uses WASM analyzer (pkg/rts.js) to tokenize source and print
-  a tree similar to the old Rust debug output (outputLines / outputTokens).
-  No timing measurements.
+  Uses WASM analyzer (pkg/rts.js) to tokenize a source file and print
+  a tree similar to the old Rust debug output.
  
   Usage:
     bun run tools/ast.ts <file.rt>
-    bun run tools/ast.ts -e 'print("hi")'
-    echo 'print(1)' | bun run tools/ast.ts
-    bun run tools/ast.ts   # reads stdin if no args
+ 
+  If pkg/ is missing, builds it via tools/build.ts first.
 */
 
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
+import { resolve } from "path";
 import { ensureWasm } from "./build.ts";
 
-// ensure pkg/rts.js exists (builds via wasm-pack if needed)
+const fileArg: string | undefined = process.argv[2];
+
+if (!fileArg) {
+  console.error("Usage: bun run tools/ast.ts <file.rt>");
+  process.exit(1);
+}
+
+const filePath: string = resolve(fileArg);
+
+if (!existsSync(filePath)) {
+  console.error(`Unable to read file: ${filePath}`);
+  process.exit(1);
+}
+
+const sourceCode: string = readFileSync(filePath, "utf8");
+
 const wasmOk: boolean = await ensureWasm();
 if (!wasmOk) {
   process.exit(1);
@@ -40,7 +54,7 @@ function FG(color: string): string {
 const COLOR_TOKEN: string = FG("#f0f8ff");
 const COLOR_LABEL: string = FG("#90df91");
 
-// ---------- Types (match WASM / future nested export) ----------
+// ---------- Types ----------
 interface Token {
   kind: string;
   start: number;
@@ -57,7 +71,6 @@ interface Line {
 }
 
 // ---------- Source helpers ----------
-let sourceCode: string = "";
 const encoder: TextEncoder = new TextEncoder();
 const decoder: TextDecoder = new TextDecoder();
 
@@ -74,7 +87,6 @@ function resolveTokenText(token: Token): string | undefined {
   return undefined;
 }
 
-/** Wrap value with quotes like old Rust output for string/char kinds */
 function formatTokenDisplay(kind: string, text: string): string {
   switch (kind) {
     case "Char":
@@ -91,7 +103,7 @@ function formatTokenDisplay(kind: string, text: string): string {
   }
 }
 
-// ---------- Tree print (port of Rust outputTokens / outputLines) ----------
+// ---------- Tree print ----------
 
 function outputTokens(tokens: Token[], lineIndent: number, indent: number): void {
   if (tokens.length === 0) return;
@@ -121,7 +133,6 @@ function outputTokens(tokens: Token[], lineIndent: number, indent: number): void
       );
     }
 
-    // nested lines on token (brackets / groups) — when WASM exports them
     if (token.lines && token.lines.length > 0) {
       token.lines.forEach((line: Line, idx: number) => {
         outputTokens(line.tokens ?? [], lineIndent, indent + 1);
@@ -154,51 +165,7 @@ function outputLines(lines: Line[], indent: number): void {
   });
 }
 
-// ---------- Input ----------
-
-function readSource(argv: string[]): string {
-  // -e / --eval "code"
-  const evalIdx: number = argv.findIndex(
-    (a: string) => a === "-e" || a === "--eval"
-  );
-  if (evalIdx !== -1) {
-    const code: string | undefined = argv[evalIdx + 1];
-    if (!code) {
-      console.error("Usage: ast.ts -e '<code>'");
-      process.exit(1);
-    }
-    return code;
-  }
-
-  // file path
-  const fileArg: string | undefined = argv.find(
-    (a: string) => !a.startsWith("-")
-  );
-  if (fileArg) {
-    try {
-      return readFileSync(fileArg, "utf8");
-    } catch {
-      console.error(`Unable to read file: ${fileArg}`);
-      process.exit(1);
-    }
-  }
-
-  // stdin (non-TTY)
-  if (!process.stdin.isTTY) {
-    return readFileSync(0, "utf8");
-  }
-
-  console.error(`Usage:
-  bun run tools/ast.ts <file.rt>
-  bun run tools/ast.ts -e 'print("hi")'
-  echo 'print(1)' | bun run tools/ast.ts`);
-  process.exit(1);
-}
-
 // ---------- Main ----------
-
-const args: string[] = process.argv.slice(2);
-sourceCode = readSource(args);
 
 await init();
 

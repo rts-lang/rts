@@ -6,19 +6,27 @@ include!("prelude.rs");
 
 // =================================================================================================
 
+#[cfg(not(feature = "analyzer"))]
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
+#[cfg(not(feature = "analyzer"))]
 use crate::parser::bytes::Bytes;
+#[cfg(not(feature = "analyzer"))]
 use crate::parser::parser::{parseLines, MainStructure};
+#[cfg(not(feature = "analyzer"))]
 use crate::parser::structure::structure::{Structure, StructureMut};
+#[cfg(not(feature = "analyzer"))]
 use crate::parser::structure::structureType::StructureType;
+#[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::tokenizer::readTokensSimple;
+#[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::types::line::Line;
+#[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::types::token::Token;
 
 // todo удалить mods
 pub mod tokenizer;
 pub mod parser;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(all(not(target_family = "wasm"), not(feature = "analyzer")))]
 mod logger;
 #[cfg(not(feature = "analyzer"))]
 mod packages;
@@ -28,11 +36,13 @@ mod analyzer;
 // =================================================================================================
 
 /// Основная структура-прокладка для создания оболочки между RTS-lib и другим проектом;
+#[cfg(not(feature = "analyzer"))]
 pub struct RTS 
 {
   namespace: String
 }
 
+#[cfg(not(feature = "analyzer"))]
 impl RTS 
 {
   /// Создаёт namespace структуру и RTS оболочку

@@ -29,7 +29,7 @@ lazy_static!
 // todo issue #67 (возможно не все убирать)
 /// Выходной токен
 #[derive(Serialize, Clone)]
-pub struct AnalyzeToken 
+pub struct AnalyzeToken
 {
   // todo desc
   pub start: usize,
@@ -42,7 +42,7 @@ pub struct AnalyzeToken
 // todo issue #67 (возможно не все убирать)
 /// Выходная линия
 #[derive(Serialize)]
-pub struct AnalyzedLine 
+pub struct AnalyzedLine
 {
   // todo desc
   pub indent: usize,
