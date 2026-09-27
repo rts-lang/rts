@@ -13,7 +13,7 @@ import { join } from "path";
 
 const args: string[] = process.argv.slice(2);
 const isRelease: boolean = args.includes("--release");
-const fileArgs: string[] = args.filter((a: string) => a !== "--release");
+const fileArg: string | undefined = args.find((arg: string) => !arg.startsWith("-"));
 
 console.clear();
 
@@ -44,4 +44,4 @@ if (!existsSync(rtsBinary)) {
 }
 
 // always run
-await $`./rts run ${fileArgs}`;
+await $`./rts run ${fileArg}`;

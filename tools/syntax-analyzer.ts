@@ -2,6 +2,7 @@
 /**
  todo desc
 */
+
 import init, { analyzeLines } from '../pkg/rts.js';
 
 // ---------- ANSI-утилиты ----------
