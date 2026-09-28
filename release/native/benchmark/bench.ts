@@ -7,6 +7,7 @@
   ./native/benchmark/bench.ts 100
 
   Requires: bun, clang|cc|gcc, python3, glibc.
+  libbench.so is built by the entry-runner (buildNative) before this script runs.
 
   todo Еще надо комментарии обычные по стадиям.
 */
@@ -42,7 +43,6 @@ const libOut: string = join(here, "libbench.so");
 const mainRt: string = join(here, "main.rt");
 const mainPy: string = join(here, "main.py");
 const mainTs: string = join(here, "main.ts");
-const benchC: string = join(here, "bench.c");
 const probeSrc: string = join(tmpdir(), `rtsBenchProbe${process.pid}.c`);
 const probeBin: string = join(tmpdir(), `rtsBenchProbe${process.pid}`);
 
@@ -270,7 +270,7 @@ async function compile(cmd: string[]): Promise<boolean> {
 async function main(): Promise<number> {
   process.chdir(releaseDir);
 
-  console.log("[1/3] build rts");
+  console.log("[1/2] build rts + rss probe");
   const buildScript: string = join(releaseDir, "build.ts");
   if (!existsSync(buildScript)) {
     console.error("error: release/build.ts missing");
@@ -282,25 +282,28 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  console.log("[2/3] build libbench.so + rss probe");
+  // libbench.so: entry-runner buildNative already compiled every *.c in this folder
+  if (!existsSync(libOut)) {
+    console.error(
+      "error: libbench.so missing — run via entry-runner so buildNative can build it:\n" +
+        "  bun run release native/benchmark"
+    );
+    return 1;
+  }
+
   const cc: string | null =
     Bun.which("clang") ?? Bun.which("cc") ?? Bun.which("gcc");
   if (!cc) {
     console.error("error: clang/cc/gcc not found");
     return 1;
   }
-  if (!(await compile([cc, "-shared", "-fPIC", "-O2", "-o", libOut, benchC]))) {
-    console.error("error: libbench.so build failed");
-    return 1;
-  }
-
   await Bun.write(probeSrc, probeC);
   if (!(await compile([cc, "-O2", "-o", probeBin, probeSrc]))) {
     console.error("error: rss probe build failed");
     return 1;
   }
 
-  console.log("[3/3] measure");
+  console.log("[2/2] measure");
   console.log();
   console.log(`Runs: ${Runs}`);
 
