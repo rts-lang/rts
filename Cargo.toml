@@ -6,12 +6,16 @@ description = "Real-Time Programming Language of Free Data Structures"
 license-file = "LICENSE.md" # FCL
 readme = "README.md"
 
+# ======================================================================================================================
+
 autobins = false
 autoexamples = false
 autotests = false
 autobenches = false
 
 publish = false
+
+# ======================================================================================================================
 
 [dependencies]
 termion = { version = "4.0.5", optional = true }
@@ -24,11 +28,13 @@ serde = { version = "1.0.228", features = ["derive"], optional = true }
 #  Но по тестам он самый лучший от остальных вел себя, 
 #  но все равно это надо подумать будет потом - сейчас мало смысла.
 
-chillffi = { git = "https://github.com/rts-lang/chillffi", rev="1c4701c9e744f95e487b8a5c143ee4b802cc7915", optional = true }
+chillffi = { version = "0.4.0", optional = true }
 # todo desc
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ['-Oz', '--enable-bulk-memory'] # Нужно было для билда wasm с opt
+
+# ======================================================================================================================
 
 [lib]
 name = "rts"
@@ -38,6 +44,8 @@ crate-type = ["cdylib", "rlib"] # cdylib → WASM/FFI, rlib → внутренн
 [[bin]]
 name = "rts"
 path = "src/main.rs"
+
+# ======================================================================================================================
 
 [profile.release]
 opt-level = 3
@@ -57,6 +65,8 @@ overflow-checks = true
 lto = false
 incremental = true
 
+# ======================================================================================================================
+
 [features]
 
 # test:
@@ -66,12 +76,7 @@ incremental = true
 # cargo build
 default = ["termion","rand","serde","chillffi"]
 
-# Сборка на wasm
-# debug: cargo build --lib --target wasm32-unknown-unknown --features analyzer --no-default-features
-# release: wasm-pack build --target web --features analyzer --no-default-features
-
-# Отладка wasm
-# wasm-tools print rts.wasm
+# ======================================================================================================================
 
 # test:
 # cargo test --features analyzer --lib
