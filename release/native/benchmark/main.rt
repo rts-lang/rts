@@ -1,4 +1,5 @@
 
+[ffi]
 printc(str: String) {
   lib: Pointer = importNative("./libbench.so")
   lib.print(str.pointer, str.length)
