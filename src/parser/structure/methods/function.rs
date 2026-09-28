@@ -14,6 +14,7 @@ use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
+use crate::parser::structure::ffi::scopeStack;
 // =================================================================================================
 /// Это набор базовых функций
 struct Function;
@@ -331,10 +332,21 @@ impl Function
   }
 
   // ===============================================================================================
-  
-  /// todo desc
+
+  /// importNative(path) — загружает native-библиотеку в текущий FFI-scope.
+  ///
+  /// - Вызов сам по себе является FFI-операцией: если мы внутри `[ffi] { ... }`
+  ///   блока, он лениво создаёт/удерживает FFIScope (ensureFfiScope) и грузит
+  ///   библиотеку в него. Native живёт на весь блок и дропается при выходе.
   /// 
-  /// todo Должен также иметь возможность загрузить по имени как 1 символ, так и всю либу сразу.
+  /// - Возвращает путь как String-токен; при присваивании `lib: Pointer = ...`
+  ///   структура получает тип Pointer и дальше используется как native handle.
+  /// 
+  /// - Вне `[ffi]` блока путь всё равно возвращается (можно хранить/передавать),
+  ///   но реальная загрузка и вызовы методов работают только внутри блока
+  ///   (либо через временный scope на стороне callExternal — legacy fallback).
+  /// 
+  /// - Если загрузка внутри блока падает — importNative выдаст `None`.
   pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
   {
     if let Some(parameter0) = parameters.getExpression(structure, 0)
@@ -358,11 +370,39 @@ impl Function
           }
         } else { libraryPath };
 
-      //
       #[cfg(not(target_family = "wasm"))]
       {
-        value[i].setDataType(TokenType::String);
-        value[i].setData(libraryPath);
+        // importNative — FFI-вызов. Если мы внутри [ffi]-блока, ensureFfiScope 
+        // создаёт/удерживает scope, а load проверяет, что библиотека реально открывается.
+        // 
+        // Ошибка загрузки → None (import «падает» вместе с блоком).
+        // 
+        // Вне блока просто возвращаем путь — handle можно хранить, 
+        // но вызовы без живого scope не сработают
+        // (или пойдут через legacy temp-scope в callExternal).
+        let loadOk: bool = match scopeStack::withCurrentFfiScope(|scope| {
+          scope.load(&libraryPath)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+        })
+        {
+          // Мы внутри [ffi]-блока: load прошёл или нет.
+          Some(Ok(())) => true,
+          Some(Err(_)) => false,
+          // Вне [ffi]-блока: scope нет — путь всё равно отдаём (можно
+          // сохранить в структуру и использовать позже внутри блока).
+          None => true
+        };
+
+        if loadOk
+        {
+          value[i].setDataType(TokenType::String);
+          value[i].setData(libraryPath);
+        } else
+        {
+          value[i].setDataType(TokenType::None);
+          value[i].setData(None);
+        }
       }
 
       // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна
