@@ -27,9 +27,12 @@
     bun run release "native/*"
     bun run release native/types/*.rt
 */
+// =====================================================================================================================
 
 import { existsSync, readdirSync, statSync } from "fs";
 import { basename, dirname, extname, join, relative, resolve } from "path";
+
+// =====================================================================================================================
 
 type Runner = "rts" | "bun";
 
@@ -98,7 +101,7 @@ if (unknownFlags.length > 0) {
   process.exit(2);
 }
 
-// -------------------------------------------------------------------------------------------------
+// =====================================================================================================================
 
 function isDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory();
@@ -263,7 +266,7 @@ async function run(entry: Entry): Promise<number> {
   return await proc.exited;
 }
 
-// -------------------------------------------------------------------------------------------------
+// =====================================================================================================================
 
 const entries: Entry[] = collect();
 await prepare(entries);
@@ -283,3 +286,5 @@ if (entries.length > 1) {
   for (const name of failedNames) console.log(`  FAIL ${name}`);
 }
 process.exit(failedNames.length > 0 ? 1 : 0);
+
+// =====================================================================================================================

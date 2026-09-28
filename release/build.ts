@@ -6,10 +6,13 @@
     bun run build.ts            # debug
     bun run build.ts --release  # release
 */
+// =====================================================================================================================
 
 import { $ } from "bun";
 import { existsSync, unlinkSync, renameSync } from "fs";
 import { join, resolve } from "path";
+
+// =====================================================================================================================
 
 const isRelease: boolean = process.argv.includes("--release");
 
@@ -42,11 +45,12 @@ if (!existsSync(outputPath)) {
 	process.exit(1);
 }
 
+// =====================================================================================================================
+
 // optimize
 await $`strip ${outputPath}`.nothrow();
 
-// Здесь также могло быть сжатие - 
-// но оно режет скорость работы.
+// Здесь также могло быть сжатие - но оно режет скорость работы.
 
 const dest: string = join(scriptDir, "rts");
 
@@ -56,3 +60,5 @@ if (existsSync(dest)) {
 
 renameSync(outputPath, dest);
 console.log(`[build] binary → ${dest}`);
+
+// =====================================================================================================================
