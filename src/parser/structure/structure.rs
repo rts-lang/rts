@@ -1,4 +1,5 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::_sourcePath;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope, FfiExpect};
 use crate::parser::structure::ffi::scopeStack;
@@ -86,6 +87,10 @@ pub struct Structure
   /// Создана ли структура из блока FFI.
   pub isFfiBlock: bool,
 
+  /// Файл, в котором написан код структуры (`None` — запущенный файл).
+  /// Запоминается при создании из `_sourcePath`.
+  pub sourcePath: Option< Arc<String> >,
+
   /// todo Комментарий + возможно не нужно т.к. можно лучше
   pub lineIndex: usize
 }
@@ -112,6 +117,7 @@ impl Structure
       structures: Arc::new(RwLock::new(None)),
       parent,
       isFfiBlock: false,
+      sourcePath: unsafe{ _sourcePath.clone() },
       lineIndex: 0
     }
   }
@@ -219,10 +225,18 @@ impl Structure
 
   // ===============================================================================================
 
-  /// Выполняет операцию со структурой,
-  /// для этого требует левую и правую часть выражения,
-  /// кроме того, требует передачи родительской структуры,
+  /// Выполняет операцию со структурой.
+  /// 
+  /// Требует левую и правую часть выражения.
+  /// 
+  /// Требует передачи родительской структуры,
   /// чтобы было видно возможные объявления в ней.
+  /// 
+  /// Это работает только для существующих структур.
+  /// 
+  /// Например обычная `a = 10` первый раз - это линейная запись, а не Op.
+  /// 
+  /// op это когда `a += 10` например или `a = 20; a = 10`, когда была структура.
   pub fn structureOp(
     &self, 
     structureLink: Arc<RwLock<Self>>, 
@@ -262,6 +276,40 @@ impl Structure
           }
         };
         let mut rightPartValue: Token = self.expressionWith(&mut rightPart.clone(), &expect);
+
+        // Динамический import(): правая часть — не скаляр,
+        // а целая под-структура (модуль со своими подструктурами).
+        // 
+        // Обычный скалярный путь ниже для этого не подходит — переносим
+        // (dataType, lines, structures) временной структуры-модуля
+        // напрямую в левую часть присваивания.
+        if *rightPartValue.getDataType() == TokenType::Link
+        {
+          if let Some(markerName) = rightPartValue.getData().toString()
+          {
+            if let Some(moduleLink) = self.getStructureByName(&markerName)
+            {
+              if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
+              { // Если это модуль.
+                
+                let moduleGuard: RwLockReadGuard<Self> = moduleLink.read().unwrap();
+                let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
+
+                structure.dataType = moduleGuard.dataType.clone();
+                structure.lines = moduleGuard.lines.clone();
+                *structure.structures.write().unwrap() = moduleGuard.structures.read().unwrap().clone();
+
+                if leftPartMutable == StructureMut::Final {
+                  structure.mutable = StructureMut::Constant;
+                }
+                return;
+                
+                //
+              }
+            }
+            //
+          }
+        }
 
         let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
 
@@ -720,6 +768,29 @@ impl Structure
                     true =>
                     { // Если это просто одиночное значение, то просто выдаём его
                       // По сути это просто 0 линия через expression
+                      //
+                      // todo Требуется уточнение: сюда попадают две разные структуры,
+                      //  у обеих lines.len() == 1, а ветка рассчитана только на первую.
+                      //
+                      //  a.rt:
+                      //    c = 10                                        # 1. значение
+                      //    f(name: String) { println(f"Hi, {name}") }    # 2. функция из одной строки
+                      //
+                      //  main.rt:
+                      //    a.c          — 10. Ради этого ветка и написана:
+                      //                   у конца ссылки берём значение.
+                      //    a.f("World") — тоже сюда, parameters = Some(["World"]),
+                      //                   но ветка их не читает. Тело считается через self.expression()
+                      //                   в scope вызывающего: name берётся из main.rt, а не из аргумента.
+                      //
+                      //  Запуск метода (Some(parameters) → structure.parent.expression) есть
+                      //  только в ветке false ниже, то есть для тел из 2+ строк.
+                      //
+                      //  Чтобы различать чтение и вызов, parameters должен быть None там, где
+                      //  скобок нет. Сейчас expressionWith передаёт Some(vec![]) и для `a.c + 1`,
+                      //  поэтому простая проверка на Some здесь сломает чтение значений.
+                      //
+
                       let mut lineTokens: Vec<Token> =
                       {
                         lines[0].read().unwrap()
@@ -912,8 +983,8 @@ impl Structure
         }
         TokenType::Word =>
         { // Если это TokenType::Word, то
-          let data:       String = value[0].getData().toString().unwrap_or_default(); // token data
-          let linkResult: Token  = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
+          let data: String = value[0].getData().toString().unwrap_or_default(); // token data
+          let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
           value[0].setDataType( *linkResult.getDataType() ); // Ставим новый dataType
           value[0].setData( linkResult.getData() );  // Ставим новый data
         }
@@ -974,10 +1045,21 @@ impl Structure
           // todo ? хз что это, имелось ввиду не для ffi
           //let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
-          let     data: String = value[i].getData().toString().unwrap_or_default();
+          let data: String = value[i].getData().toString().unwrap_or_default();
           let mut link: Vec<String> = Self::parseLink(&data);
-          
-          let linkResult: Token = self.linkExpression(None, &mut link, Some(vec![]));
+
+          // Если следом реальные скобки вызова — вычисляем настоящие аргументы 
+          // (а не пустой список), чтобы их можно было прокинуть как в FFI-путь ниже, 
+          // так и в обычный nested-вызов через structure.parent (см. import()).
+          let hasCallParens: bool =
+            i+1 < valueLength && *value[i+1].getDataType() == TokenType::CircleBracketBegin;
+          let realParameters: Vec<Token> = if hasCallParens
+          {
+            let bracketLines: Vec< Arc<RwLock<Line>> > = value[i+1].lines.clone().unwrap_or_default();
+            Parameters::new(Some(bracketLines)).getAllExpressions(self).unwrap_or_default()
+          } else { Vec::new() };
+
+          let linkResult: Token = self.linkExpression(None, &mut link, Some(realParameters));
             //parameters.getAll()); todo? хз что это, имелось ввиду не для ffi
           
           // Проверяем, не является ли результат вызовом динамической библиотеки
@@ -1054,11 +1136,20 @@ impl Structure
                   //
                 }
               }
-            } else {
-              // Стандартный вариант результата
-              // todo Кстати как же запуск обычных методов по ссылкам?
+            } else 
+            { // Стандартный вариант результата: обычный (не-FFI) nested-вызов
+              // через structure.parent внутри linkExpression (см. import()),
+              // либо просто значение по ссылке.
               value[i].setDataType( *linkResult.getDataType() );
               value[i].setData( linkResult.getData() );
+
+              // Скобки вызова уже использованы (реальные аргументы вычислены
+              // и переданы выше через realParameters) — убираем их из
+              // выражения, аналогично FFI-ветке.
+              if hasCallParens {
+                value.remove(i+1);
+                valueLength -= 1;
+              }
             }
           }
           //

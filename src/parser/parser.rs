@@ -303,6 +303,44 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
       let mut value: Token = parentStructure.expressionWith(&mut rightValue.unwrap(), &expect);
+
+      // Динамический import(): правая часть выражения — не скаляр, а целая
+      // под-структура (модуль со своими подструктурами).
+      // 
+      // Обычная ветка ниже (inference/normalizeToken/Line{tokens: Some(vec![value])}) 
+      // рассчитана на скаляр, поэтому переносим (dataType, lines, structures) модуля
+      // напрямую в новую структуру и выходим раньше.
+      if *value.getDataType() == TokenType::Link
+      {
+        if let Some(markerName) = value.getData().toString()
+        {
+          if let Some(moduleLink) = parentStructure.getStructureByName(&markerName)
+          {
+            if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
+            { // Если это модуль.
+              
+              let moduleGuard: RwLockReadGuard<Structure> = moduleLink.read().unwrap();
+              let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
+                Some(structureName.clone()),
+                structureMutability.clone(),
+                moduleGuard.dataType.clone(),
+                moduleGuard.lines.clone(),
+                None
+              )));
+              *newStructureLink.read().unwrap().structures.write().unwrap() =
+                moduleGuard.structures.read().unwrap().clone();
+              drop(moduleGuard);
+              
+              parentStructure.pushStructure(newStructureLink);
+              return true;
+              
+              //
+            }
+          }
+          //
+        }
+      }
+
       if structureType == StructureType::None
       { // Тип вычисляется если он не был изначально определён;
         // Вычисляется он по типу из результата правой части выражения

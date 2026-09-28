@@ -1,0 +1,14 @@
+
+# Модуль, который импортируется через import() из main.rt
+
+hello() {
+  println("Hello from a.rt!")
+}
+
+# Тело из 2+ строк — аргумент доходит корректно.
+greet(name: String) {
+  println("greet called")
+  println(f"Hello, {name}!")
+}
+
+value: Usize = 4

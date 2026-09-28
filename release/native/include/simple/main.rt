@@ -1,0 +1,8 @@
+
+# Тест динамического import(): `a` получает подструктуры из a.rt
+
+a = import("./a.rt")
+
+a.hello()          # Hello from a.rt!
+a.greet("World")   # greet called / Hello, World!
+println(a.value)   # 4

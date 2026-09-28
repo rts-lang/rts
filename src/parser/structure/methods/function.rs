@@ -8,9 +8,11 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 #[cfg(not(target_family = "wasm"))]
 use rand::Rng;
-use crate::_filePath;
+use crate::{_filePath, _sourcePath};
+use crate::parser::parser::readLines;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::StructureType;
+use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 // =================================================================================================
 /// Это набор базовых функций
@@ -335,44 +337,161 @@ impl Function
   /// todo Должен также иметь возможность загрузить по имени как 1 символ, так и всю либу сразу.
   pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
   {
-    match parameters.getExpression(structure, 0)
+    if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
-      None => value[i].setDataType(TokenType::None),
-      Some(p0) => 
+      let libraryPath: String = parameter0.getData().toString().unwrap_or_default();
+      if libraryPath.is_empty() 
       {
-        let libraryPath: String = p0.getData().toString().unwrap_or_default();
-        if libraryPath.is_empty() {
+        value[i].setDataType(TokenType::None);
+        return;
+      }
+
+      // Путь должен быть относительно запущенного файла.
+      let libraryPath: String = 
+        if libraryPath.contains('/') && !std::path::Path::new(&libraryPath).is_absolute()
+        {
+          unsafe{
+            std::path::Path::new(&*_filePath)
+              .parent()
+              .map(|dir| dir.join(&libraryPath).to_string_lossy().into_owned())
+              .unwrap_or(libraryPath)
+          }
+        } else { libraryPath };
+
+      //
+      #[cfg(not(target_family = "wasm"))]
+      {
+        value[i].setDataType(TokenType::String);
+        value[i].setData(libraryPath);
+      }
+
+      // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна
+      // todo Это нужно будет решить
+      #[cfg(target_family = "wasm")]
+      {
+        value[i].setDataType(TokenType::None);
+      }
+      //
+    } else {
+      value[i].setDataType(TokenType::None);
+    }
+    //
+  }
+
+  // ===============================================================================================
+
+  /// Динамический импорт `.rt` файла как структуры с подструктурами.
+  ///
+  /// В отличие от статического import (Разрешается до запуска, в фиксированной точке), 
+  /// `import(...)` — обычная функция: путь может быть вычислен в рантайме, а сам вызов 
+  /// может стоять внутри условия. цикла. функции и выполнится ровно в момент, 
+  /// когда до него дойдёт исполнение.
+  ///
+  /// Файл читается, токенизируется и выполняется как отдельная изолированная структура 
+  /// (свой lineIndex, свои подструктуры, parent: None — как у MainStructure). 
+  /// 
+  /// Её объявления верхнего уровня (функции, переменные) становятся подструктурами 
+  /// результата и доступны через `.` точно так же, как обычные вложенные структуры.
+  ///
+  /// Относительный путь считается от файла, в котором написан сам import(),
+  /// а не от запущенного файла. Vодуль указывает соседа, глядя на собственную папку, 
+  /// и ему не нужно знать, где лежит точка входа.
+  /// 
+  /// Папку с модулем можно перенести целиком — в подпапку, в другой проект,
+  /// в общее хранилище пакетов — и её внутренние import() продолжат работать.
+  /// 
+  /// Если считать от запущенного файла, то путь внутри модуля зависит от того,
+  /// кто его подключил, и один и тот же модуль ломается при подключении из
+  /// разных мест. Абсолютные пути остаются как есть.
+  ///
+  /// Файл, код которого исполняется сейчас, хранится в `_sourcePath`:
+  /// его ставит import() на время загрузки модуля, и вызов функции из модуля
+  /// (см. procedureCall). Структуры запоминают его при создании.
+  pub fn import(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  {
+    if let Some(parameter0) = parameters.getExpression(structure, 0)
+    {
+      let importPath: String = parameter0.getData().toString().unwrap_or_default();
+      if importPath.is_empty() 
+      {
+        value[i].setDataType(TokenType::None);
+        return;
+      }
+
+      // Путь — относительно файла, в котором написан этот import().
+      let importPath: String =
+        if !std::path::Path::new(&importPath).is_absolute()
+        {
+          let currentFile: String = unsafe
+          {
+            match &_sourcePath
+            {
+              Some(sourcePath) => sourcePath.as_str().to_string(),
+              None => _filePath.clone() // код запущенного файла
+            }
+          };
+          std::path::Path::new(&currentFile)
+            .parent()
+            .map(|dir| dir.join(&importPath).components().collect::<std::path::PathBuf>())
+            .map(|path| path.to_string_lossy().into_owned())
+            .unwrap_or_else(|| importPath.clone())
+        } else { importPath };
+
+      let mut buffer: Vec<u8> = match std::fs::read(&importPath)
+      {
+        Ok(data) => data,
+        Err(_) =>
+        {
           value[i].setDataType(TokenType::None);
           return;
         }
+      };
 
-        // Путь должен быть относительно запущенного файла.
-        let libraryPath: String = 
-          if libraryPath.contains('/') && !std::path::Path::new(&libraryPath).is_absolute()
-          {
-            unsafe{
-              std::path::Path::new(&*_filePath)
-                .parent()
-                .map(|dir| dir.join(&libraryPath).to_string_lossy().into_owned())
-                .unwrap_or(libraryPath)
-            }
-          } else { libraryPath };
+      // Токенизируем содержимое файла как отдельную независимую программу.
+      let moduleLines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
 
-        //
-        #[cfg(not(target_family = "wasm"))]
-        {
-          value[i].setDataType(TokenType::String);
-          value[i].setData(libraryPath);
-        }
+      // Уникальное имя для временной подструктуры в текущей области видимости
+      // (нужно, чтобы найти её обратно после возврата из expressionWith).
+      let tempIndex: usize =
+      {
+        let structuresLink = structure.structures.read().unwrap();
+        structuresLink.as_ref().map(|v| v.len()).unwrap_or(0)
+      };
+      let tempName: String = format!("#import{}", tempIndex);
 
-        // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна
-        // todo Это нужно будет решить
-        #[cfg(target_family = "wasm")]
-        {
-          value[i].setDataType(TokenType::None);
-        }
-        //
-      }
+      // Модуль — изолированная структура: свой lineIndex, свои подструктуры,
+      // parent: None (как у MainStructure), чтобы импортированный файл не
+      // видел переменные вызывающей стороны.
+      //
+      // Пока модуль загружается, исполняется код его файла:
+      // структуры модуля запомнят его путь при создании.
+      let previousSourcePath: Option<Arc<String>> = unsafe{ _sourcePath.clone() };
+      unsafe{ _sourcePath = Some(Arc::new(importPath.clone())); }
+
+      let moduleLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
+        Some(tempName.clone()),
+        StructureMut::Constant,
+        StructureType::Custom(String::from("Module")),
+        Some(moduleLines),
+        None
+      )));
+
+      // Выполняем верхний уровень файла прямо сейчас — это и есть
+      // динамический импорт: объявления файла (функции, переменные)
+      // пушатся в moduleLink.structures по мере исполнения его строк,
+      // так же, как это происходит для main.rt через parseLines().
+      readLines(moduleLink.clone());
+      unsafe{ _sourcePath = previousSourcePath; }
+
+      structure.pushStructure(moduleLink);
+
+      // Возвращаем ссылку на модуль — structureOp() ниже по стеку
+      // распознает StructureType::Custom("Module") и перенесёт
+      // (dataType, lines, structures) в левую часть присваивания.
+      value[i].setDataType(TokenType::Link);
+      value[i].setData(tempName);
+    } else {
+      value[i].setDataType(TokenType::None);
     }
     //
   }
@@ -503,6 +622,7 @@ impl Structure
           "exec" => Function::exec(self, &parameters, value, i),
           "execs" => Function::execs(self, &parameters, value, i),
           "importNative" => Function::importNative(self, &parameters, value, i),
+          "import" => Function::import(self, &parameters, value, i),
           "Usize" => Function::usize(self, &parameters, value, i),
           _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
         }

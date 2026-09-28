@@ -1,0 +1,15 @@
+
+# lib/b.rt лежит рядом, а не рядом с main.rt
+b = import("./b.rt")
+b.hello()
+
+hello() {
+  println("a: hello")
+  println("a: done")
+}
+
+load() {
+  println("a: load")
+  c = import("./deep/c.rt")
+  c.hello()
+}
