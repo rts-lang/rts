@@ -23,8 +23,8 @@ process.chdir(rootDir);
 console.log(`[build] ${isRelease ? "release" : "debug"}`);
 
 const result = isRelease
-	? await $`cargo build --release`.quiet().nothrow()
-	: await $`cargo build`.quiet().nothrow();
+	? await $`CFLAGS= CXXFLAGS= CPPFLAGS= cargo build --release`.quiet().nothrow()
+	: await $`CFLAGS= CXXFLAGS= CPPFLAGS= cargo build`.quiet().nothrow();
 
 if (result.exitCode !== 0) {
 	console.log(result.stderr.toString() + result.stdout.toString());
