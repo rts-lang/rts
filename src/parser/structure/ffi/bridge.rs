@@ -321,13 +321,23 @@ pub fn callExternal(
 #[cfg(test)]
 mod tests
 {
-  use super::*;
+
   // ===============================================================================================
+
+  use crate::parser::structure::ffi::bridge::{callExternal, FfiExpect};
+  use crate::parser::structure::structureType::StructureType;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
 
   const LibcPath: &str = "libc.so.6";
   const LibmPath: &str = "libm.so.6";
 
-  fn call(library: &str, method: &str, mut parameters: Vec<Token>, expect: FfiExpect) -> Result<Token, String>
+  fn call(
+    library: &str, 
+    method: &str, 
+    mut parameters: Vec<Token>, 
+    expect: FfiExpect
+  ) -> Result<Token, String>
   {
     callExternal(library, method, &mut parameters, &expect)
   }

@@ -9,10 +9,13 @@
 
   // todo Нужны комментарии обычные.
 */
+// =====================================================================================================================
 
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { ensureWasm } from "./build.ts";
+
+// =====================================================================================================================
 
 const args: string[] = process.argv.slice(2);
 const isRelease: boolean = args.includes("--release");
@@ -52,7 +55,8 @@ if (typeof analyzeLinesTree !== "function") {
   process.exit(1);
 }
 
-// ---------- ANSI ----------
+// =====================================================================================================================
+
 const Bold: string = "\x1b[1m";
 const Reset: string = "\x1b[0m";
 
@@ -67,6 +71,8 @@ function FG(color: string): string {
 
 const ColorToken: string = FG("#f0f8ff");
 const ColorLabel: string = FG("#90df91");
+
+// =====================================================================================================================
 
 interface Token {
   kind: string;
@@ -164,9 +170,13 @@ function outputLines(lines: Line[], indent: number): void {
   });
 }
 
+// =====================================================================================================================
+
 await init();
 
 const resultJson: string = analyzeLinesTree(sourceCode);
 const lines: Line[] = JSON.parse(resultJson) as Line[];
 
 outputLines(lines, 0);
+
+// =====================================================================================================================

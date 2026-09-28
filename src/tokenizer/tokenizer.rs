@@ -124,13 +124,16 @@ fn readTokens(
     if byte == b'('
     { // Группировка выражения - как раньше, через Token.lines
       index += 1; // Пропускаем открывающую скобку
-      // Возвращаем полученные линии и новый индекс
+      
+      // Возвращаем полученные линии и новый индекс.
+      //
+      // readTokens уже съел закрывающую `)` (ветка close → index+=1; break).
+      // Повторный skip здесь ломает вложенность: `println(type(x))` —
+      // внутренний вызов забирает `)` от type, этот skip забирает `)` от println,
+      // и остаток файла читается «внутри» незакрытой скобки println.
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
         readTokens(buffer, index);
       index = newIndex;
-      if index < buffer.len() && // Выйдет при конце чтения
-        buffer[index] == b')' // buffer[index] должен быть closeByte, пропускаем его
-      { index += 1; }
 
       let mut bracketToken: Token = Token::newEmpty(TokenType::CircleBracketBegin);
       bracketToken.lines = Some(innerLines);
@@ -139,13 +142,13 @@ fn readTokens(
     if byte == b'['
     { // Группировка выражения - как раньше, через Token.lines
       index += 1; // Пропускаем открывающую скобку
-      // Возвращаем полученные линии и новый индекс
+      
+      // Возвращаем полученные линии и новый индекс.
+      //
+      // readTokens уже съел закрывающую `]` — не skip-аем повторно (см. `)` выше).
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
         readTokens(buffer, index);
       index = newIndex;
-      if index < buffer.len() && // Выйдет при конце чтения
-        buffer[index] == b']' // buffer[index] должен быть closeByte, пропускаем его
-      { index += 1; }
 
       let mut bracketToken: Token = Token::newEmpty(TokenType::SquareBracketBegin);
       bracketToken.lines = Some(innerLines);
@@ -154,13 +157,13 @@ fn readTokens(
     if byte == b'{'
     { // Блок - замена отступа, вложение через Line.lines
       index += 1; // Пропускаем открывающую скобку
-      // Возвращаем полученные линии и новый индекс
+      
+      // Возвращаем полученные линии и новый индекс.
+      //
+      // readTokens уже съел закрывающую `}` — не skip-аем повторно (см. `)` выше).
       let (innerLines, newIndex): (Vec<Arc<RwLock<Line>>>, usize) =
         readTokens(buffer, index);
       index = newIndex;
-      if index < buffer.len() && // Выйдет при конце чтения
-        buffer[index] == b'}' // buffer[index] должен быть closeByte, пропускаем его
-      { index += 1; }
 
       // Добавляем новую линию. ПРЕЖДЕ здесь был вызов
       // `pushLineFromTokens(&mut lineTokens, Some(innerLines), &mut linesLinks)`,
@@ -315,6 +318,11 @@ fn readTokens(
     //
   }
 
+  // Если после цикла остались токены без завершающего \n / ; — не теряем их.
+  // Иначе `println(type(x))` (вложенные скобки) может съесть закрывающие `)`
+  // так, что top-level lineTokens так и не попадут в linesLinks.
+  pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
+
   // Возвращаем готовые ссылки на линии
   (linesLinks, index)
 }
@@ -329,7 +337,7 @@ mod testsReadTokens
   use crate::tokenizer::types::line::Line;
   use crate::tokenizer::types::token::Token;
   use crate::tokenizer::types::tokenType::TokenType;
-  use super::readTokens;
+  use crate::readTokens;
   // ===============================================================================================
 
   /// todo desk
@@ -613,7 +621,7 @@ println(a())
 #[cfg(test)]
 mod tests
 {
-  use super::readTokensSimple;
+  use crate::readTokensSimple;
   use crate::tokenizer::types::line::Line;
   use std::sync::{Arc, RwLock, RwLockReadGuard};
   // ===============================================================================================
@@ -622,7 +630,7 @@ mod tests
   /// FFI-блок `[ffi] { ... }`. Это нужно парсеру, чтобы понять, как
   /// подхватить блок `{ ... }` после тега `[ffi]`.
   #[test]
-  fn multilineFfiBlock()
+  fn multilineFfiBlock() -> ()
   {
     let mut buffer: Vec<u8> =
       b"[ffi]\n{\n  lib: Pointer = importNative(\"./libhello.so\")\n  lib.hello(4)\n}\n".to_vec();
@@ -667,7 +675,7 @@ mod tests
 
   /// Однострочный анонимный `[ffi] { lib.hello(4) }` — для сравнения.
   #[test]
-  fn oneLineFfiAnonymous()
+  fn oneLineFfiAnonymous() -> ()
   {
     let mut buffer: Vec<u8> =
       b"[ffi] { lib.hello(4) }\n".to_vec();
@@ -691,7 +699,7 @@ mod tests
   /// Диагностика: только `{ lib.hello(4) }` в одной строке (без `[ffi]`).
   /// Это базовая линия для сравнения.
   #[test]
-  fn plainBlock()
+  fn plainBlock() -> ()
   {
     let mut buffer: Vec<u8> =
       b"{ lib.hello(4) }\n".to_vec();
@@ -710,6 +718,33 @@ mod tests
       };
       println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }
+  }
+
+  // ===============================================================================================
+  
+  /// todo desc
+  #[test]
+  fn nestedParensAndTypes1() -> ()
+  {
+    let cases: &[(&str, usize)] = &[
+      ("println(x)\n", 1),
+      ("println(type(x))\n", 1),
+      ("println(type(10+10))\n", 1),
+      ("((10))\n", 1),
+      ("a\nprintln(type(10+10))\n", 2),
+      ("a~~: U8 = 10\nprintln(type(10+10))\nprintln(type(a))\n", 3),
+    ];
+    for (src, expected) in cases {
+      let mut buffer: Vec<u8> = src.as_bytes().to_vec();
+      let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
+      assert_eq!(lines.len(), *expected, "src={:?} got {}", src, lines.len());
+    }
+
+    let mut buffer: Vec<u8> = 
+      include_str!("../../release/native/types/types1.rt").as_bytes().to_vec();
+    let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
+    eprintln!("types1 lines={}", lines.len());
+    assert!(lines.len() >= 8, "types1 expected >= 8 lines, got {}", lines.len());
   }
 
   // ===============================================================================================

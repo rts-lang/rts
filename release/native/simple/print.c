@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Сборка: clang -shared -fPIC -o libprint.so print.c
-
 // Функция, которую вызовет RTS после importNative("libprint.so")
 // Сигнатура: extern "C" fn(*const u8, usize) -> *mut u8
 // Принимает сырые байты аргументов (склеенные подряд), печатает их как строку,

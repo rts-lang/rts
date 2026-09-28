@@ -2,8 +2,6 @@
 #include <unistd.h>
 #include <time.h>
 
-// Сборка: clang -shared -fPIC -o libhello.so hello.c
-
 void hello(int number) {
     printf("hello from FFI block: %d\n", number);
     fflush(stdout);

@@ -1,8 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// clang -shared -fPIC -o libreturns.so returns.c
-
 // Функции без аргументов — по одной на каждый ABI-тип результата
 uint8_t  retU8(void)    { return 200; }
 uint16_t retU16(void)   { return 60000; }

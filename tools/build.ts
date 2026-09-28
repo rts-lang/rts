@@ -11,11 +11,14 @@
 
   todo Еще надо комментарии обычные по стадиям.
 */
+// =====================================================================================================================
 
 import { $ } from "bun";
 import { existsSync, statSync } from "fs";
 import { join, resolve } from "path";
 import * as readline from "readline";
+
+// =====================================================================================================================
 
 const rootDir: string = resolve(import.meta.dir, "..");
 const pkgDir: string = join(rootDir, "pkg");
@@ -138,7 +141,11 @@ export async function ensureWasm(options?: {
   return true;
 }
 
+// =====================================================================================================================
+
 if (import.meta.main) {
   const ok: boolean = await ensureWasm({ release: isRelease });
   if (!ok) process.exit(1);
 }
+
+// =====================================================================================================================

@@ -122,7 +122,11 @@ pub fn withCurrentFfiScope<R>(
 #[cfg(test)]
 mod tests
 {
-  use super::*;
+  use std::cell::RefCell;
+  use std::rc::Rc;
+  use chillffi::ffi::library::Library;
+  use chillffi::ffi::scope::{FFIScope, Scope};
+  use crate::parser::structure::ffi::scopeStack::{currentFfiBlock, ensureFfiScope, enterFfiBlock, exitFfiBlock, isInsideFfiBlock, withCurrentFfiScope};
   // ===============================================================================================
 
   /// Вне `@ffi` блока `isInsideFfiBlock` возвращает `false`.
@@ -177,9 +181,6 @@ mod tests
   #[test]
   fn libcGetpid() -> ()
   {
-    use chillffi::ffi::library::Library;
-    use chillffi::ffi::scope::Scope;
-
     let _slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
 
     let pid1: Option<Result<i32, String>> = withCurrentFfiScope(|scope: &Scope<'_>| {
