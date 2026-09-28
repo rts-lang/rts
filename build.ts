@@ -20,7 +20,9 @@
   tools:
     folder      -> <folder>/main.ts
     file.ts     -> bun file.ts (--release is forwarded to it)
-    build       wasm pkg via tools/build.ts before every run; cwd = repo root
+    build       bare `bun run tools` builds wasm once;
+                TS tools call ensureWasm() themselves (same as ensureRts);
+                cwd = repo root
     paths       from tools/, then from repo root
 
   Patterns (*, ?) are expanded by us, quote them or not:
@@ -28,9 +30,10 @@
     bun run release native/types/*.rt
 
   API (import without running the CLI — gated by import.meta.main):
-    import { ensureRts, ensureNative } from "../../build.ts";
+    import { ensureRts, ensureNative, ensureWasm } from "../../build.ts";
     const rts = await ensureRts({ release: true }); // -> release/rts
     await ensureNative(import.meta.dir);            // *.c -> lib*.so
+    const pkg = await ensureWasm({ release: true }); // -> pkg/
 */
 // =====================================================================================================================
 
@@ -259,9 +262,27 @@ export async function ensureNative(dir: string): Promise<void> {
   }
 }
 
+
+/**
+  Build wasm pkg via tools/build.ts and return path to pkg/.
+  TS tools (ast.ts, …) call this — same pattern as ensureRts → release/build.ts.
+*/
+export async function ensureWasm(opts?: { release?: boolean }): Promise<string> {
+  const release: boolean = opts?.release ?? isRelease;
+  await runBuildScript(join(toolsDir, "build.ts"), "wasm", release);
+  const pkgDir: string = join(rootDir, "pkg");
+  const pkgJs: string = join(pkgDir, "rts.js");
+  if (!existsSync(pkgJs)) {
+    console.error("error: pkg/rts.js missing after wasm build");
+    process.exit(1);
+  }
+  return pkgDir;
+}
+
 async function prepare(entries: Entry[]): Promise<void> {
   if (profileName === "tools") {
-    await runBuildScript(join(toolsDir, "build.ts"), "wasm");
+    // bare `bun run tools` only — entries ask via ensureWasm() themselves
+    if (entries.length === 0) await ensureWasm();
     return;
   }
 

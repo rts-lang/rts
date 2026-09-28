@@ -13,7 +13,7 @@
 
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
-import { ensureWasm } from "./build.ts";
+import { ensureWasm } from "../build.ts";
 
 // =====================================================================================================================
 
@@ -35,11 +35,8 @@ if (!existsSync(filePath)) {
 
 const sourceCode: string = readFileSync(filePath, "utf8");
 
-// build.ts: dev=true → --dev, dev=false → --release
-const wasmOk: boolean = await ensureWasm({ dev: !isRelease });
-if (!wasmOk) {
-  process.exit(1);
-}
+// root build.ts API — same as ensureRts for release/
+await ensureWasm({ release: isRelease });
 
 const pkgMod = await import(`../pkg/rts.js?t=${Date.now()}`);
 const init = pkgMod.default as (module?: unknown) => Promise<void>;
