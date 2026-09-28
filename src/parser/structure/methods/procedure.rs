@@ -2,7 +2,7 @@ use std::process::Command;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::thread::sleep;
 use std::time::Duration;
-use crate::{_exit, _exitCode};
+use crate::{_exit, _exitCode, _sourcePath};
 use crate::parser::parser::{readLines, searchStructure};
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::structure::Structure;
@@ -232,8 +232,15 @@ impl Structure
               }
             }
 
-            // 3. Запускаем исполнение тела функции
+            // 3. Запускаем исполнение тела функции.
+            // Пока оно исполняется, "текущий файл" — тот, где функция написана
+            // (нужно для import() внутри функции из импортированного файла).
+            let calledSourcePath: Option<Arc<String>> =
+              calledStructureLink.read().unwrap().sourcePath.clone();
+            let previousSourcePath: Option<Arc<String>> = unsafe{ _sourcePath.clone() };
+            unsafe{ _sourcePath = calledSourcePath; }
             readLines(calledStructureLink);
+            unsafe{ _sourcePath = previousSourcePath; }
           }
         }
         // -----------------------------------------------------------------------------------------

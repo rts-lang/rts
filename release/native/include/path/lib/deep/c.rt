@@ -1,0 +1,8 @@
+
+d = import("./d.rt")
+d.hello()
+
+hello() {
+  println("c: hello")
+  println("c: done")
+}
