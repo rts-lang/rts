@@ -1,0 +1,7 @@
+{
+  "name": "rts",
+  "private": true,
+  "scripts": {
+    "release": "bun ./build.ts"
+  }
+}
