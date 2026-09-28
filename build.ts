@@ -26,6 +26,11 @@
   Patterns (*, ?) are expanded by us, quote them or not:
     bun run release "native/*"
     bun run release native/types/*.rt
+
+  API (import without running the CLI — gated by import.meta.main):
+    import { ensureRts, ensureNative } from "../../build.ts";
+    const rts = await ensureRts({ release: true }); // -> release/rts
+    await ensureNative(import.meta.dir);            // *.c -> lib*.so
 */
 // =====================================================================================================================
 
@@ -76,29 +81,40 @@ const profiles: Record<string, Profile> = {
   },
 };
 
-const argv: string[] = process.argv.slice(2);
-const profileName: string = argv[0] ?? "";
-const profile: Profile | undefined = profiles[profileName];
-if (!profile) {
-  console.error("usage: bun ./build.ts <release|tools> [entry...] [--release] [-- programArgs]");
-  process.exit(2);
-}
+// CLI state — filled by parseCli() only when this file is the main module.
+// When imported (ensureRts / ensureNative), profile stays unset and isRelease is false
+// unless the caller passes { release: true }.
+let profileName: string = "";
+let profile: Profile | undefined;
+let programArgs: string[] = [];
+let inputs: string[] = [];
+let isRelease: boolean = false;
 
-const rest: string[] = argv.slice(1);
-const dashIndex: number = rest.indexOf("--");
-const ownArgs: string[] = dashIndex === -1 ? rest : rest.slice(0, dashIndex);
-const programArgs: string[] = dashIndex === -1 ? [] : rest.slice(dashIndex + 1);
+function parseCli(): void {
+  const argv: string[] = process.argv.slice(2);
+  profileName = argv[0] ?? "";
+  profile = profiles[profileName];
+  if (!profile) {
+    console.error("usage: bun ./build.ts <release|tools> [entry...] [--release] [-- programArgs]");
+    process.exit(2);
+  }
 
-const isRelease: boolean = ownArgs.includes("--release");
-const inputs: string[] = ownArgs.filter((a: string) => !a.startsWith("-"));
-const unknownFlags: string[] = ownArgs.filter(
-  (a: string) => a.startsWith("-") && a !== "--release"
-);
+  const rest: string[] = argv.slice(1);
+  const dashIndex: number = rest.indexOf("--");
+  const ownArgs: string[] = dashIndex === -1 ? rest : rest.slice(0, dashIndex);
+  programArgs = dashIndex === -1 ? [] : rest.slice(dashIndex + 1);
 
-if (unknownFlags.length > 0) {
-  console.error(`error: unknown flag ${unknownFlags.join(" ")}`);
-  console.error(`usage: bun run ${profileName} [entry...] [--release] [-- programArgs]`);
-  process.exit(2);
+  isRelease = ownArgs.includes("--release");
+  inputs = ownArgs.filter((a: string) => !a.startsWith("-"));
+  const unknownFlags: string[] = ownArgs.filter(
+    (a: string) => a.startsWith("-") && a !== "--release"
+  );
+
+  if (unknownFlags.length > 0) {
+    console.error(`error: unknown flag ${unknownFlags.join(" ")}`);
+    console.error(`usage: bun run ${profileName} [entry...] [--release] [-- programArgs]`);
+    process.exit(2);
+  }
 }
 
 // =====================================================================================================================
@@ -182,8 +198,12 @@ function collect(): Entry[] {
   return entries;
 }
 
-async function runBuildScript(script: string, label: string): Promise<void> {
-  const args: string[] = isRelease ? ["--release"] : [];
+async function runBuildScript(
+  script: string,
+  label: string,
+  release: boolean = isRelease
+): Promise<void> {
+  const args: string[] = release ? ["--release"] : [];
   const proc = Bun.spawn([process.execPath, script, ...args], {
     stdout: "inherit",
     stderr: "inherit",
@@ -194,16 +214,24 @@ async function runBuildScript(script: string, label: string): Promise<void> {
   }
 }
 
-async function buildRts(): Promise<void> {
-  await runBuildScript(join(releaseDir, "build.ts"), "rts");
+/**
+  Build `release/rts` and return its absolute path.
+  TS entries that spawn rts (e.g. bench) call this instead of shelling out.
+*/
+export async function ensureRts(opts?: { release?: boolean }): Promise<string> {
+  const release: boolean = opts?.release ?? isRelease;
+  await runBuildScript(join(releaseDir, "build.ts"), "rts", release);
   if (!existsSync(rtsBin)) {
     console.error("error: release/rts missing after build");
     process.exit(1);
   }
+  return rtsBin;
 }
 
-/** every x.c in dir -> libx.so in dir, only if the .c is newer */
-async function buildNative(dir: string): Promise<void> {
+/**
+  every x.c in dir -> libx.so in dir, only if the .c is newer.
+*/
+export async function ensureNative(dir: string): Promise<void> {
   const sources: string[] = readdirSync(dir).filter((f: string) => f.endsWith(".c"));
   if (sources.length === 0) return;
 
@@ -237,13 +265,15 @@ async function prepare(entries: Entry[]): Promise<void> {
     return;
   }
 
+  // rts only when an .rt entry needs it (or bare `bun run release` build).
+  // TS harnesses that need the binary call ensureRts() themselves.
   const needRts: boolean =
     entries.length === 0 || entries.some((e: Entry) => e.runner === "rts");
-  if (needRts) await buildRts();
+  if (needRts) await ensureRts();
 
   if (profile!.native) {
     for (const dir of new Set(entries.map((e: Entry) => e.dir))) {
-      await buildNative(dir);
+      await ensureNative(dir);
     }
   }
 }
@@ -268,23 +298,30 @@ async function run(entry: Entry): Promise<number> {
 
 // =====================================================================================================================
 
-const entries: Entry[] = collect();
-await prepare(entries);
+async function main(): Promise<void> {
+  parseCli();
+  const entries: Entry[] = collect();
+  await prepare(entries);
 
-const failedNames: string[] = [];
-for (const entry of entries) {
-  if (entries.length > 1) console.log(`\n[run] ${entry.name}`);
-  const code: number = await run(entry);
-  if (code !== 0) {
-    failedNames.push(entry.name);
-    if (entries.length === 1) process.exit(code);
+  const failedNames: string[] = [];
+  for (const entry of entries) {
+    if (entries.length > 1) console.log(`\n[run] ${entry.name}`);
+    const code: number = await run(entry);
+    if (code !== 0) {
+      failedNames.push(entry.name);
+      if (entries.length === 1) process.exit(code);
+    }
   }
+
+  if (entries.length > 1) {
+    console.log(`\n[done] ${entries.length - failedNames.length}/${entries.length} ok`);
+    for (const name of failedNames) console.log(`  FAIL ${name}`);
+  }
+  process.exit(failedNames.length > 0 ? 1 : 0);
 }
 
-if (entries.length > 1) {
-  console.log(`\n[done] ${entries.length - failedNames.length}/${entries.length} ok`);
-  for (const name of failedNames) console.log(`  FAIL ${name}`);
+if (import.meta.main) {
+  await main();
 }
-process.exit(failedNames.length > 0 ? 1 : 0);
 
 // =====================================================================================================================

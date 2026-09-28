@@ -2,22 +2,24 @@
 /**
   RTS FFI vs Python ctypes vs TypeScript (bun:ffi) benchmark (Linux only)
 
-  Usage (from release/):
-  ./native/benchmark/bench.ts
-  ./native/benchmark/bench.ts 100
+  Prefer via entry-runner (builds libbench.so from *.c in this folder):
+    bun run release native/benchmark/bench.ts
+    bun run release native/benchmark/bench.ts -- 100
+
+  Or directly: bun ./release/native/benchmark/bench.ts [runs]
 
   Requires: bun, clang|cc|gcc, python3, glibc.
-  libbench.so is built by the entry-runner (buildNative) before this script runs.
+  rts via ensureRts() from root build.ts API; libs via ensureNative().
 
   todo Еще надо комментарии обычные по стадиям.
 */
 // =====================================================================================================================
 
-import { $ } from "bun";
 import { dlopen, FFIType, ptr } from "bun:ffi";
-import { existsSync, rmSync } from "fs";
+import { rmSync } from "fs";
 import { join, resolve } from "path";
 import { platform, tmpdir } from "os";
+import { ensureNative, ensureRts } from "../../../build.ts";
 
 // =====================================================================================================================
 
@@ -38,8 +40,6 @@ const Runs: number =
 
 const here: string = import.meta.dir;
 const releaseDir: string = resolve(here, "../..");
-const rtsBin: string = join(releaseDir, "rts");
-const libOut: string = join(here, "libbench.so");
 const mainRt: string = join(here, "main.rt");
 const mainPy: string = join(here, "main.py");
 const mainTs: string = join(here, "main.ts");
@@ -270,26 +270,11 @@ async function compile(cmd: string[]): Promise<boolean> {
 async function main(): Promise<number> {
   process.chdir(releaseDir);
 
-  console.log("[1/2] build rts + rss probe");
-  const buildScript: string = join(releaseDir, "build.ts");
-  if (!existsSync(buildScript)) {
-    console.error("error: release/build.ts missing");
-    return 1;
-  }
-  const buildResult = await $`bun run ${buildScript} --release`.nothrow();
-  if (buildResult.exitCode !== 0 || !existsSync(rtsBin)) {
-    console.error("error: release/rts missing after build.ts");
-    return 1;
-  }
-
-  // libbench.so: entry-runner buildNative already compiled every *.c in this folder
-  if (!existsSync(libOut)) {
-    console.error(
-      "error: libbench.so missing — run via entry-runner so buildNative can build it:\n" +
-        "  bun run release native/benchmark"
-    );
-    return 1;
-  }
+  console.log("[1/2] ensure rts + native + rss probe");
+  // Ask the entry-runner API to build and return the binary path.
+  const rtsBin: string = await ensureRts({ release: true });
+  // Same helper entry-runner uses for *.c in this folder (idempotent).
+  await ensureNative(here);
 
   const cc: string | null =
     Bun.which("clang") ?? Bun.which("cc") ?? Bun.which("gcc");

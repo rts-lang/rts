@@ -16,8 +16,6 @@ import { join, resolve } from "path";
 
 const isRelease: boolean = process.argv.includes("--release");
 
-console.clear();
-
 const scriptDir: string = import.meta.dir;
 const rootDir: string = resolve(scriptDir, "..");
 
