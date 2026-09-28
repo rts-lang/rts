@@ -1,23 +1,31 @@
 #!/usr/bin/env bun
 /**
-  RTS entry runner: builds what the entry needs, then runs it.
+  Entry runner: builds what the entry needs, then runs it.
 
   Usage:
-    bun run release <entry>... [--release] [-- programArgs]
+    bun run release [entry...] [--release] [-- programArgs]
+    bun run tools   [entry...] [--release] [-- programArgs]
 
-  Entry:
+  No entry: only the build step (rts for release, wasm pkg for tools).
+
+  release:
     folder      -> <folder>/main.rt   (rts run)
     file.rt     -> rts run file.rt
     file.ts     -> bun file.ts
+    build       rts is built once, only if an .rt entry is present;
+                every x.c in the entry folder becomes libx.so in the same folder;
+                cwd = entry folder (importNative("./libx.so"))
+    paths       from release/, then from repo root
 
-  Paths are resolved from the repo root, then from release/.
+  tools:
+    folder      -> <folder>/main.ts
+    file.ts     -> bun file.ts (--release is forwarded to it)
+    build       wasm pkg via tools/build.ts before every run; cwd = repo root
+    paths       from tools/, then from repo root
+
   Patterns (*, ?) are expanded by us, quote them or not:
     bun run release "native/*"
     bun run release native/types/*.rt
-
-  Build convention:
-    rts is built once, only if an .rt entry is present (--release for release);
-    every x.c in the entry folder becomes libx.so in the same folder.
 */
 
 import { existsSync, readdirSync, statSync } from "fs";
@@ -32,15 +40,51 @@ type Entry = {
   runner: Runner;
 };
 
+type Profile = {
+  baseDir: string;
+  folderEntry: string;
+  runners: Record<string, Runner>;
+  native: boolean; // x.c -> libx.so next to the entry
+  forwardRelease: boolean; // pass --release to the entry
+  entryCwd: (entry: Entry) => string;
+};
+
 const rootDir: string = import.meta.dir;
 const releaseDir: string = join(rootDir, "release");
+const toolsDir: string = join(rootDir, "tools");
 const rtsBin: string = join(releaseDir, "rts");
-const buildScript: string = join(releaseDir, "build.ts");
+
+const profiles: Record<string, Profile> = {
+  release: {
+    baseDir: releaseDir,
+    folderEntry: "main.rt",
+    runners: { ".rt": "rts", ".ts": "bun" },
+    native: true,
+    forwardRelease: false,
+    entryCwd: (entry: Entry): string => entry.dir,
+  },
+  tools: {
+    baseDir: toolsDir,
+    folderEntry: "main.ts",
+    runners: { ".ts": "bun" },
+    native: false,
+    forwardRelease: true,
+    entryCwd: (): string => rootDir,
+  },
+};
 
 const argv: string[] = process.argv.slice(2);
-const dashIndex: number = argv.indexOf("--");
-const ownArgs: string[] = dashIndex === -1 ? argv : argv.slice(0, dashIndex);
-const programArgs: string[] = dashIndex === -1 ? [] : argv.slice(dashIndex + 1);
+const profileName: string = argv[0] ?? "";
+const profile: Profile | undefined = profiles[profileName];
+if (!profile) {
+  console.error("usage: bun ./build.ts <release|tools> [entry...] [--release] [-- programArgs]");
+  process.exit(2);
+}
+
+const rest: string[] = argv.slice(1);
+const dashIndex: number = rest.indexOf("--");
+const ownArgs: string[] = dashIndex === -1 ? rest : rest.slice(0, dashIndex);
+const programArgs: string[] = dashIndex === -1 ? [] : rest.slice(dashIndex + 1);
 
 const isRelease: boolean = ownArgs.includes("--release");
 const inputs: string[] = ownArgs.filter((a: string) => !a.startsWith("-"));
@@ -48,11 +92,9 @@ const unknownFlags: string[] = ownArgs.filter(
   (a: string) => a.startsWith("-") && a !== "--release"
 );
 
-if (inputs.length === 0 || unknownFlags.length > 0) {
-  if (unknownFlags.length > 0) {
-    console.error(`error: unknown flag ${unknownFlags.join(" ")}`);
-  }
-  console.error("usage: bun run release <entry>... [--release] [-- programArgs]");
+if (unknownFlags.length > 0) {
+  console.error(`error: unknown flag ${unknownFlags.join(" ")}`);
+  console.error(`usage: bun run ${profileName} [entry...] [--release] [-- programArgs]`);
   process.exit(2);
 }
 
@@ -62,9 +104,9 @@ function isDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory();
 }
 
-/** Path from repo root, then from release/ */
+/** Path from the profile folder (release/ or tools/), then from repo root */
 function locate(input: string): string | null {
-  for (const base of [rootDir, releaseDir]) {
+  for (const base of [profile!.baseDir, rootDir]) {
     const path: string = resolve(base, input);
     if (existsSync(path)) return path;
   }
@@ -72,7 +114,7 @@ function locate(input: string): string | null {
 }
 
 function expandPattern(pattern: string): string[] {
-  for (const base of [rootDir, releaseDir]) {
+  for (const base of [profile!.baseDir, rootDir]) {
     const glob = new Bun.Glob(pattern);
     const found: string[] = [...glob.scanSync({ cwd: base, onlyFiles: false })];
     if (found.length > 0) return found.sort().map((p: string) => resolve(base, p));
@@ -84,19 +126,15 @@ function expandPattern(pattern: string): string[] {
 function toEntry(path: string): Entry | string {
   let file: string = path;
   if (isDir(path)) {
-    file = join(path, "main.rt");
-    if (!existsSync(file)) return "no main.rt, pass a file";
+    file = join(path, profile!.folderEntry);
+    if (!existsSync(file)) return `no ${profile!.folderEntry}, pass a file`;
   }
 
   const ext: string = extname(file);
-  if (ext !== ".rt" && ext !== ".ts") return `unsupported ${ext || "file"}`;
+  const runner: Runner | undefined = profile!.runners[ext];
+  if (!runner) return `unsupported ${ext || "file"}`;
 
-  return {
-    name: relative(rootDir, file),
-    file,
-    dir: dirname(file),
-    runner: ext === ".rt" ? "rts" : "bun",
-  };
+  return { name: relative(rootDir, file), file, dir: dirname(file), runner };
 }
 
 function collect(): Entry[] {
@@ -104,9 +142,7 @@ function collect(): Entry[] {
   let failed: boolean = false;
 
   for (const input of inputs) {
-    const isPattern: boolean = /[*?]/.test(input);
-
-    if (isPattern) {
+    if (/[*?]/.test(input)) {
       const matches: string[] = expandPattern(input);
       if (matches.length === 0) {
         console.error(`error: nothing matches ${input}`);
@@ -136,21 +172,29 @@ function collect(): Entry[] {
   }
 
   if (failed) process.exit(1);
-  if (entries.length === 0) {
+  if (inputs.length > 0 && entries.length === 0) {
     console.error("error: no runnable entries");
     process.exit(1);
   }
   return entries;
 }
 
-async function buildRts(): Promise<void> {
+async function runBuildScript(script: string, label: string): Promise<void> {
   const args: string[] = isRelease ? ["--release"] : [];
-  const proc = Bun.spawn([process.execPath, buildScript, ...args], {
+  const proc = Bun.spawn([process.execPath, script, ...args], {
     stdout: "inherit",
     stderr: "inherit",
   });
-  if ((await proc.exited) !== 0 || !existsSync(rtsBin)) {
-    console.error("error: rts build failed");
+  if ((await proc.exited) !== 0) {
+    console.error(`error: ${label} build failed`);
+    process.exit(1);
+  }
+}
+
+async function buildRts(): Promise<void> {
+  await runBuildScript(join(releaseDir, "build.ts"), "rts");
+  if (!existsSync(rtsBin)) {
+    console.error("error: release/rts missing after build");
     process.exit(1);
   }
 }
@@ -184,14 +228,34 @@ async function buildNative(dir: string): Promise<void> {
   }
 }
 
+async function prepare(entries: Entry[]): Promise<void> {
+  if (profileName === "tools") {
+    await runBuildScript(join(toolsDir, "build.ts"), "wasm");
+    return;
+  }
+
+  const needRts: boolean =
+    entries.length === 0 || entries.some((e: Entry) => e.runner === "rts");
+  if (needRts) await buildRts();
+
+  if (profile!.native) {
+    for (const dir of new Set(entries.map((e: Entry) => e.dir))) {
+      await buildNative(dir);
+    }
+  }
+}
+
 async function run(entry: Entry): Promise<number> {
+  const forwarded: string[] =
+    profile!.forwardRelease && isRelease ? ["--release"] : [];
+
   const cmd: string[] =
     entry.runner === "rts"
       ? [rtsBin, "run", entry.file, ...programArgs]
-      : [process.execPath, entry.file, ...programArgs];
+      : [process.execPath, entry.file, ...forwarded, ...programArgs];
 
   const proc = Bun.spawn(cmd, {
-    cwd: entry.dir, // relative importNative("./libx.so") resolves here
+    cwd: profile!.entryCwd(entry),
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
@@ -202,13 +266,7 @@ async function run(entry: Entry): Promise<number> {
 // -------------------------------------------------------------------------------------------------
 
 const entries: Entry[] = collect();
-
-if (entries.some((e: Entry) => e.runner === "rts")) {
-  await buildRts();
-}
-for (const dir of new Set(entries.map((e: Entry) => e.dir))) {
-  await buildNative(dir);
-}
+await prepare(entries);
 
 const failedNames: string[] = [];
 for (const entry of entries) {
