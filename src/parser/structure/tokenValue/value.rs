@@ -41,6 +41,33 @@ impl Value
       Self::String(s) => !s.is_empty()
     }
   }
+
+  // Нулевой ли числовой операнд (для деления на 0);
+  // -0.0 == 0.0, поэтому подходит и отрицательный ноль
+  pub fn isZero(&self) -> bool 
+  {
+    match self 
+    {
+      Self::Int(v) => *v==0,
+      Self::UInt(v) => *v==0,
+      Self::Float(v) => *v==0.0,
+      Self::UFloat(v) => *v==uf64::from(0.0),
+      _ => false // None, Char, String - не числа
+    }
+  }
+
+  // Единица того же варианта (x / 1 = x)
+  fn one(&self) -> Self 
+  {
+    match self 
+    {
+      Self::Int(_) => Self::Int(1),
+      Self::UInt(_) => Self::UInt(1),
+      Self::Float(_) => Self::Float(1.0),
+      Self::UFloat(_) => Self::UFloat(uf64::from(1.0)),
+      _ => self.clone()
+    }
+  }
 }
 
 impl fmt::Display for Value 
@@ -261,6 +288,19 @@ impl std::ops::Div for Value
   type Output = Self;
   fn div(self, other: Self) -> Self 
   {
+    // Деление на 0 не ошибка: результат - левая часть (issue #30).
+    // Нулевой делитель заменяем единицей того же варианта: x / 1 = x,
+    // а тип результата идет по тем же веткам, что и при обычном делении,
+    // т.е. зависит от типов операндов, а не от их значений.
+    let other: Self = match other.isZero() 
+    {
+      false => other,
+      true => match self 
+      {
+        Self::None() => return self, // левой части нет - остается None
+        _ => other.one()
+      }
+    };
     match (self.clone(), other) 
     {
       // None

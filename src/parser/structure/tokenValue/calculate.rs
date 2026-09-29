@@ -119,17 +119,14 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     } else
     if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
     {
-      // Проверяем смену типа
-      if let Ok(value) = resultValue.parse::<f64>() 
-      {
-        if value < 0.0 {
-          resultType = TokenType::Float;
-        } else {
-          resultType = TokenType::UFloat;
-        }
+      // Проверяем смену типа;
+      // TokenType::UFloat не ограничен - это тип токена, а не Value::UFloat(uf64).
+      // Ограничение по размеру накладывается структурой (F32/F64), а не здесь.
+      // Поэтому тип результата зависит только от знака строкового значения.
+      if resultValue.starts_with('-') {
+        resultType = TokenType::Float;
       } else {
-        resultType = TokenType::None;
-        resultValue = String::new();
+        resultType = TokenType::UFloat;
       }
     } else
     if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
@@ -138,17 +135,14 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     } else
     if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
     {
-      // Проверяем смену типа
-      if let Ok(value) = resultValue.parse::<i64>() 
-      {
-        if value < 0 {
-          resultType = TokenType::Int;
-        } else {
-          resultType = TokenType::UInt;
-        }
+      // Проверяем смену типа;
+      // TokenType::UInt не ограничен сверху - это тип токена, а не Value::UInt(u64).
+      // Ограничение по размеру накладывается структурой (USize/ABI), а не здесь.
+      // Поэтому тип результата зависит только от знака строкового значения.
+      if resultValue.starts_with('-') {
+        resultType = TokenType::Int;
       } else {
-        resultType = TokenType::None;
-        resultValue = String::new();
+        resultType = TokenType::UInt;
       }
     } else
     if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {
