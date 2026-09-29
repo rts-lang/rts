@@ -138,21 +138,14 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     } else
     if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
     {
-      // Проверяем смену типа
-      if let Ok(value) = resultValue.parse::<i64>() 
-      {
-        if value < 0 {
-          resultType = TokenType::Int;
-        } else {
-          resultType = TokenType::UInt;
-        }
-      } else 
-      if resultValue.parse::<u64>().is_ok() 
-      { // Больше i64::MAX, но еще влезает в u64 (U64)
-        resultType = TokenType::UInt;
+      // Проверяем смену типа;
+      // TokenType::UInt не ограничен сверху - это тип токена, а не Value::UInt(u64).
+      // Ограничение по размеру накладывается структурой (USize/ABI), а не здесь.
+      // Поэтому тип результата зависит только от знака строкового значения.
+      if resultValue.starts_with('-') {
+        resultType = TokenType::Int;
       } else {
-        resultType = TokenType::None;
-        resultValue = String::new();
+        resultType = TokenType::UInt;
       }
     } else
     if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {

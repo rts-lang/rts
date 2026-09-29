@@ -301,7 +301,6 @@ impl std::ops::Div for Value
         _ => other.one()
       }
     };
-    // i64::MIN / -1 не помещается в i64: saturating_div вернет i64::MAX вместо паники
     match (self.clone(), other) 
     {
       // None
@@ -313,13 +312,13 @@ impl std::ops::Div for Value
       (Self::None(), Self::Char(y))   => Self::Char(y),
       (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_div(y)),
-      (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_div(y as i64)),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x/y),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x/ y as i64),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 /y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
       // UInt
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x/y),
-      (Self::UInt(x), Self::Int(y))    => Self::Int   ((x as i64).saturating_div(y)),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 /y),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 /y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) /y),
       // Float
