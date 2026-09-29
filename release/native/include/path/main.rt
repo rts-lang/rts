@@ -1,19 +1,21 @@
 
-# Путь import() считается от файла, в котором он написан.
-#
-# includePath/
-#   main.rt
-#   lib/
-#     a.rt         # import("./b.rt") из своей папки; в load() ещё deep/c.rt
-#     b.rt
-#     deep/
-#       c.rt       # import("./d.rt") из своей папки
-#       d.rt
+##
+  Путь import() считается от файла, в котором он написан.
 
-a = import("./lib/a.rt")   # b: hello / b: done  (a.rt подключил свой b.rt)
-a.hello()                  # a: hello / a: done
-a.load()                   # a: load / d: hello / d: done / c: hello / c: done
-                           # (import внутри функции модуля, путь от a.rt)
+  includePath/
+    main.rt
+    lib/
+      a.rt         # import("./b.rt") из своей папки; в load() ещё deep/c.rt
+      b.rt
+      deep/
+        c.rt       # import("./d.rt") из своей папки
+        d.rt
+##
 
-c = import("./lib/deep/c.rt") # d: hello / d: done
-c.hello()                     # c: hello / c: done
+a = import("./lib/a.rt")  # b: hello / b: done  (a.rt подключил свой b.rt)
+a.hello()                 # a: hello / a: done
+a.load()                  # a: load / d: hello / d: done / c: hello / c: done
+                          # (import внутри функции модуля, путь от a.rt)
+
+c = import("./lib/deep/c.rt")  # d: hello / d: done
+c.hello()                      # c: hello / c: done
