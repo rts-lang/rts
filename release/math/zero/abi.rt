@@ -1,0 +1,127 @@
+
+# Деление на 0 не ошибка: результат - левая часть выражения (issue #30).
+# ABI типы как делитель и как делимое.
+
+a~~ = 0 # Полная mut для кода ниже
+
+# U8
+zA: U8 = 0
+a = 10 / zA
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+xA: U8 = 10
+a = xA / 0
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+# U16
+zB: U16 = 0
+a = 10 / zB
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+xB: U16 = 10
+a = xB / 0
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+# U32
+zC: U32 = 0
+a = 10 / zC
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+xC: U32 = 10
+a = xC / 0
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+# U64
+zD: U64 = 0
+a = 10 / zD
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+xD: U64 = 10
+a = xD / 0
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+# Usize
+zE: Usize = 0
+a = 10 / zE
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+xE: Usize = 10
+a = xE / 0
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+#
+println("=====")
+
+# I8
+zF: I8 = 0
+a = -10 / zF
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+xF: I8 = -10
+a = xF / 0
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+# I16
+zG: I16 = 0
+a = -10 / zG
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+xG: I16 = -10
+a = xG / 0
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+# I32
+zH: I32 = 0
+a = -10 / zH
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+xH: I32 = -10
+a = xH / 0
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+# I64
+zI: I64 = 0
+a = -10 / zI
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+xI: I64 = -10
+a = xI / 0
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+# Isize
+zJ: Isize = 0
+a = -10 / zJ
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+xJ: Isize = -10
+a = xJ / 0
+print(f"{a} | {type(a)}\n")   # -10 | Int
+
+#
+println("=====")
+
+# F32
+zK: F32 = 0.0
+a = 10.5 / zK
+print(f"{a} | {type(a)}\n")   # 10.5 | UFloat
+
+xK: F32 = 10.5
+a = xK / 0.0
+print(f"{a} | {type(a)}\n")   # 10.5 | UFloat
+
+yK: F32 = 0.0
+a = -10.5 / yK
+print(f"{a} | {type(a)}\n")   # -10.5 | Float
+
+# F64
+zL: F64 = 0.0
+a = 10.5 / zL
+print(f"{a} | {type(a)}\n")   # 10.5 | UFloat
+
+xL: F64 = 10.5
+a = xL / 0.0
+print(f"{a} | {type(a)}\n")   # 10.5 | UFloat
+
+yL: F64 = 0.0
+a = -10.5 / yL
+print(f"{a} | {type(a)}\n")   # -10.5 | Float

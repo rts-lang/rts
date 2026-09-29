@@ -146,6 +146,10 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
         } else {
           resultType = TokenType::UInt;
         }
+      } else 
+      if resultValue.parse::<u64>().is_ok() 
+      { // Больше i64::MAX, но еще влезает в u64 (U64)
+        resultType = TokenType::UInt;
       } else {
         resultType = TokenType::None;
         resultValue = String::new();

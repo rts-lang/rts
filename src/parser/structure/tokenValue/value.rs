@@ -41,6 +41,33 @@ impl Value
       Self::String(s) => !s.is_empty()
     }
   }
+
+  // Нулевой ли числовой операнд (для деления на 0);
+  // -0.0 == 0.0, поэтому подходит и отрицательный ноль
+  pub fn isZero(&self) -> bool 
+  {
+    match self 
+    {
+      Self::Int(v) => *v==0,
+      Self::UInt(v) => *v==0,
+      Self::Float(v) => *v==0.0,
+      Self::UFloat(v) => *v==uf64::from(0.0),
+      _ => false // None, Char, String - не числа
+    }
+  }
+
+  // Единица того же варианта (x / 1 = x)
+  fn one(&self) -> Self 
+  {
+    match self 
+    {
+      Self::Int(_) => Self::Int(1),
+      Self::UInt(_) => Self::UInt(1),
+      Self::Float(_) => Self::Float(1.0),
+      Self::UFloat(_) => Self::UFloat(uf64::from(1.0)),
+      _ => self.clone()
+    }
+  }
 }
 
 impl fmt::Display for Value 
@@ -261,6 +288,20 @@ impl std::ops::Div for Value
   type Output = Self;
   fn div(self, other: Self) -> Self 
   {
+    // Деление на 0 не ошибка: результат - левая часть (issue #30).
+    // Нулевой делитель заменяем единицей того же варианта: x / 1 = x,
+    // а тип результата идет по тем же веткам, что и при обычном делении,
+    // т.е. зависит от типов операндов, а не от их значений.
+    let other: Self = match other.isZero() 
+    {
+      false => other,
+      true => match self 
+      {
+        Self::None() => return self, // левой части нет - остается None
+        _ => other.one()
+      }
+    };
+    // i64::MIN / -1 не помещается в i64: saturating_div вернет i64::MAX вместо паники
     match (self.clone(), other) 
     {
       // None
@@ -272,13 +313,13 @@ impl std::ops::Div for Value
       (Self::None(), Self::Char(y))   => Self::Char(y),
       (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Self::Int(x), Self::Int(y))    => Self::Int  (x/y),
-      (Self::Int(x), Self::UInt(y))   => Self::Int  (x/ y as i64),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_div(y)),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_div(y as i64)),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 /y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
       // UInt
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x/y),
-      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 /y),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   ((x as i64).saturating_div(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 /y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) /y),
       // Float

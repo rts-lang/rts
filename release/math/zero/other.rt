@@ -1,0 +1,47 @@
+
+# Деление на 0 не ошибка: результат - левая часть выражения (issue #30).
+# Остальные типы, цепочки и приоритет операций.
+
+a~~ = 0 # Полная mut для кода ниже
+
+# Char, String и Bool
+println('a' / 0)         # a
+println(type('a' / 0))   # Char
+
+println("abc" / 0)         # abc
+println(type("abc" / 0))   # String
+
+a = 10 / 'a'
+print(f"{a} | {type(a)}\n")   # 10 | UInt
+
+a = true / false
+print(f"{a} | {type(a)}\n")   # 1 | UInt
+
+#
+println("=====")
+
+# Цепочки: каждый шаг слева направо
+a = 100 / 0 / 2
+print(f"{a} | {type(a)}\n")   # 50 | UInt
+
+a = 100 / 5 / 0
+print(f"{a} | {type(a)}\n")   # 20 | UInt
+
+a = 100 / 0 / 0
+print(f"{a} | {type(a)}\n")   # 100 | UInt
+
+#
+println("=====")
+
+# Приоритет: деление выполняется раньше + и -
+a = 10 - 6 / 0
+print(f"{a} | {type(a)}\n")   # 4 | UInt
+
+a = 10 + 6 / 0
+print(f"{a} | {type(a)}\n")   # 16 | UInt
+
+a = 1 / 0 + 2 / 0
+print(f"{a} | {type(a)}\n")   # 3 | UInt
+
+a = -1 - 1 / 0
+print(f"{a} | {type(a)}\n")   # -2 | Int

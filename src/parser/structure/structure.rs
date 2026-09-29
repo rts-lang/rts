@@ -1338,9 +1338,9 @@ impl Structure
     //  &[TokenType::Inclusion, TokenType::Joint]
     //);
 
-    // Проверка * и /
-    // todo Работало за другие операторы (преждевременно + или -)
-    //self.expressionOp(value, &mut valueLength, &[TokenType::Multiply, TokenType::Divide]);
+    // Проверка /
+    // todo * пока отключен: его нужно включать вместе с проверкой Value::Mul
+    self.expressionOp(value, &mut valueLength, &[TokenType::Divide]);
 
     // Проверка + и -
     self.expressionOp(value, &mut valueLength, &[TokenType::Plus, TokenType::Minus]);
@@ -1400,10 +1400,14 @@ impl Structure
         }
         // Подразумевается, что нет оператора - поэтому два операнда,
         // поэтому мы можем проверить:
-        // value -value2
+        //   value -value2
         // Потому что минус входит в число и мы можем просто проверить 2 токена.
         // Это то же самое, что: `10-20` = `10+(-20)`.
-        false => match matches!(*tokenType, TokenType::Int | TokenType::Float)
+        //
+        // Это только для + и -; в остальных проходах слитый минус (`-6`)
+        // обычный операнд и его нужно пропустить: `10 -6 / 2` = `10 + (-6 / 2)`
+        false => match operations.contains(&TokenType::Plus) &&
+                       matches!(*tokenType, TokenType::Int | TokenType::Float)
         { false => {} true =>
         {
           value[i-1] = calculate(&TokenType::Plus, &value[i-1], &value[i]);
