@@ -67,9 +67,12 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
         isLink = true;
       }}
 
-      // Пропуск пустот
+      // Пропуск пустот;
+      // Перенос строки допустим только после `.`: это оператор в конце строки,
+      // выражение не завершено (`a.\n  b`). Без оператора строка завершена (`a.0\nb`).
       let mut temp: usize = savedIndex;
-      skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
+      let whitespace: &[u8] = if currentByte == b'.' { b" \t\n" } else { b" \t" };
+      skipWhitespaceBytes(buffer, &mut temp, bufferLength, whitespace);
       if temp < bufferLength && isLetter(&buffer[temp]) {
         savedIndex = temp;
       }
@@ -242,6 +245,11 @@ mod tests
       ("true", "true", TokenType::Bool, 4),
       ("None;", "", TokenType::None, 4),
       ("obj.[0].prop,", "obj.[0].prop", TokenType::Link, 12),
+      ("a. b(", "a.b", TokenType::Link, 4),         // пробел после . сливает
+      ("a.\n  b", "a.b", TokenType::Link, 6),      // оператор в конце строки сливает
+      ("a.0\nprintln", "a.0", TokenType::Link, 3), // без оператора строка завершена
+      ("a.b\nprintln", "a.b", TokenType::Link, 3),
+      ("abc1\nfoo", "abc1", TokenType::Word, 4),
       ("abc123+", "abc123", TokenType::Word, 6),
     ] {
       let buffer: &[u8] = input.as_bytes();
