@@ -383,7 +383,13 @@ impl Token
       self.getData().toString() { string }
       else { return result(self, StructureType::None) };
 
-    result(self, match dataType 
+    // Токены UInt, Int, UFloat, Float бесконечны, а ABI типы структур ограничены;
+    // Если число вышло за самый крайний ABI тип, то это константное поведение (#71):
+    // тип становится крайним (U64, I64, F64), а значение - его границей;
+    // Здесь хранится новое значение, если оно изменилось.
+    let mut newData: Option<String> = None;
+
+    let structureType: StructureType = match dataType 
     {
       TokenType::None => StructureType::None,
       TokenType::Any => StructureType::Any,
@@ -391,73 +397,76 @@ impl Token
       //
       TokenType::UInt => 
       {
-        if let Ok(value) = data.parse::<u128>() 
+        match data.parse::<u128>() 
         {
-          if value <= u8::MAX as u128 {
-            StructureType::U8
-          } else if value <= u16::MAX as u128 {
-            StructureType::U16
-          } else if value <= u32::MAX as u128 {
-            StructureType::U32
-          } else if value <= u64::MAX as u128 {
+          Ok(value) if value <= u8::MAX  as u128 => StructureType::U8,
+          Ok(value) if value <= u16::MAX as u128 => StructureType::U16,
+          Ok(value) if value <= u32::MAX as u128 => StructureType::U32,
+          Ok(value) if value <= u64::MAX as u128 => StructureType::U64,
+          // Больше U64, в том числе не поместилось в u128, но всё ещё число
+          _ if Self::isDigits(&data) => 
+          {
+            newData = Some( u64::MAX.to_string() );
             StructureType::U64
-          } else if value <= usize::MAX as u128 {
-            StructureType::Usize
-          } else {
-            // Выходит за рамки хранения структуры - не обрабатываем
-            StructureType::None
           }
-        } else {
           // Что-то непонятное
-          StructureType::None
+          _ => StructureType::None
         }
       }
       TokenType::Int => 
       {
-        if let Ok(value) = data.parse::<i128>() 
+        match data.parse::<i128>() 
         {
-          if value >= i8::MIN as i128 && value <= i8::MAX as i128 {
-            StructureType::I8
-          } else if value >= i16::MIN as i128 && value <= i16::MAX as i128 {
-            StructureType::I16
-          } else if value >= i32::MIN as i128 && value <= i32::MAX as i128 {
-            StructureType::I32
-          } else if value >= i64::MIN as i128 && value <= i64::MAX as i128 {
+          Ok(value) if value >= i8::MIN  as i128 && value <= i8::MAX  as i128 => StructureType::I8,
+          Ok(value) if value >= i16::MIN as i128 && value <= i16::MAX as i128 => StructureType::I16,
+          Ok(value) if value >= i32::MIN as i128 && value <= i32::MAX as i128 => StructureType::I32,
+          Ok(value) if value >= i64::MIN as i128 && value <= i64::MAX as i128 => StructureType::I64,
+          // Меньше I64 или больше I64, в том числе не поместилось в i128, но всё ещё число
+          _ if Self::isDigits( data.trim_start_matches('-') ) => 
+          {
+            let border: i64 = if data.starts_with('-') { i64::MIN } else { i64::MAX };
+            newData = Some( border.to_string() );
             StructureType::I64
-          } else if value >= isize::MIN as i128 && value <= isize::MAX as i128 {
-            StructureType::Isize
-          } else {
-            // Выходит за рамки хранения структуры - не обрабатываем
-            StructureType::None
           }
-        } else {
           // Что-то непонятное
-          StructureType::None
+          _ => StructureType::None
         }
       }
       TokenType::UFloat | TokenType::Float => 
       {
-        if let Ok(value) = data.parse::<f64>() 
+        match data.parse::<f64>() 
         {
-          if value >= f32::MIN as f64 && value <= f32::MAX as f64 {
-            StructureType::F32
-          } else if value >= f64::MIN && value <= f64::MAX {
-            // Самый крайний тип
+          Ok(value) if value.is_nan() => StructureType::None,
+          Ok(value) if value >= f32::MIN as f64 && value <= f32::MAX as f64 => StructureType::F32,
+          Ok(value) => 
+          { // Самый крайний тип; inf становится границей F64
+            if value.is_infinite() 
+            {
+              let border: f64 = if value.is_sign_negative() { f64::MIN } else { f64::MAX };
+              newData = Some( format!("{:e}", border) );
+            }
             StructureType::F64
-          } else {
-            // Выходит за рамки хранения структуры - не обрабатываем
-            StructureType::None
           }
-        } else {
           // Что-то непонятное
-          StructureType::None
+          Err(_) => StructureType::None
         }
       }
       // Для остальных типов - возвращаем Custom
       // todo Сейчас могут попасть лишние т.к. они не объявлены выше
       _ => StructureType::None,
-    })
+    };
+
+    if let Some(newData) = newData {
+      self.setData( Bytes::from(newData) );
+    }
+    result(self, structureType)
     //
+  }
+
+  /// Строка состоит только из цифр и не пуста;
+  fn isDigits(data: &str) -> bool
+  {
+    !data.is_empty() && data.bytes().all(|byte| byte.is_ascii_digit())
   }
 
   /// Вычисляет StructureType на основе токена;
@@ -511,3 +520,64 @@ impl Token
 }
 
 // =================================================================================================
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
+  use crate::parser::structure::structureType::StructureType;
+  // ===============================================================================================
+
+  /// Проверяет тип и значение токена после getStructureType();
+  fn check(tokenType: TokenType, data: &str, expectedType: StructureType, expectedData: &str)
+  {
+    let mut token: Token = Token::new(tokenType, String::from(data));
+    let structureType: StructureType = token.getStructureType();
+    let tokenData: String = token.getData().toString().unwrap_or_default();
+    assert!(
+      structureType == expectedType && tokenData == expectedData,
+      "Для '{}' ожидалось значение '{}', получено '{}' (тип совпал: {})",
+      data, expectedData, tokenData, structureType == expectedType
+    );
+  }
+
+  /// Числа внутри рамок ABI не меняются;
+  #[test]
+  fn inRange()
+  {
+    check(TokenType::UInt,   "255",                  StructureType::U8,  "255");
+    check(TokenType::UInt,   "18446744073709551615", StructureType::U64, "18446744073709551615");
+    check(TokenType::Int,    "-128",                 StructureType::I8,  "-128");
+    check(TokenType::Int,    "-9223372036854775808", StructureType::I64, "-9223372036854775808");
+    check(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
+  }
+
+  /// За рамками ABI тип и значение становятся границей крайнего типа (#71);
+  #[test]
+  fn saturation()
+  {
+    // UInt: > u64, и > u128
+    check(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
+    check(TokenType::UInt, "99999999999999999999999999999999999999999999", StructureType::U64, &u64::MAX.to_string());
+    // Int: < i64, и < i128
+    check(TokenType::Int, "-9223372036854775809", StructureType::I64, &i64::MIN.to_string());
+    check(TokenType::Int, "-99999999999999999999999999999999999999999999", StructureType::I64, &i64::MIN.to_string());
+    // Int: > i64
+    check(TokenType::Int, "9223372036854775808", StructureType::I64, &i64::MAX.to_string());
+    // Float: inf после parse
+    check(TokenType::UFloat, "1e309",  StructureType::F64, &format!("{:e}", f64::MAX));
+    check(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
+  }
+
+  /// Не число - по прежнему None, токен очищается;
+  #[test]
+  fn notNumber()
+  {
+    check(TokenType::UInt,   "abc", StructureType::None, "");
+    check(TokenType::Int,    "-",   StructureType::None, "");
+    check(TokenType::UFloat, "NaN", StructureType::None, "");
+  }
+}

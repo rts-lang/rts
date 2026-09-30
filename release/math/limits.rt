@@ -5,26 +5,25 @@
 
   Поэтому type() большого числа всегда UInt, даже когда Value::UInt переполнен.
 
-  todo Тут стоит подумать т.к. мб > или < типа это не None.
-    Например UInt при -10 без mut - это 0.
-    Но при >MAX - оно могло бы быть просто MAX а не None, что соответствует #71.
-    При Int <MIN точно так же - оно по сути должно было быть просто MIN.
-    Возможно, что я сделал его None по иным соображениям или просто не сделал.
+  Числовой литерал за пределами самого крайнего ABI типа (U64, I64, F64) - 
+  это константное поведение (#71): stype становится крайним типом, а значение 
+  его границей. Это также потому, что токены языка могут хранить бесконечное 
+  число, но сами типы имеют конечные размеры по ABI.
 ###
 
 a~~ = 0 # Полная mut для кода ниже
 
 # u64::MAX: помещается в Value::UInt, stype = U64
 a = 18446744073709551615
-print(f"{a} | {type(a)} | {stype(a)}\n")   # 18446744073709551615 | UInt | U64
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 18446744073709551615 | UInt | U64
 
-# u64::MAX + 1: литераль > u64::MAX, type = UInt (не None!), stype = None
+# u64::MAX + 1: литераль > u64::MAX, type = UInt, stype = U64, значение = u64::MAX (#71)
 a = 18446744073709551616
-print(f"{a} | {type(a)} | {stype(a)}\n")   #  | UInt | None
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 18446744073709551615 | UInt | U64
 
-# Очень большой литераль: type = UInt (не None!), stype = None
+# Очень большой литераль: type = UInt, stype = U64, значение = u64::MAX (#71)
 a = 99999999999999999999999
-print(f"{a} | {type(a)} | {stype(a)}\n")   #  | UInt | None
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 18446744073709551615 | UInt | U64
 
 #
 println("=====")
@@ -37,34 +36,34 @@ println("=====")
 
 # u64::MAX / 0: деление на 0 (issue #30), type = UInt
 a = 18446744073709551615 / 0
-print(f"{a} | {type(a)} | {stype(a)}\n")   # 18446744073709551615 | UInt | U64
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 18446744073709551615 | UInt | U64
 
 # u64::MAX / 1: обычное деление, type = UInt
 a = 18446744073709551615 / 1
-print(f"{a} | {type(a)} | {stype(a)}\n")   # 18446744073709551615 | UInt | U64
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 18446744073709551615 | UInt | U64
 
 # Большой UInt / 0: type = UInt (не None!), value = 0
 a = 99999999999999999999999 / 0
-print(f"{a} | {type(a)} | {stype(a)}\n")   # 0 | UInt | U8
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 0 | UInt | U8
 
 # Большой UInt / 1: type = UInt (не None!), value = 0
 a = 99999999999999999999999 / 1
-print(f"{a} | {type(a)} | {stype(a)}\n")   # 0 | UInt | U8
+print(f"{a} | {type(a)} | {stype(a)}\n")  # 0 | UInt | U8
 
 #
 println("=====")
 
 # i64::MIN: помещается в Value::Int, stype = I64
 a = -9223372036854775808
-print(f"{a} | {type(a)} | {stype(a)}\n")   # -9223372036854775808 | Int | I64
+print(f"{a} | {type(a)} | {stype(a)}\n")  # -9223372036854775808 | Int | I64
 
-# i64::MIN - 1: литераль < i64::MIN, type = Int (не None!), stype = None
+# i64::MIN - 1: литераль < i64::MIN, type = Int, stype = I64, значение = i64::MIN (#71)
 a = -9223372036854775809
-print(f"{a} | {type(a)} | {stype(a)}\n")   #  | Int | None
+print(f"{a} | {type(a)} | {stype(a)}\n")  # -9223372036854775808 | Int | I64
 
 # i64::MIN / 0: деление на 0 (issue #30), type = Int
 a = -9223372036854775808 / 0
-print(f"{a} | {type(a)} | {stype(a)}\n")   # -9223372036854775808 | Int | I64
+print(f"{a} | {type(a)} | {stype(a)}\n")  # -9223372036854775808 | Int | I64
 
 #
 println("=====")
@@ -77,7 +76,7 @@ println("=====")
 
 # UFloat - UFloat с отрицательным результатом: type = Float (не None!)
 a = 1.0 - 2.0
-print(f"{a} | {type(a)}\n")   # -1 | Float
+print(f"{a} | {type(a)}\n")  # -1 | Float
 
 ##
   inf (переполнение UFloat + UFloat): type = UFloat (не None!)
@@ -86,12 +85,12 @@ print(f"{a} | {type(a)}\n")   # -1 | Float
 ##
 
 a = 1e308 + 1e308
-print(f"{type(a)}\n")   # UFloat
+print(f"{type(a)}\n")  # UFloat
 
 # NaN (inf - inf): type = UFloat (NaN не начинается с '-')
 a = (1e308 + 1e308) - (1e308 + 1e308)
-print(f"{type(a)}\n")   # UFloat
+print(f"{type(a)}\n")  # UFloat
 
 # Литераль > f64::MAX (1e309): type = UFloat (токенайзер хранит как есть)
 a = 1e309
-print(f"{type(a)}\n")   # UFloat
+print(f"{type(a)}\n")  # UFloat
