@@ -111,11 +111,11 @@ impl Structure
   {
     match structureType 
     {
-      StructureType::U8    => Some(( 0,             u8::MAX    as u64 )),
-      StructureType::U16   => Some(( 0,             u16::MAX   as u64 )),
-      StructureType::U32   => Some(( 0,             u32::MAX   as u64 )),
-      StructureType::U64   => Some(( 0,             u64::MAX )),
-      StructureType::Usize => Some(( 0,             usize::MAX as u64 )),
+      StructureType::U8    => Some(( 0,                 u8::MAX    as u64 )),
+      StructureType::U16   => Some(( 0,                 u16::MAX   as u64 )),
+      StructureType::U32   => Some(( 0,                 u32::MAX   as u64 )),
+      StructureType::U64   => Some(( 0,                 u64::MAX          )),
+      StructureType::Usize => Some(( 0,                 usize::MAX as u64 )),
       StructureType::I8    => Some(( i8::MIN    as i64, i8::MAX    as u64 )),
       StructureType::I16   => Some(( i16::MIN   as i64, i16::MAX   as u64 )),
       StructureType::I32   => Some(( i32::MIN   as i64, i32::MAX   as u64 )),
