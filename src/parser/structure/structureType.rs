@@ -1,3 +1,4 @@
+use std::num::IntErrorKind;
 use serde::{Deserialize, Serialize};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
@@ -105,6 +106,25 @@ impl ToString for StructureType
 
 impl Structure
 {
+  /// Границы целочисленного типа: (минимум, максимум);
+  fn integerLimits(structureType: StructureType) -> Option<(i64, u64)> 
+  {
+    match structureType 
+    {
+      StructureType::U8    => Some(( 0,                 u8::MAX    as u64 )),
+      StructureType::U16   => Some(( 0,                 u16::MAX   as u64 )),
+      StructureType::U32   => Some(( 0,                 u32::MAX   as u64 )),
+      StructureType::U64   => Some(( 0,                 u64::MAX          )),
+      StructureType::Usize => Some(( 0,                 usize::MAX as u64 )),
+      StructureType::I8    => Some(( i8::MIN    as i64, i8::MAX    as u64 )),
+      StructureType::I16   => Some(( i16::MIN   as i64, i16::MAX   as u64 )),
+      StructureType::I32   => Some(( i32::MIN   as i64, i32::MAX   as u64 )),
+      StructureType::I64   => Some(( i64::MIN,          i64::MAX   as u64 )),
+      StructureType::Isize => Some(( isize::MIN as i64, isize::MAX as u64 )),
+      _ => None
+    }
+  }
+
   /// Приводит данные токена в рамки требуемого StructureType,
   /// чтобы Structure смог его безопасно хранить;
   /// 
@@ -134,86 +154,68 @@ impl Structure
         match dataType
         {
           TokenType::UInt => 
-          {
-            if let Ok(mut value) = tokenData.parse::<u128>() 
+          { // Токен бесконечен, а u64 нет: всё что больше - граница u64 (#71),
+            // дальше значение зажимается в рамки структуры
+            let value: Option<u64> = match tokenData.parse::<u64>() 
             {
-              match structureType 
+              Ok(value) => Some(value),
+              Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(u64::MAX),
+              Err(_) => None
+            };
+            match value 
+            {
+              None => token.setDefaultValue(structureType), // Не распарсилось — базовое значение
+              Some(value) => match structureType 
               {
-                StructureType::U8 => value = value.clamp(0, u8::MAX as u128),
-                StructureType::U16 => value = value.clamp(0, u16::MAX as u128),
-                StructureType::U32 => value = value.clamp(0, u32::MAX as u128),
-                StructureType::U64 => value = value.clamp(0, u64::MAX as u128),
-                StructureType::Usize => value = value.clamp(0, usize::MAX as u128),
-                StructureType::I8 => value = value.clamp(0, i8::MAX as u128),
-                StructureType::I16 => value = value.clamp(0, i16::MAX as u128),
-                StructureType::I32 => value = value.clamp(0, i32::MAX as u128),
-                StructureType::I64 => value = value.clamp(0, i64::MAX as u128),
-                StructureType::Isize => value = value.clamp(0, isize::MAX as u128),
+                // Для float берём величину числа напрямую, без сжатия в u64
                 StructureType::F32 => {
-                  let floatValue: f64 = (value as f64).clamp(f32::MIN as f64, f32::MAX as f64);
+                  let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64)
+                    .clamp(f32::MIN as f64, f32::MAX as f64);
                   token.setData( Bytes::from((floatValue as f32).to_string()) );
-                  return;
                 }
                 StructureType::F64 => {
-                  let floatValue: f64 = value as f64;
+                  let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64);
                   token.setData( Bytes::from(floatValue.to_string()) );
-                  return;
                 }
-                _ => {}
+                _ => if let Some((_, max)) = Self::integerLimits(structureType) {
+                  token.setData( Bytes::from(value.min(max).to_string()) );
+                }
               }
-              token.setData( Bytes::from(value.to_string()) );
-            } else 
-            { // Не распарсилось — базовое значение
-              token.setDefaultValue(structureType);
             }
           }
           TokenType::Int => 
-          {
-            if let Ok(mut value) = tokenData.parse::<i128>() 
+          { // Токен бесконечен, а i64 нет: всё что больше или меньше - граница i64 (#71),
+            // дальше значение зажимается в рамки структуры
+            let value: Option<i64> = match tokenData.parse::<i64>() 
             {
-              match structureType 
+              Ok(value) => Some(value),
+              Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(i64::MIN),
+              Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(i64::MAX),
+              Err(_) => None
+            };
+            match value 
+            {
+              None => token.setDefaultValue(structureType), // Не распарсилось — базовое значение
+              Some(value) => match structureType 
               {
-                StructureType::U8 => {
-                  if value < 0 { value = 0; }
-                  value = value.clamp(0, u8::MAX as i128);
-                }
-                StructureType::U16 => {
-                  if value < 0 { value = 0; }
-                  value = value.clamp(0, u16::MAX as i128);
-                }
-                StructureType::U32 => {
-                  if value < 0 { value = 0; }
-                  value = value.clamp(0, u32::MAX as i128);
-                }
-                StructureType::U64 => {
-                  if value < 0 { value = 0; }
-                  value = value.clamp(0, u64::MAX as i128);
-                }
-                StructureType::Usize => {
-                  if value < 0 { value = 0; }
-                  value = value.clamp(0, usize::MAX as i128);
-                }
-                StructureType::I8 => value = value.clamp(i8::MIN as i128, i8::MAX as i128),
-                StructureType::I16 => value = value.clamp(i16::MIN as i128, i16::MAX as i128),
-                StructureType::I32 => value = value.clamp(i32::MIN as i128, i32::MAX as i128),
-                StructureType::I64 => value = value.clamp(i64::MIN as i128, i64::MAX as i128),
-                StructureType::Isize => value = value.clamp(isize::MIN as i128, isize::MAX as i128),
+                // Для float берём величину числа напрямую, без сжатия в i64
                 StructureType::F32 => {
-                  let floatValue: f64 = (value as f64).clamp(f32::MIN as f64, f32::MAX as f64);
+                  let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64)
+                    .clamp(f32::MIN as f64, f32::MAX as f64);
                   token.setData( Bytes::from((floatValue as f32).to_string()) );
-                  return;
                 }
                 StructureType::F64 => {
-                  let floatValue: f64 = value as f64;
+                  let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64);
                   token.setData( Bytes::from(floatValue.to_string()) );
-                  return;
                 }
-                _ => {}
+                _ => if let Some((min, max)) = Self::integerLimits(structureType) {
+                  let clamped: String = 
+                    if value < min { min.to_string() } else 
+                    if value > 0 && (value as u64) > max { max.to_string() } else 
+                    { value.to_string() };
+                  token.setData( Bytes::from(clamped) );
+                }
               }
-              token.setData( Bytes::from(value.to_string()) );
-            } else 
-            { // Не распарсилось — базовое значение
-              token.setDefaultValue(structureType);
             }
           }
           TokenType::UFloat | TokenType::Float => 
@@ -223,9 +225,9 @@ impl Structure
               if dataType == &TokenType::UFloat && value < 0.0 {
                 value = 0.0;
               }
-              if !value.is_finite() 
-              {
-                // Бесконечность или NaN — базовое значение
+              if value.is_nan() 
+              { // NaN — базовое значение; 
+                // Бесконечность зажмётся в границы типа (#71)
                 token.setDefaultValue(structureType);
                 return;
               }
@@ -241,57 +243,20 @@ impl Structure
                   if value > f64::MAX { value = f64::MAX; }
                   token.setData( Bytes::from(value.to_string()) );
                 }
-                // Приведение к целочисленным типам
-                target if matches!(target, 
-                  StructureType::U8 | StructureType::U16 | StructureType::U32 | StructureType::U64 | StructureType::Usize |
-                  //
-                  StructureType::I8 | StructureType::I16 | StructureType::I32 | StructureType::I64 | StructureType::Isize) =>
+                // Приведение к целочисленным типам: округление и зажим в границы типа;
+                // Отрицательное значение остаётся, если тип его принимает (I8 = -5.5 -> -6),
+                // а для беззнаковых типов оно становится 0 (U8 = -5.5 -> 0)
+                target => if let Some((min, max)) = Self::integerLimits(target) 
                 {
-                  let integerValue: i128 = if value < 0.0 { 0 } else { value.round() as i128 };
-                  match target 
-                  {
-                    StructureType::U8 => {
-                      let clamped: i128 = integerValue.clamp(0, u8::MAX as i128);
-                      token.setData( Bytes::from((clamped as u8).to_string()) );
-                    }
-                    StructureType::U16 => {
-                      let clamped: i128 = integerValue.clamp(0, u16::MAX as i128);
-                      token.setData( Bytes::from((clamped as u16).to_string()) );
-                    }
-                    StructureType::U32 => {
-                      let clamped: i128 = integerValue.clamp(0, u32::MAX as i128);
-                      token.setData( Bytes::from((clamped as u32).to_string()) );
-                    }
-                    StructureType::U64 => {
-                      let clamped: i128 = integerValue.clamp(0, u64::MAX as i128);
-                      token.setData( Bytes::from((clamped as u64).to_string()) );
-                    }
-                    StructureType::Usize => {
-                      let clamped: i128 = integerValue.clamp(0, usize::MAX as i128);
-                      token.setData( Bytes::from((clamped as usize).to_string()) );
-                    }
-                    StructureType::I8 => {
-                      let clamped: i128 = integerValue.clamp(i8::MIN as i128, i8::MAX as i128);
-                      token.setData( Bytes::from((clamped as i8).to_string()) );
-                    }
-                    StructureType::I16 => {
-                      let clamped: i128 = integerValue.clamp(i16::MIN as i128, i16::MAX as i128);
-                      token.setData( Bytes::from((clamped as i16).to_string()) );
-                    }
-                    StructureType::I32 => {
-                      let clamped: i128 = integerValue.clamp(i32::MIN as i128, i32::MAX as i128);
-                      token.setData( Bytes::from((clamped as i32).to_string()) );
-                    }
-                    StructureType::I64 => {
-                      let clamped: i128 = integerValue.clamp(i64::MIN as i128, i64::MAX as i128);
-                      token.setData( Bytes::from((clamped as i64).to_string()) );
-                    }
-                    StructureType::Isize => {
-                      let clamped: i128 = integerValue.clamp(isize::MIN as i128, isize::MAX as i128);
-                      token.setData( Bytes::from((clamped as isize).to_string()) );
-                    }
-                    _ => {}
-                  }
+                  let rounded: f64 = value.round();
+                  let clamped: String = if rounded < 0.0 
+                  { // Приведение f64 в i64 насыщается само, inf тоже
+                    (rounded as i64).max(min).to_string() 
+                  } else 
+                  { 
+                    (rounded as u64).min(max).to_string() 
+                  };
+                  token.setData( Bytes::from(clamped) );
                 }
                 _ => {}
               }
@@ -383,7 +348,13 @@ impl Token
       self.getData().toString() { string }
       else { return result(self, StructureType::None) };
 
-    result(self, match dataType 
+    // Токены UInt, Int, UFloat, Float бесконечны, а ABI типы структур ограничены;
+    // Если число вышло за самый крайний ABI тип, то это константное поведение (#71):
+    // тип становится крайним (U64, I64, F64), а значение - его границей;
+    // Здесь хранится новое значение, если оно изменилось.
+    let mut newData: Option<String> = None;
+
+    let structureType: StructureType = match dataType 
     {
       TokenType::None => StructureType::None,
       TokenType::Any => StructureType::Any,
@@ -391,72 +362,76 @@ impl Token
       //
       TokenType::UInt => 
       {
-        if let Ok(value) = data.parse::<u128>() 
+        match data.parse::<u64>() 
         {
-          if value <= u8::MAX as u128 {
-            StructureType::U8
-          } else if value <= u16::MAX as u128 {
-            StructureType::U16
-          } else if value <= u32::MAX as u128 {
-            StructureType::U32
-          } else if value <= u64::MAX as u128 {
+          Ok(value) if value <= u8::MAX  as u64 => StructureType::U8,
+          Ok(value) if value <= u16::MAX as u64 => StructureType::U16,
+          Ok(value) if value <= u32::MAX as u64 => StructureType::U32,
+          Ok(_) => StructureType::U64,
+          // Больше U64: вид ошибки говорит, что это переполнение числа
+          Err(error) if *error.kind() == IntErrorKind::PosOverflow => 
+          {
+            newData = Some( u64::MAX.to_string() );
             StructureType::U64
-          } else if value <= usize::MAX as u128 {
-            StructureType::Usize
-          } else {
-            // Выходит за рамки хранения структуры - не обрабатываем
-            StructureType::None
           }
-        } else {
           // Что-то непонятное
-          StructureType::None
+          Err(_) => StructureType::None
         }
       }
       TokenType::Int => 
       {
-        if let Ok(value) = data.parse::<i128>() 
+        match data.parse::<i64>() 
         {
-          if value >= i8::MIN as i128 && value <= i8::MAX as i128 {
-            StructureType::I8
-          } else if value >= i16::MIN as i128 && value <= i16::MAX as i128 {
-            StructureType::I16
-          } else if value >= i32::MIN as i128 && value <= i32::MAX as i128 {
-            StructureType::I32
-          } else if value >= i64::MIN as i128 && value <= i64::MAX as i128 {
-            StructureType::I64
-          } else if value >= isize::MIN as i128 && value <= isize::MAX as i128 {
-            StructureType::Isize
-          } else {
-            // Выходит за рамки хранения структуры - не обрабатываем
-            StructureType::None
+          Ok(value) if value >= i8::MIN  as i64 && value <= i8::MAX  as i64 => StructureType::I8,
+          Ok(value) if value >= i16::MIN as i64 && value <= i16::MAX as i64 => StructureType::I16,
+          Ok(value) if value >= i32::MIN as i64 && value <= i32::MAX as i64 => StructureType::I32,
+          Ok(_) => StructureType::I64,
+          // Меньше или больше I64: вид ошибки говорит, что это переполнение числа
+          Err(error) => match error.kind() 
+          {
+            IntErrorKind::NegOverflow => 
+            {
+              newData = Some( i64::MIN.to_string() );
+              StructureType::I64
+            }
+            IntErrorKind::PosOverflow => 
+            {
+              newData = Some( i64::MAX.to_string() );
+              StructureType::I64
+            }
+            // Что-то непонятное
+            _ => StructureType::None
           }
-        } else {
-          // Что-то непонятное
-          StructureType::None
         }
       }
       TokenType::UFloat | TokenType::Float => 
       {
-        if let Ok(value) = data.parse::<f64>() 
+        match data.parse::<f64>() 
         {
-          if value >= f32::MIN as f64 && value <= f32::MAX as f64 {
-            StructureType::F32
-          } else if value >= f64::MIN && value <= f64::MAX {
-            // Самый крайний тип
+          Ok(value) if value.is_nan() => StructureType::None,
+          Ok(value) if value >= f32::MIN as f64 && value <= f32::MAX as f64 => StructureType::F32,
+          Ok(value) => 
+          { // Самый крайний тип; inf становится границей F64
+            if value.is_infinite() 
+            {
+              let border: f64 = if value.is_sign_negative() { f64::MIN } else { f64::MAX };
+              newData = Some( format!("{:e}", border) );
+            }
             StructureType::F64
-          } else {
-            // Выходит за рамки хранения структуры - не обрабатываем
-            StructureType::None
           }
-        } else {
           // Что-то непонятное
-          StructureType::None
+          Err(_) => StructureType::None
         }
       }
       // Для остальных типов - возвращаем Custom
       // todo Сейчас могут попасть лишние т.к. они не объявлены выше
       _ => StructureType::None,
-    })
+    };
+
+    if let Some(newData) = newData {
+      self.setData( Bytes::from(newData) );
+    }
+    result(self, structureType)
     //
   }
 
@@ -508,6 +483,148 @@ impl Token
     }
     //
   }
+}
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
+  use crate::parser::structure::structureType::StructureType;
+  use crate::parser::structure::structure::Structure;
+  // ===============================================================================================
+
+  /// Проверяет тип и значение токена после getStructureType();
+  fn check(tokenType: TokenType, data: &str, expectedType: StructureType, expectedData: &str)
+  {
+    let mut token: Token = Token::new(tokenType, String::from(data));
+    let structureType: StructureType = token.getStructureType();
+    let tokenData: String = token.getData().toString().unwrap_or_default();
+    assert!(
+      structureType == expectedType && tokenData == expectedData,
+      "Для '{}' ожидалось значение '{}', получено '{}' (тип совпал: {})",
+      data, expectedData, tokenData, structureType == expectedType
+    );
+  }
+
+  /// Числа внутри рамок ABI не меняются;
+  #[test]
+  fn inRange()
+  {
+    check(TokenType::UInt,   "255",                  StructureType::U8,  "255");
+    check(TokenType::UInt,   "18446744073709551615", StructureType::U64, "18446744073709551615");
+    check(TokenType::Int,    "-128",                 StructureType::I8,  "-128");
+    check(TokenType::Int,    "-9223372036854775808", StructureType::I64, "-9223372036854775808");
+    check(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
+  }
+
+  /// За рамками ABI тип и значение становятся границей крайнего типа (#71);
+  #[test]
+  fn saturation()
+  {
+    // UInt: > u64 и очень большое число
+    check(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
+    check(TokenType::UInt, "99999999999999999999999999999999999999999999", StructureType::U64, &u64::MAX.to_string());
+    // Int: < i64 и очень большое отрицательное число
+    check(TokenType::Int, "-9223372036854775809", StructureType::I64, &i64::MIN.to_string());
+    check(TokenType::Int, "-99999999999999999999999999999999999999999999", StructureType::I64, &i64::MIN.to_string());
+    // Int: > i64
+    check(TokenType::Int, "9223372036854775808", StructureType::I64, &i64::MAX.to_string());
+    // Float: inf после parse
+    check(TokenType::UFloat, "1e309",  StructureType::F64, &format!("{:e}", f64::MAX));
+    check(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
+  }
+
+  /// Проверяет значение токена после normalizeToken() в явный тип;
+  fn normalize(tokenType: TokenType, data: &str, structureType: StructureType, expectedData: &str)
+  {
+    let mut token: Token = Token::new(tokenType, String::from(data));
+    Structure::normalizeToken(&mut token, structureType);
+    let tokenData: String = token.getData().toString().unwrap_or_default();
+    assert!(
+      tokenData == expectedData,
+      "Для '{}' ожидалось значение '{}', получено '{}'",
+      data, expectedData, tokenData
+    );
+  }
+
+  /// Явный тип зажимает значение в свои границы, даже если число больше u64 и i64 (#71);
+  #[test]
+  fn normalizeClamp()
+  {
+    let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
+    let negBig: String = format!("-{}", big);
+    // Обычный clamp
+    normalize(TokenType::UInt, "300", StructureType::U8, "255");
+    normalize(TokenType::Int, "-10", StructureType::U8, "0");
+    normalize(TokenType::Int, "-300", StructureType::I8, "-128");
+    // Больше u64
+    normalize(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
+    normalize(TokenType::UInt, big, StructureType::U8, "255");
+    normalize(TokenType::UInt, big, StructureType::I8, "127");
+    normalize(TokenType::UInt, big, StructureType::I64, &i64::MAX.to_string());
+    normalize(TokenType::UInt, big, StructureType::Usize, &usize::MAX.to_string());
+    // Меньше i64
+    normalize(TokenType::Int, &negBig, StructureType::I8, "-128");
+    normalize(TokenType::Int, &negBig, StructureType::I64, &i64::MIN.to_string());
+    normalize(TokenType::Int, &negBig, StructureType::Isize, &isize::MIN.to_string());
+    normalize(TokenType::Int, &negBig, StructureType::U64, "0");
+    // Не число - базовое значение
+    normalize(TokenType::UInt, "abc", StructureType::U8, "0");
+  }
+
+  /// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71);
+  #[test]
+  fn normalizeFloat()
+  {
+    let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
+    normalize(TokenType::UInt, big, StructureType::F32, &f32::MAX.to_string());
+    normalize(TokenType::UInt, big, StructureType::F64, &big.parse::<f64>().unwrap().to_string());
+    // Бесконечность зажимается в границу типа
+    normalize(TokenType::Float, "-1e309", StructureType::F32, &f32::MIN.to_string());
+    normalize(TokenType::UFloat, "1e309", StructureType::F64, &f64::MAX.to_string());
+    normalize(TokenType::UFloat, "1e309", StructureType::U8, "255");
+  }
+
+  // ===============================================================================================
+  
+  /// Float в целый тип: округляется и зажимается в границы типа;
+  /// Отрицательное значение остаётся для знаковых типов и становится 0 для беззнаковых;
+  #[test]
+  fn normalizeFloatToInteger()
+  {
+    normalize(TokenType::UFloat, "5.4", StructureType::I8, "5");
+    normalize(TokenType::UFloat, "5.5", StructureType::I8, "6");
+    // Беззнаковые
+    normalize(TokenType::Float, "-10.0", StructureType::U8, "0");
+    normalize(TokenType::Float, "-5.5", StructureType::U8, "0");
+    normalize(TokenType::Float, "-0.4", StructureType::U8, "0");
+    // Знаковые принимают отрицательное, если оно в диапазоне
+    normalize(TokenType::Float, "-5.5", StructureType::I8, "-6");
+    normalize(TokenType::Float, "-5.4", StructureType::I8, "-5");
+    normalize(TokenType::Float, "-0.4", StructureType::I8, "0");
+    normalize(TokenType::Float, "-1000000.7", StructureType::I64, "-1000001");
+    // Вне диапазона - граница типа
+    normalize(TokenType::Float, "-200.5", StructureType::I8, "-128");
+    normalize(TokenType::UFloat, "200.5", StructureType::I8, "127");
+    normalize(TokenType::UFloat, "300.5", StructureType::U8, "255");
+    normalize(TokenType::Float, "-1e309", StructureType::I64, &i64::MIN.to_string());
+    normalize(TokenType::UFloat, "1e309", StructureType::I64, &i64::MAX.to_string());
+    normalize(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
+  }
+
+  /// Не число - по прежнему None, токен очищается;
+  #[test]
+  fn notNumber()
+  {
+    check(TokenType::UInt,   "abc", StructureType::None, "");
+    check(TokenType::Int,    "-",   StructureType::None, "");
+    check(TokenType::UFloat, "NaN", StructureType::None, "");
+  }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================

@@ -1,3 +1,4 @@
+use std::num::IntErrorKind;
 use chillffi::ffi;
 use chillffi::ffi::errors::FFIError;
 use chillffi::ffi::library::{CallBuilder, Library};
@@ -99,22 +100,31 @@ fn tokenToFfiArg(token: &Token) -> Result<FfiArgValue, String>
   match tokenDataType
   {
     TokenType::UInt =>
-    {
-      let v: u128 = tokenData.parse()
-        .map_err(|_| format!("Failed to parse UInt: {}", tokenData))?;
-      if v <= u8::MAX as u128       { Ok(FfiArgValue::U8 (v as u8)) }
-      else if v <= u16::MAX as u128 { Ok(FfiArgValue::U16(v as u16)) }
-      else if v <= u32::MAX as u128 { Ok(FfiArgValue::U32(v as u32)) }
-      else                          { Ok(FfiArgValue::U64(v as u64)) }
+    { // Токен бесконечен, а u64 нет: всё что больше - граница u64 (#71)
+      let v: u64 = match tokenData.parse::<u64>() 
+      {
+        Ok(v) => v,
+        Err(error) if *error.kind() == IntErrorKind::PosOverflow => u64::MAX,
+        Err(_) => return Err(format!("Failed to parse UInt: {}", tokenData))
+      };
+      if v <= u8::MAX as u64       { Ok(FfiArgValue::U8 (v as u8)) }
+      else if v <= u16::MAX as u64 { Ok(FfiArgValue::U16(v as u16)) }
+      else if v <= u32::MAX as u64 { Ok(FfiArgValue::U32(v as u32)) }
+      else                         { Ok(FfiArgValue::U64(v)) }
     }
     TokenType::Int =>
-    {
-      let v: i128 = tokenData.parse()
-        .map_err(|_| format!("Failed to parse Int: {}", tokenData))?;
-      if v >= i8::MIN as i128 && v <= i8::MAX as i128       { Ok(FfiArgValue::I8 (v as i8)) }
-      else if v >= i16::MIN as i128 && v <= i16::MAX as i128 { Ok(FfiArgValue::I16(v as i16)) }
-      else if v >= i32::MIN as i128 && v <= i32::MAX as i128 { Ok(FfiArgValue::I32(v as i32)) }
-      else                                                   { Ok(FfiArgValue::I64(v as i64)) }
+    { // Токен бесконечен, а i64 нет: всё что больше или меньше - граница i64 (#71)
+      let v: i64 = match tokenData.parse::<i64>() 
+      {
+        Ok(v) => v,
+        Err(error) if *error.kind() == IntErrorKind::PosOverflow => i64::MAX,
+        Err(error) if *error.kind() == IntErrorKind::NegOverflow => i64::MIN,
+        Err(_) => return Err(format!("Failed to parse Int: {}", tokenData))
+      };
+      if v >= i8::MIN as i64 && v <= i8::MAX as i64        { Ok(FfiArgValue::I8 (v as i8)) }
+      else if v >= i16::MIN as i64 && v <= i16::MAX as i64 { Ok(FfiArgValue::I16(v as i16)) }
+      else if v >= i32::MIN as i64 && v <= i32::MAX as i64 { Ok(FfiArgValue::I32(v as i32)) }
+      else                                                 { Ok(FfiArgValue::I64(v)) }
     }
     TokenType::UFloat | TokenType::Float =>
     { // todo F32-аргументы: float-токен всегда уходит как F64, поэтому `libm.sqrtf(16.0)` даёт 0 (ожидается 4)
@@ -177,8 +187,14 @@ pub enum FfiExpect
 
 // =================================================================================================
 
-/// Целое число -> абстрактный токен (как у литералов: `>= 0` это UInt, `< 0` это Int).
-fn integerToken(value: i128) -> Token
+/// Беззнаковое целое -> абстрактный токен UInt;
+fn unsignedToken(value: u64) -> Token
+{
+  Token::new(TokenType::UInt, value.to_string())
+}
+
+/// Знаковое целое -> абстрактный токен (как у литералов: `>= 0` это UInt, `< 0` это Int).
+fn signedToken(value: i64) -> Token
 {
   match value < 0
   {
@@ -233,16 +249,16 @@ fn callWithResult<'a, 'g>(builder: CallBuilder<'a, 'g>, expect: &FfiExpect) -> R
 
   match expectType
   {
-    StructureType::U8    => Ok(integerToken(builder.result::<u8   >().map_err(error)? as i128)),
-    StructureType::U16   => Ok(integerToken(builder.result::<u16  >().map_err(error)? as i128)),
-    StructureType::U32   => Ok(integerToken(builder.result::<u32  >().map_err(error)? as i128)),
-    StructureType::U64   => Ok(integerToken(builder.result::<u64  >().map_err(error)? as i128)),
-    StructureType::Usize => Ok(integerToken(builder.result::<usize>().map_err(error)? as i128)),
-    StructureType::I8    => Ok(integerToken(builder.result::<i8   >().map_err(error)? as i128)),
-    StructureType::I16   => Ok(integerToken(builder.result::<i16  >().map_err(error)? as i128)),
-    StructureType::I32   => Ok(integerToken(builder.result::<i32  >().map_err(error)? as i128)),
-    StructureType::I64   => Ok(integerToken(builder.result::<i64  >().map_err(error)? as i128)),
-    StructureType::Isize => Ok(integerToken(builder.result::<isize>().map_err(error)? as i128)),
+    StructureType::U8    => Ok(unsignedToken(builder.result::<u8   >().map_err(error)? as u64)),
+    StructureType::U16   => Ok(unsignedToken(builder.result::<u16  >().map_err(error)? as u64)),
+    StructureType::U32   => Ok(unsignedToken(builder.result::<u32  >().map_err(error)? as u64)),
+    StructureType::U64   => Ok(unsignedToken(builder.result::<u64 >().map_err(error)?)),
+    StructureType::Usize => Ok(unsignedToken(builder.result::<usize>().map_err(error)? as u64)),
+    StructureType::I8    => Ok(signedToken(builder.result::<i8   >().map_err(error)? as i64)),
+    StructureType::I16   => Ok(signedToken(builder.result::<i16  >().map_err(error)? as i64)),
+    StructureType::I32   => Ok(signedToken(builder.result::<i32  >().map_err(error)? as i64)),
+    StructureType::I64   => Ok(signedToken(builder.result::<i64  >().map_err(error)?)),
+    StructureType::Isize => Ok(signedToken(builder.result::<isize>().map_err(error)? as i64)),
     StructureType::F32 =>
     {
       let value: f32 = builder.result::<f32>().map_err(error)?;
@@ -321,13 +337,11 @@ pub fn callExternal(
 #[cfg(test)]
 mod tests
 {
-
-  // ===============================================================================================
-
-  use crate::parser::structure::ffi::bridge::{callExternal, FfiExpect};
+  use crate::parser::structure::ffi::bridge::{callExternal, FfiExpect, FfiArgValue, tokenToFfiArg, unsignedToken, signedToken};
   use crate::parser::structure::structureType::StructureType;
   use crate::tokenizer::types::token::Token;
   use crate::tokenizer::types::tokenType::TokenType;
+  // ===============================================================================================
 
   const LibcPath: &str = "libc.so.6";
   const LibmPath: &str = "libm.so.6";
@@ -345,6 +359,41 @@ mod tests
   fn dataOf(token: &Token) -> (TokenType, String)
   {
     (*token.getDataType(), token.getData().toString().unwrap_or_default())
+  }
+
+  /// Результат FFI: целые границы типа не теряются при превращении в токен;
+  #[test]
+  fn resultTokens() -> ()
+  {
+    assert!(dataOf(&unsignedToken(u64::MAX)) == (TokenType::UInt, u64::MAX.to_string()));
+    assert!(dataOf(&signedToken(i64::MAX)) == (TokenType::UInt, i64::MAX.to_string()));
+    assert!(dataOf(&signedToken(i64::MIN)) == (TokenType::Int,  i64::MIN.to_string()));
+    assert!(dataOf(&signedToken(0)) == (TokenType::UInt, String::from("0")));
+  }
+
+  /// Аргумент FFI: число за пределами u64 и i64 становится границей (#71), а не обрезается;
+  #[test]
+  fn argBigNumbers() -> ()
+  {
+    let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
+    let negBig: String = format!("-{}", big);
+    let arg = |tokenType: TokenType, data: &str| tokenToFfiArg(&Token::new(tokenType, data));
+    
+    // Внутри диапазона размер подбирается под число
+    assert!(matches!(arg(TokenType::UInt, "255"), Ok(FfiArgValue::U8(255))));
+    assert!(matches!(arg(TokenType::UInt, "65536"), Ok(FfiArgValue::U32(65536))));
+    assert!(matches!(arg(TokenType::Int,  "-129"), Ok(FfiArgValue::I16(-129))));
+    
+    // Больше u64: раньше `v as u64` обрезало 18446744073709551616 до 0
+    assert!(matches!(arg(TokenType::UInt, "18446744073709551616"), Ok(FfiArgValue::U64(v)) if v == u64::MAX));
+    assert!(matches!(arg(TokenType::UInt, big), Ok(FfiArgValue::U64(v)) if v == u64::MAX));
+    
+    // Меньше i64
+    assert!(matches!(arg(TokenType::Int, "-9223372036854775809"), Ok(FfiArgValue::I64(v)) if v == i64::MIN));
+    assert!(matches!(arg(TokenType::Int, &negBig), Ok(FfiArgValue::I64(v)) if v == i64::MIN));
+    
+    // Не число - ошибка, как и раньше
+    assert!(arg(TokenType::UInt, "abc").is_err());
   }
 
   /// `a: Usize = libc.strnlen("hello world")` — тип слева является типом возврата.
