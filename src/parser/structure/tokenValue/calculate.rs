@@ -247,8 +247,8 @@ mod tests
     let data: String = result.getData().toString().unwrap_or_default();
     assert!(
       *result.getDataType() == expectedType && data == expectedData,
-      "'{} {:?} {}' ожидалось '{}', получено '{}'",
-      left.1, op as u8, right.1, expectedData, data
+      "'{} и {}' ожидалось '{}', получено '{}'",
+      left.1, right.1, expectedData, data
     );
   }
 
@@ -281,5 +281,53 @@ mod tests
     // u64 больше i64::MAX не ломает знак в смешанных операциях (раньше u64::MAX as i64 = -1)
     check(TokenType::Plus,     (TokenType::Int, "-5"),   (TokenType::UInt, &uMax), TokenType::UInt, &(i64::MAX - 5).to_string());
   }
+
+  // ===============================================================================================
+
+  /// Умножение смешанных типов: `*` в выражениях пока отключён (structure.rs, expressionWith),
+  /// поэтому Value::Mul проверяется здесь напрямую, до его включения;
+  #[test]
+  fn multiplyMixed()
+  {
+    // Int * UFloat: раньше стояло деление x / y, и -3 * 2.5 давало -1.2
+    check(TokenType::Multiply, (TokenType::Int,   "-3"), (TokenType::UFloat, "2.5"),  TokenType::Float,  "-7.5");
+    check(TokenType::Multiply, (TokenType::UFloat, "2.5"), (TokenType::Int,   "-3"),  TokenType::Float,  "-7.5");
+    // Соседние ветки
+    check(TokenType::Multiply, (TokenType::UInt,  "3"),  (TokenType::UFloat, "2.5"),  TokenType::UFloat, "7.5");
+    check(TokenType::Multiply, (TokenType::Int,   "-3"), (TokenType::Float,  "-2.5"), TokenType::Float,  "7.5");
+    check(TokenType::Multiply, (TokenType::UInt,  "3"),  (TokenType::Float,  "-2.5"), TokenType::Float,  "-7.5");
+  }
+
+  /// Умножение коммутативно: a * b == b * a для любой пары числовых типов;
+  #[test]
+  fn multiplyCommutative()
+  {
+    let samples: [(TokenType, &str); 4] = [
+      (TokenType::UInt,   "3"),
+      (TokenType::Int,    "-3"),
+      (TokenType::UFloat, "2.5"),
+      (TokenType::Float,  "-2.5"),
+    ];
+    for left in samples 
+    {
+      for right in samples 
+      {
+        let leftToken:  Token = Token::new(left.0,  String::from(left.1));
+        let rightToken: Token = Token::new(right.0, String::from(right.1));
+        let ab: Token = calculate(&TokenType::Multiply, &leftToken,  &rightToken);
+        let ba: Token = calculate(&TokenType::Multiply, &rightToken, &leftToken);
+        let abData: String = ab.getData().toString().unwrap_or_default();
+        let baData: String = ba.getData().toString().unwrap_or_default();
+        assert!(
+          abData == baData && ab.getDataType() == ba.getDataType(),
+          "'{} * {}' = '{}', но '{} * {}' = '{}'",
+          left.1, right.1, abData, right.1, left.1, baData
+        );
+      }
+    }
+  }
+
+  // ===============================================================================================
 }
 
+// =================================================================================================

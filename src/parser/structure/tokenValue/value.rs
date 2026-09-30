@@ -265,7 +265,7 @@ impl std::ops::Mul for Value
       (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_mul(y)),
       (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_mul(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 *y),
-      (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
+      (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 *f64::from(y)),
       // UInt
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x.saturating_mul(y)),
       (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_mul(y)),
