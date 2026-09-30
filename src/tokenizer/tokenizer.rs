@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 use crate::tokenizer::read::primitives::comments::{deleteComment};
-use crate::tokenizer::read::primitives::numbers::{getNumber, isDigit};
+use crate::tokenizer::read::primitives::numbers::{getNumber, isDigit, isFloatDotStart};
 use crate::tokenizer::read::primitives::operators::{getOperator, isSingleChar};
 use crate::tokenizer::read::primitives::quotes::getQuotes;
 use crate::tokenizer::read::primitives::words::{getWord, isLetter};
@@ -210,8 +210,15 @@ fn readTokens(
       // Добавляем новую линию.
       pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
     } else
-    if isDigit(&byte) || byte == b'-'
-    { // Получаем все возможные численные примитивные типы данных
+    // После Word/Link точка — member/continuation (Dot), не float-литерал.
+    // Иначе `a.0` и `a.\n0` съедались бы как UFloat `.0` / `0.0` (issue #31 follow-up).
+    if isDigit(&byte) || byte == b'-' || 
+      (isFloatDotStart(buffer, index, bufferLength) && 
+        !lineTokens.last().is_some_and(|token: &Token| {
+          matches!(*token.getDataType(), TokenType::Word | TokenType::Link)
+        })
+      )
+    { // Получаем все возможные численные примитивные типы данных (issue #31: `.1` / `.`)
       #[cfg(feature = "analyzer")]
       {
         let start: usize = index;
