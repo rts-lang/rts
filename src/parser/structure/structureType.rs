@@ -1,3 +1,4 @@
+use std::num::IntErrorKind;
 use serde::{Deserialize, Serialize};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
@@ -397,39 +398,46 @@ impl Token
       //
       TokenType::UInt => 
       {
-        match data.parse::<u128>() 
+        match data.parse::<u64>() 
         {
-          Ok(value) if value <= u8::MAX  as u128 => StructureType::U8,
-          Ok(value) if value <= u16::MAX as u128 => StructureType::U16,
-          Ok(value) if value <= u32::MAX as u128 => StructureType::U32,
-          Ok(value) if value <= u64::MAX as u128 => StructureType::U64,
-          // Больше U64, в том числе не поместилось в u128, но всё ещё число
-          _ if Self::isDigits(&data) => 
+          Ok(value) if value <= u8::MAX  as u64 => StructureType::U8,
+          Ok(value) if value <= u16::MAX as u64 => StructureType::U16,
+          Ok(value) if value <= u32::MAX as u64 => StructureType::U32,
+          Ok(_) => StructureType::U64,
+          // Больше U64: вид ошибки говорит, что это переполнение числа
+          Err(error) if *error.kind() == IntErrorKind::PosOverflow => 
           {
             newData = Some( u64::MAX.to_string() );
             StructureType::U64
           }
           // Что-то непонятное
-          _ => StructureType::None
+          Err(_) => StructureType::None
         }
       }
       TokenType::Int => 
       {
-        match data.parse::<i128>() 
+        match data.parse::<i64>() 
         {
-          Ok(value) if value >= i8::MIN  as i128 && value <= i8::MAX  as i128 => StructureType::I8,
-          Ok(value) if value >= i16::MIN as i128 && value <= i16::MAX as i128 => StructureType::I16,
-          Ok(value) if value >= i32::MIN as i128 && value <= i32::MAX as i128 => StructureType::I32,
-          Ok(value) if value >= i64::MIN as i128 && value <= i64::MAX as i128 => StructureType::I64,
-          // Меньше I64 или больше I64, в том числе не поместилось в i128, но всё ещё число
-          _ if Self::isDigits( data.trim_start_matches('-') ) => 
+          Ok(value) if value >= i8::MIN  as i64 && value <= i8::MAX  as i64 => StructureType::I8,
+          Ok(value) if value >= i16::MIN as i64 && value <= i16::MAX as i64 => StructureType::I16,
+          Ok(value) if value >= i32::MIN as i64 && value <= i32::MAX as i64 => StructureType::I32,
+          Ok(_) => StructureType::I64,
+          // Меньше или больше I64: вид ошибки говорит, что это переполнение числа
+          Err(error) => match error.kind() 
           {
-            let border: i64 = if data.starts_with('-') { i64::MIN } else { i64::MAX };
-            newData = Some( border.to_string() );
-            StructureType::I64
+            IntErrorKind::NegOverflow => 
+            {
+              newData = Some( i64::MIN.to_string() );
+              StructureType::I64
+            }
+            IntErrorKind::PosOverflow => 
+            {
+              newData = Some( i64::MAX.to_string() );
+              StructureType::I64
+            }
+            // Что-то непонятное
+            _ => StructureType::None
           }
-          // Что-то непонятное
-          _ => StructureType::None
         }
       }
       TokenType::UFloat | TokenType::Float => 
@@ -461,12 +469,6 @@ impl Token
     }
     result(self, structureType)
     //
-  }
-
-  /// Строка состоит только из цифр и не пуста;
-  fn isDigits(data: &str) -> bool
-  {
-    !data.is_empty() && data.bytes().all(|byte| byte.is_ascii_digit())
   }
 
   /// Вычисляет StructureType на основе токена;
@@ -518,8 +520,6 @@ impl Token
     //
   }
 }
-
-// =================================================================================================
 
 // =================================================================================================
 
