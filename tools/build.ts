@@ -40,7 +40,7 @@ function ask(question: string): Promise<boolean> {
     rl.question(question, (answer: string) => {
       rl.close();
       const a: string = answer.trim().toLowerCase();
-      resolveAsk(a === "y" || a === "yes" || a === "д" || a === "да");
+      resolveAsk(a === "y" || a === "yes");
     });
   });
 }
@@ -81,33 +81,80 @@ async function maybeUpdateWasmPack(buildOutput: string): Promise<void> {
   console.log(`[tools/build] wasm-pack updated to ${info.latest}`);
 }
 
-export async function ensureWasm(options?: {
-  release?: boolean;
-}): Promise<boolean> {
-  const release: boolean = options?.release ?? isRelease;
+/** Install wasm-pack through cargo if it is missing (no prompt, works without TTY) */
+async function ensureWasmPack(): Promise<boolean> {
+  // cargo bin dir may be absent from PATH of the current process
+  const cargoBin: string = join(process.env.CARGO_HOME ?? join(process.env.HOME ?? "", ".cargo"), "bin");
+  if (!(process.env.PATH ?? "").split(":").includes(cargoBin)) {
+    process.env.PATH = `${cargoBin}:${process.env.PATH ?? ""}`;
+  }
 
   const which = await $`which wasm-pack`.quiet().nothrow();
-  if (which.exitCode !== 0) {
+  if (which.exitCode === 0) return true;
+
+  const cargo = await $`which cargo`.quiet().nothrow();
+  if (cargo.exitCode !== 0) {
     console.error(
-      "[tools/build] wasm-pack not found.\n" +
-        "  Install: cargo install wasm-pack"
+      "[tools/build] wasm-pack not found and cargo is missing.\n" +
+        "  Install Rust first: https://rustup.rs"
     );
     return false;
   }
 
-  const targetCheck = await $`rustup target list --installed`.quiet().nothrow();
-  const hasWasmTarget: boolean =
-    targetCheck.exitCode === 0 &&
-    targetCheck.stdout.toString().includes("wasm32-unknown-unknown");
+  console.log("[tools/build] wasm-pack not found, cargo install wasm-pack ...");
+  const install = await $`cargo install wasm-pack`.nothrow();
+  if (install.exitCode !== 0) {
+    console.error("[tools/build] wasm-pack install failed");
+    console.error(install.stderr.toString());
+    console.error("  Manual install: cargo install wasm-pack");
+    return false;
+  }
 
-  if (!hasWasmTarget) {
+  const recheck = await $`which wasm-pack`.quiet().nothrow();
+  if (recheck.exitCode !== 0) {
+    console.error(`[tools/build] wasm-pack installed, but not found in PATH (${cargoBin})`);
+    return false;
+  }
+  console.log("[tools/build] wasm-pack installed");
+  return true;
+}
+
+/** Make sure wasm32-unknown-unknown std is available (rustup, or a manually installed sysroot) */
+async function ensureWasmTarget(): Promise<boolean> {
+  const rustup = await $`which rustup`.quiet().nothrow();
+  if (rustup.exitCode === 0) {
+    const check = await $`rustup target list --installed`.quiet().nothrow();
+    if (check.exitCode === 0 && check.stdout.toString().includes("wasm32-unknown-unknown")) return true;
+
     console.log("[tools/build] adding rustup target wasm32-unknown-unknown ...");
     const add = await $`rustup target add wasm32-unknown-unknown`.nothrow();
     if (add.exitCode !== 0) {
       console.error("[tools/build] failed to add wasm32-unknown-unknown");
       return false;
     }
+    return true;
   }
+
+  // No rustup: the target must already be in the sysroot
+  const sysroot = await $`rustc --print sysroot`.quiet().nothrow();
+  const root: string = sysroot.stdout.toString().trim();
+  if (sysroot.exitCode === 0 && existsSync(join(root, "lib", "rustlib", "wasm32-unknown-unknown"))) return true;
+
+  console.error(
+    "[tools/build] rustup not found and wasm32-unknown-unknown is not in the rustc sysroot.\n" +
+      "  Install rustup (https://rustup.rs) or add the wasm32-unknown-unknown rust-std component."
+  );
+  return false;
+}
+
+export async function ensureWasm(options?: {
+  release?: boolean;
+}): Promise<boolean> {
+  const release: boolean = options?.release ?? isRelease;
+
+  if (!(await ensureWasmPack())) return false;
+
+  if (!(await ensureWasmTarget())) return false;
 
   process.chdir(rootDir);
 
