@@ -1,3 +1,4 @@
+use std::num::IntErrorKind;
 use crate::parser::structure::tokenValue::uf64::*;
 use crate::parser::structure::tokenValue::value::Value;
 use crate::tokenizer::types::token::Token;
@@ -164,16 +165,29 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
       Value::None()
     }
     TokenType::Int =>
-    {
-      tokenData.parse::<i64>()
-        .map(Value::Int)
-        .unwrap_or_else(|_| Value::Int(0))
+    { // Токен бесконечен, а Value::Int(i64) нет: всё что больше или меньше - граница i64 (#71)
+      match tokenData.parse::<i64>() 
+      {
+        Ok(value) => Value::Int(value),
+        Err(error) => match error.kind() 
+        {
+          IntErrorKind::PosOverflow => Value::Int(i64::MAX),
+          IntErrorKind::NegOverflow => Value::Int(i64::MIN),
+          _ => Value::Int(0)
+        }
+      }
     },
     TokenType::UInt =>
-    {
-      tokenData.parse::<u64>()
-        .map(Value::UInt)
-        .unwrap_or_else(|_| Value::UInt(0))
+    { // Токен бесконечен, а Value::UInt(u64) нет: всё что больше - граница u64 (#71)
+      match tokenData.parse::<u64>() 
+      {
+        Ok(value) => Value::UInt(value),
+        Err(error) => match error.kind() 
+        {
+          IntErrorKind::PosOverflow => Value::UInt(u64::MAX),
+          _ => Value::UInt(0)
+        }
+      }
     },
     TokenType::Float =>
     {
@@ -213,3 +227,59 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
 }
 
 // =================================================================================================
+
+// =================================================================================================
+
+#[cfg(test)]
+mod tests
+{
+  use super::*;
+  // ===============================================================================================
+
+  /// Проверяет тип и значение результата операции;
+  fn check(op: TokenType, left: (TokenType, &str), right: (TokenType, &str), expectedType: TokenType, expectedData: &str)
+  {
+    let result: Token = calculate(
+      &op,
+      &Token::new(left.0, String::from(left.1)),
+      &Token::new(right.0, String::from(right.1))
+    );
+    let data: String = result.getData().toString().unwrap_or_default();
+    assert!(
+      *result.getDataType() == expectedType && data == expectedData,
+      "'{} {:?} {}' ожидалось '{}', получено '{}'",
+      left.1, op as u8, right.1, expectedData, data
+    );
+  }
+
+  /// Число больше u64 и i64 в операции становится границей, а не 0 (#71);
+  #[test]
+  fn bigLiteral()
+  {
+    let big: &str = "99999999999999999999999";
+    let negBig: &str = "-99999999999999999999999";
+    let uMax: String = u64::MAX.to_string();
+    let iMin: String = i64::MIN.to_string();
+    // Деление на 0 возвращает левую часть (#30), деление на 1 тоже
+    check(TokenType::Divide, (TokenType::UInt, big),    (TokenType::UInt, "0"), TokenType::UInt, &uMax);
+    check(TokenType::Divide, (TokenType::UInt, big),    (TokenType::UInt, "1"), TokenType::UInt, &uMax);
+    check(TokenType::Divide, (TokenType::Int,  negBig), (TokenType::UInt, "0"), TokenType::Int,  &iMin);
+    check(TokenType::Divide, (TokenType::Int,  negBig), (TokenType::UInt, "1"), TokenType::Int,  &iMin);
+  }
+
+  /// Переполнение самой операции зажимается в границу, а не паникует (#71);
+  #[test]
+  fn overflow()
+  {
+    let uMax: String = u64::MAX.to_string();
+    let iMin: String = i64::MIN.to_string();
+    let iMax: String = i64::MAX.to_string();
+    check(TokenType::Plus,     (TokenType::UInt, &uMax), (TokenType::UInt, "1"), TokenType::UInt, &uMax);
+    check(TokenType::Multiply, (TokenType::UInt, &uMax), (TokenType::UInt, "2"), TokenType::UInt, &uMax);
+    check(TokenType::Minus,    (TokenType::Int,  &iMin), (TokenType::UInt, "1"), TokenType::Int,  &iMin);
+    check(TokenType::Divide,   (TokenType::Int,  &iMin), (TokenType::Int, "-1"), TokenType::Int,  &iMax);
+    // u64 больше i64::MAX не ломает знак в смешанных операциях (раньше u64::MAX as i64 = -1)
+    check(TokenType::Plus,     (TokenType::Int, "-5"),   (TokenType::UInt, &uMax), TokenType::UInt, &(i64::MAX - 5).to_string());
+  }
+}
+

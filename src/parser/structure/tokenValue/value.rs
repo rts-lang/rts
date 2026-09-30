@@ -70,6 +70,13 @@ impl Value
   }
 }
 
+/// u64 в i64 без переполнения: всё что больше - граница i64 (#71);
+/// Обычное `as i64` тут ломает знак: u64::MAX превращается в -1.
+fn toI64(value: u64) -> i64 
+{
+  i64::try_from(value).unwrap_or(i64::MAX)
+}
+
 impl fmt::Display for Value 
 {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
@@ -106,18 +113,18 @@ impl std::ops::Add for Value
       (Self::None(), Self::Char(y))   => Self::Char(y),
       (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Self::Int(x), Self::Int(y))    => Self::Int   (x+y),
-      (Self::Int(x), Self::UInt(y))   => Self::Int   (x+ y as i64),
+      (Self::Int(x), Self::Int(y))    => Self::Int   (x.saturating_add(y)),
+      (Self::Int(x), Self::UInt(y))   => Self::Int   (x.saturating_add(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float (x as f64 +y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float (x as f64 +f64::from(y)),
-      (Self::Int(x), Self::Char(y))   => Self::Int   (x+ y as i64),
+      (Self::Int(x), Self::Char(y))   => Self::Int   (x.saturating_add(y as i64)),
       (Self::Int(x), Self::String(y)) => Self::String(x.to_string() +&y),
       // UInt
-      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x+y),
-      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 +y),
+      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x.saturating_add(y)),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_add(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 +y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) +y),
-      (Self::UInt(x), Self::Char(y))   => Self::UInt  (x+ y as u64),
+      (Self::UInt(x), Self::Char(y))   => Self::UInt  (x.saturating_add(y as u64)),
       (Self::UInt(x), Self::String(y)) => Self::String(x.to_string() +&y),
       // Float
       (Self::Float(x), Self::Float(y))  => Self::Float (x+y),
@@ -183,11 +190,11 @@ impl std::ops::Sub for Value
       (Self::None(), Self::Char(y))   => Self::Char(y),
       (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Self::Int(x), Self::Int(y))    => Self::Int  (x-y),
-      (Self::Int(x), Self::UInt(y))   => Self::Int  (x- y as i64),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_sub(y)),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_sub(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 -y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 -f64::from(y)),
-      (Self::Int(x), Self::Char(y))   => Self::Int  (x- y as i64),
+      (Self::Int(x), Self::Char(y))   => Self::Int  (x.saturating_sub(y as i64)),
       // UInt
       (Self::UInt(x), Self::UInt(y)) => 
       {
@@ -197,10 +204,10 @@ impl std::ops::Sub for Value
           false => { Self::UInt(x-y) }
         }
       },
-      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 -y),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_sub(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 -y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) -y),
-      (Self::UInt(x), Self::Char(y))   => Self::UInt  (x- y as u64),
+      (Self::UInt(x), Self::Char(y))   => Self::UInt  (x.saturating_sub(y as u64)),
       // Float
       (Self::Float(x), Self::Float(y))  => Self::Float(x-y),
       (Self::Float(x), Self::Int(y))    => Self::Float(x- y as f64),
@@ -255,13 +262,13 @@ impl std::ops::Mul for Value
       (Self::None(), Self::Char(y))   => Self::Char(y),
       (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Self::Int(x), Self::Int(y))    => Self::Int  (x*y),
-      (Self::Int(x), Self::UInt(y))   => Self::Int  (x* y as i64),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_mul(y)),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_mul(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 *y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
       // UInt
-      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x*y),
-      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 *y),
+      (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x.saturating_mul(y)),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_mul(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 *y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) *y),
       // Float
@@ -312,13 +319,13 @@ impl std::ops::Div for Value
       (Self::None(), Self::Char(y))   => Self::Char(y),
       (Self::None(), Self::String(y)) => Self::String(y),
       // Int
-      (Self::Int(x), Self::Int(y))    => Self::Int  (x/y),
-      (Self::Int(x), Self::UInt(y))   => Self::Int  (x/ y as i64),
+      (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_div(y)),
+      (Self::Int(x), Self::UInt(y))   => Self::Int  (x/ toI64(y)),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 /y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
       // UInt
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x/y),
-      (Self::UInt(x), Self::Int(y))    => Self::Int   (x as i64 /y),
+      (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_div(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 /y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) /y),
       // Float
