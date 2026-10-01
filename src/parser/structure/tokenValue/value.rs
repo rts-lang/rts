@@ -11,6 +11,7 @@ use crate::parser::structure::tokenValue::uf64::uf64;
 
 // =================================================================================================
 
+/// todo desc
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum Value 
 {
@@ -27,12 +28,14 @@ pub enum Value
 
 impl Value 
 {
-  // to bool
+  /// To bool.
+  /// 
+  /// todo rewrite desc
   pub fn toBool(&self) -> bool 
   {
     match self 
     {
-      Self::None() => false, // todo непонятно что нужно возвращать здесь
+      Self::None() => false, // todo Непонятно что нужно возвращать здесь.
       Self::Int(v) => *v!=0,
       Self::UInt(v) => *v!=0,
       Self::Float(v) => *v!=0.0,
@@ -42,8 +45,9 @@ impl Value
     }
   }
 
-  // Нулевой ли числовой операнд (для деления на 0);
-  // -0.0 == 0.0, поэтому подходит и отрицательный ноль
+  /// Нулевой ли числовой операнд (для деления на 0);
+  ///
+  /// -0.0 == 0.0, поэтому подходит и отрицательный ноль.
   pub fn isZero(&self) -> bool 
   {
     match self 
@@ -52,11 +56,11 @@ impl Value
       Self::UInt(v) => *v==0,
       Self::Float(v) => *v==0.0,
       Self::UFloat(v) => *v==uf64::from(0.0),
-      _ => false // None, Char, String - не числа
+      _ => false // None, Char, String - не числа.
     }
   }
 
-  // Единица того же варианта (x / 1 = x)
+  /// Единица того же варианта (x / 1 = x).
   fn one(&self) -> Self 
   {
     match self 
@@ -71,6 +75,7 @@ impl Value
 }
 
 /// u64 в i64 без переполнения: всё что больше - граница i64 (#71);
+/// 
 /// Обычное `as i64` тут ломает знак: u64::MAX превращается в -1.
 fn toI64(value: u64) -> i64 
 {
@@ -83,7 +88,7 @@ impl fmt::Display for Value
   {
     match *self 
     {
-      Self::None() => write!(f, "None"), // todo непонятно что нужно возвращать здесь
+      Self::None() => write!(f, "None"), // todo Непонятно что нужно возвращать здесь.
       Self::Int(val) => write!(f, "{}", val),
       Self::UInt(val) => write!(f, "{}", val),
       Self::Float(val) => write!(f, "{}", val),
@@ -100,11 +105,12 @@ impl fmt::Display for Value
 impl std::ops::Add for Value 
 {
   type Output = Self;
+  
   fn add(self, other: Self) -> Self 
   {
     match (self.clone(), other) 
     {
-      // None
+      // None.
       // None + None обрабатывается в _
       (Self::None(), Self::Int(y))    => Self::Int(y),
       (Self::None(), Self::UInt(y))   => Self::UInt(y),
@@ -177,11 +183,12 @@ impl std::ops::Add for Value
 impl std::ops::Sub for Value 
 {
   type Output = Self;
+  
   fn sub(self, other: Self) -> Self 
   {
     match (self.clone(), other) 
     {
-      // None
+      // None.
       // None + None обрабатывается в _
       (Self::None(), Self::Int(y))    => Self::Int(y),
       (Self::None(), Self::UInt(y))   => Self::UInt(y),
@@ -249,11 +256,12 @@ impl std::ops::Sub for Value
 impl std::ops::Mul for Value 
 {
   type Output = Self;
+  
   fn mul(self, other: Self) -> Self 
   {
     match (self.clone(), other) 
     {
-      // None
+      // None.
       // None + None обрабатывается в _
       (Self::None(), Self::Int(y))    => Self::Int(y),
       (Self::None(), Self::UInt(y))   => Self::UInt(y),
@@ -293,9 +301,11 @@ impl std::ops::Mul for Value
 impl std::ops::Div for Value 
 {
   type Output = Self;
+  
   fn div(self, other: Self) -> Self 
   {
     // Деление на 0 не ошибка: результат - левая часть (issue #30).
+    //
     // Нулевой делитель заменяем единицей того же варианта: x / 1 = x,
     // а тип результата идет по тем же веткам, что и при обычном делении,
     // т.е. зависит от типов операндов, а не от их значений.
@@ -304,7 +314,7 @@ impl std::ops::Div for Value
       false => other,
       true => match self 
       {
-        Self::None() => return self, // левой части нет - остается None
+        Self::None() => return self, // Левой части нет - остается None.
         _ => other.one()
       }
     };

@@ -25,7 +25,7 @@ const fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usiz
 pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   let level: usize = hashRunLength(buffer, *index, bufferLength);
-  *index += level; // Пропускаем открывающую метку
+  *index += level; // Пропускаем открывающую метку.
 
   match level
   {
@@ -63,8 +63,8 @@ const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
     {
       match hashRunLength(buffer, *index, bufferLength)
       {
-        2 => { *index += 2; return; } // Нашли закрывающую ## - потребляем
-        _ => { return; }              // Одиночный # или ### - обрыв без потребления
+        2 => { *index += 2; return; } // Нашли закрывающую ## - потребляем.
+        _ => { return; }              // Одиночный # или ### - обрыв без потребления.
       }
     }
     *index += 1;
@@ -80,7 +80,7 @@ const fn deleteTripleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
   while *index < bufferLength
   {
     if buffer[*index] == b'#' && hashRunLength(buffer, *index, bufferLength) >= 3
-    { // Нашли закрывающую ### - потребляем
+    { // Нашли закрывающую ### - потребляем.
       *index += 3;
       return;
     }
@@ -124,8 +124,8 @@ mod tests
   fn single() -> ()
   {
     checkCases(vec![
-      ("# short\nrest ", 7), // Остановка перед \n
-      ("# end", 5), // Остановка в конце буфера
+      ("# short\nrest ", 7), // Остановка перед \n.
+      ("# end", 5), // Остановка в конце буфера.
     ]);
   }
 
@@ -146,8 +146,8 @@ mod tests
   fn double() -> ()
   {
     checkCases(vec![
-      ("## a\nb\nc ##rest", 11), // Потребляет закрывающую ##
-      ("## unterminated", 15), // До конца буфера, если нет закрытия
+      ("## a\nb\nc ##rest", 11), // Потребляет закрывающую ##.
+      ("## unterminated", 15), // До конца буфера, если нет закрытия.
     ]);
   }
 
@@ -156,8 +156,8 @@ mod tests
   fn doubleInterruptedByOtherLevel() -> ()
   {
     checkCases(vec![
-      ("## a\n# rest", 5), // Обрыв на одиночном #
-      ("## a\n### rest", 5), // Обрыв на ###
+      ("## a\n# rest", 5), // Обрыв на одиночном #.
+      ("## a\n### rest", 5), // Обрыв на ###.
     ]);
   }
 
@@ -168,8 +168,8 @@ mod tests
   fn triple() -> ()
   {
     checkCases(vec![
-      ("### a\n# b\n## c\n###rest", 18), // # и ## внутри игнорируются
-      ( "### unterminated", 16), // До конца буфера, если нет закрытия
+      ("### a\n# b\n## c\n###rest", 18), // # и ## внутри игнорируются.
+      ( "### unterminated", 16), // До конца буфера, если нет закрытия.
     ]);
   }
 

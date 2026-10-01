@@ -16,6 +16,7 @@ pub const fn isSingleChar(byte: &u8) -> bool
 
 // =================================================================================================
 
+/// todo desc
 pub const operators: &[(&str, TokenType)] = &[
   // Одиночные математические
   ("+", TokenType::Plus),
@@ -68,7 +69,7 @@ pub const operators: &[(&str, TokenType)] = &[
   (".", TokenType::Dot)
 ];
 
-/// Проверяет buffer по index и так находит возможные двойные и одиночные операторы
+/// Проверяет buffer по index и так находит возможные двойные и одиночные операторы.
 pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 {
   // Ищем паттерн
@@ -77,7 +78,7 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
   {
     let byte1: u8 = buffer[*index];
     let mut byte2: u8 = 0;
-    let mut endIndex: usize = *index + 1; // для одиночного знака
+    let mut endIndex: usize = *index + 1; // Для одиночного знака.
 
     let patternLength: usize = pattern.len();
     
@@ -105,13 +106,13 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
     {
       match best
       {
-        Some((bestLength, _, _)) if patternLength <= bestLength => {} // keep the longer one
+        Some((bestLength, _, _)) if patternLength <= bestLength => {} // keep the longer one.
         _ => best = Some((patternLength, *tokenType, endIndex))
       }
     }
   }
 
-  // result
+  // result.
   if let Some((_length, tokenType, endIndex)) = best {
     *index = endIndex;
     return Token::newEmpty(tokenType);

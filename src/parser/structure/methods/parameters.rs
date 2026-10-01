@@ -57,16 +57,16 @@ impl Parameters
       match &line.tokens // todo Может быть не 0
       {
         None =>
-        { // Один токен
+        { // Один токен.
         //  Some(structure.expression(
         //    &mut vec![token.clone()]
-        //  )) // Клонируется, поскольку может использоваться многократно
+        //  )) // Клонируется, поскольку может использоваться многократно.
           None // todo По идее здесь только None, т.к. ветка пустая ?
         }
         Some(tokens) =>
-        { // Выражение из токенов
+        { // Выражение из токенов.
           Some(structure.expression(
-            &mut tokens.clone() // Клонируется, поскольку может использоваться многократно
+            &mut tokens.clone() // Клонируется, поскольку может использоваться многократно.
           ))
         }
         //
@@ -105,19 +105,19 @@ impl Structure
   {
     let mut result: Vec<(Bytes, StructureType)> = Vec::new();
     
-    let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression
+    let mut expressionBuffer: Vec<Token> = Vec::new(); // buffer of current expression.
     for (l, token) in value.iter().enumerate() 
-    { // read tokens
+    { // read tokens.
       if *token.getDataType() == TokenType::Comma || l+1 == value.len()
       {
-        // comma or line end
+        // comma or line end.
         if *token.getDataType() != TokenType::Comma {
           expressionBuffer.push( token.clone() );
         }
         
         // todo Тут еще надо определять structure mutable.
         
-        // Это типизация параметра
+        // Это типизация параметра.
         if expressionBuffer.len() == 3 
         {
           let parameterType: StructureType = expressionBuffer[2].getStructureTypeSimple();
@@ -135,7 +135,7 @@ impl Structure
         //
         expressionBuffer.clear();
       } else
-      { // push new expression token
+      { // push new expression token.
         expressionBuffer.push( token.clone() );
       }
     }

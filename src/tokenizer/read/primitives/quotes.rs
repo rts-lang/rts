@@ -2,11 +2,10 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет buffer по index и так находит возможные
-/// Char, String, RawString
+/// Проверяет buffer по index и так находит возможные: Char, String, RawString.
 pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token 
 {
-  let byte1: u8 = buffer[*index]; // Начальный символ кавычки
+  let byte1: u8 = buffer[*index]; // Начальный символ кавычки.
   let mut result: String = String::new();
 
   *index += 1;
@@ -18,8 +17,8 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
   let mut i: usize;
   while *index < length 
   {
-    byte2 = buffer[*index]; // Текущий байт
-    // Ошибка: конец строки внутри кавычек
+    byte2 = buffer[*index]; // Текущий байт.
+    // Ошибка: конец строки внутри кавычек.
     match byte2 
     {
       // Возврат строки не возможен, поскольку она может выйти за скобки и т.п. 
@@ -30,7 +29,7 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
       // Если мы нашли символ похожий на первый, значит закрываем,
       // но возможно это экранированная кавычка, и не закрываем.
       byte if byte == byte1 =>
-      { // Проверка обратных слэшей перед закрывающей кавычкой
+      { // Проверка обратных слэшей перед закрывающей кавычкой.
         backslashCount = 0;
         i = *index-1;
 
@@ -40,13 +39,13 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
           i -= 1;
         }
 
-        // Нечетное количество обратных слэшей — кавычка экранирована
+        // Нечетное количество обратных слэшей — кавычка экранирована.
         match backslashCount%2 
         {
-          1 => result.push(byte2 as char), // Экранированная кавычка
+          1 => result.push(byte2 as char), // Экранированная кавычка.
           _ => 
           {
-            *index += 1; // Завершение строки
+            *index += 1; // Завершение строки.
             break;
           }
         }
@@ -58,13 +57,13 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
     *index += 1;
   }
 
-  // Проверяем тип кавычки и возвращаем соответствующий токен
+  // Проверяем тип кавычки и возвращаем соответствующий токен.
   match byte1 
   {
     b'\'' => 
     { 
       if formatted || result.len() == 1 
-      { // Одинарные кавычки должны содержать только один символ - если не formatted
+      { // Одинарные кавычки должны содержать только один символ - если не formatted.
         Token::new(
           if formatted { TokenType::FormattedChar } else { TokenType::Char },
           result

@@ -12,6 +12,7 @@ pub fn isLetter(byte: &u8) -> bool
 
 // =================================================================================================
 
+/// todo desc
 pub const keywords: &[(&str, TokenType)] = &[
   ("None", TokenType::None),
   ("Link", TokenType::Link),
@@ -43,10 +44,10 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
   savedIndex += 1;
   let mut isLink: bool = false;
 
-  let mut currentByte: u8; // Текущий символ
+  let mut currentByte: u8; // Текущий символ.
   while savedIndex < bufferLength
   {
-    currentByte = buffer[savedIndex]; // Значение текущего символа
+    currentByte = buffer[savedIndex]; // Значение текущего символа.
 
     // Пропуск пустот;
     // В языке нет наводящих слов статуса - поэтому не будет `let a`.
@@ -56,14 +57,14 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
       continue;
     }
     
-    if (isDigit(&currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка
-      (isLink && (currentByte == b'[' || currentByte == b']')) // В случае ссылки мы можем читать динамические []
+    if (isDigit(&currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка.
+      (isLink && (currentByte == b'[' || currentByte == b']')) // В случае ссылки мы можем читать динамические [].
     {
       result.push(currentByte as char);
       savedIndex += 1;
       match currentByte == b'.'
       { false => {} true =>
-      { // Только если есть . то мы знаем что это ссылка
+      { // Только если есть . то мы знаем что это ссылка.
         isLink = true;
       }}
 
@@ -91,20 +92,20 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 
   *index = savedIndex;
 
-  // next return
+  // next return.
   match isLink
   {
     true => Token::new(TokenType::Link, result),
     false =>
     {
-      // Ключевое слово 
+      // Ключевое слово.
       for (keyword, tokenType) in keywords.iter() 
       {
         if result == *keyword 
         { // todo true и false – особые случаи ?
           //   Мб просто их сделать True/False как и 
           //   должно быть и они будут отдельный от number в Parser?
-          // True/False/true/false — с data; остальные keywords — empty
+          // True/False/true/false — с data; остальные keywords — empty.
           return if matches!(result.as_str(), "True" | "False") {
             Token::new(*tokenType, result)
           } else {
@@ -113,7 +114,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
           //
         }
       }
-      // Обычное слово (идентификатор)
+      // Обычное слово (идентификатор).
       Token::new(TokenType::Word, result)
       //
     }

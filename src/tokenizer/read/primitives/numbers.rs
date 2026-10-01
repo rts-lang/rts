@@ -3,7 +3,7 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет что байт является цифрой
+/// Проверяет что байт является цифрой.
 pub const fn isDigit(byte: &u8) -> bool
 {
   *byte >= b'0' && *byte <= b'9'
@@ -94,7 +94,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       negative = true;
       savedIndex += 1;
 
-      // Пропуск пустот
+      // Пропуск пустот.
       let mut temp: usize = savedIndex;
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
       
@@ -102,7 +102,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       if temp < bufferLength && (isDigit(&buffer[temp]) || isFloatDotStart(buffer, temp, bufferLength)) {
         savedIndex = temp;
       } else {
-        return None; // Это было не число
+        return None; // Это было не число.
       }
     } else
     if isDigit(&currentByte)
@@ -143,9 +143,9 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       hasExponential = true;
       result.push(currentByte as char);
       savedIndex += 1;
-      hasDot = true; // Если будет integer - то станет от этого float
+      hasDot = true; // Если будет integer - то станет от этого float.
 
-      // Нужно, чтобы читать: `12 34 e + 2`
+      // Нужно, чтобы читать: `12 34 e + 2`.
       let mut temp: usize = savedIndex;
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t");
       if temp < bufferLength && (buffer[temp] == b'+' || buffer[temp] == b'-') {
@@ -160,7 +160,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
     return None;
   }
 
-  // `.` / `-.` — f64::parse не принимает одиночную точку
+  // `.` / `-.` — f64::parse не принимает одиночную точку.
   if hasDot && !hasDigit
   {
     result = if negative { String::from("-0.0") } else { String::from("0.0") };
@@ -178,7 +178,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
 
   *index = savedIndex;
 
-  // next return
+  // next return.
   Some(
     match (hasDot, negative)
     { // dot, negative

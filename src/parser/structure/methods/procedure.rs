@@ -150,7 +150,7 @@ impl Structure
   pub fn procedureCall(&self, structureName: &str, parameters: Parameters) -> ()
   {
     if structureName.starts_with(|c: char| c.is_lowercase()) // todo if -> match
-    { // Если название в нижнем регистре - то это точно процедура
+    { // Если название в нижнем регистре - то это точно процедура.
       match structureName
       { // Проверяем на сходство стандартных функций
         "println" => Procedure::print(self, &parameters, true),
@@ -174,7 +174,8 @@ impl Structure
               .map(Some)
               .collect();
 
-            // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции
+            // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции.
+            //
             // todo Они же потом не удаляются? Вообще по логике должна быть копия структуры,
             //  если он используется как метод? и там создание этого?
             {
@@ -193,9 +194,10 @@ impl Structure
                       calledStructureStructureLink.write().unwrap();
 
                     // Забираем токен один раз
-                    let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть
+                    let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть.
                     
-                    // Нормализируем под тип параметра
+                    // Нормализируем под тип параметра.
+                    //
                     // todo:
                     //  Кстати не должен ли getAllExpressions сам делать приведение?
                     //  Много таких мест в коде с params.
@@ -211,7 +213,7 @@ impl Structure
                         bridge::stringFields(&token)
                       } else { None };
                     
-                    // Устанавливаем lines параметра как линию с одним токеном – переданным значением
+                    // Устанавливаем lines параметра как линию с одним токеном – переданным значением.
                     calledStructureStructure.lines = Some(vec![
                       Arc::new(RwLock::new(Line {
                         tokens: Some(vec![token]),
