@@ -135,7 +135,7 @@ mod tests
   #[test]
   fn value() 
   {
-    for (keyword, expectedType) in keywords.iter() 
+    for (keyword, expectedType) in keywords.iter()
     {
       let buffer: &[u8] = keyword.as_bytes();
       let bufferLength: usize = buffer.len();
@@ -148,7 +148,7 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, received {}",
         keyword,
         expectedType,
         tokenType
@@ -164,7 +164,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Ключевое слово '{}' должно иметь значение '{}', получено '{}'",
+        "Keyword '{}' should have the value '{}', received '{}'",
         keyword,
         expectedData,
         tokenData
@@ -173,7 +173,7 @@ mod tests
       //
       assert_eq!(
         index, bufferLength,
-        "Индекс для '{}' должен продвинуться на {} (длина строки), остановился на {}",
+        "The index for '{}' should advance by {} (string length), stopped at {}",
         keyword, bufferLength, index
       );
     }
@@ -199,7 +199,8 @@ mod tests
       ("False", TokenType::False, "False"),
       ("None", TokenType::None, ""),
       ("abc123", TokenType::Word, "abc123")
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -211,7 +212,7 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' type {} was expected, got {}",
         input,
         expectedType,
         tokenType
@@ -222,7 +223,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Для '{}' ожидалось значение '{}', получено '{}'",
+        "For '{}' value '{}' was expected, got '{}'",
         input,
         expectedData,
         tokenData
@@ -231,7 +232,7 @@ mod tests
       //
       assert_eq!(
         index, bufferLength,
-        "Для '{}' индекс должен продвинуться на {} (вся строка), остановился на {}",
+        "For '{}' index should advance by {} (the entire string), stopped at {}",
         input, bufferLength, index
       );
     }
@@ -257,19 +258,20 @@ mod tests
       ("a.b\nprintln", "a.b", TokenType::Link, 3),
       ("abc1\nfoo", "abc1", TokenType::Word, 4),
       ("abc123+", "abc123", TokenType::Word, 6)
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
       let token: Token = getWord(buffer, &mut index, bufferLength);
-      
+
       //
       let tokenType: String = token.getDataType().to_string();
       let expectedType: String = expectedType.to_string();
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, got {}",
         input,
         expectedType,
         tokenType
@@ -280,7 +282,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedWord,
-        "Для '{}' ожидалось слово '{}', получено '{}'",
+        "For '{}' the expected word was '{}', got '{}'",
         input,
         expectedWord,
         tokenData
@@ -289,7 +291,7 @@ mod tests
       //
       assert_eq!(
         index, expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        "For '{}' the index should stop at {}, but stopped at {}",
         input, expectedIndex, index
       );
     }

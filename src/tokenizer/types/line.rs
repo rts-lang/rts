@@ -9,8 +9,9 @@ pub struct Line
   /// Список вложенных токенов
   pub tokens: Option< Vec<Token> >,
   /// Уровень отступа
-  pub indent: Option<usize>, // todo Indent больше не нужен - срочно убрать, но тесты надо переписать;
+  pub indent: Option<usize>, // todo Indent больше не нужен - убрать, но тесты надо переписать;
                              //  Также это потянет за собой parser - а там кучу мест.
+                             //  (Кстати сейчас он же вообще не юзается?)
   /// Вложенные линии
   pub lines: Option< Vec< Arc<RwLock<Self>> > >,
   /// Ссылка на родителя
@@ -53,11 +54,11 @@ mod tests
       lines: None,
       parent: None
     };
-    
+
     //
-    assert!(line.tokens.is_some(), "tokens должны быть Some");
-    assert_eq!(line.tokens.as_ref().unwrap().len(), 2, "Длина tokens должна быть 2");
-    assert!(line.indent.is_none(), "indent должен быть None");
+    assert!(line.tokens.is_some(), "tokens must be Some");
+    assert_eq!(line.tokens.as_ref().unwrap().len(), 2, "The length of tokens must be 2");
+    assert!(line.indent.is_none(), "indent must be None");
   }
   
   /// todo desk
@@ -71,10 +72,10 @@ mod tests
       lines: None,
       parent: None
     };
-    
+
     //
-    assert_eq!(line.indent.unwrap(), 4, "indent должен быть 4");
-    assert_eq!(line.tokens.as_ref().unwrap().len(), 1, "Длина tokens должна быть 1");
+    assert_eq!(line.indent.unwrap(), 4, "indent must be 4");
+    assert_eq!(line.tokens.as_ref().unwrap().len(), 1, "The length of tokens must be 1");
   }
   
   /// todo desk
@@ -89,10 +90,10 @@ mod tests
       lines: Some(vec![innerArc]),
       parent: None
     };
-    
+
     //
-    assert!(outer.lines.is_some(), "lines должны быть Some");
-    assert_eq!(outer.lines.as_ref().unwrap().len(), 1, "Длина lines должна быть 1");
+    assert!(outer.lines.is_some(), "lines must be Some");
+    assert_eq!(outer.lines.as_ref().unwrap().len(), 1, "The length of lines must be 1");
   }
   
   // ===============================================================================================

@@ -247,7 +247,7 @@ mod tests
     let data: String = result.getData().toString().unwrap_or_default();
     assert!(
       *result.getDataType() == expectedType && data == expectedData,
-      "'{} и {}' ожидалось '{}', получено '{}'",
+      "'{} and {}' expected '{}', got '{}'",
       left.1, right.1, expectedData, data
     );
   }

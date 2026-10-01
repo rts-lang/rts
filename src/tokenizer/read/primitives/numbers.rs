@@ -228,7 +228,8 @@ mod tests
       ("-2.5", TokenType::Float, "-2.5"),
       ("-.5", TokenType::Float, "-0.5"),
       ("-.", TokenType::Float, "-0")
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -270,7 +271,8 @@ mod tests
       ("3.14+", TokenType::UFloat, "3.14", 4),
       ("-5.5abc", TokenType::Float, "-5.5", 4),
       ("100500\n", TokenType::UInt, "100500", 6),
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -324,7 +326,8 @@ mod tests
       ("-1E-5", TokenType::Float, "-0.00001", 5),
       ("2e+5", TokenType::UFloat, "200000", 4),
       ("10e-1", TokenType::UFloat, "1", 5),
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -335,7 +338,6 @@ mod tests
       //
       let tokenType: String = token.getDataType().to_string();
       let expectedType: String = expectedType.to_string();
-      
       assert_eq!(
         tokenType,
         expectedType,
@@ -347,7 +349,6 @@ mod tests
 
       //
       let tokenData: String = token.getData().toString().unwrap_or_default();
-
       assert_eq!(
         tokenData,
         expectedValue,

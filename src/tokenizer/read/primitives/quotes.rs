@@ -120,7 +120,7 @@ mod tests
       assert_eq!(
         tokenType,
         expectedTypeStr,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, received {}",
         input,
         expectedTypeStr,
         tokenType
@@ -131,16 +131,16 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Для '{}' ожидалось значение '{}', получено '{}'",
+        "For '{}' the expected value was '{}', received '{}'",
         input,
         expectedData,
         tokenData
       );
-      
-      //
+
+      // 
       assert_eq!(
         index, bufferLength,
-        "Индекс для '{}' должен продвинуться на {}, остановился на {}",
+        "The index for '{}' should advance by {}, stopped at {}",
         input, bufferLength, index
       );
     }
@@ -157,18 +157,19 @@ mod tests
       ("`test`end", TokenType::RawString, "test", 6, false),
       ("\"unterminated", TokenType::String, "unterminated", 13, false),
       //("\"line\n", TokenType::String, "", 5, false) // todo Должно было читать до закрывающей quote
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let mut index: usize = 0;
       let token: Token = getQuotes(buffer, &mut index, formatted);
-      
+
       //
       let tokenType: String = token.getDataType().to_string();
       let expectedTypeStr: String = expectedType.to_string();
       assert_eq!(
         tokenType,
         expectedTypeStr,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}', type {} was expected, got {}",
         input,
         expectedTypeStr,
         tokenType
@@ -179,7 +180,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Для '{}' ожидалось значение '{}', получено '{}'",
+        "For '{}', value '{}' was expected, got '{}'",
         input,
         expectedData,
         tokenData
@@ -188,7 +189,7 @@ mod tests
       //
       assert_eq!(
         index, expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        "For '{}', the index should stop at {}, but stopped at {}",
         input, expectedIndex, index
       );
     }

@@ -147,15 +147,15 @@ mod tests
     let slot: Rc<RefCell<Option<FFIScope>>> = enterFfiBlock();
     assert!(isInsideFfiBlock());
     assert!(slot.borrow().is_none(),
-            "до первого FFI-вызова FFIScope ещё не создан");
+            "FFIScope has not yet been created before the first FFI call");
 
     let _: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
     assert!(slot.borrow().is_some(),
-            "после ensureFfiScope FFIScope создан");
+            "FFIScope is created after ensureFfiScope");
 
     exitFfiBlock();
     assert!(!isInsideFfiBlock(),
-            "после exitFfiBlock стек пуст");
+            "the stack is empty after exitFfiBlock");
   }
 
   /// `ensureFfiScope` идемпотентен: повторный вызов переиспользует
@@ -200,10 +200,10 @@ mod tests
 
     exitFfiBlock();
 
-    let pid1: i32 = pid1.expect("должны быть в @ffi блоке").expect("getpid #1");
-    let pid2: i32 = pid2.expect("должны быть в @ffi блоке").expect("getpid #2");
-    assert_eq!(pid1, pid2, "getpid в одном процессе возвращает то же значение");
-    assert!(pid1 > 0, "pid должен быть > 0");
+    let pid1: i32 = pid1.expect("should be in the @ffi block").expect("getpid #1");
+    let pid2: i32 = pid2.expect("should be in the @ffi block").expect("getpid #2");
+    assert_eq!(pid1, pid2, "getpid in the same process returns the same value");
+    assert!(pid1 > 0, "pid must be > 0");
   }
 
   // ===============================================================================================

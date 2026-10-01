@@ -776,7 +776,7 @@ mod tests
     let tokenData: String = token.getData().toString().unwrap_or_default();
     assert!(
       structureType == expectedType && tokenData == expectedData,
-      "Для '{}' ожидалось значение '{}', получено '{}' (тип совпал: {})",
+      "For '{}' expected value '{}', got '{}' (type matched: {})",
       data, expectedData, tokenData, structureType == expectedType
     );
   }
@@ -817,7 +817,7 @@ mod tests
     let tokenData: String = token.getData().toString().unwrap_or_default();
     assert!(
       tokenData == expectedData,
-      "Для '{}' ожидалось значение '{}', получено '{}'",
+      "For '{}' the value '{}' was expected, got '{}'",
       data, expectedData, tokenData
     );
   }
@@ -906,7 +906,7 @@ mod tests
   {
     assert!(
       actual == expected,
-      "Ожидался тип '{}', получен '{}'",
+      "Expected type '{}', got '{}'",
       expected.to_string(), actual.to_string()
     );
     true
@@ -986,7 +986,7 @@ mod tests
     let tokenData: String = token.getData().toString().unwrap_or_default();
     assert!(
       resultType == *expectedType && tokenData == expectedData,
-      "Для '{}' в '{}' ожидался вариант '{}' со значением '{}', получено '{}' со значением '{}'",
+      "For '{}' in '{}' the '{}' variant with value '{}' was expected, got '{}' with value '{}'",
       data, union.to_string(), expectedType.to_string(), expectedData, resultType.to_string(), tokenData
     );
   }
@@ -1050,7 +1050,7 @@ mod tests
     // Пустое объединение равносильно отсутствию типа
     assert!(
       StructureType::Union(vec![]).variants().is_empty(),
-      "Пустое объединение должно давать пустой список вариантов"
+      "An empty union should produce an empty list of variants"
     );
   }
 

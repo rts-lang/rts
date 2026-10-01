@@ -65,7 +65,7 @@ pub const operators: &[(&str, TokenType)] = &[
   ("~", TokenType::Tilde),
   ("~~", TokenType::DoubleTilde),
   (",", TokenType::Comma),
-  (".", TokenType::Dot),
+  (".", TokenType::Dot)
 ];
 
 /// Проверяет buffer по index и так находит возможные двойные и одиночные операторы
@@ -146,18 +146,18 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' type {} was expected, got {}",
         pat,
         expectedType,
         tokenType
       );
 
-      // Для операторов значение всегда пустое
+      // For operators, the value is always empty.
       let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
         tokenData,
         "",
-        "Оператор '{}' должен иметь пустое значение, получено '{}'",
+        "Operator '{}' should have an empty value, got '{}'",
         pat,
         tokenData
       );
@@ -165,7 +165,7 @@ mod tests
       //
       assert_eq!(
         index, bufferLength,
-        "Индекс для '{}' должен продвинуться на {} (длина строки), остановился на {}",
+        "Index for '{}' should advance by {} (string length), stopped at {}",
         pat, bufferLength, index
       );
     }
@@ -187,7 +187,8 @@ mod tests
       ("->7", TokenType::Pointer, 2),
       ("~~ ", TokenType::DoubleTilde, 2),
       ("...", TokenType::Dot, 1),
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -199,26 +200,26 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, got {}",
         input,
         expectedType,
         tokenType
       );
 
-      // Для операторов значение всегда пустое
+      // For operators, the value is always empty.
       let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
         tokenData,
         "",
-        "Оператор '{}' должен иметь пустое значение, получено '{}'",
+        "Operator '{}' must have an empty value, got '{}'",
         input,
         tokenData
       );
 
-      //
+      // 
       assert_eq!(
         index, expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        "For '{}' the index should stop at {}, but stopped at {}",
         input, expectedIndex, index
       );
     }
