@@ -91,7 +91,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn value()
+  fn value() -> ()
   {
     for (input, expectedType, expectedData, formatted) in [
       ("'c'", TokenType::Char, "c", false),
@@ -149,7 +149,7 @@ mod tests
   
   /// todo desk
   #[test]
-  fn index()
+  fn index() -> ()
   {
     for (input, expectedType, expectedData, expectedIndex, formatted) in [
       ("'a'!", TokenType::Char, "a", 3, false),

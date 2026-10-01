@@ -233,11 +233,19 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
 #[cfg(test)]
 mod tests
 {
-  use super::*;
+  use crate::parser::structure::tokenValue::calculate::calculate;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
-
-  /// Проверяет тип и значение результата операции;
-  fn check(op: TokenType, left: (TokenType, &str), right: (TokenType, &str), expectedType: TokenType, expectedData: &str)
+  
+  /// Проверяет тип и значение результата операции.
+  fn check(
+    op: TokenType, 
+    left: (TokenType, &str), 
+    right: (TokenType, &str), 
+    expectedType: TokenType, 
+    expectedData: &str
+  )
   {
     let result: Token = calculate(
       &op,
@@ -252,7 +260,9 @@ mod tests
     );
   }
 
-  /// Число больше u64 и i64 в операции становится границей, а не 0 (#71);
+  // ===============================================================================================
+
+  /// Число больше u64 и i64 в операции становится границей, а не 0 (#71).
   #[test]
   fn bigLiteral()
   {
@@ -267,7 +277,7 @@ mod tests
     check(TokenType::Divide, (TokenType::Int,  negBig), (TokenType::UInt, "1"), TokenType::Int,  &iMin);
   }
 
-  /// Переполнение самой операции зажимается в границу, а не паникует (#71);
+  /// Переполнение самой операции зажимается в границу, а не паникует (#71).
   #[test]
   fn overflow()
   {
@@ -285,7 +295,7 @@ mod tests
   // ===============================================================================================
 
   /// Умножение смешанных типов: `*` в выражениях пока отключён (structure.rs, expressionWith),
-  /// поэтому Value::Mul проверяется здесь напрямую, до его включения;
+  /// поэтому Value::Mul проверяется здесь напрямую, до его включения.
   #[test]
   fn multiplyMixed()
   {
@@ -298,7 +308,7 @@ mod tests
     check(TokenType::Multiply, (TokenType::UInt,  "3"),  (TokenType::Float,  "-2.5"), TokenType::Float,  "-7.5");
   }
 
-  /// Умножение коммутативно: a * b == b * a для любой пары числовых типов;
+  /// Умножение коммутативно: a * b == b * a для любой пары числовых типов.
   #[test]
   fn multiplyCommutative()
   {

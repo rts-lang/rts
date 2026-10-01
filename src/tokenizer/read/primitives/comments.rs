@@ -2,7 +2,7 @@
 
 /// Считает количество подряд идущих `#`, начиная с buffer[index];
 /// 
-/// Ограничено 3 - это максимальный уровень метки комментария
+/// Ограничено 3 - это максимальный уровень метки комментария.
 const fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usize
 {
   let mut length: usize = 0;
@@ -21,7 +21,7 @@ const fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usiz
 /// `##` - `\n` игнорируется, идёт до закрывающей `##`; либо до `#` или `###`
 /// 
 /// `###` - `\n`, `#` и `##` внутри игнорируются, идёт строго до закрывающей `###`;
-/// удобно для комментирования больших участков кода с комментами внутри
+/// удобно для комментирования больших участков кода с комментами внутри.
 pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   let level: usize = hashRunLength(buffer, *index, bufferLength);
@@ -38,7 +38,7 @@ pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize
 
 /// `#` - идёт строго до конца строки;
 /// 
-/// прерывается раньше, если встретил `##` или `###` - они не потребляются
+/// прерывается раньше, если встретил `##` или `###` - они не потребляются.
 const fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   while *index < bufferLength && buffer[*index] != b'\n'
@@ -54,7 +54,7 @@ const fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
 
 /// `##` - `\n` игнорируется, читает до закрывающей `##`;
 /// 
-/// на одиночном `#` или на `###` обрывается раньше - они не потребляются
+/// на одиночном `#` или на `###` обрывается раньше - они не потребляются.
 const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   while *index < bufferLength
@@ -74,7 +74,7 @@ const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
 
 /// `###` - `\n`, `#` и `##` внутри игнорируются;
 /// 
-/// читает строго до закрывающей `###`
+/// читает строго до закрывающей `###`.
 const fn deleteTripleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   while *index < bufferLength
@@ -97,7 +97,7 @@ mod tests
   use crate::tokenizer::read::primitives::comments::deleteComment;
   // ===============================================================================================
 
-  /// Табличная проверка: buffer, ожидаемый index после чтения
+  /// Табличная проверка: buffer, ожидаемый index после чтения.
   fn checkCases(cases: Vec<(&str, usize)>) -> ()
   {
     for (input, expectedIndex) in cases
@@ -119,7 +119,7 @@ mod tests
 
   // ===============================================================================================
 
-  /// `#` идёт строго до конца строки
+  /// `#` идёт строго до конца строки.
   #[test]
   fn single() -> ()
   {
@@ -129,7 +129,7 @@ mod tests
     ]);
   }
 
-  /// `#` обрывается раньше на `##` или `###`, не потребляя их
+  /// `#` обрывается раньше на `##` или `###`, не потребляя их.
   #[test]
   fn singleInterruptedByHigherLevel() -> ()
   {
@@ -141,7 +141,7 @@ mod tests
 
   // ===============================================================================================
 
-  /// `##` игнорирует \n и идёт до закрывающей ##
+  /// `##` игнорирует \n и идёт до закрывающей ##.
   #[test]
   fn double() -> ()
   {
@@ -151,7 +151,7 @@ mod tests
     ]);
   }
 
-  /// `##` обрывается раньше на одиночном `#` или на `###`, не потребляя их
+  /// `##` обрывается раньше на одиночном `#` или на `###`, не потребляя их.
   #[test]
   fn doubleInterruptedByOtherLevel() -> ()
   {
@@ -163,7 +163,7 @@ mod tests
 
   // ===============================================================================================
 
-  /// `###` игнорирует \n, # и ##, идёт строго до закрывающей ###
+  /// `###` игнорирует \n, # и ##, идёт строго до закрывающей ###.
   #[test]
   fn triple() -> ()
   {

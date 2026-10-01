@@ -131,7 +131,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn value() 
+  fn value() -> ()
   {
     for (pat, expectedType) in operators.iter() 
     {
@@ -174,7 +174,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn index() 
+  fn index() -> ()
   {
     for (input, expectedType, expectedIndex) in [
       ("+ 1", TokenType::Plus, 1),

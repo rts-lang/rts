@@ -201,8 +201,9 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
   
+  /// todo desc
   #[test]
-  fn value()
+  fn value() -> ()
   {
     for (input, expectedType, expectedValue) in [
       // UInt
@@ -247,8 +248,9 @@ mod tests
     }
   }
 
+  /// todo desc
   #[test]
-  fn floatDotStart()
+  fn floatDotStart() -> ()
   {
     assert!(isFloatDotStart(b".", 0, 1));
     assert!(isFloatDotStart(b".0", 0, 2));
@@ -263,7 +265,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn index()
+  fn index() -> ()
   {
     for (input, expectedType, expectedValue, expectedIndex) in [
       ("123 ", TokenType::UInt, "123", 3),
@@ -316,7 +318,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn exponential() 
+  fn exponential() -> ()
   {
     for (input, expectedType, expectedValue, expectedIndex) in [
       ("1e3", TokenType::UFloat, "1000", 3),

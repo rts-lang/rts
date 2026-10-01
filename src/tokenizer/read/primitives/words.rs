@@ -133,7 +133,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn value() 
+  fn value() -> ()
   {
     for (keyword, expectedType) in keywords.iter()
     {
@@ -182,7 +182,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn links() 
+  fn links() -> ()
   {
     for (input, expectedType, expectedData) in vec![
       ("hello", TokenType::Word, "hello"),
@@ -241,7 +241,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn index() 
+  fn index() -> ()
   {
     for (input, expectedWord, expectedType, expectedIndex) in vec![
       ("hello world", "helloworld", TokenType::Word, 11),

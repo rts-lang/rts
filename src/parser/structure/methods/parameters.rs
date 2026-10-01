@@ -7,10 +7,11 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Хранит параметры из токенов без просчитывания их заранее
+/// Хранит параметры из токенов без просчитывания их заранее.
 #[derive(Clone)]
 pub struct Parameters
 {
+  /// todo desc
   values: Option< Vec< Arc<RwLock<Line>> > >
 }
 
@@ -18,26 +19,26 @@ impl Parameters
 {
   // ===============================================================================================
   
-  /// Создает новую структуру
+  /// Создает новую структуру.
   pub const fn new(values: Option< Vec< Arc<RwLock<Line>> > >) -> Self
   {
     Self { values }
   }
 
-  /// Проверяет, есть ли значения
+  /// Проверяет, есть ли значения.
   pub const fn isNone(&self) -> bool {
     self.values.is_none()
   }
 
   // ===============================================================================================
 
-  /// Получает параметр по индексу, если он существует
+  /// Получает параметр по индексу, если он существует.
   pub fn get(&self, index: usize) -> Option< &Arc<RwLock<Line>> >
   {
     self.values.as_ref()?.get(index)
   }
 
-  /// Возвращает все параметры, если они есть
+  /// Возвращает все параметры, если они есть.
   pub const fn getAll(&self) -> Option< &Vec< Arc<RwLock<Line>> > >
   {
     self.values.as_ref()
@@ -45,8 +46,8 @@ impl Parameters
 
   // ===============================================================================================
   
-  /// Получает параметр по индексу, если он существует и
-  /// вычисляет его значение его выражения
+  /// Получает параметр по индексу, если он существует 
+  /// и вычисляет его значение его выражения.
   pub fn getExpression(&self, structure: &Structure, index: usize) -> Option<Token>
   {
     if let Some(lineLink) = self.get(index)
@@ -74,8 +75,8 @@ impl Parameters
     
   }
   
-  /// Возвращает все параметры, если они есть и
-  /// вычисляет для них значения их выражений
+  /// Возвращает все параметры, если они есть 
+  /// и вычисляет для них значения их выражений.
   pub fn getAllExpressions(&self, structure: &Structure) -> Option< Vec<Token> >
   {
     let mut tokens: Vec<Token> = Vec::new();
@@ -99,7 +100,7 @@ impl Parameters
 
 impl Structure 
 {
-  /// Получает параметры структуры вычисляя их значения
+  /// Получает параметры структуры вычисляя их значения.
   pub fn getStructureParameters(&self, value: &[Token]) -> Vec<(Bytes, StructureType)> 
   {
     let mut result: Vec<(Bytes, StructureType)> = Vec::new();
@@ -114,7 +115,7 @@ impl Structure
           expressionBuffer.push( token.clone() );
         }
         
-        // todo Тут еще надо определять structure mutable
+        // todo Тут еще надо определять structure mutable.
         
         // Это типизация параметра
         if expressionBuffer.len() == 3 
@@ -142,28 +143,33 @@ impl Structure
     result
   }
 
-  /// Получает параметры при вызове структуры в качестве метода
+  /// Получает параметры при вызове структуры в качестве метода.
   ///
-  /// todo типы данных в параметрах
-  pub fn getCallParameters(&self, value: &mut Vec<Token>, i: usize, valueLength: &mut usize) -> Parameters
+  /// todo Типы данных в параметрах.
+  pub fn getCallParameters(
+    &self, 
+    value: &mut Vec<Token>, 
+    i: usize, 
+    valueLength: &mut usize
+  ) -> Parameters
   {
     let mut result: Option< Vec< Arc<RwLock<Line>> > > = None;
 
-    // Проверка и получение скобки
+    // Проверка и получение скобки.
     let bracketToken: Option<&Token> = value.get(i+1);
     if let Some(bracketToken) = bracketToken
     {
 
-      // Проверка, что это круглая скобка
+      // Проверка, что это круглая скобка.
       if bracketToken.getDataType() != &TokenType::CircleBracketBegin {
         return Parameters::new(None)
       }
 
-      // Получаем линии
+      // Получаем линии.
       result = bracketToken.lines.clone(); // todo Тут точно клонирование?
     }
     
-    // Удаление скобки
+    // Удаление скобки.
     value.remove(i+1);
     *valueLength -= 1;
 

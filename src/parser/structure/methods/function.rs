@@ -25,7 +25,12 @@ impl Function
   // ===============================================================================================
   
   /// Возвращает тип данных выражения
-  fn _type(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  fn _type(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if parameters.isNone()
     {
@@ -46,8 +51,13 @@ impl Function
     //
   }
   
-  /// Возвращает тип данных структуры
-  fn stype(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Возвращает тип данных структуры.
+  fn stype(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if parameters.isNone()
     {
@@ -94,10 +104,15 @@ impl Function
   
   // ===============================================================================================
   
-  /// Возвращает уровень модификации переданной структуры
+  /// Возвращает уровень модификации переданной структуры.
   /// 
   /// todo Может проверять несколько параметров и возвращать список
-  fn _mut(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  fn _mut(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.get(0)
     { None => {} Some(p0Link) =>
@@ -137,8 +152,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Возвращаем случайное число типа UInt от min до max
-  fn randUInt(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Возвращаем случайное число типа UInt от min до max.
+  fn randUInt(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     #[cfg(not(target_family = "wasm"))]
     if !parameters.isNone() // todo оставить либо это, либо снизу нули
@@ -176,8 +196,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Получаем размер структуры
-  fn len(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Получаем размер структуры.
+  fn len(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -237,8 +262,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Получаем результат ввода
-  fn input(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Получаем результат ввода.
+  fn input(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     // Результат может быть только String
     value[i].setDataType( TokenType::String );
@@ -275,8 +305,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Запускает что-то и возвращает строковый output работы
-  fn exec(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Запускает что-то и возвращает строковый output работы.
+  fn exec(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -307,10 +342,16 @@ impl Function
   
   // ===============================================================================================
   
-  /// Запускает что-то и возвращает кодовый результат работы
+  /// Запускает что-то и возвращает кодовый результат работы.
+  /// 
   /// todo: Возможно изменение: Следует ли оставлять вывод stdout & stderr ?
   ///       -> Возможно следует сделать отдельные методы для подобных операций.
-  fn execs(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  fn execs(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -349,7 +390,12 @@ impl Function
   ///   (либо через временный scope на стороне callExternal — legacy fallback).
   /// 
   /// - Если загрузка внутри блока падает — importNative выдаст `None`.
-  pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  pub fn importNative(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
@@ -449,7 +495,12 @@ impl Function
   /// Файл, код которого исполняется сейчас, хранится в `_sourcePath`:
   /// его ставит import() на время загрузки модуля, и вызов функции из модуля
   /// (см. procedureCall). Структуры запоминают его при создании.
-  pub fn import(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  pub fn import(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
@@ -540,7 +591,7 @@ impl Function
 
   // ===============================================================================================
 
-  /// Создает структуру из токена
+  /// Создает структуру из токена.
   /// 
   /// todo !!! Этот метод нельзя трогать пока не будет он переделан под приведение типа просто.
   ///  Логика такая: параметры методов сами делают приведение при указании типа.
@@ -548,7 +599,12 @@ impl Function
   /// 
   /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
   ///   а после этого было уничтожено из-за конца структуры или конца вызова.
-  fn usize(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize) 
+  fn usize(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  )  -> ()
   {
     match parameters.getExpression(structure, 0)
     {

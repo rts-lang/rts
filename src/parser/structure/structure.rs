@@ -888,6 +888,7 @@ impl Structure
   // ===============================================================================================
 
   /// Принимает formatQuote типы и получает возможное значение обычной строки;
+  /// 
   /// В основном всё сводится к получению токенов в {} через Token::readTokens(),
   /// после чего результат проходит через expression и мы получаем обычную строку на выходе.
   fn formatQuote(&self, tokenData: String) -> String 
@@ -1392,7 +1393,12 @@ impl Structure
   /// Получает значение операции по левому и правому выражению; Это зависимость для expression;
   /// 
   /// Кроме того, может обрабатывать отрицание при использовании TokenType::Minus.
-  fn expressionOp(&self, value: &mut Vec<Token>, valueLength: &mut usize, operations: &[TokenType])
+  fn expressionOp(
+    &self, 
+    value: &mut Vec<Token>, 
+    valueLength: &mut usize, 
+    operations: &[TokenType]
+  ) -> ()
   {
     let mut i: usize = 0;
     let mut token: Token;

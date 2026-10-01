@@ -21,15 +21,15 @@ use chillffi::ffi::scope::{FFIScope, Scope};
 thread_local! {
   /// Стек ленивых FFI scope-ов. Каждый `@ffi { ... }` блок пушит свой
   /// `Rc<RefCell<Option<FFIScope>>>` сюда при входе и снимает при выходе.
-  static FfiScopeStack: RefCell<Vec<Rc<RefCell<Option<FFIScope>>>>> =
+  static FfiScopeStack: RefCell<Vec< Rc<RefCell< Option<FFIScope> >> >> =
     const { RefCell::new(Vec::new()) };
 }
 
 /// Отмечает вход в `@ffi { ... }` блок. Кладёт «пустой» (lazy) scope-slot
 /// на стек. Сам `FFIScope` не создаётся до первого реального FFI вызова.
-pub fn enterFfiBlock() -> Rc<RefCell<Option<FFIScope>>>
+pub fn enterFfiBlock() -> Rc<RefCell< Option<FFIScope> >>
 {
-  let slot: Rc<RefCell<Option<FFIScope>>> = Rc::new(RefCell::new(None));
+  let slot: Rc<RefCell< Option<FFIScope> >> = Rc::new(RefCell::new(None));
   FfiScopeStack.with(|stack| {
     stack.borrow_mut().push(Rc::clone(&slot));
   });
@@ -57,7 +57,7 @@ pub fn isInsideFfiBlock() -> bool
 
 /// Достаёт scope-slot текущего `@ffi` блока (тот, что положили в `enterFfiBlock`).
 /// Возвращает `None`, если мы не внутри `@ffi` блока.
-pub fn currentFfiBlock() -> Option<Rc<RefCell<Option<FFIScope>>>>
+pub fn currentFfiBlock() -> Option< Rc<RefCell< Option<FFIScope> >> >
 {
   FfiScopeStack.with(|stack| stack.borrow().last().map(Rc::clone))
 }
