@@ -1,11 +1,13 @@
 // =================================================================================================
 
-/// Тип элементарной единицы хранения информации
+/// Тип элементарной единицы хранения информации.
 /// 
 /// todo Можно создать глобальную общую структуру:
 ///   - structure type
 ///   - token type
 ///   - string
+///  Имелось ввиду общий список или макрос для
+///  генерации всех отношений, как единое место.
 #[derive(PartialEq)]
 #[derive(Copy, Clone)]
 pub enum TokenType
@@ -178,7 +180,8 @@ impl TokenType
 }
 
 impl ToString for TokenType
-{ // todo convert -> fmt::Display ?
+{ 
+  // todo convert -> fmt::Display ?
   fn to_string(&self) -> String 
   {
     match self 

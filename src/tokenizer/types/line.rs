@@ -44,7 +44,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn withTokens()
+  fn withTokens() -> ()
   {
     let token1: Token = Token::newEmpty(TokenType::Word);
     let token2: Token = Token::newEmpty(TokenType::UInt);
@@ -63,7 +63,7 @@ mod tests
   
   /// todo desk
   #[test]
-  fn withIndent()
+  fn withIndent() -> ()
   {
     let token: Token = Token::newEmpty(TokenType::Bool);
     let line: Line = Line {
@@ -80,7 +80,7 @@ mod tests
   
   /// todo desk
   #[test]
-  fn nestedLines()
+  fn nestedLines() -> ()
   {
     let inner: Line = Line::newEmpty();
     let innerArc: Arc<RwLock<Line>> = Arc::new(RwLock::new(inner));

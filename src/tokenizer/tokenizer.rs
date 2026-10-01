@@ -45,7 +45,7 @@ fn pushLineFromTokens(
 
 // =================================================================================================
 
-// todo desc - вспомогательная func
+// todo desc - вспомогательная func.
 fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: usize, lineTokens: &mut Vec<Token>) -> () {
   //
   #[cfg(feature = "analyzer")]
@@ -63,7 +63,7 @@ fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: usize, lin
 
 // =================================================================================================
 
-/// Обертка для простоты использования чтения токенайзера
+/// Обертка для простоты использования чтения токенайзера.
 pub fn readTokensSimple(buffer: &mut Vec<u8>) -> Vec< Arc<RwLock<Line>> >
 {
   // Требуем обязательно \n в конце для правильного чтения;
@@ -91,29 +91,29 @@ pub fn readTokensSimple(buffer: &mut Vec<u8>) -> Vec< Arc<RwLock<Line>> >
 fn readTokens(
   buffer: &Vec<u8>,
   mut index: usize
-) -> (Vec<Arc<RwLock<Line>>>, usize) // Возвращаем линии и новый индекс
+) -> (Vec<Arc<RwLock<Line>>>, usize) // Возвращаем линии и новый индекс.
 {
-  let bufferLength: usize = buffer.len();    // Размер буфера байтов
-  let mut lineTokens: Vec<Token> = Vec::new(); // Прочитанные токены текущей линии
+  let bufferLength: usize = buffer.len(); // Размер буфера байтов.
+  let mut lineTokens: Vec<Token> = Vec::new(); // Прочитанные токены текущей линии.
 
-  let mut linesLinks: Vec< Arc<RwLock<Line>> > = Vec::new(); // Ссылки на готовые линии
+  let mut linesLinks: Vec< Arc<RwLock<Line>> > = Vec::new(); // Ссылки на готовые линии.
 
   let mut byte: u8;
   while index < bufferLength
-  { // Читаем байты
-    byte = buffer[index]; // Текущий байт
+  { // Читаем байты.
+    byte = buffer[index]; // Текущий байт.
 
-    // Смотрим, является ли это endline
+    // Смотрим, является ли это endline.
     if byte == b'\n' || byte == b';'
     { // Проверяем: если последний токен - оператор, выражение не завершено; #85
       let isContinuation: bool = lineTokens.last()
         .is_some_and(|token: &Token| token.getDataType().isContinuationOperator());
 
       if isContinuation
-      { // Перенос строки - просто пропускаем \n, чтение продолжается
+      { // Перенос строки - просто пропускаем \n, чтение продолжается.
         index += 1;
       } else
-      { // Действительно конец строки - вкладываем возможные скобки
+      { // Действительно конец строки - вкладываем возможные скобки.
 
         // Добавляем новую линию.
         pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
@@ -122,8 +122,8 @@ fn readTokens(
       }
     } else
     if byte == b'('
-    { // Группировка выражения - как раньше, через Token.lines
-      index += 1; // Пропускаем открывающую скобку
+    { // Группировка выражения - как раньше, через Token.lines.
+      index += 1; // Пропускаем открывающую скобку.
       
       // Возвращаем полученные линии и новый индекс.
       //
@@ -141,7 +141,7 @@ fn readTokens(
     } else
     if byte == b'['
     { // Группировка выражения - как раньше, через Token.lines
-      index += 1; // Пропускаем открывающую скобку
+      index += 1; // Пропускаем открывающую скобку.
       
       // Возвращаем полученные линии и новый индекс.
       //
@@ -156,7 +156,7 @@ fn readTokens(
     } else
     if byte == b'{'
     { // Блок - замена отступа, вложение через Line.lines
-      index += 1; // Пропускаем открывающую скобку
+      index += 1; // Пропускаем открывающую скобку.
       
       // Возвращаем полученные линии и новый индекс.
       //
@@ -183,7 +183,7 @@ fn readTokens(
       })));
     } else
     if byte == b'}' || byte == b')' || byte == b']'
-    { // Закрытие вложения
+    { // Закрытие вложения.
 
       // Добавляем новую линию.
       pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
@@ -192,10 +192,10 @@ fn readTokens(
       break
     } else
     if byte == b'#'
-    { // Комментарий # / ## / ###; deleteComment сам находит границу по правилам уровня
+    { // Комментарий # / ## / ###; deleteComment сам находит границу по правилам уровня.
       #[cfg(feature = "analyzer")]
       let start: usize = index;
-      deleteComment(buffer, &mut index, bufferLength); // Пропускает комментарий
+      deleteComment(buffer, &mut index, bufferLength); // Пропускает комментарий.
 
       #[cfg(feature = "analyzer")]
       {
@@ -219,7 +219,7 @@ fn readTokens(
           matches!(*token.getDataType(), TokenType::Word | TokenType::Link)
         })
       )
-    { // Получаем все возможные численные примитивные типы данных (issue #31: `.1` / `.`)
+    { // Получаем все возможные численные примитивные типы данных (issue #31: `.1` / `.`).
       #[cfg(feature = "analyzer")]
       {
         let start: usize = index;
@@ -241,7 +241,7 @@ fn readTokens(
       }
     } else
     if isLetter(&byte)
-    { // Получаем все возможные и зарезервированные слова
+    { // Получаем все возможные и зарезервированные слова.
       //
       #[cfg(feature = "analyzer")]
       {
@@ -256,13 +256,13 @@ fn readTokens(
       }
     } else
     if matches!(byte, b'\'' | b'"' | b'`') 
-    { // Проверяем, есть ли перед кавычкой токен `f`
+    { // Проверяем, есть ли перед кавычкой токен `f`.
       let isFormatted: bool = !lineTokens.is_empty()
         && lineTokens.last().unwrap().getDataType() == &TokenType::Word
         && lineTokens.last().unwrap().getData().toString().unwrap_or_default() == "f";
 
       #[cfg(feature = "analyzer")]
-      let startPos: usize = index; // Начало кавычки (для обычного токена)
+      let startPos: usize = index; // Начало кавычки (для обычного токена).
 
       if isFormatted
       {
@@ -277,9 +277,9 @@ fn readTokens(
           lineTokens.pop().unwrap();
         }
 
-        let mut token: Token = getQuotes(buffer, &mut index, true); // formatted = true
+        let mut token: Token = getQuotes(buffer, &mut index, true); // formatted = true.
 
-        // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString)
+        // Устанавливаем тип (FormattedChar / FormattedString / FormattedRawString).
         let tokenType: TokenType =
           match byte
           {
@@ -315,12 +315,12 @@ fn readTokens(
         }
       }
     } else
-    // Получаем возможные двойные и одиночные символы
+    // Получаем возможные двойные и одиночные символы.
     if isSingleChar(&byte) {
       addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
     } else
     { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;
-      // Поэтому просто идём дальше
+      // Поэтому просто идём дальше.
       index += 1;
     }
     //
@@ -331,7 +331,7 @@ fn readTokens(
   // так, что top-level lineTokens так и не попадут в linesLinks.
   pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
 
-  // Возвращаем готовые ссылки на линии
+  // Возвращаем готовые ссылки на линии.
   (linesLinks, index)
 }
 
@@ -634,9 +634,11 @@ mod tests
   use std::sync::{Arc, RwLock, RwLockReadGuard};
   // ===============================================================================================
 
-  /// Диагностика: как именно токенайзер разбирает многострочный анонимный
-  /// FFI-блок `[ffi] { ... }`. Это нужно парсеру, чтобы понять, как
-  /// подхватить блок `{ ... }` после тега `[ffi]`.
+  /// Диагностика: как именно токенайзер разбирает 
+  /// многострочный анонимный FFI-блок `[ffi] { ... }`. 
+  /// 
+  /// Это нужно парсеру, чтобы понять, 
+  /// как подхватить блок `{ ... }` после тега `[ffi]`.
   #[test]
   fn multilineFfiBlock() -> ()
   {

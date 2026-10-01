@@ -3,7 +3,7 @@ use termion::color::{Bg, Fg, Rgb, Reset};
 use termion::style;
 // =================================================================================================
 
-// hex str -> termion::color::Rgb
+/// hex str -> `termion::color::Rgb`.
 fn hexToTermionColor(hex: &str) -> Option<Rgb>
 {
   match hex.len() != 6 
@@ -19,7 +19,8 @@ fn hexToTermionColor(hex: &str) -> Option<Rgb>
   }
   //
 }
-// devide white space, begin from the left
+
+/// devide white space, begin from the left.
 fn divideWhitespace(input: &str) -> (&str, &str) 
 {
   let firstNonSpaceIndex: usize = input
@@ -30,23 +31,23 @@ fn divideWhitespace(input: &str) -> (&str, &str)
 
 // =================================================================================================
 
-// style log
+/// style log
 pub fn formatPrint(string: &str) -> ()
 {
   print!("{}",formatString(string));
 }
 
-/*
+/**
   Formats a string, you can use flags:
 
   \c    clear all
   
-  \b    bold
-  \fg   foreground
+  \b    bold  
+  \fg   foreground  
   \bg   background
 
-  \cb   clear bold
-  \cfg  clear foreground
+  \cb   clear bold  
+  \cfg  clear foreground  
   \cbg  clear background
 */
 pub fn formatString(inputString: &str) -> String 
@@ -175,7 +176,7 @@ pub fn formatString(inputString: &str) -> String
 
 // =================================================================================================
 
-// separator log
+/// separator log
 pub fn logSeparator(text: &str) -> ()
 {
   formatPrint(&format!(
@@ -184,8 +185,8 @@ pub fn logSeparator(text: &str) -> ()
   ));
 }
 
-// Завершает программу и при необходимости в debug режиме
-// возвращает описание выхода;
+/// Завершает программу и при необходимости в debug режиме
+/// возвращает описание выхода;
 pub fn logExit(code: i32) -> !
 {
   std::process::exit(code);
@@ -194,7 +195,7 @@ pub fn logExit(code: i32) -> !
 
 // =================================================================================================
 
-// basic style log
+/// basic style log.
 pub fn log(textType: &str, text: &str) -> ()
 {
   let parts: Vec<String>;

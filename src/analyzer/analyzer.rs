@@ -30,8 +30,10 @@ pub struct AnalyzeToken
 {
   // todo desc
   pub start: usize,
+  
   // todo desc
   pub end: usize,
+  
   // todo desc
   pub kind: String
 }
@@ -43,6 +45,7 @@ pub struct AnalyzedLine
 {
   // todo desc
   pub indent: usize,
+  
   // todo desc
   pub tokens: Vec<AnalyzeToken>
 }
@@ -63,7 +66,7 @@ pub fn analyzeLines(code: &str) -> String
 }
 
 // todo desc
-fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
+fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>) -> ()
 {
   for linLink in lines
   {
@@ -83,7 +86,7 @@ fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>)
 }
 
 // todo desc
-fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
+fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>) -> ()
 {
   let builtinsSet: HashSet<&'static str> = builtins();
   for token in tokens
@@ -99,11 +102,13 @@ fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
         }
       }
     }
+    
     out.push(AnalyzeToken {
       start: token.start,
       end: token.end,
       kind,
     });
+    
     if let Some(nestedLines) = &token.lines
     {
       for lineLink in nestedLines
@@ -115,6 +120,7 @@ fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
         }
       }
     }
+    //
   }
 }
 
@@ -126,13 +132,24 @@ fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>)
 #[derive(Serialize, Clone)]
 pub struct TreeToken
 {
+  /// todo desc
   pub start: usize,
+
+  /// todo desc
   pub end: usize,
+
+  /// todo desc
   pub kind: String,
+
+  /// todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub data: Option<String>,
+
+  /// todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub primitive: Option<bool>,
+
+  /// todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub lines: Option<Vec<TreeLine>>
 }
@@ -143,9 +160,14 @@ pub struct TreeToken
 #[derive(Serialize, Clone)]
 pub struct TreeLine
 {
+  /// todo desc
   pub indent: usize,
+
+  /// todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub tokens: Option<Vec<TreeToken>>,
+  
+  /// todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub lines: Option<Vec<TreeLine>>
 }

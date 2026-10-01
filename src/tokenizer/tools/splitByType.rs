@@ -3,7 +3,7 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверка на вхождение в срез
+/// Проверка на вхождение в срез.
 macro_rules! matchesIn
 {
   ($value:expr, $slice:expr) => 
@@ -12,7 +12,7 @@ macro_rules! matchesIn
   };
 }
 
-/// Разделяет токены по типу токена-разделителя
+/// Разделяет токены по типу токена-разделителя.
 pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line>
 {
   let mut lines: Vec<Line> = Vec::new();
