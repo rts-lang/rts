@@ -8,14 +8,7 @@
   </picture>
 
 **Real-Time Programming Language of Free Data Structures**
-
-[Website] | [Documentation] | [Packages] | [Paradigm]
 </div>
-
-[Website]: https://realtime.su/en
-[Documentation]: https://realtime.su/en/docs
-[Packages]: https://realtime.su/en/packages
-[Paradigm]: https://realtime.su/en/paradigm
 
 ## Why RTS?
 
