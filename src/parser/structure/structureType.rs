@@ -768,7 +768,7 @@ mod tests
   use crate::parser::structure::structure::Structure;
   // ===============================================================================================
 
-  /// Проверяет тип и значение токена после getStructureType();
+  /// Проверяет тип и значение токена после getStructureType().
   fn check(tokenType: TokenType, data: &str, expectedType: StructureType, expectedData: &str)
   {
     let mut token: Token = Token::new(tokenType, String::from(data));
@@ -781,7 +781,7 @@ mod tests
     );
   }
 
-  /// Числа внутри рамок ABI не меняются;
+  /// Числа внутри рамок ABI не меняются.
   #[test]
   fn inRange()
   {
@@ -792,7 +792,7 @@ mod tests
     check(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
   }
 
-  /// За рамками ABI тип и значение становятся границей крайнего типа (#71);
+  /// За рамками ABI тип и значение становятся границей крайнего типа (#71).
   #[test]
   fn saturation()
   {
@@ -809,7 +809,7 @@ mod tests
     check(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
   }
 
-  /// Проверяет значение токена после normalizeToken() в явный тип;
+  /// Проверяет значение токена после normalizeToken() в явный тип.
   fn normalize(tokenType: TokenType, data: &str, structureType: StructureType, expectedData: &str)
   {
     let mut token: Token = Token::new(tokenType, String::from(data));
@@ -822,7 +822,7 @@ mod tests
     );
   }
 
-  /// Явный тип зажимает значение в свои границы, даже если число больше u64 и i64 (#71);
+  /// Явный тип зажимает значение в свои границы, даже если число больше u64 и i64 (#71).
   #[test]
   fn normalizeClamp()
   {
@@ -847,7 +847,7 @@ mod tests
     normalize(TokenType::UInt, "abc", StructureType::U8, "0");
   }
 
-  /// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71);
+  /// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71).
   #[test]
   fn normalizeFloat()
   {
@@ -863,7 +863,7 @@ mod tests
   // ===============================================================================================
   
   /// Float в целый тип: округляется и зажимается в границы типа;
-  /// Отрицательное значение остаётся для знаковых типов и становится 0 для беззнаковых;
+  /// Отрицательное значение остаётся для знаковых типов и становится 0 для беззнаковых.
   #[test]
   fn normalizeFloatToInteger()
   {
@@ -887,7 +887,7 @@ mod tests
     normalize(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
   }
 
-  /// Не число - по прежнему None, токен очищается;
+  /// Не число - None, токен очищается.
   #[test]
   fn notNumber()
   {
@@ -897,8 +897,7 @@ mod tests
   }
 
   // ===============================================================================================
-  // Union: issue #59
-  // ===============================================================================================
+  // Union (issue #59)
 
   /// Сравнивает типы через to_string(): у StructureType нет Debug, а печать
   /// заодно показывает, как объединение выглядит в коде.

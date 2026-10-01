@@ -111,8 +111,8 @@ pub fn withCurrentFfiScope<R>(
   //    borrow живёт ровно столько, сколько нужно для вызова `f`,
   //    что и держит lifetime Scope<'_> валидным.
   let cell: Ref< Option<FFIScope> > = slot.borrow();
-  let ffi_scope: &FFIScope = cell.as_ref()?;
-  let scope: Scope<'_> = ffi_scope.scope();
+  let ffiScope: &FFIScope = cell.as_ref()?;
+  let scope: Scope<'_> = ffiScope.scope();
 
   Some(f(&scope))
 }
@@ -144,12 +144,12 @@ mod tests
   #[test]
   fn lazyScopeCreation() -> ()
   {
-    let slot: Rc<RefCell<Option<FFIScope>>> = enterFfiBlock();
+    let slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
     assert!(isInsideFfiBlock());
     assert!(slot.borrow().is_none(),
             "FFIScope has not yet been created before the first FFI call");
 
-    let _: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
+    let _: Option< Rc<RefCell< Option<FFIScope> >> > = ensureFfiScope();
     assert!(slot.borrow().is_some(),
             "FFIScope is created after ensureFfiScope");
 
@@ -164,8 +164,8 @@ mod tests
   fn scopeReusedAcrossCalls() -> ()
   {
     let _slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
-    let first: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
-    let second: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
+    let first: Option< Rc<RefCell< Option<FFIScope> >> > = ensureFfiScope();
+    let second: Option< Rc<RefCell< Option<FFIScope> >> > = ensureFfiScope();
     assert!(first.is_some());
     assert!(second.is_some());
     // Один и тот же Rc на слот — это и есть «scope удерживается».

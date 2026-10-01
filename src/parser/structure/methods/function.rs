@@ -16,8 +16,10 @@ use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::parser::structure::ffi::scopeStack;
 // =================================================================================================
+
 /// Это набор базовых функций
 struct Function;
+
 impl Function
 {
   // ===============================================================================================

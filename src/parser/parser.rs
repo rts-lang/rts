@@ -424,8 +424,12 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
         if let Some(fields) = bridge::stringFields(valueToken)
         {
           let newStructure: RwLockReadGuard<Structure> = newStructureLink.read().unwrap();
-          for field in fields { newStructure.pushStructure(field); }
+          for field in fields
+          {
+            newStructure.pushStructure(field);
+          }
         }
+        //
       }
     }
 
