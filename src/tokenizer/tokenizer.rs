@@ -28,13 +28,13 @@ fn pushLineFromTokens(
   innerLines: Option< Vec< Arc<RwLock<Line>> > >,
   linesLinks: &mut Vec< Arc<RwLock<Line>> >
 ) {
-  let tokens: Vec<Token> = std::mem::take(lineTokens); // Пустой вектор для следующей
+  let tokens: Vec<Token> = std::mem::take(lineTokens); // Пустой вектор для следующей.
   if !tokens.is_empty()
   {
     linesLinks.push(
       Arc::new(RwLock::new(Line {
         tokens: Some(tokens),
-        indent: None, // todo Устаревшее поле, можно убрать позже
+        indent: None, // todo Устаревшее поле, можно убрать позже.
         lines: innerLines,
         parent: None
       })
@@ -70,10 +70,10 @@ pub fn readTokensSimple(buffer: &mut Vec<u8>) -> Vec< Arc<RwLock<Line>> >
   // Получаем buffer без mut.
   let buffer: &Vec<u8> =
     if buffer.last() == Some(&b'\n')
-    { // Если есть, значит оставляем старый
+    { // Если есть, значит оставляем старый.
       buffer
     } else
-    { // Если нет, получаем новый
+    { // Если нет, получаем новый.
       buffer.push(b'\n');
       buffer
     };
