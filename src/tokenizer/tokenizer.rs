@@ -206,10 +206,11 @@ fn readTokens(
       lineTokens.push(Token::newEmpty(TokenType::Comment));
 
       // Комментарий всегда завершает текущую линию - как endline;
-      // Остается токен комментария;
-      // Добавляем новую линию.
+      // Остается токен комментария; Добавляем новую линию.
       pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
     } else
+    // Получаем все возможные численные примитивные типы данных;
+    //
     // После Word/Link точка — member/continuation (Dot), не float-литерал.
     // Иначе `a.0` и `a.\n0` съедались бы как UFloat `.0` / `0.0` (issue #31 follow-up).
     if isDigit(&byte) || byte == b'-' || 
