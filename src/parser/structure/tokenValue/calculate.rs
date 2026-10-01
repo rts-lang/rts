@@ -10,16 +10,16 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // =================================================================================================
 
-/// Вычисляет по математической операции значение и тип нового токена из двух
+/// Вычисляет по математической операции значение и тип нового токена из двух.
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
 {
-  // Получаем значение левой части выражения
+  // Получаем значение левой части выражения.
   let leftTokenDataType: TokenType = *leftToken.getDataType();
   let leftValue: Value = getValue(leftToken.getData().toString().unwrap_or_default(), &leftTokenDataType);
-  // Получаем значение правой части выражения
+  // Получаем значение правой части выражения.
   let rightTokenDataType: TokenType = *rightToken.getDataType();
   let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
-  // Получаем значение выражения, а также предварительный тип
+  // Получаем значение выражения, а также предварительный тип.
   let mut resultType: TokenType = TokenType::UInt;
   let mut resultValue: String = match *op 
   {
@@ -102,7 +102,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     _ => "0".to_string(),
   };
   // После того как значение было получено,
-  // Смотрим какой точно тип выдать новому токену
+  // смотрим какой точно тип выдать новому токену.
   if resultType != TokenType::Bool 
   {
     if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
@@ -121,6 +121,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
     {
       // Проверяем смену типа;
+      //
       // TokenType::UFloat не ограничен - это тип токена, а не Value::UFloat(uf64).
       // Ограничение по размеру накладывается структурой (F32/F64), а не здесь.
       // Поэтому тип результата зависит только от знака строкового значения.
@@ -137,6 +138,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
     {
       // Проверяем смену типа;
+      //
       // TokenType::UInt не ограничен сверху - это тип токена, а не Value::UInt(u64).
       // Ограничение по размеру накладывается структурой (USize/ABI), а не здесь.
       // Поэтому тип результата зависит только от знака строкового значения.
@@ -165,7 +167,7 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
       Value::None()
     }
     TokenType::Int =>
-    { // Токен бесконечен, а Value::Int(i64) нет: всё что больше или меньше - граница i64 (#71)
+    { // Токен бесконечен, а Value::Int(i64) нет: всё что больше или меньше - граница i64 (#71).
       match tokenData.parse::<i64>() 
       {
         Ok(value) => Value::Int(value),
@@ -178,7 +180,7 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
       }
     },
     TokenType::UInt =>
-    { // Токен бесконечен, а Value::UInt(u64) нет: всё что больше - граница u64 (#71)
+    { // Токен бесконечен, а Value::UInt(u64) нет: всё что больше - граница u64 (#71).
       match tokenData.parse::<u64>() 
       {
         Ok(value) => Value::UInt(value),
@@ -233,11 +235,19 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
 #[cfg(test)]
 mod tests
 {
-  use super::*;
+  use crate::parser::structure::tokenValue::calculate::calculate;
+  use crate::tokenizer::types::token::Token;
+  use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
-
-  /// Проверяет тип и значение результата операции;
-  fn check(op: TokenType, left: (TokenType, &str), right: (TokenType, &str), expectedType: TokenType, expectedData: &str)
+  
+  /// Проверяет тип и значение результата операции.
+  fn check(
+    op: TokenType, 
+    left: (TokenType, &str), 
+    right: (TokenType, &str), 
+    expectedType: TokenType, 
+    expectedData: &str
+  )
   {
     let result: Token = calculate(
       &op,
@@ -247,12 +257,14 @@ mod tests
     let data: String = result.getData().toString().unwrap_or_default();
     assert!(
       *result.getDataType() == expectedType && data == expectedData,
-      "'{} и {}' ожидалось '{}', получено '{}'",
+      "'{} and {}' expected '{}', got '{}'",
       left.1, right.1, expectedData, data
     );
   }
 
-  /// Число больше u64 и i64 в операции становится границей, а не 0 (#71);
+  // ===============================================================================================
+
+  /// Число больше u64 и i64 в операции становится границей, а не 0 (#71).
   #[test]
   fn bigLiteral()
   {
@@ -260,14 +272,14 @@ mod tests
     let negBig: &str = "-99999999999999999999999";
     let uMax: String = u64::MAX.to_string();
     let iMin: String = i64::MIN.to_string();
-    // Деление на 0 возвращает левую часть (#30), деление на 1 тоже
+    // Деление на 0 возвращает левую часть (#30), деление на 1 тоже.
     check(TokenType::Divide, (TokenType::UInt, big),    (TokenType::UInt, "0"), TokenType::UInt, &uMax);
     check(TokenType::Divide, (TokenType::UInt, big),    (TokenType::UInt, "1"), TokenType::UInt, &uMax);
     check(TokenType::Divide, (TokenType::Int,  negBig), (TokenType::UInt, "0"), TokenType::Int,  &iMin);
     check(TokenType::Divide, (TokenType::Int,  negBig), (TokenType::UInt, "1"), TokenType::Int,  &iMin);
   }
 
-  /// Переполнение самой операции зажимается в границу, а не паникует (#71);
+  /// Переполнение самой операции зажимается в границу, а не паникует (#71).
   #[test]
   fn overflow()
   {
@@ -278,18 +290,18 @@ mod tests
     check(TokenType::Multiply, (TokenType::UInt, &uMax), (TokenType::UInt, "2"), TokenType::UInt, &uMax);
     check(TokenType::Minus,    (TokenType::Int,  &iMin), (TokenType::UInt, "1"), TokenType::Int,  &iMin);
     check(TokenType::Divide,   (TokenType::Int,  &iMin), (TokenType::Int, "-1"), TokenType::Int,  &iMax);
-    // u64 больше i64::MAX не ломает знак в смешанных операциях (раньше u64::MAX as i64 = -1)
+    // u64 больше i64::MAX не ломает знак в смешанных операциях (раньше u64::MAX as i64 = -1).
     check(TokenType::Plus,     (TokenType::Int, "-5"),   (TokenType::UInt, &uMax), TokenType::UInt, &(i64::MAX - 5).to_string());
   }
 
   // ===============================================================================================
 
   /// Умножение смешанных типов: `*` в выражениях пока отключён (structure.rs, expressionWith),
-  /// поэтому Value::Mul проверяется здесь напрямую, до его включения;
+  /// поэтому Value::Mul проверяется здесь напрямую, до его включения.
   #[test]
   fn multiplyMixed()
   {
-    // Int * UFloat: раньше стояло деление x / y, и -3 * 2.5 давало -1.2
+    // Int * UFloat: раньше стояло деление x / y, и -3 * 2.5 давало -1.2.
     check(TokenType::Multiply, (TokenType::Int,   "-3"), (TokenType::UFloat, "2.5"),  TokenType::Float,  "-7.5");
     check(TokenType::Multiply, (TokenType::UFloat, "2.5"), (TokenType::Int,   "-3"),  TokenType::Float,  "-7.5");
     // Соседние ветки
@@ -298,7 +310,7 @@ mod tests
     check(TokenType::Multiply, (TokenType::UInt,  "3"),  (TokenType::Float,  "-2.5"), TokenType::Float,  "-7.5");
   }
 
-  /// Умножение коммутативно: a * b == b * a для любой пары числовых типов;
+  /// Умножение коммутативно: a * b == b * a для любой пары числовых типов.
   #[test]
   fn multiplyCommutative()
   {
@@ -320,7 +332,7 @@ mod tests
         let baData: String = ba.getData().toString().unwrap_or_default();
         assert!(
           abData == baData && ab.getDataType() == ba.getDataType(),
-          "'{} * {}' = '{}', но '{} * {}' = '{}'",
+          "'{} * {}' = '{}', but '{} * {}' = '{}'",
           left.1, right.1, abData, right.1, left.1, baData
         );
       }

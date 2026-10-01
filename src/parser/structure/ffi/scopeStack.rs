@@ -21,15 +21,15 @@ use chillffi::ffi::scope::{FFIScope, Scope};
 thread_local! {
   /// Стек ленивых FFI scope-ов. Каждый `@ffi { ... }` блок пушит свой
   /// `Rc<RefCell<Option<FFIScope>>>` сюда при входе и снимает при выходе.
-  static FfiScopeStack: RefCell<Vec<Rc<RefCell<Option<FFIScope>>>>> =
+  static FfiScopeStack: RefCell<Vec< Rc<RefCell< Option<FFIScope> >> >> =
     const { RefCell::new(Vec::new()) };
 }
 
 /// Отмечает вход в `@ffi { ... }` блок. Кладёт «пустой» (lazy) scope-slot
 /// на стек. Сам `FFIScope` не создаётся до первого реального FFI вызова.
-pub fn enterFfiBlock() -> Rc<RefCell<Option<FFIScope>>>
+pub fn enterFfiBlock() -> Rc<RefCell< Option<FFIScope> >>
 {
-  let slot: Rc<RefCell<Option<FFIScope>>> = Rc::new(RefCell::new(None));
+  let slot: Rc<RefCell< Option<FFIScope> >> = Rc::new(RefCell::new(None));
   FfiScopeStack.with(|stack| {
     stack.borrow_mut().push(Rc::clone(&slot));
   });
@@ -57,7 +57,7 @@ pub fn isInsideFfiBlock() -> bool
 
 /// Достаёт scope-slot текущего `@ffi` блока (тот, что положили в `enterFfiBlock`).
 /// Возвращает `None`, если мы не внутри `@ffi` блока.
-pub fn currentFfiBlock() -> Option<Rc<RefCell<Option<FFIScope>>>>
+pub fn currentFfiBlock() -> Option< Rc<RefCell< Option<FFIScope> >> >
 {
   FfiScopeStack.with(|stack| stack.borrow().last().map(Rc::clone))
 }
@@ -111,8 +111,8 @@ pub fn withCurrentFfiScope<R>(
   //    borrow живёт ровно столько, сколько нужно для вызова `f`,
   //    что и держит lifetime Scope<'_> валидным.
   let cell: Ref< Option<FFIScope> > = slot.borrow();
-  let ffi_scope: &FFIScope = cell.as_ref()?;
-  let scope: Scope<'_> = ffi_scope.scope();
+  let ffiScope: &FFIScope = cell.as_ref()?;
+  let scope: Scope<'_> = ffiScope.scope();
 
   Some(f(&scope))
 }
@@ -144,18 +144,18 @@ mod tests
   #[test]
   fn lazyScopeCreation() -> ()
   {
-    let slot: Rc<RefCell<Option<FFIScope>>> = enterFfiBlock();
+    let slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
     assert!(isInsideFfiBlock());
     assert!(slot.borrow().is_none(),
-            "до первого FFI-вызова FFIScope ещё не создан");
+            "FFIScope has not yet been created before the first FFI call");
 
-    let _: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
+    let _: Option< Rc<RefCell< Option<FFIScope> >> > = ensureFfiScope();
     assert!(slot.borrow().is_some(),
-            "после ensureFfiScope FFIScope создан");
+            "FFIScope is created after ensureFfiScope");
 
     exitFfiBlock();
     assert!(!isInsideFfiBlock(),
-            "после exitFfiBlock стек пуст");
+            "the stack is empty after exitFfiBlock");
   }
 
   /// `ensureFfiScope` идемпотентен: повторный вызов переиспользует
@@ -164,8 +164,8 @@ mod tests
   fn scopeReusedAcrossCalls() -> ()
   {
     let _slot: Rc<RefCell< Option<FFIScope> >> = enterFfiBlock();
-    let first: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
-    let second: Option<Rc<RefCell<Option<FFIScope>>>> = ensureFfiScope();
+    let first: Option< Rc<RefCell< Option<FFIScope> >> > = ensureFfiScope();
+    let second: Option< Rc<RefCell< Option<FFIScope> >> > = ensureFfiScope();
     assert!(first.is_some());
     assert!(second.is_some());
     // Один и тот же Rc на слот — это и есть «scope удерживается».
@@ -200,10 +200,10 @@ mod tests
 
     exitFfiBlock();
 
-    let pid1: i32 = pid1.expect("должны быть в @ffi блоке").expect("getpid #1");
-    let pid2: i32 = pid2.expect("должны быть в @ffi блоке").expect("getpid #2");
-    assert_eq!(pid1, pid2, "getpid в одном процессе возвращает то же значение");
-    assert!(pid1 > 0, "pid должен быть > 0");
+    let pid1: i32 = pid1.expect("should be in the @ffi block").expect("getpid #1");
+    let pid2: i32 = pid2.expect("should be in the @ffi block").expect("getpid #2");
+    assert_eq!(pid1, pid2, "getpid in the same process returns the same value");
+    assert!(pid1 > 0, "pid must be > 0");
   }
 
   // ===============================================================================================

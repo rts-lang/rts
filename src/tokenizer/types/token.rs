@@ -28,11 +28,9 @@ pub struct Token
 }
 impl Token 
 {
-  /// Обычное создание
-  pub fn new<T: Into<Bytes>>(
-    dataType: TokenType,
-    data:     T,
-  ) -> Self {
+  /// Обычное создание.
+  pub fn new<T: Into<Bytes>>(dataType: TokenType, data: T) -> Self 
+  {
     Self {
       data: data.into(),
       dataType,
@@ -44,10 +42,8 @@ impl Token
     }
   }
   
-  /// Пустой, но имеет тип данных
-  pub const fn newEmpty(
-    dataType: TokenType
-  ) -> Self 
+  /// Пустой, но имеет тип данных.
+  pub const fn newEmpty(dataType: TokenType) -> Self 
   {
     Self 
     {
@@ -60,10 +56,8 @@ impl Token
       end: 0
     }
   }
-  /// Пустой, но выполняет роль держателя вложения
-  pub const fn newNesting(
-    lines: Vec< Arc<RwLock<Line>> >
-  ) -> Self
+  /// Пустой, но выполняет роль держателя вложения.
+  pub const fn newNesting(lines: Vec< Arc<RwLock<Line>> >) -> Self
   {
     Self
     {
@@ -77,12 +71,14 @@ impl Token
     }
   }
 
-  // convert data
-  // todo: фиг его знает что это за ерунда,
-  //  но смысл такой, что если тип был Int или Float, 
-  //  а ожидается UInt или UFloat, то понятно,
-  //  что результат будет 0
-  // todo По идее это обрубание типов? константановое поведение.
+  /// convert data.
+  /// 
+  /// todo: фиг его знает что это за ерунда,
+  ///  но смысл такой, что если тип был Int или Float, 
+  ///  а ожидается UInt или UFloat, то понятно,
+  ///  что результат будет 0
+  /// 
+  /// todo По идее это обрубание типов? константановое поведение.
   const fn convertData(&mut self) -> ()
   {
     return; // todo Работает криво например для `Float | F32 = -3.4028234663852886e38` - было 0.0
@@ -111,31 +107,31 @@ impl Token
     */
   }
 
-  /// Получает тип данных
+  /// Получает тип данных.
   pub const fn getDataType(&self) -> &TokenType
   {
     &self.dataType
   }
-  /// Устанавливает тип данных
+  /// Устанавливает тип данных.
   pub const fn setDataType(&mut self, newDataType: TokenType) -> ()
   {
     self.dataType = newDataType;
     self.convertData();
   }
 
-  /// Проверяет примитивный это токен или нет
+  /// Проверяет примитивный это токен или нет.
   pub fn isPrimitive(&self) -> bool
   {
     keywords.iter().any(|(_, tt)| *tt == self.dataType)
   }
 
-  /// Получает данные
+  /// Получает данные.
   pub fn getData(&self) -> Bytes
   {
     self.data.clone()
   }
-  /// Устанавливает данные
-  pub fn setData<T: Into<Bytes>>(&mut self, newData: T) 
+  /// Устанавливает данные.
+  pub fn setData<T: Into<Bytes>>(&mut self, newData: T)  -> ()
   {
     self.data = newData.into();
     self.convertData();

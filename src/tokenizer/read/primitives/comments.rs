@@ -2,7 +2,7 @@
 
 /// Считает количество подряд идущих `#`, начиная с buffer[index];
 /// 
-/// Ограничено 3 - это максимальный уровень метки комментария
+/// Ограничено 3 - это максимальный уровень метки комментария.
 const fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usize
 {
   let mut length: usize = 0;
@@ -21,11 +21,11 @@ const fn hashRunLength(buffer: &[u8], index: usize, bufferLength: usize) -> usiz
 /// `##` - `\n` игнорируется, идёт до закрывающей `##`; либо до `#` или `###`
 /// 
 /// `###` - `\n`, `#` и `##` внутри игнорируются, идёт строго до закрывающей `###`;
-/// удобно для комментирования больших участков кода с комментами внутри
+/// удобно для комментирования больших участков кода с комментами внутри.
 pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   let level: usize = hashRunLength(buffer, *index, bufferLength);
-  *index += level; // Пропускаем открывающую метку
+  *index += level; // Пропускаем открывающую метку.
 
   match level
   {
@@ -38,7 +38,7 @@ pub const fn deleteComment(buffer: &[u8], index: &mut usize, bufferLength: usize
 
 /// `#` - идёт строго до конца строки;
 /// 
-/// прерывается раньше, если встретил `##` или `###` - они не потребляются
+/// прерывается раньше, если встретил `##` или `###` - они не потребляются.
 const fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   while *index < bufferLength && buffer[*index] != b'\n'
@@ -54,7 +54,7 @@ const fn deleteSingleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
 
 /// `##` - `\n` игнорируется, читает до закрывающей `##`;
 /// 
-/// на одиночном `#` или на `###` обрывается раньше - они не потребляются
+/// на одиночном `#` или на `###` обрывается раньше - они не потребляются.
 const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   while *index < bufferLength
@@ -63,8 +63,8 @@ const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
     {
       match hashRunLength(buffer, *index, bufferLength)
       {
-        2 => { *index += 2; return; } // Нашли закрывающую ## - потребляем
-        _ => { return; }              // Одиночный # или ### - обрыв без потребления
+        2 => { *index += 2; return; } // Нашли закрывающую ## - потребляем.
+        _ => { return; }              // Одиночный # или ### - обрыв без потребления.
       }
     }
     *index += 1;
@@ -74,13 +74,13 @@ const fn deleteDoubleComment(buffer: &[u8], index: &mut usize, bufferLength: usi
 
 /// `###` - `\n`, `#` и `##` внутри игнорируются;
 /// 
-/// читает строго до закрывающей `###`
+/// читает строго до закрывающей `###`.
 const fn deleteTripleComment(buffer: &[u8], index: &mut usize, bufferLength: usize) -> ()
 {
   while *index < bufferLength
   {
     if buffer[*index] == b'#' && hashRunLength(buffer, *index, bufferLength) >= 3
-    { // Нашли закрывающую ### - потребляем
+    { // Нашли закрывающую ### - потребляем.
       *index += 3;
       return;
     }
@@ -97,7 +97,7 @@ mod tests
   use crate::tokenizer::read::primitives::comments::deleteComment;
   // ===============================================================================================
 
-  /// Табличная проверка: buffer, ожидаемый index после чтения
+  /// Табличная проверка: buffer, ожидаемый index после чтения.
   fn checkCases(cases: Vec<(&str, usize)>) -> ()
   {
     for (input, expectedIndex) in cases
@@ -119,17 +119,17 @@ mod tests
 
   // ===============================================================================================
 
-  /// `#` идёт строго до конца строки
+  /// `#` идёт строго до конца строки.
   #[test]
   fn single() -> ()
   {
     checkCases(vec![
-      ("# short\nrest ", 7), // Остановка перед \n
-      ("# end", 5), // Остановка в конце буфера
+      ("# short\nrest ", 7), // Остановка перед \n.
+      ("# end", 5), // Остановка в конце буфера.
     ]);
   }
 
-  /// `#` обрывается раньше на `##` или `###`, не потребляя их
+  /// `#` обрывается раньше на `##` или `###`, не потребляя их.
   #[test]
   fn singleInterruptedByHigherLevel() -> ()
   {
@@ -141,35 +141,35 @@ mod tests
 
   // ===============================================================================================
 
-  /// `##` игнорирует \n и идёт до закрывающей ##
+  /// `##` игнорирует \n и идёт до закрывающей ##.
   #[test]
   fn double() -> ()
   {
     checkCases(vec![
-      ("## a\nb\nc ##rest", 11), // Потребляет закрывающую ##
-      ("## unterminated", 15), // До конца буфера, если нет закрытия
+      ("## a\nb\nc ##rest", 11), // Потребляет закрывающую ##.
+      ("## unterminated", 15), // До конца буфера, если нет закрытия.
     ]);
   }
 
-  /// `##` обрывается раньше на одиночном `#` или на `###`, не потребляя их
+  /// `##` обрывается раньше на одиночном `#` или на `###`, не потребляя их.
   #[test]
   fn doubleInterruptedByOtherLevel() -> ()
   {
     checkCases(vec![
-      ("## a\n# rest", 5), // Обрыв на одиночном #
-      ("## a\n### rest", 5), // Обрыв на ###
+      ("## a\n# rest", 5), // Обрыв на одиночном #.
+      ("## a\n### rest", 5), // Обрыв на ###.
     ]);
   }
 
   // ===============================================================================================
 
-  /// `###` игнорирует \n, # и ##, идёт строго до закрывающей ###
+  /// `###` игнорирует \n, # и ##, идёт строго до закрывающей ###.
   #[test]
   fn triple() -> ()
   {
     checkCases(vec![
-      ("### a\n# b\n## c\n###rest", 18), // # и ## внутри игнорируются
-      ( "### unterminated", 16), // До конца буфера, если нет закрытия
+      ("### a\n# b\n## c\n###rest", 18), // # и ## внутри игнорируются.
+      ( "### unterminated", 16), // До конца буфера, если нет закрытия.
     ]);
   }
 

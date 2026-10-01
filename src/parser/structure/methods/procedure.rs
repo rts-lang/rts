@@ -19,8 +19,9 @@ use crate::parser::structure::methods::parameters::{Parameters};
 use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
-/// Это набор базовых процедур
+/// Это набор базовых процедур.
 struct Procedure;
+
 impl Procedure
 {
   // ===============================================================================================
@@ -28,7 +29,7 @@ impl Procedure
   /// Выводит несколько значений;
   /// 
   /// Выводит несколько значений и \n в конце.
-  fn print(structure: &Structure, parameters: &Parameters, newline: bool)
+  fn print(structure: &Structure, parameters: &Parameters, newline: bool) -> ()
   {
     #[cfg(not(target_family = "wasm"))]
     if let Some(parameters) = parameters.getAllExpressions(structure)
@@ -48,8 +49,8 @@ impl Procedure
   
   /// Отчищаем вывод.
   ///
-  /// todo Можно выдавать результат boolean при ошибке
-  fn clear()
+  /// todo Можно выдавать результат boolean при ошибке.
+  fn clear() -> ()
   {
     let _ = Command::new("clear")
       .status(); // Игнорируем ошибки.
@@ -59,8 +60,8 @@ impl Procedure
   
   /// Запускаем линию выше заново.
   ///
-  /// todo Должна принимать количество на которое поднимает наверх
-  fn go(structure: &Structure)
+  /// todo Должна принимать количество на которое поднимает наверх.
+  fn go(structure: &Structure) -> ()
   {
     if let Some(parentLink) = &structure.parent
     { // Получаем ссылку на линию.
@@ -95,8 +96,8 @@ impl Procedure
   
   // ===============================================================================================
   
-  /// Ожидает определённое количество ms
-  fn sleep(structure: &Structure, parameters: &Parameters)
+  /// Ожидает определённое количество ms.
+  fn sleep(structure: &Structure, parameters: &Parameters) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
@@ -114,8 +115,8 @@ impl Procedure
   
   // ===============================================================================================
   
-  /// Завершает чтение всех структур с определённым кодом или кодом ошибки
-  fn exit(structure: &Structure, parameters: &Parameters)
+  /// Завершает чтение всех структур с определённым кодом или кодом ошибки.
+  fn exit(structure: &Structure, parameters: &Parameters) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure,0)
     {unsafe{
@@ -139,7 +140,8 @@ impl Structure
   /// Процедура - это такая структура, которая не возвращает результат.
   ///
   /// Но кроме того, запускает не стандартные методы;
-  /// Из нестандартных методов, процедуры могут вернуть результат, в таком случае, их следует считать функциями.
+  /// Из нестандартных методов, процедуры могут вернуть результат, 
+  /// в таком случае, их следует считать функциями.
   ///
   /// todo Вынести все стандартные варианты в отдельный модуль (теперь когда #68, надо ли?)
   /// 
@@ -148,7 +150,7 @@ impl Structure
   pub fn procedureCall(&self, structureName: &str, parameters: Parameters) -> ()
   {
     if structureName.starts_with(|c: char| c.is_lowercase()) // todo if -> match
-    { // Если название в нижнем регистре - то это точно процедура
+    { // Если название в нижнем регистре - то это точно процедура.
       match structureName
       { // Проверяем на сходство стандартных функций
         "println" => Procedure::print(self, &parameters, true),
@@ -172,7 +174,8 @@ impl Structure
               .map(Some)
               .collect();
 
-            // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции
+            // 2. Присваиваем значения параметрам (дочерним структурам) вызываемой функции.
+            //
             // todo Они же потом не удаляются? Вообще по логике должна быть копия структуры,
             //  если он используется как метод? и там создание этого?
             {
@@ -191,9 +194,10 @@ impl Structure
                       calledStructureStructureLink.write().unwrap();
 
                     // Забираем токен один раз
-                    let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть
+                    let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть.
                     
-                    // Нормализируем под тип параметра
+                    // Нормализируем под тип параметра.
+                    //
                     // todo:
                     //  Кстати не должен ли getAllExpressions сам делать приведение?
                     //  Много таких мест в коде с params.
@@ -209,7 +213,7 @@ impl Structure
                         bridge::stringFields(&token)
                       } else { None };
                     
-                    // Устанавливаем lines параметра как линию с одним токеном – переданным значением
+                    // Устанавливаем lines параметра как линию с одним токеном – переданным значением.
                     calledStructureStructure.lines = Some(vec![
                       Arc::new(RwLock::new(Line {
                         tokens: Some(vec![token]),
@@ -245,8 +249,8 @@ impl Structure
         }
         // -----------------------------------------------------------------------------------------
       }
-      // Всё успешно, это была стандартная процедура
-    } // Если название структуры не в нижнем регистре
+      // Всё успешно, это была стандартная процедура.
+    } // Если название структуры не в нижнем регистре.
   }
 
   // ===============================================================================================

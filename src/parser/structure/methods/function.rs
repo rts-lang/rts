@@ -16,14 +16,21 @@ use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::parser::structure::ffi::scopeStack;
 // =================================================================================================
-/// Это набор базовых функций
+
+/// Это набор базовых функций.
 struct Function;
+
 impl Function
 {
   // ===============================================================================================
   
-  /// Возвращает тип данных выражения
-  fn _type(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Возвращает тип данных выражения.
+  fn _type(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if parameters.isNone()
     {
@@ -44,8 +51,13 @@ impl Function
     //
   }
   
-  /// Возвращает тип данных структуры
-  fn stype(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Возвращает тип данных структуры.
+  fn stype(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if parameters.isNone()
     {
@@ -92,33 +104,38 @@ impl Function
   
   // ===============================================================================================
   
-  /// Возвращает уровень модификации переданной структуры
+  /// Возвращает уровень модификации переданной структуры.
   /// 
   /// todo Может проверять несколько параметров и возвращать список
-  fn _mut(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  fn _mut(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.get(0)
     { None => {} Some(p0Link) =>
-    { // Получаем 0 параметр
+    { // Получаем 0 параметр.
       
       let p0: RwLockReadGuard<Line> = p0Link.read().unwrap();
       match &p0.tokens 
       { None => {} Some(tokens) => 
-      { // Получаем список токенов
+      { // Получаем список токенов.
 
-        let token: &Token = tokens.first().unwrap(); // Получаем 0 токен
+        let token: &Token = tokens.first().unwrap(); // Получаем 0 токен.
         
         value[i].setDataType( TokenType::String );
         let result: String = match token.getData().toString()
         {
           None => String::from(""),
           Some(structureName) =>
-          { // Получили название структуры
+          { // Получили название структуры.
             match structure.getStructureByName(&structureName)
             {
               None => String::from(""),
               Some(structureLink) =>
-              { // Получили ссылку на структуру
+              { // Получили ссылку на структуру.
                 let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
                 structure.mutable.to_string()
               }
@@ -135,8 +152,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Возвращаем случайное число типа UInt от min до max
-  fn randUInt(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Возвращаем случайное число типа UInt от min до max.
+  fn randUInt(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     #[cfg(not(target_family = "wasm"))]
     if !parameters.isNone() // todo оставить либо это, либо снизу нули
@@ -174,8 +196,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Получаем размер структуры
-  fn len(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Получаем размер структуры.
+  fn len(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -183,15 +210,15 @@ impl Function
       match *p0.getDataType()
       {
         TokenType::None =>
-        { // Результат 0
+        { // Результат 0.
           value[i] = Token::new( TokenType::UInt, String::from("0") );
         }
         TokenType::Char =>
-        { // Получаем размер символа
+        { // Получаем размер символа.
           value[i] = Token::new( TokenType::UInt, String::from("1") );
         }
         TokenType::String | TokenType::RawString =>
-        { // Получаем размер строки
+        { // Получаем размер строки.
           value[i] = Token::new(
             TokenType::UInt,
             p0.getData().toString().unwrap_or_default()
@@ -200,7 +227,7 @@ impl Function
         }
         _ =>
         { // Получаем размер вложений в структуре
-          // Результат только в UInt
+          // Результат только в UInt.
           value[i].setDataType( TokenType::UInt );
           // Получаем значение
           match structure.getStructureByName( &p0.getData().toString().unwrap_or_default() )
@@ -208,7 +235,7 @@ impl Function
             Some(structureLink) =>
             {
               value[i].setData(
-                // Получаем количество линий структуры
+                // Получаем количество линий структуры.
                 match &structureLink.read().unwrap().lines
                 {
                   None => String::from("0"),
@@ -222,7 +249,7 @@ impl Function
               );
             }
             None =>
-            { // Результат 0 т.к. не нашли такой структуры
+            { // Результат 0 т.к. не нашли такой структуры.
               value[i].setData( String::from("0") );
             }
           }
@@ -235,10 +262,15 @@ impl Function
   
   // ===============================================================================================
   
-  /// Получаем результат ввода
-  fn input(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Получаем результат ввода.
+  fn input(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
-    // Результат может быть только String
+    // Результат может быть только String.
     value[i].setDataType( TokenType::String );
 
     match parameters.getExpression(structure,0)
@@ -247,25 +279,26 @@ impl Function
       match p0.getData().toString()
       { None => {} Some(data) =>
       { // Это может быть выведено перед вводом;
+        //
         // todo: возможно потом это лучше убрать,
         //       т.к. программист сам может вызвать
         //       такое через иные методы
         print!("{}",data);
-        io::stdout().flush().unwrap(); // forced withdrawal of old
+        io::stdout().flush().unwrap(); // forced withdrawal of old.
       }}
     }}
 
-    let mut valueBuffer: String = String::new(); // временный буффер ввода
+    let mut valueBuffer: String = String::new(); // Временный буфер ввода.
     match io::stdin().read_line(&mut valueBuffer)
-    { // Читаем ввод
+    { // Читаем ввод.
       Ok(_) =>
-      { // Успешно ввели и записали
+      { // Успешно ввели и записали.
         value[i].setData(
           valueBuffer.trim_end().to_string()
         );
       }
       Err(_) =>
-      { // Не удалось ввести, пустая строка
+      { // Не удалось ввести, пустая строка.
         value[i].setData(None);
       }
     }
@@ -273,8 +306,13 @@ impl Function
   
   // ===============================================================================================
   
-  /// Запускает что-то и возвращает строковый output работы
-  fn exec(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  /// Запускает что-то и возвращает строковый output работы.
+  fn exec(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -294,7 +332,7 @@ impl Function
       let outputString: String = String::from_utf8_lossy(&output.stdout).to_string();
       match !outputString.is_empty()
       { false => {} true =>
-      { // result
+      { // result.
         value[i].setData( outputString.trim_end().to_string() );
         value[i].setDataType( TokenType::String );
       }}
@@ -305,10 +343,16 @@ impl Function
   
   // ===============================================================================================
   
-  /// Запускает что-то и возвращает кодовый результат работы
+  /// Запускает что-то и возвращает кодовый результат работы.
+  /// 
   /// todo: Возможно изменение: Следует ли оставлять вывод stdout & stderr ?
   ///       -> Возможно следует сделать отдельные методы для подобных операций.
-  fn execs(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  fn execs(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     match parameters.getExpression(structure,0)
     { None => {} Some(p0) =>
@@ -347,7 +391,12 @@ impl Function
   ///   (либо через временный scope на стороне callExternal — legacy fallback).
   /// 
   /// - Если загрузка внутри блока падает — importNative выдаст `None`.
-  pub fn importNative(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  pub fn importNative(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
@@ -405,7 +454,7 @@ impl Function
         }
       }
 
-      // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна
+      // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна.
       // todo Это нужно будет решить
       #[cfg(target_family = "wasm")]
       {
@@ -447,7 +496,12 @@ impl Function
   /// Файл, код которого исполняется сейчас, хранится в `_sourcePath`:
   /// его ставит import() на время загрузки модуля, и вызов функции из модуля
   /// (см. procedureCall). Структуры запоминают его при создании.
-  pub fn import(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize)
+  pub fn import(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  ) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure, 0)
     {
@@ -467,7 +521,7 @@ impl Function
             match &_sourcePath
             {
               Some(sourcePath) => sourcePath.as_str().to_string(),
-              None => _filePath.clone() // код запущенного файла
+              None => _filePath.clone() // Код запущенного файла.
             }
           };
           std::path::Path::new(&currentFile)
@@ -538,7 +592,7 @@ impl Function
 
   // ===============================================================================================
 
-  /// Создает структуру из токена
+  /// Создает структуру из токена.
   /// 
   /// todo !!! Этот метод нельзя трогать пока не будет он переделан под приведение типа просто.
   ///  Логика такая: параметры методов сами делают приведение при указании типа.
@@ -546,7 +600,12 @@ impl Function
   /// 
   /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
   ///   а после этого было уничтожено из-за конца структуры или конца вызова.
-  fn usize(structure: &Structure, parameters: &Parameters, value: &mut [Token], i: usize) 
+  fn usize(
+    structure: &Structure, 
+    parameters: &Parameters, 
+    value: &mut [Token], 
+    i: usize
+  )  -> ()
   {
     match parameters.getExpression(structure, 0)
     {
@@ -583,11 +642,12 @@ impl Function
           }
         }
     
-        // Добавляем в structures
+        // Добавляем в structures.
         let tempStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(tempStructure));
         structure.pushStructure(tempStructureLink.clone());
         
-        // Находим индекс этой структуры в structures
+        // Находим индекс этой структуры в structures.
+        //
         // todo Не уверен что это лучший вариант
         let index: usize = 
         {
@@ -600,7 +660,8 @@ impl Function
             .position(|s| Arc::ptr_eq(s, &tempStructureLink))
             .expect("newly added structure not found") // todo TokenType::None
         };
-        // Возвращаем Link с "#temp{index}"
+        // Возвращаем Link с "#temp{index}".
+        //
         // todo В теории правильно вернуть нормальную ссылку - потому что в expression
         //  могут быть еще действия дальше и такой Link токен не сработает сейчас.
         value[i].setDataType(TokenType::Link);
@@ -639,16 +700,17 @@ impl Structure
 
     // ---------------------------------------------------------------------------------------------
     if let Some(structureName) = value[i].getData().toString()
-    { // Вариант в котором это обращение к стандартной или custom функции;
+    { // Вариант в котором это обращение к стандартной или custom функции.
+      //
       // todo: проверка на нижний регистр
 
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       // Далее идут базовые методы;
-      // Эти методы ожидают аргументов
+      // Эти методы ожидают аргументов.
       'basicMethods:
-      { // Это позволит выйти, если мы ожидаем не стандартные варианты
+      { // Это позволит выйти, если мы ожидаем не стандартные варианты.
         match structureName.as_str()
-        { // Проверяем на сходство стандартных функций
+        { // Проверяем на сходство стандартных функций.
 
           // todo: создать resultType() ?
           //       для возвращения результата ожидаемого структурой
@@ -664,27 +726,27 @@ impl Structure
           "importNative" => Function::importNative(self, &parameters, value, i),
           "import" => Function::import(self, &parameters, value, i),
           "Usize" => Function::usize(self, &parameters, value, i),
-          _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод
+          _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод.
         }
         return;
       }
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      // Если код не завершился ранее, то далее идут custom методы;
+      // Если код не завершился ранее, то далее идут custom методы.
 
       // Передаём параметры, они также могут быть None
 //        println!("? {} - parameters: {:?}",structureName,parameters.get(0).unwrap().tokens);
 //        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
       self.procedureCall(&structureName, parameters);
-      // После чего решаем какой результат оставить
+      // После чего решаем какой результат оставить.
       if let Some(structureLink) = self.getStructureByName(&structureName)
-      { // По результату структуры, определяем пустой он или нет
+      { // По результату структуры, определяем пустой он или нет.
         if let Some(result) = &structureLink.read().unwrap().result
-        { // Результат не пустой, значит оставляем его
+        { // Результат не пустой, значит оставляем его.
           value[i].setData    ( result.getData() );
           value[i].setDataType( *result.getDataType() );
         } else
         { // Если результата структуры не было,
-          // значит это была действительно процедура
+          // значит это была действительно процедура.
           value[i].setData(None);
           value[i].setDataType( TokenType::None );
         }
@@ -692,11 +754,11 @@ impl Structure
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     } else
     // ---------------------------------------------------------------------------------------------
-    { // Вариант в котором тип токена может быть типом данных => это cast в другой тип;
+    { // Вариант в котором тип токена может быть типом данных => это cast в другой тип.
       match *value[i].getDataType()
       {
         TokenType::UInt =>
-        { // Получаем значение выражения в типе
+        { // Получаем значение выражения в типе.
           // todo: Float, UFloat
           if let Some(parameter0) = parameters.getExpression(self,0)
           {
@@ -705,7 +767,7 @@ impl Structure
           }
         }
         TokenType::Int =>
-        { // Получаем значение выражения в типе
+        { // Получаем значение выражения в типе.
           if let Some(parameter0) = parameters.getExpression(self,0)
           {
             value[i].setDataType( TokenType::Int );
@@ -715,7 +777,7 @@ impl Structure
           //
         }
         TokenType::String =>
-        { // Получаем значение выражение в типе String
+        { // Получаем значение выражение в типе String.
           // todo: подумать над formatted типами
           if let Some(parameter0) = parameters.getExpression(self,0)
           {
@@ -726,7 +788,7 @@ impl Structure
           //
         }
         TokenType::Char =>
-        { // Получаем значение выражения в типе Char
+        { // Получаем значение выражения в типе Char.
           // todo: проверить работу
           if let Some(parameter0) = parameters.getExpression(self,0)
           {

@@ -12,30 +12,30 @@ a~~ = 0 # Полная mut для кода ниже
 
 # UInt / UInt
 a = 10 / 0
-print(f"{a} | {type(a)}\n")   # 10 | UInt
+print(f"{a} | {type(a)}\n")  # 10 | UInt
 
 a = 0 / 0
-print(f"{a} | {type(a)}\n")   # 0 | UInt
+print(f"{a} | {type(a)}\n")  # 0 | UInt
 
 a = 255 / 0
-print(f"{a} | {type(a)}\n")   # 255 | UInt
+print(f"{a} | {type(a)}\n")  # 255 | UInt
 
 a = 18446744073709551615 / 0
-print(f"{a} | {type(a)}\n")   # 18446744073709551615 | UInt
+print(f"{a} | {type(a)}\n")  # 18446744073709551615 | UInt
 
 # Int / UInt
 a = -10 / 0
-print(f"{a} | {type(a)}\n")   # -10 | Int
+print(f"{a} | {type(a)}\n")  # -10 | Int
 
 a = -9223372036854775808 / 0
-print(f"{a} | {type(a)}\n")   # -9223372036854775808 | Int
+print(f"{a} | {type(a)}\n")  # -9223372036854775808 | Int
 
 # UInt / Int, Int / Int (нулевой делитель со знаком)
 a = 10 / -0
-print(f"{a} | {type(a)}\n")   # 10 | UInt
+print(f"{a} | {type(a)}\n")  # 10 | UInt
 
 a = -10 / -0
-print(f"{a} | {type(a)}\n")   # -10 | Int
+print(f"{a} | {type(a)}\n")  # -10 | Int
 
 # ======================================================================================================================
 println("=====")
@@ -46,18 +46,18 @@ n = -10
 z = 0
 
 a = x / z
-print(f"{a} | {type(a)}\n")   # 10 | UInt
+print(f"{a} | {type(a)}\n")  # 10 | UInt
 
 a = x / 0
-print(f"{a} | {type(a)}\n")   # 10 | UInt
+print(f"{a} | {type(a)}\n")  # 10 | UInt
 
 a = 10 / z
-print(f"{a} | {type(a)}\n")   # 10 | UInt
+print(f"{a} | {type(a)}\n")  # 10 | UInt
 
 a = n / z
-print(f"{a} | {type(a)}\n")   # -10 | Int
+print(f"{a} | {type(a)}\n")  # -10 | Int
 
 a = z / z
-print(f"{a} | {type(a)}\n")   # 0 | UInt
+print(f"{a} | {type(a)}\n")  # 0 | UInt
 
 # ======================================================================================================================

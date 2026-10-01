@@ -12,6 +12,7 @@ pub fn isLetter(byte: &u8) -> bool
 
 // =================================================================================================
 
+/// todo desc
 pub const keywords: &[(&str, TokenType)] = &[
   ("None", TokenType::None),
   ("Link", TokenType::Link),
@@ -43,10 +44,10 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
   savedIndex += 1;
   let mut isLink: bool = false;
 
-  let mut currentByte: u8; // Текущий символ
+  let mut currentByte: u8; // Текущий символ.
   while savedIndex < bufferLength
   {
-    currentByte = buffer[savedIndex]; // Значение текущего символа
+    currentByte = buffer[savedIndex]; // Значение текущего символа.
 
     // Пропуск пустот;
     // В языке нет наводящих слов статуса - поэтому не будет `let a`.
@@ -56,14 +57,14 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
       continue;
     }
     
-    if (isDigit(&currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка
-      (isLink && (currentByte == b'[' || currentByte == b']')) // В случае ссылки мы можем читать динамические []
+    if (isDigit(&currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка.
+      (isLink && (currentByte == b'[' || currentByte == b']')) // В случае ссылки мы можем читать динамические [].
     {
       result.push(currentByte as char);
       savedIndex += 1;
       match currentByte == b'.'
       { false => {} true =>
-      { // Только если есть . то мы знаем что это ссылка
+      { // Только если есть . то мы знаем что это ссылка.
         isLink = true;
       }}
 
@@ -91,20 +92,20 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 
   *index = savedIndex;
 
-  // next return
+  // next return.
   match isLink
   {
     true => Token::new(TokenType::Link, result),
     false =>
     {
-      // Ключевое слово 
+      // Ключевое слово.
       for (keyword, tokenType) in keywords.iter() 
       {
         if result == *keyword 
         { // todo true и false – особые случаи ?
           //   Мб просто их сделать True/False как и 
           //   должно быть и они будут отдельный от number в Parser?
-          // True/False/true/false — с data; остальные keywords — empty
+          // True/False/true/false — с data; остальные keywords — empty.
           return if matches!(result.as_str(), "True" | "False") {
             Token::new(*tokenType, result)
           } else {
@@ -113,7 +114,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
           //
         }
       }
-      // Обычное слово (идентификатор)
+      // Обычное слово (идентификатор).
       Token::new(TokenType::Word, result)
       //
     }
@@ -133,9 +134,9 @@ mod tests
 
   /// todo desk
   #[test]
-  fn value() 
+  fn value() -> ()
   {
-    for (keyword, expectedType) in keywords.iter() 
+    for (keyword, expectedType) in keywords.iter()
     {
       let buffer: &[u8] = keyword.as_bytes();
       let bufferLength: usize = buffer.len();
@@ -148,7 +149,7 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, received {}",
         keyword,
         expectedType,
         tokenType
@@ -164,7 +165,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Ключевое слово '{}' должно иметь значение '{}', получено '{}'",
+        "Keyword '{}' should have the value '{}', received '{}'",
         keyword,
         expectedData,
         tokenData
@@ -173,7 +174,7 @@ mod tests
       //
       assert_eq!(
         index, bufferLength,
-        "Индекс для '{}' должен продвинуться на {} (длина строки), остановился на {}",
+        "The index for '{}' should advance by {} (string length), stopped at {}",
         keyword, bufferLength, index
       );
     }
@@ -182,7 +183,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn links() 
+  fn links() -> ()
   {
     for (input, expectedType, expectedData) in vec![
       ("hello", TokenType::Word, "hello"),
@@ -199,7 +200,8 @@ mod tests
       ("False", TokenType::False, "False"),
       ("None", TokenType::None, ""),
       ("abc123", TokenType::Word, "abc123")
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -211,7 +213,7 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' type {} was expected, got {}",
         input,
         expectedType,
         tokenType
@@ -222,7 +224,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Для '{}' ожидалось значение '{}', получено '{}'",
+        "For '{}' value '{}' was expected, got '{}'",
         input,
         expectedData,
         tokenData
@@ -231,7 +233,7 @@ mod tests
       //
       assert_eq!(
         index, bufferLength,
-        "Для '{}' индекс должен продвинуться на {} (вся строка), остановился на {}",
+        "For '{}' index should advance by {} (the entire string), stopped at {}",
         input, bufferLength, index
       );
     }
@@ -240,7 +242,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn index() 
+  fn index() -> ()
   {
     for (input, expectedWord, expectedType, expectedIndex) in vec![
       ("hello world", "helloworld", TokenType::Word, 11),
@@ -257,19 +259,20 @@ mod tests
       ("a.b\nprintln", "a.b", TokenType::Link, 3),
       ("abc1\nfoo", "abc1", TokenType::Word, 4),
       ("abc123+", "abc123", TokenType::Word, 6)
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
       let token: Token = getWord(buffer, &mut index, bufferLength);
-      
+
       //
       let tokenType: String = token.getDataType().to_string();
       let expectedType: String = expectedType.to_string();
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, got {}",
         input,
         expectedType,
         tokenType
@@ -280,7 +283,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedWord,
-        "Для '{}' ожидалось слово '{}', получено '{}'",
+        "For '{}' the expected word was '{}', got '{}'",
         input,
         expectedWord,
         tokenData
@@ -289,7 +292,7 @@ mod tests
       //
       assert_eq!(
         index, expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        "For '{}' the index should stop at {}, but stopped at {}",
         input, expectedIndex, index
       );
     }

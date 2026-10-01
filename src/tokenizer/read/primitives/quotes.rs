@@ -2,11 +2,10 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет buffer по index и так находит возможные
-/// Char, String, RawString
+/// Проверяет buffer по index и так находит возможные: Char, String, RawString.
 pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token 
 {
-  let byte1: u8 = buffer[*index]; // Начальный символ кавычки
+  let byte1: u8 = buffer[*index]; // Начальный символ кавычки.
   let mut result: String = String::new();
 
   *index += 1;
@@ -18,8 +17,8 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
   let mut i: usize;
   while *index < length 
   {
-    byte2 = buffer[*index]; // Текущий байт
-    // Ошибка: конец строки внутри кавычек
+    byte2 = buffer[*index]; // Текущий байт.
+    // Ошибка: конец строки внутри кавычек.
     match byte2 
     {
       // Возврат строки не возможен, поскольку она может выйти за скобки и т.п. 
@@ -30,7 +29,7 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
       // Если мы нашли символ похожий на первый, значит закрываем,
       // но возможно это экранированная кавычка, и не закрываем.
       byte if byte == byte1 =>
-      { // Проверка обратных слэшей перед закрывающей кавычкой
+      { // Проверка обратных слэшей перед закрывающей кавычкой.
         backslashCount = 0;
         i = *index-1;
 
@@ -40,13 +39,13 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
           i -= 1;
         }
 
-        // Нечетное количество обратных слэшей — кавычка экранирована
+        // Нечетное количество обратных слэшей — кавычка экранирована.
         match backslashCount%2 
         {
-          1 => result.push(byte2 as char), // Экранированная кавычка
+          1 => result.push(byte2 as char), // Экранированная кавычка.
           _ => 
           {
-            *index += 1; // Завершение строки
+            *index += 1; // Завершение строки.
             break;
           }
         }
@@ -58,13 +57,13 @@ pub fn getQuotes(buffer: &[u8], index: &mut usize, formatted: bool) -> Token
     *index += 1;
   }
 
-  // Проверяем тип кавычки и возвращаем соответствующий токен
+  // Проверяем тип кавычки и возвращаем соответствующий токен.
   match byte1 
   {
     b'\'' => 
     { 
       if formatted || result.len() == 1 
-      { // Одинарные кавычки должны содержать только один символ - если не formatted
+      { // Одинарные кавычки должны содержать только один символ - если не formatted.
         Token::new(
           if formatted { TokenType::FormattedChar } else { TokenType::Char },
           result
@@ -91,7 +90,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn value()
+  fn value() -> ()
   {
     for (input, expectedType, expectedData, formatted) in [
       ("'c'", TokenType::Char, "c", false),
@@ -120,7 +119,7 @@ mod tests
       assert_eq!(
         tokenType,
         expectedTypeStr,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, received {}",
         input,
         expectedTypeStr,
         tokenType
@@ -131,16 +130,16 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Для '{}' ожидалось значение '{}', получено '{}'",
+        "For '{}' the expected value was '{}', received '{}'",
         input,
         expectedData,
         tokenData
       );
-      
-      //
+
+      // 
       assert_eq!(
         index, bufferLength,
-        "Индекс для '{}' должен продвинуться на {}, остановился на {}",
+        "The index for '{}' should advance by {}, stopped at {}",
         input, bufferLength, index
       );
     }
@@ -149,7 +148,7 @@ mod tests
   
   /// todo desk
   #[test]
-  fn index()
+  fn index() -> ()
   {
     for (input, expectedType, expectedData, expectedIndex, formatted) in [
       ("'a'!", TokenType::Char, "a", 3, false),
@@ -157,18 +156,19 @@ mod tests
       ("`test`end", TokenType::RawString, "test", 6, false),
       ("\"unterminated", TokenType::String, "unterminated", 13, false),
       //("\"line\n", TokenType::String, "", 5, false) // todo Должно было читать до закрывающей quote
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let mut index: usize = 0;
       let token: Token = getQuotes(buffer, &mut index, formatted);
-      
+
       //
       let tokenType: String = token.getDataType().to_string();
       let expectedTypeStr: String = expectedType.to_string();
       assert_eq!(
         tokenType,
         expectedTypeStr,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}', type {} was expected, got {}",
         input,
         expectedTypeStr,
         tokenType
@@ -179,7 +179,7 @@ mod tests
       assert_eq!(
         tokenData,
         expectedData,
-        "Для '{}' ожидалось значение '{}', получено '{}'",
+        "For '{}', value '{}' was expected, got '{}'",
         input,
         expectedData,
         tokenData
@@ -188,7 +188,7 @@ mod tests
       //
       assert_eq!(
         index, expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        "For '{}', the index should stop at {}, but stopped at {}",
         input, expectedIndex, index
       );
     }

@@ -334,6 +334,7 @@ pub fn callExternal(
 }
 
 // =================================================================================================
+
 #[cfg(test)]
 mod tests
 {
@@ -346,6 +347,7 @@ mod tests
   const LibcPath: &str = "libc.so.6";
   const LibmPath: &str = "libm.so.6";
 
+  /// todo desc
   fn call(
     library: &str, 
     method: &str, 
@@ -356,11 +358,14 @@ mod tests
     callExternal(library, method, &mut parameters, &expect)
   }
 
+  /// todo desc
   fn dataOf(token: &Token) -> (TokenType, String)
   {
     (*token.getDataType(), token.getData().toString().unwrap_or_default())
   }
 
+  // ===============================================================================================
+  
   /// Результат FFI: целые границы типа не теряются при превращении в токен;
   #[test]
   fn resultTokens() -> ()

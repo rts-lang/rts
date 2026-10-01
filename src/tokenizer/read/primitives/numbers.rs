@@ -3,7 +3,7 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет что байт является цифрой
+/// Проверяет что байт является цифрой.
 pub const fn isDigit(byte: &u8) -> bool
 {
   *byte >= b'0' && *byte <= b'9'
@@ -94,7 +94,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       negative = true;
       savedIndex += 1;
 
-      // Пропуск пустот
+      // Пропуск пустот.
       let mut temp: usize = savedIndex;
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
       
@@ -102,7 +102,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       if temp < bufferLength && (isDigit(&buffer[temp]) || isFloatDotStart(buffer, temp, bufferLength)) {
         savedIndex = temp;
       } else {
-        return None; // Это было не число
+        return None; // Это было не число.
       }
     } else
     if isDigit(&currentByte)
@@ -143,9 +143,9 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       hasExponential = true;
       result.push(currentByte as char);
       savedIndex += 1;
-      hasDot = true; // Если будет integer - то станет от этого float
+      hasDot = true; // Если будет integer - то станет от этого float.
 
-      // Нужно, чтобы читать: `12 34 e + 2`
+      // Нужно, чтобы читать: `12 34 e + 2`.
       let mut temp: usize = savedIndex;
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t");
       if temp < bufferLength && (buffer[temp] == b'+' || buffer[temp] == b'-') {
@@ -160,7 +160,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
     return None;
   }
 
-  // `.` / `-.` — f64::parse не принимает одиночную точку
+  // `.` / `-.` — f64::parse не принимает одиночную точку.
   if hasDot && !hasDigit
   {
     result = if negative { String::from("-0.0") } else { String::from("0.0") };
@@ -178,7 +178,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
 
   *index = savedIndex;
 
-  // next return
+  // next return.
   Some(
     match (hasDot, negative)
     { // dot, negative
@@ -201,8 +201,9 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
   
+  /// todo desc
   #[test]
-  fn value()
+  fn value() -> ()
   {
     for (input, expectedType, expectedValue) in [
       // UInt
@@ -228,7 +229,8 @@ mod tests
       ("-2.5", TokenType::Float, "-2.5"),
       ("-.5", TokenType::Float, "-0.5"),
       ("-.", TokenType::Float, "-0")
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -246,8 +248,9 @@ mod tests
     }
   }
 
+  /// todo desc
   #[test]
-  fn floatDotStart()
+  fn floatDotStart() -> ()
   {
     assert!(isFloatDotStart(b".", 0, 1));
     assert!(isFloatDotStart(b".0", 0, 2));
@@ -262,7 +265,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn index()
+  fn index() -> ()
   {
     for (input, expectedType, expectedValue, expectedIndex) in [
       ("123 ", TokenType::UInt, "123", 3),
@@ -270,7 +273,8 @@ mod tests
       ("3.14+", TokenType::UFloat, "3.14", 4),
       ("-5.5abc", TokenType::Float, "-5.5", 4),
       ("100500\n", TokenType::UInt, "100500", 6),
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -314,7 +318,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn exponential() 
+  fn exponential() -> ()
   {
     for (input, expectedType, expectedValue, expectedIndex) in [
       ("1e3", TokenType::UFloat, "1000", 3),
@@ -324,7 +328,8 @@ mod tests
       ("-1E-5", TokenType::Float, "-0.00001", 5),
       ("2e+5", TokenType::UFloat, "200000", 4),
       ("10e-1", TokenType::UFloat, "1", 5),
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -335,7 +340,6 @@ mod tests
       //
       let tokenType: String = token.getDataType().to_string();
       let expectedType: String = expectedType.to_string();
-      
       assert_eq!(
         tokenType,
         expectedType,
@@ -347,7 +351,6 @@ mod tests
 
       //
       let tokenData: String = token.getData().toString().unwrap_or_default();
-
       assert_eq!(
         tokenData,
         expectedValue,

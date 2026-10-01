@@ -16,6 +16,7 @@ pub const fn isSingleChar(byte: &u8) -> bool
 
 // =================================================================================================
 
+/// todo desc
 pub const operators: &[(&str, TokenType)] = &[
   // Одиночные математические
   ("+", TokenType::Plus),
@@ -65,10 +66,10 @@ pub const operators: &[(&str, TokenType)] = &[
   ("~", TokenType::Tilde),
   ("~~", TokenType::DoubleTilde),
   (",", TokenType::Comma),
-  (".", TokenType::Dot),
+  (".", TokenType::Dot)
 ];
 
-/// Проверяет buffer по index и так находит возможные двойные и одиночные операторы
+/// Проверяет buffer по index и так находит возможные двойные и одиночные операторы.
 pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 {
   // Ищем паттерн
@@ -77,7 +78,7 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
   {
     let byte1: u8 = buffer[*index];
     let mut byte2: u8 = 0;
-    let mut endIndex: usize = *index + 1; // для одиночного знака
+    let mut endIndex: usize = *index + 1; // Для одиночного знака.
 
     let patternLength: usize = pattern.len();
     
@@ -105,13 +106,13 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
     {
       match best
       {
-        Some((bestLength, _, _)) if patternLength <= bestLength => {} // keep the longer one
+        Some((bestLength, _, _)) if patternLength <= bestLength => {} // keep the longer one.
         _ => best = Some((patternLength, *tokenType, endIndex))
       }
     }
   }
 
-  // result
+  // result.
   if let Some((_length, tokenType, endIndex)) = best {
     *index = endIndex;
     return Token::newEmpty(tokenType);
@@ -131,7 +132,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn value() 
+  fn value() -> ()
   {
     for (pat, expectedType) in operators.iter() 
     {
@@ -146,18 +147,18 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' type {} was expected, got {}",
         pat,
         expectedType,
         tokenType
       );
 
-      // Для операторов значение всегда пустое
+      // For operators, the value is always empty.
       let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
         tokenData,
         "",
-        "Оператор '{}' должен иметь пустое значение, получено '{}'",
+        "Operator '{}' should have an empty value, got '{}'",
         pat,
         tokenData
       );
@@ -165,7 +166,7 @@ mod tests
       //
       assert_eq!(
         index, bufferLength,
-        "Индекс для '{}' должен продвинуться на {} (длина строки), остановился на {}",
+        "Index for '{}' should advance by {} (string length), stopped at {}",
         pat, bufferLength, index
       );
     }
@@ -174,7 +175,7 @@ mod tests
 
   /// todo desk
   #[test]
-  fn index() 
+  fn index() -> ()
   {
     for (input, expectedType, expectedIndex) in [
       ("+ 1", TokenType::Plus, 1),
@@ -187,7 +188,8 @@ mod tests
       ("->7", TokenType::Pointer, 2),
       ("~~ ", TokenType::DoubleTilde, 2),
       ("...", TokenType::Dot, 1),
-    ] {
+    ] 
+    {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
       let mut index: usize = 0;
@@ -199,26 +201,26 @@ mod tests
       assert_eq!(
         tokenType,
         expectedType,
-        "Для '{}' ожидался тип {}, получен {}",
+        "For '{}' the expected type was {}, got {}",
         input,
         expectedType,
         tokenType
       );
 
-      // Для операторов значение всегда пустое
+      // For operators, the value is always empty.
       let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(
         tokenData,
         "",
-        "Оператор '{}' должен иметь пустое значение, получено '{}'",
+        "Operator '{}' must have an empty value, got '{}'",
         input,
         tokenData
       );
 
-      //
+      // 
       assert_eq!(
         index, expectedIndex,
-        "Для '{}' индекс должен остановиться на {}, а остановился на {}",
+        "For '{}' the index should stop at {}, but stopped at {}",
         input, expectedIndex, index
       );
     }

@@ -18,22 +18,26 @@ use crate::tokenizer::types::tokenType::{TokenType};
 
 // =================================================================================================
 
-/// Обозначает уровень изменения структуры
+/// Обозначает уровень изменения структуры.
 #[derive(PartialEq)]
 #[derive(Clone)]
 pub enum StructureMut
 {
-  /// Ожидает первое значение и превратится в Constant
+  /// Ожидает первое значение и превратится в Constant.
   Final,
-  /// Не может быть изменена, присваивается в момент создания
+  
+  /// Не может быть изменена, присваивается в момент создания.
   Constant,
-  /// Может изменять только значение
+  
+  /// Может изменять только значение.
   Variable,
-  /// Может изменять и значение и тип данных
+  
+  /// Может изменять и значение и тип данных.
   Dynamic
 }
 impl ToString for StructureMut
-{ // todo convert -> fmt::Display ?
+{ 
+  // todo convert -> fmt::Display ?
   fn to_string(&self) -> String
   {
     match self
@@ -53,13 +57,14 @@ impl ToString for StructureMut
 pub struct Structure 
 {
   /// Уникальное имя;
-  /// Если не будет указано, значит это временная структура
+  /// 
+  /// Если не будет указано, значит это временная структура.
   pub name: Option<String>,
 
-  /// Уровень изменения
+  /// Уровень изменения.
   pub mutable: StructureMut,
 
-  /// Тип данных
+  /// Тип данных.
   pub dataType: StructureType,
 
   /// Набор вариантов, если структура объявлена как объединение типов
@@ -70,32 +75,35 @@ pub struct Structure
   /// `None` — обычная структура без объединения.
   pub unionTypes: Option<Vec<StructureType>>,
 
-  /// Ссылки на вложенные линии
+  /// Ссылки на вложенные линии.
   pub lines: Option< Vec< Arc<RwLock<Line>> > >,
 
-  /// Входные параметры
+  /// Входные параметры.
+  /// 
   /// todo Не используется в коде. Зачем оно тогда здесь было?
   pub parameters: Parameters,
 
-  /// Выходной результат
-  /// None => procedure
+  /// Выходной результат.
+  /// 
+  /// None => procedure  
   /// else => function
   pub result: Option<Token>,
 
-  /// Ссылки на вложенные структуры
-  pub structures: Arc<RwLock< // Нужно, чтобы не мутировать методы и иметь доступ
-    Option< // Может не быть
-      Vec< Arc<RwLock<Self>> > // Гибкий список вложенных структур
+  /// Ссылки на вложенные структуры.
+  pub structures: Arc<RwLock< // Нужно, чтобы не мутировать методы и иметь доступ.
+    Option< // Может не быть.
+      Vec< Arc<RwLock<Self>> > // Гибкий список вложенных структур.
     >
   >>,
 
-  /// Ссылка на родителя
+  /// Ссылка на родителя.
   pub parent: Option< Arc<RwLock<Self>> >,
 
   /// Создана ли структура из блока FFI.
   pub isFfiBlock: bool,
 
-  /// Файл, в котором написан код структуры (`None` — запущенный файл).
+  /// Файл, в котором написан код структуры (`None` — запущенный файл);
+  /// 
   /// Запоминается при создании из `_sourcePath`.
   pub sourcePath: Option< Arc<String> >,
 
@@ -107,11 +115,11 @@ impl Structure
 {
   pub fn new
   (
-    name:     Option<String>,
-    mutable:  StructureMut,
+    name: Option<String>,
+    mutable: StructureMut,
     dataType: StructureType,
-    lines:    Option< Vec< Arc<RwLock<Line>> > >,
-    parent:   Option< Arc<RwLock<Self>> >,
+    lines: Option< Vec< Arc<RwLock<Line>> > >,
+    parent: Option< Arc<RwLock<Self>> >
   ) -> Self 
   {
     Self 
@@ -133,6 +141,7 @@ impl Structure
 
   // ===============================================================================================
   
+  /// todo desc
   pub fn parseLink(linkName: &str) -> Vec<String> 
   {
     linkName
@@ -255,7 +264,7 @@ impl Structure
   ) -> ()
   {
     match op
-    { // Принимаем только математические операции
+    { // Принимаем только математические операции.
       TokenType::Equals => {} /* |
       TokenType::PlusEquals |
       TokenType::MinusEquals |
@@ -268,9 +277,9 @@ impl Structure
     match op == TokenType::Equals 
     {
       true => 
-      { // Приравнивание правой части выражения к левой части выражения
+      { // Приравнивание правой части выражения к левой части выражения.
 
-        // todo должен быть вариант с вложением ?
+        // todo Должен быть вариант с вложением?
         // Если нет вложений
 
         // Что ждём от FFI-вызова справа: у структуры уже есть тип — результат кастуется к нему;
@@ -279,7 +288,7 @@ impl Structure
         {
           let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
           match structure.dataType == StructureType::None ||
-                structure.unionTypes.is_some() || // у объединения нет одного ABI-типа (#59)
+                structure.unionTypes.is_some() || // У объединения нет одного ABI-типа (#59).
                 leftPartMutable == StructureMut::Dynamic
           {
             true  => FfiExpect::Infer,
@@ -341,18 +350,18 @@ impl Structure
           },
           None => match
             structure.dataType == StructureType::None ||
-            leftPartMutable == StructureMut::Dynamic // Dynamic может изменить dataType просто так
+            leftPartMutable == StructureMut::Dynamic // Dynamic может изменить dataType просто так.
           {
             true =>
             {
               match leftPartMutable != StructureMut::Variable
               { false => {} true =>
-              { // Будет присвоено только Final | Dynamic
+              { // Будет присвоено только Final | Dynamic.
                 structure.dataType = rightPartValue.getStructureType();
               }}
             }
             false =>
-            { // Требуется выполнить преобразование в указанный тип данных
+            { // Требуется выполнить преобразование в указанный тип данных.
               Self::normalizeToken(&mut rightPartValue, structure.dataType.clone())
             }
           }
@@ -360,11 +369,11 @@ impl Structure
 
         match leftPartMutable == StructureMut::Final
         { false => {} true =>
-        { // Изменяем mutable если это был Final
+        { // Изменяем mutable если это был Final.
           structure.mutable = StructureMut::Constant;
         }}
 
-        // Приравниваем новое значение структуре
+        // Приравниваем новое значение структуре.
         structure.lines =
           Some(vec![
             Arc::new(RwLock::new(
@@ -380,8 +389,8 @@ impl Structure
       }  
       false =>
       { // Иные операторы, например += -= *= /=
-        // получаем левую и правую часть
-        // todo сейчас тут много ошибок
+        // получаем левую и правую часть.
+        // todo сейчас тут много ошибок.
         let leftValue: Token = 
         {
           let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
@@ -402,10 +411,10 @@ impl Structure
           }
           //
         };
-        let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо
+        let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо.
         
-        /* todo Может плохо работать с #85, нужен контроль
-        // Далее обрабатываем саму операцию
+        /* todo Может плохо работать с #85, нужен контроль.
+        // Далее обрабатываем саму операцию.
         let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
         match op 
         { // Определяем тип операции
@@ -416,9 +425,9 @@ impl Structure
                 Arc::new(RwLock::new( 
                   Line {
                     tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightPart) ]),
-                    // todo Здесь должны быть преобразования типа у структуры
+                    // todo Здесь должны быть преобразования типа у структуры.
                     //  Сейчас если станет Int, то у структуры не поменяется U8 на I8.
-                    //  + Здесь должна быть normalizeToken когда не Dynamic
+                    //  + Здесь должна быть normalizeToken когда не Dynamic.
                     indent: None,
                     lines:  None,
                     parent: None
@@ -426,7 +435,7 @@ impl Structure
                 ))
               ]);
           }
-          _ => {} // todo: Дописать другие варианты; а также добавит для них отдельные тесты
+          _ => {} // todo: Дописать другие варианты; а также добавит для них отдельные тесты.
         }
         //if op == TokenType::PlusEquals     { structure.value = calculate(&TokenType::Plus,     &leftValue, &rightValue); } else 
         //if op == TokenType::MinusEquals    { structure.value = calculate(&TokenType::Minus,    &leftValue, &rightValue); } else 
@@ -439,27 +448,27 @@ impl Structure
 
   // ===============================================================================================
 
-  /// Вычисляем значение для struct имени типа TokenType::Word
+  /// Вычисляем значение для struct имени типа `TokenType::Word`.
   fn replaceStructureByName(&self, value: &mut [Token], index: usize) -> ()
   {
     fn setNone(value: &mut [Token], index: usize) 
-    { // Возвращаем пустое значение
+    { // Возвращаем пустое значение.
       value[index].setData(None);
       value[index].setDataType(TokenType::None);
     }
 
     match value[index].getData().toString() 
     {
-      None => { setNone(value, index); } // Ошибка имени структуры
+      None => { setNone(value, index); } // Ошибка имени структуры.
       Some(structureName) => 
       {
         match self.getStructureByName(&structureName) 
         {
-          None => { setNone(value, index); } // Не нашли структуру
+          None => { setNone(value, index); } // Не нашли структуру.
           Some(structureLink) => 
           {
             let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
-            // Если это просто обращение к имени структуры
+            // Если это просто обращение к имени структуры.
             match &structure.lines
             { None => {} Some(lines) =>
             {
@@ -467,24 +476,24 @@ impl Structure
               match structureLinesLen
               {
                 1 =>
-                { // Структура с одним вложением
+                { // Структура с одним вложением.
                   let tokens: &mut Vec<Token> =
                     &mut lines[0]
                       .read().unwrap()
-                      .tokens.clone().unwrap_or_default(); // todo плохо
+                      .tokens.clone().unwrap_or_default(); // todo плохо.
                   drop(structure);
                   let result: Token = self.expression(tokens);
                   value[index].setData    ( result.getData() );
                   value[index].setDataType( *result.getDataType() );
                 }
                 structureLinesLen if structureLinesLen > 1 =>
-                { // Это структура с вложением
+                { // Это структура с вложением.
                   let mut linesResult: Vec<Token> = Vec::new();
                   for line in lines
                   {
                     let tokens: &mut Vec<Token> =
                       &mut line.read().unwrap()
-                        .tokens.clone().unwrap_or_default(); // todo плохо
+                        .tokens.clone().unwrap_or_default(); // todo плохо.
                     linesResult.push( self.expression(tokens) );
                   }
                   value[index] = Token::newNesting(
@@ -502,7 +511,7 @@ impl Structure
                   );
                   value[index].setDataType( TokenType::Link ); // todo: Речь не о Link, а об Array?
                 }
-                _ => { setNone(value, index); } // В структуре не было вложений
+                _ => { setNone(value, index); } // В структуре не было вложений.
               }
               //
             }}
@@ -518,38 +527,39 @@ impl Structure
   // ===============================================================================================
 
   /// Получает значение из ссылки на структуру;
+  /// 
   /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
   pub fn linkExpression(
-    &self, // Текущая структура - текущее пространство;
-    currentStructureLink: Option< Arc<RwLock<Self>> >, // Структура предыдущего уровня ссылки;
-    link: &mut Vec<String>, // Осталось читать;
+    &self, // Текущая структура - текущее пространство.
+    currentStructureLink: Option< Arc<RwLock<Self>> >, // Структура предыдущего уровня ссылки.
+    link: &mut Vec<String>, // Осталось читать.
     parameters: Option< Vec<Token> >
   ) -> Token
-  { // Обработка динамического выражение
+  { // Обработка динамического выражение.
     match link[0].starts_with('[')
-    { false => {} true => { // Получаем динамическое выражение между []
+    { false => {} true => { // Получаем динамическое выражение между [].
       link[0] = format!("{{{}}}", &link[0][1..link[0].len()-1]);
-      // Получаем новую строку значения из обработки выражения
+      // Получаем новую строку значения из обработки выражения.
       link[0] = self.formatQuote(link[0].clone());
     }}
-    // Обработка пути
+    // Обработка пути.
     match link[0].parse::<usize>() 
-    { // Проверяем тип
+    { // Проверяем тип.
       Ok(lineNumber) => 
-      { // Если мы нашли цифру в ссылке, значит это номер на линию в структуре;
-        // Номер ссылается только на пространство currentStructureLink
+      { // Если мы нашли цифру в ссылке, значит это номер на линию в структуре.
+        // Номер ссылается только на пространство currentStructureLink.
         link.remove(0);
 
         if let Some(ref currentStructureLock) = currentStructureLink 
-        { // Это структура, которая была передана предыдущем уровнем ссылки;
-          // Только в ней мы можем найти нужную линию
-          let currentStructure: RwLockReadGuard<Self> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок
+        { // Это структура, которая была передана предыдущем уровнем ссылки.
+          // Только в ней мы можем найти нужную линию.
+          let currentStructure: RwLockReadGuard<Self> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок.
 
           match &currentStructure.lines
           { None => {} Some(lines) =>
           {
-            if let Some(line) = lines.get(lineNumber)                                   //       для получения линии и выхода из read().unwrap()
-            { // Тогда просто берём такую линию по её номеру
+            if let Some(line) = lines.get(lineNumber)                                        // Для получения линии и выхода из read().unwrap().
+            { // Тогда просто берём такую линию по её номеру.
               let mut lineTokens: Vec<Token> =
               {
                 line.read().unwrap()
@@ -557,18 +567,18 @@ impl Structure
               };
 
               match lineTokens.len() > 0
-              { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то;
+              { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то.
                 false =>
-                { // В линии нет токенов, нам нечего вычислять
+                { // В линии нет токенов, нам нечего вычислять.
                   return Token::newEmpty( TokenType::None );
                 }
                 true =>
-                { // В линии есть хотя бы 1 токен
+                { // В линии есть хотя бы 1 токен.
                   if link.len() != 0
-                  { // Если дальше есть продолжение ссылки
+                  { // Если дальше есть продолжение ссылки.
                     link.insert(0, lineTokens[0].getData().toString().unwrap_or_default());
 
-                    // То мы сначала проверяем что такая структура есть во внутреннем пространстве
+                    // То мы сначала проверяем что такая структура есть во внутреннем пространстве.
                     match currentStructure.getStructureByName(
                       &lineTokens[0].getData().toString().unwrap_or_default()
                     )
@@ -578,15 +588,15 @@ impl Structure
                       return currentStructureLock.read().unwrap()
                         .linkExpression(None, link, parameters);
                     }}
-                    // А если такой ссылки там не было, то значит она в self
+                    // А если такой ссылки там не было, то значит она в self.
                     drop(currentStructure);
                     return self.linkExpression(currentStructureLink, link, parameters);
                   } else
                   if parameters.is_some()
-                  { // Если это был просто запуск метода, то запускаем его
+                  { // Если это был просто запуск метода, то запускаем его.
                     drop(currentStructure);
 
-                    let mut parametersToken: Token = Token::newNesting( Vec::new() ); // todo: add parameters
+                    let mut parametersToken: Token = Token::newNesting( Vec::new() ); // todo: add parameters.
                     parametersToken.setDataType( TokenType::CircleBracketBegin );
 
                     let mut expressionTokens: Vec<Token> = vec![
@@ -597,11 +607,11 @@ impl Structure
                     return currentStructureLock.read().unwrap()
                       .expression(&mut expressionTokens);
                   } else
-                  { // если дальше нет продолжения ссылки
+                  { // если дальше нет продолжения ссылки.
                     match *lineTokens[0].getDataType() == TokenType::Word
                     {
                       false =>
-                      { // Если это не слово, то смотрим на результат expression
+                      { // Если это не слово, то смотрим на результат expression.
                         return self.expression(&mut lineTokens);
                       }
                       true =>
@@ -623,7 +633,7 @@ impl Structure
                             {
                               match lines.first()
                               { None => {} Some(line) =>
-                              { // По сути это просто 0 линия через expression
+                              { // По сути это просто 0 линия через expression.
                                 let mut lineTokens: Vec<Token> =
                                   {
                                     line.read().unwrap()
@@ -639,7 +649,7 @@ impl Structure
                           }}
                           //
                         }}
-                        // Если ничего не получилось, значит оставляем ссылку
+                        // Если ничего не получилось, значит оставляем ссылку.
                         return Token::new( TokenType::Link, lineTokens[0].getData() );
                       }
                     }
@@ -660,10 +670,10 @@ impl Structure
         // поэтому блок далее определяет ссылку на необходимую структуру;
         let structureLink: Option< Arc<RwLock<Self>> > =
           match currentStructureLink
-          { // Если нет в локальном окружении, то просто берём из self
+          { // Если нет в локальном окружении, то просто берём из self.
             None => self.getStructureByName(&link[0]),
             Some(currentStructureLink) => 
-            { // Если есть в локальном окружении
+            { // Если есть в локальном окружении.
               let structure: RwLockReadGuard<Self> = currentStructureLink.read().unwrap();
               let hasLines: bool = 
               {
@@ -693,77 +703,77 @@ impl Structure
               }
             }
           };
-        // Далее мы работаем с полученной ссылкой пространства;
+        // Далее мы работаем с полученной ссылкой пространства.
         link.remove(0);
         match structureLink
         {
           None => {}
           Some(structureLink) => 
-          { // Это структура которую мы нашли по имени в self пространстве
+          { // Это структура которую мы нашли по имени в self пространстве.
 
             // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-            // Обработка нативной библиотеки
-            // Проверяем: остались ли ещё сегменты пути (имя метода)
+            // Обработка нативной библиотеки.
+            // Проверяем: остались ли ещё сегменты пути (имя метода).
             if !link.is_empty() 
             {
-              // Читаем структуру, которая представляет загруженную библиотеку
+              // Читаем структуру, которая представляет загруженную библиотеку.
               let structureGuard: RwLockReadGuard<Self> = structureLink.read().unwrap();
 
-              // Если структура имеет тип Pointer — это динамическая библиотека
+              // Если структура имеет тип Pointer — это динамическая библиотека.
               if structureGuard.dataType == StructureType::Pointer
               {
-                // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0]
-                // Библиотека там лежит как токен типа String с путём к файлу библиотеки
+                // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0].
+                // Библиотека там лежит как токен типа String с путём к файлу библиотеки.
 
-                // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен)
+                // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен).
                 let linesVec: &Vec< Arc<RwLock<Line>> > = match &structureGuard.lines {
                   Some(v) => v,
                   None => return Token::newEmpty(TokenType::None),
                 };
-                // Берём первую линию (индекс 0)
+                // Берём первую линию (индекс 0).
                 let lineLock: &Arc<RwLock<Line>> = match linesVec.get(0) {
                   Some(l) => l,
                   None => return Token::newEmpty(TokenType::None),
                 };
-                // Читаем линию, чтобы получить её токены
+                // Читаем линию, чтобы получить её токены.
                 let line: RwLockReadGuard<Line> = lineLock.read().unwrap();
-                // Токены линии — здесь должен быть один токен типа String
+                // Токены линии — здесь должен быть один токен типа String.
                 let tokensVec: &Vec<Token> = match &line.tokens {
                   Some(t) => t,
                   None => return Token::newEmpty(TokenType::None),
                 };
-                // Берём первый (и единственный) токен
+                // Берём первый (и единственный) токен.
                 let nativeToken: &Token = match tokensVec.first() {
                   Some(t) => t,
                   None => return Token::newEmpty(TokenType::None),
                 };
-                // Убеждаемся, что токен действительно типа String
+                // Убеждаемся, что токен действительно типа String.
                 if *nativeToken.getDataType() != TokenType::String {
                   return Token::newEmpty(TokenType::None);
                 }
 
-                // Из токена извлекаем сырые байты (путь к библиотеке)
+                // Из токена извлекаем сырые байты (путь к библиотеке).
                 let bytes: Bytes = nativeToken.getData();
                 let raw: &[u8] = match bytes.getAll() {
                   Some(r) => r,
                   None => return Token::newEmpty(TokenType::None),
                 };
 
-                // Преобразуем байты в строку (путь)
+                // Преобразуем байты в строку (путь).
                 let libraryPath: &str = match std::str::from_utf8(raw) {
                   Ok(s) => s,
                   Err(_) => return Token::newEmpty(TokenType::None),
                 };
                 
-                // Формируем токен Nesting: одна линия с двумя токенами-строками
+                // Формируем токен Nesting: одна линия с двумя токенами-строками.
                 return Token::newNesting(vec![
                   Arc::new(RwLock::new(
                     Line {
                       tokens: Some(vec![
-                        // Путь к lib, например: "./libprint.so"
+                        // Путь к lib, например: "./libprint.so".
                         Token::new(TokenType::String, libraryPath),
-                        // Имя метода, который вызывают; например: "method" в lib.method(...)
-                        Token::new(TokenType::String, link[0].clone()) // todo Но кстати оно больше не надо будет? зачем тогда .clone
+                        // Имя метода, который вызывают; например: "method" в lib.method(...).
+                        Token::new(TokenType::String, link[0].clone()) // todo Но кстати оно больше не надо будет? зачем тогда .clone.
                       ]),
                       indent: None,
                       lines: None,
@@ -780,11 +790,11 @@ impl Structure
             match link.len() == 0
             { // Закончилась ли ссылка?
               false =>
-              { // Если нет, значит продолжаем её чтение
+              { // Если нет, значит продолжаем её чтение.
                 return self.linkExpression(Some(structureLink), link, parameters);
               }  
               true =>
-              { // Если это конец, то берём последнюю структуру и работаем с ней
+              { // Если это конец, то берём последнюю структуру и работаем с ней.
                 let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
                 match &structure.lines
                 { None => {} Some(lines) =>
@@ -793,7 +803,7 @@ impl Structure
                   {
                     true =>
                     { // Если это просто одиночное значение, то просто выдаём его
-                      // По сути это просто 0 линия через expression
+                      // По сути это просто 0 линия через expression.
                       //
                       // todo Требуется уточнение: сюда попадают две разные структуры,
                       //  у обеих lines.len() == 1, а ветка рассчитана только на первую.
@@ -827,30 +837,28 @@ impl Structure
                     }
                     false => match parameters
                     { // Здесь могут быть параметры функции или Some(vec![]) для процедуры;
-                      // В ином случае, это просто ссылка;
+                      // В ином случае, это просто ссылка.
                       None =>
-                      { // Если это просто ссылка, то оставляем её
-                        return Token::new( TokenType::Link, structure.name.clone().unwrap_or_default() ); // todo плохо
+                      { // Если это просто ссылка, то оставляем её.
+                        return Token::new( TokenType::Link, structure.name.clone().unwrap_or_default() ); // todo плохо.
                       }
                       Some(parameters) =>
-                      { // Если это был просто запуск метода, то запускаем его
+                      { // Если это был просто запуск метода, то запускаем его.
                         let mut parametersToken: Token = Token::newNesting(
                           vec![
-                            Arc::new(RwLock::new(
-                              Line
-                              {
-                                tokens: Some(parameters),
-                                indent: None,
-                                lines: None,
-                                parent: None
-                              }
-                            ))
+                            Arc::new(RwLock::new(Line
+                            {
+                              tokens: Some(parameters),
+                              indent: None,
+                              lines: None,
+                              parent: None
+                            }))
                           ]
                         );
                         parametersToken.setDataType( TokenType::CircleBracketBegin );
 
                         let mut expressionTokens: Vec<Token> = vec![
-                          Token::new( TokenType::Word, structure.name.clone().unwrap_or_default() ), // todo плохо
+                          Token::new( TokenType::Word, structure.name.clone().unwrap_or_default() ), // todo плохо.
                           parametersToken
                         ];
 
@@ -878,77 +886,78 @@ impl Structure
         //
       }
     }
-    // если всё было плохо, то просто используем пустой результат
+    // если всё было плохо, то просто используем пустой результат.
     Token::newEmpty(TokenType::None)
   }
 
   // ===============================================================================================
 
   /// Принимает formatQuote типы и получает возможное значение обычной строки;
+  /// 
   /// В основном всё сводится к получению токенов в {} через Token::readTokens(),
   /// после чего результат проходит через expression и мы получаем обычную строку на выходе.
   fn formatQuote(&self, tokenData: String) -> String 
   {
-    let mut result:           String    = String::new(); // Cтрока которая будет получена в конце
-    let mut expressionBuffer: String    = String::new(); // Буфер для выражения между {}
-    let mut expressionRead:   bool      = false;         // Флаг чтения в буфер выражения
+    let mut result: String = String::new(); // Cтрока которая будет получена в конце.
+    let mut expressionBuffer: String = String::new(); // Буфер для выражения между {}.
+    let mut expressionRead: bool = false; // Флаг чтения в буфер выражения.
 
-    let chars:       Vec<char> = tokenData.chars().collect(); // Всех символы в строке
-    let charsLength: usize     = chars.len();                 // Количество всех символов в строке
+    let chars: Vec<char> = tokenData.chars().collect(); // Всех символы в строке.
+    let charsLength: usize = chars.len(); // Количество всех символов в строке.
 
-    let mut i:      usize = 0; // Указатель на текущий символ
-    let mut c:      char;      // Текущий символ
+    let mut i: usize = 0; // Указатель на текущий символ.
+    let mut c: char; // Текущий символ.
 
     while i < charsLength 
-    { // Читаем символы
+    { // Читаем символы.
       c = chars[i];
       match c 
       {
         '{' =>
-        { // Начинаем чтение выражения
+        { // Начинаем чтение выражения.
           expressionRead = true;
         }
         '}' =>
-        { // Заканчиваем чтение выражения
+        { // Заканчиваем чтение выражения.
           expressionRead = false;
-          expressionBuffer += "\n"; // Это нужно чтобы успешно завершить чтение линии Tokenizer::readTokens()
+          expressionBuffer += "\n"; // Это нужно чтобы успешно завершить чтение линии Tokenizer::readTokens().
 
           let mut expressionBufferTokens: Vec<Token> = 
           {
             readTokensSimple(&mut expressionBuffer.as_bytes().to_vec())[0] 
-              // Получаем результат выражения в виде ссылки на буферную линию
+              // Получаем результат выражения в виде ссылки на буферную линию.
               .read().unwrap() // Читаем ссылку и
               .tokens.clone()  // получаем все токены линии
               .unwrap_or_default() // todo плохо
           };
-          // Отправляем все токены линии как выражение
+          // Отправляем все токены линии как выражение.
           match self.expression(&mut expressionBufferTokens).getData().toString() 
           { None => {} Some(expressionData) =>
-          { // Записываем результат посчитанный между {}
+          { // Записываем результат посчитанный между {}.
             result += &expressionData;
           }}
-          // Обнуляем буфер, вдруг далее ещё есть выражения между {}
+          // Обнуляем буфер, вдруг далее ещё есть выражения между {}.
           expressionBuffer = String::new();
         }
         _ => 
-        { // Запись символов кроме {}
+        { // Запись символов кроме {}.
           match expressionRead 
           {
             true => 
-            { // Если флаг чтения активен, то записываем символы выражения
+            { // Если флаг чтения активен, то записываем символы выражения.
               expressionBuffer.push(c);
             }  
             false => 
-            { // Если флаг чтения не активен, то это просто символы
+            { // Если флаг чтения не активен, то это просто символы.
               result.push(c);
             }
           }
         }
       }
-      // Продолжаем чтение символов строки
+      // Продолжаем чтение символов строки.
       i += 1;
     }
-    // Отдаём новую строку
+    // Отдаём новую строку.
     result
   }
   
@@ -973,10 +982,11 @@ impl Structure
   ///
   /// Ожидание относится только к вызовам верхнего уровня этого выражения;
   /// вложенные выражения (параметры вызова, скобки) считаются через `expression`.
+  /// 
   /// todo Ожидание общее для всех FFI-вызовов верхнего уровня: в `a: I32 = f() + g()` оба читаются как I32
   pub fn expressionWith(&self, value: &mut Vec<Token>, expect: &FfiExpect) -> Token 
   {
-    let mut valueLength: usize = value.len(); // Получаем количество токенов в выражении
+    let mut valueLength: usize = value.len(); // Получаем количество токенов в выражении.
     // todo: Возможно следует объединить с нижним циклом, всё равно проверять токены по очереди
     // 1 токен
     // todo: возможно стоит сразу проверять что тут не Figure, Square, Circle скобки
@@ -984,43 +994,43 @@ impl Structure
     { false => {} true =>
     { // Если это выражение с 1 токеном, то
       match *value[0].getDataType()
-      { // Проверяем возможные варианты
+      { // Проверяем возможные варианты.
         TokenType::None =>
         {
           value[0].setDataType(TokenType::None);
         }
         TokenType::Link =>
         { // Если это TokenType::Link, то
-          let data: String = value[0].getData().toString().unwrap_or_default(); // token data
+          let data: String = value[0].getData().toString().unwrap_or_default(); // token data.
           let mut link: Vec<String> = Self::parseLink(&data);
-          let linkResult: Token = self.linkExpression(None, &mut link, None); // Получаем результат от data
-          match *linkResult.getDataType() // Предполагаем изменение dataType
+          let linkResult: Token = self.linkExpression(None, &mut link, None); // Получаем результат от data.
+          match *linkResult.getDataType() // Предполагаем изменение dataType.
           {
             TokenType::Word =>
-            { // Если это TokenType::Word то теперь это будет TokenType::Link
+            { // Если это TokenType::Word то теперь это будет TokenType::Link.
               value[0].setDataType( TokenType::Link );
             }
             _ =>
-            { // Если это другие типы, то просто ставим новый dataType
+            { // Если это другие типы, то просто ставим новый dataType.
               value[0].setDataType( *linkResult.getDataType() );
             }
           }
-          value[0].setData( linkResult.getData() ); // Ставим новый data
+          value[0].setData( linkResult.getData() ); // Ставим новый data.
         }
         TokenType::Word =>
         { // Если это TokenType::Word, то
-          let data: String = value[0].getData().toString().unwrap_or_default(); // token data
-          let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data
-          value[0].setDataType( *linkResult.getDataType() ); // Ставим новый dataType
-          value[0].setData( linkResult.getData() );  // Ставим новый data
+          let data: String = value[0].getData().toString().unwrap_or_default(); // token data.
+          let linkResult: Token = self.linkExpression(None, &mut vec![data], None); // Получаем результат от data.
+          value[0].setDataType( *linkResult.getDataType() ); // Ставим новый dataType.
+          value[0].setData( linkResult.getData() );  // Ставим новый data.
         }
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
-        { // Если это форматные варианты Char, String, RawString
+        { // Если это форматные варианты Char, String, RawString.
           match value[0].getData().toString()
           { None => {} Some(valueData) =>
-          { // Получаем data этого токена и сразу вычисляем его значение
+          { // Получаем data этого токена и сразу вычисляем его значение.
             value[0].setData( self.formatQuote(valueData) );
-            // Получаем новый тип без formatted
+            // Получаем новый тип без formatted.
             match *value[0].getDataType()
             {
               TokenType::FormattedRawString => { value[0].setDataType(TokenType::RawString); }
@@ -1030,20 +1040,20 @@ impl Structure
             }
           }}
         }
-        _ => {} // Идём дальше;
+        _ => {} // Идём дальше.
       }
-      return value[0].clone(); // Возвращаем результат в виде одного токена
+      return value[0].clone(); // Возвращаем результат в виде одного токена.
     }}
 
     // Если это выражение не из одного токена,
     // то следует проверять каждый токен в цикле и
-    // производить соответствующие операции
-    let mut i: usize = 0; // указатель на текущий токен
+    // производить соответствующие операции.
+    let mut i: usize = 0; // указатель на текущий токен.
 
     while i < valueLength 
     { // Проверяем на использование методов,
       // на использование ссылок на структуру,
-      // на использование простого выражения в скобках
+      // на использование простого выражения в скобках.
       match *value[i].getDataType()
       {
         TokenType::None =>
@@ -1051,12 +1061,12 @@ impl Structure
           value[i].setDataType(TokenType::None);
         }
         TokenType::FormattedRawString | TokenType::FormattedString | TokenType::FormattedChar =>
-        { // Если это форматные варианты Char, String, RawString;
+        { // Если это форматные варианты Char, String, RawString.
           match value[0].getData().toString() 
           { None => {} Some(valueData) =>
-          { // Получаем data этого токена и сразу вычисляем его значение
+          { // Получаем data этого токена и сразу вычисляем его значение.
             value[0].setData( self.formatQuote(valueData) );
-            // Получаем новый тип без formatted
+            // Получаем новый тип без formatted.
             match *value[0].getDataType()
             {
               TokenType::FormattedRawString => { value[0].setDataType(TokenType::RawString); }
@@ -1067,8 +1077,8 @@ impl Structure
           }}
         }
         TokenType::Link =>
-        { // Это ссылка на структуру, может выдать значение, запустить метод и т.д;
-          // todo ? хз что это, имелось ввиду не для ffi
+        { // Это ссылка на структуру, может выдать значение, запустить метод и т.д.
+          // todo ? хз что это, имелось ввиду не для ffi.
           //let parameters: Parameters = self.getCallParameters(value, i, &mut valueLength);
 
           let data: String = value[i].getData().toString().unwrap_or_default();
@@ -1086,9 +1096,10 @@ impl Structure
           } else { Vec::new() };
 
           let linkResult: Token = self.linkExpression(None, &mut link, Some(realParameters));
-            //parameters.getAll()); todo? хз что это, имелось ввиду не для ffi
+            //parameters.getAll()); todo? хз что это, имелось ввиду не для ffi.
           
-          // Проверяем, не является ли результат вызовом динамической библиотеки
+          // Проверяем, не является ли результат вызовом динамической библиотеки.
+          //
           // todo Правда это выглядит криво, вдруг другие nested будут. Мб тип ему сделать? Типо nativeCall.
           'none: 
           {
@@ -1127,7 +1138,7 @@ impl Structure
                     })
                     {
                       Some(result) =>
-                        // Мы внутри FFI блока — scope уже удержан
+                        // Мы внутри FFI блока — scope уже удержан.
                         result,
                       None =>
                         // Временный scope
@@ -1136,7 +1147,7 @@ impl Structure
                     match ffiResult
                     {
                       Ok(resultToken) =>
-                      { // Токен результата занимает место ссылки на метод
+                      { // Токен результата занимает место ссылки на метод.
                         value[i] = resultToken;
                       }
                       Err(_) =>
@@ -1181,12 +1192,12 @@ impl Structure
           //
         } 
         TokenType::Minus =>
-        { // это выражение в круглых скобках, но перед ними отрицание -
+        { // Это выражение в круглых скобках, но перед ними отрицание -
           match
             i+1 < valueLength &&
             *value[i+1].getDataType() == TokenType::CircleBracketBegin
           { false => {} true =>
-          { // считаем выражение внутри скобок
+          { // Считаем выражение внутри скобок.
             value[i+1] =
             {
               match &value[i+1].lines
@@ -1198,11 +1209,11 @@ impl Structure
                   match line.tokens.clone() // todo Может быть не 0
                   {
                     Some(mut tokenTokens) =>
-                    { // если получилось то оставляем его
+                    { // Если получилось то оставляем его.
                       self.expression(&mut tokenTokens)
                     }
                     None =>
-                    { // если не получилось, то просто None
+                    { // Если не получилось, то просто None.
                       Token::newEmpty(TokenType::None)
                     }
                   }
@@ -1210,19 +1221,20 @@ impl Structure
                 //
               }
             };
-            // Меняем отрицание
+            // Меняем отрицание.
             let tokenData: String = value[i+1].getData().toString().unwrap_or_default();
             match tokenData.starts_with('-')
             {
               true =>
-              { // Если это было отрицательное выражение, то делаем его положительным
+              { // Если это было отрицательное выражение, то делаем его положительным.
                 value[i+1].setData(
                   tokenData.chars().skip(1).collect::<String>()
                 );
                 value[i].setDataType(TokenType::Plus);
               }
               false =>
-              { // Если это не было отрицательным выражением, то делаем его отрицательным
+              { // Если это не было отрицательным выражением, то делаем его отрицательным.
+                // todo Что тут?
                 //value[i+1].setData(
                 //  format!("-{}", tokenData)
                 //);
@@ -1230,11 +1242,11 @@ impl Structure
               }
             }
 
-            i += 1; // Мы уже посчитали скобку
+            i += 1; // Мы уже посчитали скобку.
           }}
         }
         TokenType::CircleBracketBegin =>
-        { // Это просто выражение в круглых скобках
+        { // Это просто выражение в круглых скобках.
           value[i] =
           {
             match &value[i].lines
@@ -1248,17 +1260,17 @@ impl Structure
                   match line.tokens.clone() // todo Может быть не 0
                   {
                     Some(mut tokenTokens) =>
-                    { // Если получилось, то оставляем его
+                    { // Если получилось, то оставляем его.
                       self.expression(&mut tokenTokens)
                     }
                     None =>
-                    { // Если не получилось, то просто None
+                    { // Если не получилось, то просто None.
                       Token::newEmpty(TokenType::None)
                     }
                   }
                   //
                 } else 
-                { // Линий не было
+                { // Линий не было.
                   Token::newEmpty(TokenType::None)
                 }
               }
@@ -1267,27 +1279,27 @@ impl Structure
           };
         }
         _ =>
-        { // Это либо метод, либо просто слово-структура
+        { // Это либо метод, либо просто слово-структура.
           match i+1 < valueLength && *value[i+1].getDataType() == TokenType::CircleBracketBegin
           {
             true =>
-            { // Запускает метод; но он может быть либо обычный, либо из ссылки;
+            { // Запускает метод; но он может быть либо обычный, либо из ссылки.
               let structureName:String = value[i].getData().toString().unwrap_or_default();
               let mut runBasicMethod: bool = true;
               match self.getStructureByName(&structureName)
               {
-                None => {} // Если структуры не было, то пропускаем;
+                None => {} // Если структуры не было, то пропускаем.
                 Some(structureLink) =>
-                { // Мы должны проверить, что структура имеет только одно вложение;
+                { // Мы должны проверить, что структура имеет только одно вложение.
                   let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
                   match &structure.lines
                   {
-                    None => {} // Если линий нет, то пропускаем
+                    None => {} // Если линий нет, то пропускаем.
                     Some(lines) =>
                     {
                       match lines.len() == 1
                       {
-                        false => {} // Если вложений больше 1, то пропускаем;
+                        false => {} // Если вложений больше 1, то пропускаем;.
                         true =>
                         {
                           let line: RwLockReadGuard<Line> = lines[0].read().unwrap();
@@ -1296,13 +1308,13 @@ impl Structure
                           {
                             match tokens.len() == 1
                             {
-                              false => {} // Если больше одного токена, то пропускаем;
+                              false => {} // Если больше одного токена, то пропускаем.
                               true =>
                               {
                                 // todo: Вообще должна быть проверка на TokenType::Link
                                 match *tokens[0].getDataType() == TokenType::Word
                                 {
-                                  false => {} // Если этот один токен не был ссылкой, то пропускаем;
+                                  false => {} // Если этот один токен не был ссылкой, то пропускаем.
                                   true =>
                                   {
                                     self.linkExpression(
@@ -1312,7 +1324,7 @@ impl Structure
                                       ].to_vec(),
                                       Some(vec![]) // todo: Передать параметры функции
                                     );
-                                    runBasicMethod = false; // Запуск метода по ссылке
+                                    runBasicMethod = false; // Запуск метода по ссылке.
                                   }
                                 }
                                 //
@@ -1331,12 +1343,12 @@ impl Structure
               }
               match runBasicMethod
               { false => {} true =>
-              { // Запуск обычного метода
+              { // Запуск обычного метода.
                 self.functionCall(value, &mut valueLength, i);
               }}
             }
             false => match *value[i].getDataType()
-            { // Вычисляем значение для struct имени только при типе TokenType::Word
+            { // Вычисляем значение для struct имени только при типе TokenType::Word.
               TokenType::Word =>
               {
                 self.replaceStructureByName(value, i);
@@ -1349,7 +1361,7 @@ impl Structure
       i += 1;
     }
 
-    // Далее идут варианты математических и логических операций
+    // Далее идут варианты математических и логических операций.
     // Проверка на логические операции 1
     // todo Работало за другие операторы (преждевременно + или -)
     //self.expressionOp(value, &mut valueLength,
@@ -1376,32 +1388,38 @@ impl Structure
     {
       true =>
       { // В том случае, если мы имеем всё ещё значение,
-        // значит просто вернём 0 элемент, чтобы избавиться от него
+        // значит просто вернём 0 элемент, чтобы избавиться от него.
         value[0].clone()
       }
       false =>
-      { // Если всё пусто, значит пусто
+      { // Если всё пусто, значит пусто.
         Token::newEmpty(TokenType::None)
       }
     }
   }
 
   /// Получает значение операции по левому и правому выражению; Это зависимость для expression;
+  /// 
   /// Кроме того, может обрабатывать отрицание при использовании TokenType::Minus.
-  fn expressionOp(&self, value: &mut Vec<Token>, valueLength: &mut usize, operations: &[TokenType])
+  fn expressionOp(
+    &self, 
+    value: &mut Vec<Token>, 
+    valueLength: &mut usize, 
+    operations: &[TokenType]
+  ) -> ()
   {
     let mut i: usize = 0;
     let mut token: Token;
     let mut tokenType: &TokenType;
 
     while i < *valueLength
-    { // Если остался только 1 токен — дальше нечего делать
+    { // Если остался только 1 токен — дальше нечего делать.
       match *valueLength == 1
       { false => {} true =>
       {
         break;
       }}
-      // Если i == 0, не можем начать, потому что нужен оператор
+      // Если i == 0, не можем начать, потому что нужен оператор.
       match i == 0
       { false => {} true =>
       {
@@ -1409,7 +1427,7 @@ impl Structure
         continue;
       }}
 
-      // true - если будет входящий в operations операция
+      // true - если будет входящий в operations операция.
       token = value[i].clone();
       tokenType = token.getDataType();
       match i+1 < *valueLength && operations.contains(tokenType)
@@ -1431,14 +1449,14 @@ impl Structure
         // Это то же самое, что: `10-20` = `10+(-20)`.
         //
         // Это только для + и -; в остальных проходах слитый минус (`-6`)
-        // обычный операнд и его нужно пропустить: `10 -6 / 2` = `10 + (-6 / 2)`
+        // обычный операнд и его нужно пропустить: `10 -6 / 2` = `10 + (-6 / 2)`.
         false => match operations.contains(&TokenType::Plus) &&
                        matches!(*tokenType, TokenType::Int | TokenType::Float)
         { false => {} true =>
         {
           value[i-1] = calculate(&TokenType::Plus, &value[i-1], &value[i]);
 
-          value.remove(i); // remove UInt
+          value.remove(i); // remove UInt.
           *valueLength -= 1;
           continue;
         }}
