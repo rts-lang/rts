@@ -26,7 +26,11 @@ pub enum StructureType
   Any,
   Link,
 
-  Bool, // todo Потом надо будет заменить на True/False - issue #65
+  Bool, // legacy, issue #65
+  /// Отдельный логический тип-литерал (#60 / #65)
+  True,
+  /// Отдельный логический тип-литерал (#60 / #65)
+  False,
 
   U8, U16, U32, U64,
   I8, I16, I32, I64,
@@ -64,7 +68,9 @@ impl ToString for StructureType
       Self::None => String::from("None"),
       Self::Any => String::from("Any"),
       Self::Link => String::from("Link"),
-      Self::Bool => String::from("Bool"), // todo Требует True/False по issue #65
+      Self::Bool => String::from("Bool"),
+      Self::True => String::from("True"),
+      Self::False => String::from("False"),
 
       // Беззнаковые
       Self::U8 => String::from("U8"),
@@ -308,6 +314,14 @@ impl Token
         self.setDataType(TokenType::Float);
         self.setData("0.0");
       }
+      StructureType::True => {
+        self.setDataType(TokenType::True);
+        self.setData("True");
+      }
+      StructureType::False => {
+        self.setDataType(TokenType::False);
+        self.setData("False");
+      }
       // todo
       // Для остальных типов - ничего
       _ => {
@@ -404,6 +418,9 @@ impl Token
           }
         }
       }
+      TokenType::Bool => StructureType::Bool,
+      TokenType::True => StructureType::True,
+      TokenType::False => StructureType::False,
       TokenType::UFloat | TokenType::Float => 
       {
         match data.parse::<f64>() 
@@ -448,6 +465,8 @@ impl Token
       "Any" => StructureType::Any,
       "Link" => StructureType::Link,
       "Bool" => StructureType::Bool,
+      "True" => StructureType::True,
+      "False" => StructureType::False,
 
       // Беззнаковые
       "U8" => StructureType::U8,

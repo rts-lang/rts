@@ -1,0 +1,42 @@
+###
+  True / False / None как типы (issue #60)
+  type()  — TokenType значения
+  stype() — StructureType объявления
+###
+
+# --- True как тип ---
+a: True = True
+print(f"{a} | {type(a)} | {stype(a)}\n")
+# True | True | True
+
+# --- False как тип ---
+b: False = False
+print(f"{b} | {type(b)} | {stype(b)}\n")
+# False | False | False
+
+# --- None как тип (уже был) ---
+c: None = None
+print(f"{c} | {type(c)} | {stype(c)}\n")
+#  | None | None
+
+# --- legacy Bool (~ Variable, тип Bool сохраняется) ---
+d~: Bool = True
+print(f"{d} | {type(d)} | {stype(d)}\n")
+# True | True | Bool
+
+d = False
+print(f"{d} | {type(d)} | {stype(d)}\n")
+# False | False | Bool
+
+# --- без аннотации, вывод из значения ---
+e = True
+print(f"{e} | {type(e)} | {stype(e)}\n")
+# True | True | True
+
+f = False
+print(f"{f} | {type(f)} | {stype(f)}\n")
+# False | False | False
+
+g = None
+print(f"{g} | {type(g)} | {stype(g)}\n")
+#  | None | None
