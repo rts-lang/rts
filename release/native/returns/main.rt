@@ -127,7 +127,6 @@ println(f"missing method {z1}") # 0
 }
 
 # ---- Результат FFI-вызова как return функции (`= value`)
-# isFfi false — отладочный вывод rts на каждый вызов функции
 lenOf(s: String) {
   libc: Pointer = importNative("libc.so.6")
   = libc.strnlen(s)

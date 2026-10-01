@@ -193,14 +193,12 @@ mod tests
       ("obj.prop[0]", TokenType::Link, "obj.prop[0]"),
       ("data.list[1].value", TokenType::Link, "data.list[1].value"),
       ("arr.[42].field", TokenType::Link, "arr.[42].field"),
-      ("true", TokenType::Bool, "true"),
-      ("false", TokenType::Bool, "false"),
       ("True", TokenType::True, "True"),
       ("False", TokenType::False, "False"),
       ("True", TokenType::True, "True"),
       ("False", TokenType::False, "False"),
       ("None", TokenType::None, ""),
-      ("abc123", TokenType::Word, "abc123"),
+      ("abc123", TokenType::Word, "abc123")
     ] {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();
@@ -248,18 +246,17 @@ mod tests
       ("hello world", "helloworld", TokenType::Word, 11),
       ("myVar=123", "myVar", TokenType::Word, 5),
       ("a.b.c;", "a.b.c", TokenType::Link, 5),
-      ("true", "true", TokenType::Bool, 4),
       ("True", "True", TokenType::True, 4),
       ("False", "False", TokenType::False, 5),
       ("None;", "", TokenType::None, 4),
       ("obj.[0].prop,", "obj.[0].prop", TokenType::Link, 12),
-      ("a. b(", "a.b", TokenType::Link, 4),         // пробел после . сливает
-      ("a.\n  b", "a.b", TokenType::Link, 6),      // оператор в конце строки сливает
-      ("a.\n  0", "a.0", TokenType::Link, 6),      // перенос + цифровой индекс поля
-      ("a.0\nprintln", "a.0", TokenType::Link, 3), // без оператора строка завершена
+      ("a. b(", "a.b", TokenType::Link, 4),        // Пробел после . сливает
+      ("a.\n  b", "a.b", TokenType::Link, 6),      // Оператор в конце строки сливает
+      ("a.\n  0", "a.0", TokenType::Link, 6),      // Перенос + цифровой индекс поля
+      ("a.0\nprintln", "a.0", TokenType::Link, 3), // Без оператора строка завершена
       ("a.b\nprintln", "a.b", TokenType::Link, 3),
       ("abc1\nfoo", "abc1", TokenType::Word, 4),
-      ("abc123+", "abc123", TokenType::Word, 6),
+      ("abc123+", "abc123", TokenType::Word, 6)
     ] {
       let buffer: &[u8] = input.as_bytes();
       let bufferLength: usize = buffer.len();

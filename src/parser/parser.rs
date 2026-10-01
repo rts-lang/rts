@@ -244,8 +244,10 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     structureType = match structureTypeTokens
     {
       None => StructureType::None,
+      // `a: U8 | String` — объединение типов (issue #59);
+      // обычный `a: U8` даёт здесь такой же одиночный тип, как и раньше
       Some(structureTypeTokens) =>
-        structureTypeTokens[0].getStructureTypeSimple()
+        StructureType::fromTypeTokens(&structureTypeTokens)
     };
   };
 
@@ -290,6 +292,16 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     // Закидываем новую структуру в родительскую структуру
     let parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
 
+    // Объединение типов (issue #59): сам набор вариантов объявления.
+    // Хранится отдельно от structureType, потому что в структуре лежит
+    // ровно ОДИН из вариантов, а объединение продолжает ограничивать
+    // все следующие присваивания.
+    let unionTypes: Option<Vec<StructureType>> = match structureType
+    {
+      StructureType::Union(ref variants) => Some(variants.clone()),
+      _ => None
+    };
+
     // Вычисляем правое выражение?
     if structureMutability != StructureMut::Final
     { 
@@ -298,8 +310,11 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       // - `a: Usize = lib.f(x)` — тип указан, он же тип возврата C-функции
       //   и в него кастуется результат (normalizeToken ниже);
       // - `a = lib.f(x)` / `a~~ = lib.f(x)` — тип слева получаем от правой части.
+      // - `a: U8 | String = lib.f(x)` — у объединения нет единственного ABI-типа,
+      //   поэтому вызов читается как Infer, а вариант подбирается уже по значению.
       let expect: bridge::FfiExpect =
-        if structureType == StructureType::None || structureMutability == StructureMut::Dynamic
+        if structureType == StructureType::None || unionTypes.is_some() ||
+           structureMutability == StructureMut::Dynamic
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
       let mut value: Token = parentStructure.expressionWith(&mut rightValue.unwrap(), &expect);
@@ -341,6 +356,19 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
         }
       }
 
+      if let Some(variants) = unionTypes.clone()
+      { // Объединение типов (issue #59): под значение выбирается один вариант.
+        if structureMutability == StructureMut::Dynamic
+        { // При полной мутабельности `~~` тип всё равно свободно меняется,
+          // поэтому объединение можно указать, но оно ничего не ограничивает (#22)
+          structureType = value.getStructureType();
+        } else
+        {
+          structureType = Structure::normalizeUnion(&mut value,
+            &StructureType::Union(variants)
+          );
+        }
+      } else
       if structureType == StructureType::None
       { // Тип вычисляется если он не был изначально определён;
         // Вычисляется он по типу из результата правой части выражения
@@ -381,6 +409,12 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
         ]),
         None
       )));
+
+    // Сохраняем объединение, чтобы оно ограничивало и следующие присваивания (#59)
+    if let Some(variants) = unionTypes
+    {
+      newStructureLink.write().unwrap().unionTypes = Some(variants);
+    }
 
     // ABI-композит String: .pointer/.length поверх исходного токена
     if structureType == StructureType::String
