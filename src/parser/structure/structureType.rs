@@ -51,7 +51,22 @@ pub enum StructureType
   List, // todo List<Type>
   
   /// Позволяет создавать пользовательские типы
-  Custom(String)
+  Custom(String),
+
+  /// Объединение типов: `a: U8 | String = ...` (issue #59).
+  ///
+  /// Это НЕ аналог TypeScript: здесь хранится не "пересечение", а список
+  /// допустимых вариантов, и в структуре единовременно лежит РОВНО один из них.
+  ///
+  /// Семантика:
+  /// - при присваивании выбирается тот вариант, в который значение
+  ///   помещается как есть, либо в который оно приводится;
+  /// - если ни один вариант не подходит и привести нельзя — `None` (#71/#59);
+  /// - при полной мутабельности `~~` тип может меняться, поэтому объединение
+  ///   можно указать, но оно ничего не ограничивает (см. issue #22).
+  ///
+  /// Пустой список вариантов равносилен `None`.
+  Union(Vec<StructureType>)
 }
 
 // =================================================================================================
@@ -102,6 +117,13 @@ impl ToString for StructureType
       Self::Method => String::from("Method"),
       Self::List => String::from("List"),
 
+      // Объединение типов (issue #59) — печатается так же, как записывается
+      Self::Union(variants) => variants
+        .iter()
+        .map(|variant: &StructureType| variant.to_string())
+        .collect::<Vec<String>>()
+        .join(" | "),
+
       // custom
       Self::Custom(value) => value.clone()
     }
@@ -110,8 +132,236 @@ impl ToString for StructureType
 
 // =================================================================================================
 
+impl StructureType
+{
+  /// Является ли токен именем типа, пригодным для объединения (issue #59).
+  ///
+  /// Из type-секции после `:` берутся только настоящие имена типов.
+  /// Числовые литералы (`a: 1 | 2`) и строковые литералы (`a: "name" | 10`)
+  /// — это значения, а не типы, и они не поддерживаются.
+  ///
+  /// Ключевые слова типов (`UInt`, `Int`, `UFloat`, `Float`, `String`, `RawString`)
+  /// токенизируются как токен БЕЗ данных — их имя живёт в самом TokenType.
+  /// Одноимённые литералы (`10`, `"abc"`) — это уже значения с данными.
+  /// Поэтому «имя типа» отличается от литерала именно наличием данных.
+  fn isTypeName(token: &Token) -> bool
+  {
+    match token.getDataType()
+    {
+      // Идентификатор: U8, I32, Pointer, List и пользовательские типы
+      TokenType::Word => true,
+
+      // Ключевые слова типов, у которых нет одноимённых литералов
+      TokenType::None | TokenType::Any | TokenType::Link |
+      TokenType::Bool | TokenType::True | TokenType::False => true,
+
+      // Ключевые слова, одноимённые с литералами (`UInt` и `10`, `String` и `"abc"`).
+      // Имя типа токенизируется БЕЗ данных, у литерала данные есть — это и есть
+      // разница между `a: UInt | Int` (типы) и `a: 1 | 2` (значения, не поддерживается).
+      TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float |
+      TokenType::String | TokenType::RawString |
+      TokenType::FormattedString | TokenType::FormattedRawString |
+      TokenType::Char | TokenType::FormattedChar =>
+      token.getData().toString().map(|data: String| data.is_empty()).unwrap_or(true),
+
+      // Операторы, скобки, знаки препинания — типом быть не могут
+      _ => false
+    }
+  }
+
+  /// Читает тип из type-секции объявления: `U8`, `String`, `U8 | String` (issue #59).
+  ///
+  /// Возвращает `StructureType::Union(vec![..])`, если вариантов несколько.
+  /// Если после `|` идёт не имя типа, лишние варианты отбрасываются —
+  /// union из не-типов не имеет смысла (#59: `a: "name"|10` не поддерживается).
+  pub fn fromTypeTokens(typeTokens: &[Token]) -> StructureType
+  {
+    let mut variants: Vec<StructureType> = Vec::new();
+
+    let mut current: Vec<Token> = Vec::new();
+    let mut pushVariant = |variants: &mut Vec<StructureType>, current: &mut Vec<Token>| -> ()
+    {
+      match current.iter().find(|token: &&Token| Self::isTypeName(token))
+      {
+        Some(token) =>
+        {
+          let variant: StructureType = token.getStructureTypeSimple();
+          // Повторы и вложенные union'ы схлопываем в плоский список вариантов
+          match variant
+          {
+            StructureType::Union(nested) => variants.extend(nested),
+            _ => if !variants.contains(&variant) { variants.push(variant); }
+          }
+        }
+        None => {} // Не имя типа — просто пропускаем этот вариант
+      }
+      current.clear();
+    };
+
+    for token in typeTokens
+    {
+      // `|` разделяет варианты объединения
+      if *token.getDataType() == TokenType::Inclusion
+      { pushVariant(&mut variants, &mut current); continue; }
+
+      // `&` в объединении не несёт смысла, но и не должен ломать разбор
+      if *token.getDataType() == TokenType::Joint { continue; }
+
+      current.push(token.clone());
+    }
+    pushVariant(&mut variants, &mut current);
+
+    match variants.len()
+    {
+      0 => StructureType::None,        // Ни одного имени типа — тип не указан
+      1 => variants.into_iter().next().unwrap(), // Один вариант — обычный тип, без Union
+      _ => StructureType::Union(variants)
+    }
+  }
+
+  /// Варианты объединения; для не-Union — единственный сам тип.
+  ///
+  /// Так `Union([U8])` и `U8` ведут себя одинаково, а пустой список — как `None`.
+  pub fn variants(&self) -> Vec<StructureType>
+  {
+    match self
+    {
+      StructureType::Union(variants) => variants.clone(),
+      StructureType::None => Vec::new(),
+      other => vec![other.clone()]
+    }
+  }
+
+  /// Тип, который значение занимает САМО по себе, без учёта объявления.
+  ///
+  /// Для числа это наименьший ABI-тип, в который оно помещается
+  /// (и насыщение по границам самого широкого типа, #71);
+  /// для строки — `String`. Токен при этом НЕ очищается,
+  /// в отличие от `Token::getStructureType()`, который чистит всё нечисловое.
+  pub fn naturalType(token: &mut Token) -> StructureType
+  {
+    match token.getDataType()
+    {
+      TokenType::None   => StructureType::None,
+      TokenType::Any    => StructureType::Any,
+      TokenType::Link   => StructureType::Link,
+      TokenType::Bool   => StructureType::Bool,
+      TokenType::True   => StructureType::True,
+      TokenType::False  => StructureType::False,
+      TokenType::String => StructureType::String,
+      TokenType::RawString => StructureType::RawString,
+      // Числа: ширину и насыщение считает сам getStructureType
+      TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
+        token.getStructureType(),
+      // Неизвестное — трактуем как отсутствие значения
+      _ => StructureType::None
+    }
+  }
+
+  /// Является ли вариант числовым (целочисленным или с плавающей точкой).
+  pub fn isNumeric(variant: &StructureType) -> bool
+  {
+    matches!(variant,
+      StructureType::U8  | StructureType::U16  | StructureType::U32  |
+      StructureType::U64 | StructureType::Usize |
+      StructureType::I8  | StructureType::I16  | StructureType::I32  |
+      StructureType::I64 | StructureType::Isize |
+      StructureType::F32 | StructureType::F64
+    )
+  }
+
+  /// Можно ли привести значение к этому варианту объединения.
+  ///
+  /// Число приводится к любому числовому варианту (с зажимом в границы типа, #71),
+  /// строка — только к строковому. Всё остальное не приводится.
+  fn isConvertible(token: &Token, variant: &StructureType) -> bool
+  {
+    match token.getDataType()
+    {
+      TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
+        Self::isNumeric(variant),
+      TokenType::String | TokenType::RawString =>
+        matches!(variant, StructureType::String | StructureType::RawString),
+      // Приводить нечего: точное совпадение уже было проверено отдельно
+      _ => false
+    }
+  }
+}
+
+// =================================================================================================
+
 impl Structure
 {
+  /// Подбирает вариант объединения под значение токена (issue #59).
+  ///
+  /// Порядок такой же, как при объявлении обычного типа:
+  /// 1. значение уже помещается в один из вариантов как есть — берём его;
+  /// 2. иначе приводим в первый вариант, в который приведение возможно;
+  /// 3. иначе — `None`, как и при неудачном приведении (#71).
+  ///
+  /// Возвращает выбранный вариант; `None` — значение не подошло ни к одному.
+  pub fn matchUnion(token: &mut Token, union: &StructureType) -> StructureType
+  {
+    let variants: Vec<StructureType> = union.variants();
+
+    // Пустое объединение = тип не указан, значение идёт как есть
+    if variants.is_empty()
+    { return token.getStructureType(); }
+
+    // 1. Значение уже имеет подходящий тип — приведение не нужно.
+    //    Именно поэтому `a: U8 | I8 = -10` даёт I8, а не зажатое в U8 ноль.
+    let natural: StructureType = StructureType::naturalType(token);
+    if variants.contains(&natural)
+    { return natural; }
+
+    // 2. Ничего не подошло — приводим в первый подходящий вариант
+    for variant in variants.iter()
+    {
+      if variant == &StructureType::Any
+      { return variant.clone(); } // Any принимает что угодно
+    }
+    for variant in variants.iter()
+    {
+      if StructureType::isConvertible(token, variant)
+      { return variant.clone(); }
+    }
+
+    // 3. Ни один вариант не подошёл и привести нельзя — константное поведение (#71)
+    StructureType::None
+  }
+
+  /// Приводит токен к одному из вариантов объединения (issue #59).
+  ///
+  /// Значение, не подходящее ни к одному варианту, становится `None` —
+  /// ровно так же, как неудачное приведение к обычному типу.
+  pub fn normalizeUnion(token: &mut Token, union: &StructureType) -> StructureType
+  {
+    let variants: Vec<StructureType> = union.variants();
+
+    if variants.is_empty()
+    { return token.getStructureType(); }
+
+    let natural: StructureType = StructureType::naturalType(token);
+    let variant: StructureType = Self::matchUnion(token, &StructureType::Union(variants.clone()));
+
+    // Не подошло ни к одному варианту — токен очищается
+    if variant == StructureType::None
+    {
+      token.setDataType(TokenType::None);
+      token.setData(None);
+      return variant;
+    }
+
+    // Тип значения уже совпадает с вариантом — приводить нечего,
+    // иначе зажимаем значение в границы варианта
+    if natural != variant && variant != StructureType::Any
+    {
+      Self::normalizeToken(token, variant.clone());
+    }
+
+    variant
+  }
+
   /// Границы целочисленного типа: (минимум, максимум);
   fn integerLimits(structureType: StructureType) -> Option<(i64, u64)> 
   {
@@ -511,6 +761,9 @@ mod tests
 {
   use crate::tokenizer::types::token::Token;
   use crate::tokenizer::types::tokenType::TokenType;
+  use crate::tokenizer::types::line::Line;
+  use crate::tokenizer::tools::splitByType::splitByType;
+  use std::sync::{Arc, RwLock, RwLockReadGuard};
   use crate::parser::structure::structureType::StructureType;
   use crate::parser::structure::structure::Structure;
   // ===============================================================================================
@@ -641,6 +894,183 @@ mod tests
     check(TokenType::UInt,   "abc", StructureType::None, "");
     check(TokenType::Int,    "-",   StructureType::None, "");
     check(TokenType::UFloat, "NaN", StructureType::None, "");
+  }
+
+  // ===============================================================================================
+  // Union: issue #59
+  // ===============================================================================================
+
+  /// Сравнивает типы через to_string(): у StructureType нет Debug, а печать
+  /// заодно показывает, как объединение выглядит в коде.
+  fn isType(actual: StructureType, expected: StructureType) -> bool
+  {
+    assert!(
+      actual == expected,
+      "Ожидался тип '{}', получен '{}'",
+      expected.to_string(), actual.to_string()
+    );
+    true
+  }
+
+  /// Разбирает type-секцию объявления в StructureType (issue #59).
+  ///
+  /// `a: U8` — это по-прежнему обычный одиночный тип, а не Union из одного
+  /// элемента: иначе поменялось бы поведение всех существующих объявлений.
+  fn parseType(code: &str) -> StructureType
+  {
+    let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+    let lines: Vec< Arc<RwLock<Line>> > = crate::tokenizer::tokenizer::readTokensSimple(&mut buffer);
+
+    for line in lines
+    {
+      let line: RwLockReadGuard<Line> = line.read().unwrap();
+      if let Some(tokens) = &line.tokens
+      {
+        // Отрезаем всё после `:` — это и есть type-секция
+        let typeTokens: Vec<Token> = match splitByType(tokens.clone(), &[TokenType::Colon])
+        {
+          parts if parts.len() == 2 =>
+          parts[1].tokens.clone().unwrap_or_default(),
+          _ => continue
+        };
+        return StructureType::fromTypeTokens(&typeTokens);
+      }
+    }
+    StructureType::None
+  }
+
+  /// Один вариант — обычный тип; несколько — Union (issue #59).
+  #[test]
+  fn unionParse()
+  {
+    isType(parseType("a: U8 = 10"), StructureType::U8);
+    isType(parseType("a: String = \"x\""), StructureType::String);
+    isType(parseType("a: U8 | String = 10"),
+      StructureType::Union(vec![StructureType::U8, StructureType::String]));
+    isType(parseType("b: U8|String = 10"), // без пробелов
+      StructureType::Union(vec![StructureType::U8, StructureType::String]));
+    isType(parseType("a: I8 | U8 | F64 | None = 1"),
+      StructureType::Union(vec![
+        StructureType::I8, StructureType::U8, StructureType::F64, StructureType::None
+      ]));
+    // Ключевые слова-типы без данных - настоящие имена типов
+    isType(parseType("a: UInt | Int = 1"),
+      StructureType::Union(vec![
+        StructureType::Custom(String::from("UInt")), StructureType::Custom(String::from("Int"))
+      ]));
+    // Повторы схлопываются
+    isType(parseType("a: U8 | U8 | String = 10"),
+      StructureType::Union(vec![StructureType::U8, StructureType::String]));
+  }
+
+  /// Литералы - это значения, а не типы: они не поддерживаются (issue #59).
+  #[test]
+  fn unionLiteralsAreNotTypes()
+  {
+    // Ни одного имени типа - тип не указан, объявление ведёт себя как `a = 10`
+    isType(parseType("a: 1 | 2 = 10"), StructureType::None);
+    // Строковый литерал отбрасывается, `U8` остаётся единственным вариантом
+    isType(parseType("a: \"name\" | 10 = 10"), StructureType::None);
+    isType(parseType("a: \"name\" | U8 = 10"), StructureType::U8);
+    // Незакрытый `|` не ломает разбор
+    isType(parseType("a: U8 | = 10"), StructureType::U8);
+  }
+
+  /// Проверяет, что значение легло в объединение: подходящий вариант и результат.
+  fn union(tokenType: TokenType, data: &str, variants: Vec<StructureType>, expectedType: &StructureType, expectedData: &str)
+  {
+    let mut token: Token = Token::new(tokenType, String::from(data));
+    let union: StructureType = StructureType::Union(variants.clone());
+    let resultType: StructureType = Structure::normalizeUnion(&mut token, &union);
+
+    let tokenData: String = token.getData().toString().unwrap_or_default();
+    assert!(
+      resultType == *expectedType && tokenData == expectedData,
+      "Для '{}' в '{}' ожидался вариант '{}' со значением '{}', получено '{}' со значением '{}'",
+      data, union.to_string(), expectedType.to_string(), expectedData, resultType.to_string(), tokenData
+    );
+  }
+
+  /// Значение ложится в тот вариант, в который помещается как есть (issue #59).
+  #[test]
+  fn unionExactMatch()
+  {
+    let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
+    union(TokenType::UInt,   "10",  u8String.clone(), &StructureType::U8,     "10");
+    union(TokenType::String, "hi",  u8String.clone(), &StructureType::String, "hi");
+    union(TokenType::UFloat, "1.5", vec![StructureType::U8, StructureType::F32],
+      &StructureType::F32, "1.5");
+
+    // Из нескольких подходящих вариантов выбирается тот, в который значение
+    // помещается без потерь, а не первый в списке:
+    // -10 помещается в I8, поэтому U8 | I8 даёт I8, а не зажатое в U8 ноль
+    union(TokenType::Int, "-10", vec![StructureType::U8, StructureType::I8],
+      &StructureType::I8, "-10");
+    union(TokenType::UInt, "70000", vec![StructureType::U8, StructureType::U32],
+      &StructureType::U32, "70000");
+  }
+
+  /// Не подошёл ни один вариант - приводим в первый, куда приведение возможно (#59/#71).
+  #[test]
+  fn unionConvert()
+  {
+    let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
+    // 300 не помещается в U8, но приводится в него с зажимом (#71)
+    union(TokenType::UInt, "300",  u8String.clone(), &StructureType::U8, "255");
+    // Отрицательное в беззнаковый - тоже приведение, не совпадение
+    union(TokenType::Int,  "-10",  u8String.clone(), &StructureType::U8, "0");
+    // Float приводится в целый вариант с округлением
+    union(TokenType::UFloat, "1.5", u8String.clone(), &StructureType::U8, "2");
+  }
+
+  /// Ни один вариант не подошёл и привести нельзя - None (issue #59).
+  #[test]
+  fn unionNone()
+  {
+    let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
+    // Bool не приводится ни к числу, ни к строке
+    union(TokenType::True, "True",  u8String.clone(), &StructureType::None, "");
+    union(TokenType::Link, "a.b",   u8String.clone(), &StructureType::None, "");
+    // Явный `| None` в объединении: значение не подходит - всё равно None
+    union(TokenType::True, "True",  vec![StructureType::String, StructureType::None],
+      &StructureType::None, "");
+    // Само None в объединении - законный вариант
+    union(TokenType::None, "", vec![StructureType::String, StructureType::None],
+      &StructureType::None, "");
+  }
+
+  /// Объединение не должно ломать обычные одиночные типы.
+  #[test]
+  fn unionSingleVariantBehavesLikeType()
+  {
+    // Union из одного варианта - это просто этот тип
+    let one: StructureType = StructureType::Union(vec![StructureType::U8]);
+    isType(StructureType::Union(one.variants()), StructureType::Union(vec![StructureType::U8]));
+    union(TokenType::UInt, "300", vec![StructureType::U8], &StructureType::U8, "255");
+    // Пустое объединение равносильно отсутствию типа
+    assert!(
+      StructureType::Union(vec![]).variants().is_empty(),
+      "Пустое объединение должно давать пустой список вариантов"
+    );
+  }
+
+  /// Union печатается так же, как записывается в коде.
+  #[test]
+  fn unionToString()
+  {
+    assert_eq!(
+      StructureType::Union(vec![StructureType::U8, StructureType::String]).to_string(),
+      "U8 | String"
+    );
+    assert_eq!(
+      StructureType::Union(vec![StructureType::I8, StructureType::F64, StructureType::None]).to_string(),
+      "I8 | F64 | None"
+    );
+    // Вложенный union схлопывается при разборе, но и сам печатается нормально
+    assert_eq!(StructureType::Union(vec![
+      StructureType::Union(vec![StructureType::U8, StructureType::String]),
+      StructureType::U16
+    ]).to_string(), "U8 | String | U16");
   }
 
   // ===============================================================================================

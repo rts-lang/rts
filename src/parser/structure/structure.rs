@@ -62,6 +62,14 @@ pub struct Structure
   /// Тип данных
   pub dataType: StructureType,
 
+  /// Набор вариантов, если структура объявлена как объединение типов
+  /// `a: U8 | String = ...` (issue #59).
+  ///
+  /// Само значение лежит в `dataType` — это ровно ОДИН из вариантов,
+  /// а `unionTypes` продолжает ограничивать все следующие присваивания.
+  /// `None` — обычная структура без объединения.
+  pub unionTypes: Option<Vec<StructureType>>,
+
   /// Ссылки на вложенные линии
   pub lines: Option< Vec< Arc<RwLock<Line>> > >,
 
@@ -111,6 +119,7 @@ impl Structure
       name,
       mutable,
       dataType,
+      unionTypes: None,
       lines,
       parameters: Parameters::new(None),
       result: None,
@@ -269,7 +278,9 @@ impl Structure
         let expect: FfiExpect =
         {
           let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-          match structure.dataType == StructureType::None || leftPartMutable == StructureMut::Dynamic
+          match structure.dataType == StructureType::None ||
+                structure.unionTypes.is_some() || // у объединения нет одного ABI-типа (#59)
+                leftPartMutable == StructureMut::Dynamic
           {
             true  => FfiExpect::Infer,
             false => FfiExpect::Typed(structure.dataType.clone()),
@@ -313,22 +324,37 @@ impl Structure
 
         let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
 
-        // Изменяем тип структуры если он не был указан
-        match
-          structure.dataType == StructureType::None ||
-          leftPartMutable == StructureMut::Dynamic // Dynamic может изменить dataType просто так
+        // Объединение типов (issue #59): если структура объявлена как `U8 | String`,
+        // то каждое присваивание подбирает свой вариант, а не приводится в один
+        // зафиксированный тип.
+        match structure.unionTypes.clone()
         {
-          true =>
+          Some(variants) => match leftPartMutable == StructureMut::Dynamic
+          { // `~~` — тип и так меняется, объединение не ограничивает (#22)
+            true  => { structure.dataType = rightPartValue.getStructureType(); }
+            false =>
+            {
+              structure.dataType = Self::normalizeUnion(&mut rightPartValue,
+                &StructureType::Union(variants)
+              );
+            }
+          },
+          None => match
+            structure.dataType == StructureType::None ||
+            leftPartMutable == StructureMut::Dynamic // Dynamic может изменить dataType просто так
           {
-            match leftPartMutable != StructureMut::Variable
-            { false => {} true =>
-            { // Будет присвоено только Final | Dynamic
-              structure.dataType = rightPartValue.getStructureType();
-            }}
-          }
-          false =>
-          { // Требуется выполнить преобразование в указанный тип данных
-            Self::normalizeToken(&mut rightPartValue, structure.dataType.clone())
+            true =>
+            {
+              match leftPartMutable != StructureMut::Variable
+              { false => {} true =>
+              { // Будет присвоено только Final | Dynamic
+                structure.dataType = rightPartValue.getStructureType();
+              }}
+            }
+            false =>
+            { // Требуется выполнить преобразование в указанный тип данных
+              Self::normalizeToken(&mut rightPartValue, structure.dataType.clone())
+            }
           }
         }
 
