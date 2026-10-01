@@ -17,9 +17,9 @@ pub const keywords: &[(&str, TokenType)] = &[
   ("Link", TokenType::Link),
   ("Any", TokenType::Any),
   //
-  ("Bool", TokenType::Bool), // todo issue #65
-  ("true", TokenType::Bool), // todo issue #65
-  ("false", TokenType::Bool), // todo issue #65
+  ("Bool", TokenType::Bool),
+  ("True", TokenType::True),
+  ("False", TokenType::False),
   //
   ("UInt", TokenType::UInt),
   ("Int", TokenType::Int),
@@ -104,7 +104,8 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
         { // todo true и false – особые случаи ?
           //   Мб просто их сделать True/False как и 
           //   должно быть и они будут отдельный от number в Parser?
-          return if result == "true" || result == "false" {
+          // True/False/true/false — с data; остальные keywords — empty
+          return if matches!(result.as_str(), "True" | "False") {
             Token::new(*tokenType, result)
           } else {
             Token::newEmpty(*tokenType)
@@ -155,7 +156,7 @@ mod tests
 
       //
       let tokenData: String = token.getData().toString().unwrap_or_default();
-      let expectedData: String = if *keyword == "true" || *keyword == "false" {
+      let expectedData: String = if matches!(*keyword, "True" | "False") {
         keyword.to_string()
       } else {
         String::new()
@@ -194,6 +195,10 @@ mod tests
       ("arr.[42].field", TokenType::Link, "arr.[42].field"),
       ("true", TokenType::Bool, "true"),
       ("false", TokenType::Bool, "false"),
+      ("True", TokenType::True, "True"),
+      ("False", TokenType::False, "False"),
+      ("True", TokenType::True, "True"),
+      ("False", TokenType::False, "False"),
       ("None", TokenType::None, ""),
       ("abc123", TokenType::Word, "abc123"),
     ] {
@@ -244,6 +249,8 @@ mod tests
       ("myVar=123", "myVar", TokenType::Word, 5),
       ("a.b.c;", "a.b.c", TokenType::Link, 5),
       ("true", "true", TokenType::Bool, 4),
+      ("True", "True", TokenType::True, 4),
+      ("False", "False", TokenType::False, 5),
       ("None;", "", TokenType::None, 4),
       ("obj.[0].prop,", "obj.[0].prop", TokenType::Link, 12),
       ("a. b(", "a.b", TokenType::Link, 4),         // пробел после . сливает

@@ -404,6 +404,7 @@ impl Token
           }
         }
       }
+      TokenType::Bool | TokenType::True | TokenType::False => StructureType::Bool,
       TokenType::UFloat | TokenType::Float => 
       {
         match data.parse::<f64>() 
@@ -448,6 +449,8 @@ impl Token
       "Any" => StructureType::Any,
       "Link" => StructureType::Link,
       "Bool" => StructureType::Bool,
+      "True" => StructureType::Bool,
+      "False" => StructureType::Bool,
 
       // Беззнаковые
       "U8" => StructureType::U8,

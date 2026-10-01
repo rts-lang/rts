@@ -216,12 +216,14 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
     },
     TokenType::Bool =>
     {
-      if tokenData == "true" {
+      if tokenData == "True" {
         Value::UInt(1)
       } else {
         Value::UInt(0)
       }
     },
+    TokenType::True => Value::UInt(1),
+    TokenType::False => Value::UInt(0),
     _ => Value::UInt(0)
   }
 }
