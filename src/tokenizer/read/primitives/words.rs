@@ -69,11 +69,12 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 
       // Пропуск пустот;
       // Перенос строки допустим только после `.`: это оператор в конце строки,
-      // выражение не завершено (`a.\n  b`). Без оператора строка завершена (`a.0\nb`).
+      // выражение не завершено (`a.\n  b`, `a.\n  0`). Без оператора строка завершена (`a.0\nb`).
       let mut temp: usize = savedIndex;
       let whitespace: &[u8] = if currentByte == b'.' { b" \t\n" } else { b" \t" };
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, whitespace);
-      if temp < bufferLength && isLetter(&buffer[temp]) {
+      // После `.` можно продолжить и буквой (`a.b`), и цифрой (`a.0` / `a.\n0`)
+      if temp < bufferLength && (isLetter(&buffer[temp]) || isDigit(&buffer[temp])) {
         savedIndex = temp;
       }
     } else
@@ -247,6 +248,7 @@ mod tests
       ("obj.[0].prop,", "obj.[0].prop", TokenType::Link, 12),
       ("a. b(", "a.b", TokenType::Link, 4),         // пробел после . сливает
       ("a.\n  b", "a.b", TokenType::Link, 6),      // оператор в конце строки сливает
+      ("a.\n  0", "a.0", TokenType::Link, 6),      // перенос + цифровой индекс поля
       ("a.0\nprintln", "a.0", TokenType::Link, 3), // без оператора строка завершена
       ("a.b\nprintln", "a.b", TokenType::Link, 3),
       ("abc1\nfoo", "abc1", TokenType::Word, 4),
