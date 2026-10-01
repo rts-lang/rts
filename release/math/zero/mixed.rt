@@ -12,34 +12,34 @@ a~~ = 0 # Полная mut для кода ниже
 
 # Целое / дробный ноль
 a = 10 / 0.0
-print(f"{a} | {type(a)}\n")   # 10 | UFloat
+print(f"{a} | {type(a)}\n")  # 10 | UFloat
 
 a = 0 / 0.0
-print(f"{a} | {type(a)}\n")   # 0 | UFloat
+print(f"{a} | {type(a)}\n")  # 0 | UFloat
 
 a = -10 / 0.0
-print(f"{a} | {type(a)}\n")   # -10 | Float
+print(f"{a} | {type(a)}\n")  # -10 | Float
 
 a = 10 / -0.0
-print(f"{a} | {type(a)}\n")   # 10 | Float
+print(f"{a} | {type(a)}\n")  # 10 | Float
 
 a = -10 / -0.0
-print(f"{a} | {type(a)}\n")   # -10 | Float
+print(f"{a} | {type(a)}\n")  # -10 | Float
 
 # ======================================================================================================================
 println("=====")
 
 # Дробное / целый ноль
 a = 10.5 / 0
-print(f"{a} | {type(a)}\n")   # 10.5 | UFloat
+print(f"{a} | {type(a)}\n")  # 10.5 | UFloat
 
 a = -10.5 / 0
-print(f"{a} | {type(a)}\n")   # -10.5 | Float
+print(f"{a} | {type(a)}\n")  # -10.5 | Float
 
 a = 10.5 / -0
-print(f"{a} | {type(a)}\n")   # 10.5 | UFloat
+print(f"{a} | {type(a)}\n")  # 10.5 | UFloat
 
 a = -10.5 / -0
-print(f"{a} | {type(a)}\n")   # -10.5 | Float
+print(f"{a} | {type(a)}\n")  # -10.5 | Float
 
 # ======================================================================================================================
