@@ -89,10 +89,10 @@ impl From<f64> for uf64
 {
   fn from(value: f64) -> Self 
   {
-    match value >= 0.0 
-    {
-      true => { Self(value) }  
-      false => { Self(0.0) }
+    if value >= 0.0 {
+      Self(value)
+    } else {
+      Self(0.0)
     }
   }
 }
@@ -109,10 +109,10 @@ impl From<i64> for uf64
 {
   fn from(value: i64) -> Self 
   {
-    match value >= 0 
-    {
-      true => { Self(value as f64) }  
-      false => { Self(0.0) }
+    if value >= 0 {
+      Self(value as f64) 
+    } else {
+      Self(0.0)
     }
   }
 }
@@ -151,10 +151,10 @@ impl uf64
 {
   pub fn new(value: f64) -> Self 
   {
-    match value >= 0.0 
-    {
-      true => { Self(value) }  
-      false => { Self(0.0) }
+    if value >= 0.0 {
+      Self(value)
+    } else {
+      Self(0.0)
     }
   }
 }

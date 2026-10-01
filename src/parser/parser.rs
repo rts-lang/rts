@@ -221,14 +221,8 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     };
 
     // Определяем тип изменяемости у левой части выражения.
-    let structureMutabilityType: StructureMut = match structureNameTokens.get(1)
-    {
-      None => match rightValue
-      { // Если нет флага изменяемости и правой части.
-        None => StructureMut::Final,
-        Some(_) => StructureMut::Constant
-      }
-      Some(mutabilityType) =>
+    let structureMutabilityType: StructureMut = 
+      if let Some(mutabilityType) = structureNameTokens.get(1)
       { // Если есть флаг изменяемости.
         match mutabilityType.getDataType()
         {
@@ -237,19 +231,25 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
           _ => return false // Это что-то другое, а не линейная запись.
         }
       }
-    };
+      else if let Some(_) = rightValue { // todo По сути можно is_some ?
+        StructureMut::Constant
+      } else 
+      { // Если нет флага изменяемости и правой части.
+        StructureMut::Final
+      };
 
     //
     structureName = structureNameTokens[0].getData().toString().unwrap(); // Имя точно есть.
     structureMutability = structureMutabilityType;
-    structureType = match structureTypeTokens
+    structureType = if let Some(structureTypeTokens) = structureTypeTokens
     {
-      None => StructureType::None,
       // `a: U8 | String` — объединение типов (issue #59);
       // обычный `a: U8` даёт здесь такой же одиночный тип, как и раньше.
-      Some(structureTypeTokens) =>
-        StructureType::fromTypeTokens(&structureTypeTokens)
-    };
+      StructureType::fromTypeTokens(&structureTypeTokens)
+    } else
+    {
+      StructureType::None
+    }
   };
 
   drop(leftValue);
@@ -670,10 +670,10 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           );
         }
 
-        newStructure.result = match newStructureResultType
-        {
-          Some(t) => Some(Token::newEmpty(*t)),
-          None => None
+        newStructure.result = if let Some(tokenType) = newStructureResultType {
+          Some(Token::newEmpty(*tokenType))
+        } else {
+          None
         };
 
         let newStructureLink: Arc<RwLock<Structure>> =
@@ -761,12 +761,12 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
         // Проверка блока тегов [ffi]
         // todo Нет [ffi] {} т.е. это проверка если строка сверху но нет в 1 строку. (актуально?)
         // todo Точно требуются комментарии по этому блоку.
-        let isFfi: bool = if unsafe{*lineIndex} == 0
+        let isFfi: bool = if unsafe{ *lineIndex } == 0
         { false } else
         {
           if let Some(siblingLines) = &parentLink.read().unwrap().lines
           {
-            let prevLine: RwLockReadGuard<Line> = siblingLines[unsafe{*lineIndex} -1].read().unwrap();
+            let prevLine: RwLockReadGuard<Line> = siblingLines[unsafe{ *lineIndex } -1].read().unwrap();
             if let Some(prevTokens) = &prevLine.tokens
             {
               if prevTokens.is_empty() ||
@@ -885,7 +885,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
       {
         let linesLength: usize = lines.len(); // Количество линий родительской структуры.
         { // Смотрим линии внизу
-          let mut i: usize = unsafe{*lineIndex};
+          let mut i: usize = unsafe{ *lineIndex };
           while i < linesLength
           { // Если line index < lines length, то читаем вниз линии,
             // и если там первый токен не имеет TokenType::Question,
@@ -981,7 +981,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
     }
 
     // И только после прочтения всех блоков - мы можем сдвигать указатель ниже.
-    unsafe{*lineIndex += saveNewLineIndex}
+    unsafe{ *lineIndex += saveNewLineIndex }
     return true;
   }
   //
@@ -1027,20 +1027,18 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
         StructureType::Usize, // Не может быть меньше 0.
         // В линии структуры.
         Some(vec![
-          Arc::new(RwLock::new( // добавляем линию с 1 токеном.
-            Line
-            {
-              tokens: Some(vec![
-                Token::new(
-                  TokenType::UInt,
-                  Bytes::new( unsafe{_argc.to_string()} )
-                )
-              ]),
-              indent: None,
-              lines:  None,
-              parent: None
-            }
-          ))
+          Arc::new(RwLock::new(Line
+          { // добавляем линию с 1 токеном.
+            tokens: Some(vec![
+              Token::new(
+                TokenType::UInt,
+                Bytes::new( unsafe{ _argc.to_string() } )
+              )
+            ]),
+            indent: None,
+            lines:  None,
+            parent: None
+          }))
         ]),
         Some( MainStructure.clone() ) // Ссылаемся на родителя.
       )))
@@ -1048,7 +1046,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 
     // argv
     let mut argv: Vec< Arc<RwLock<Line>> > = Vec::new();
-    for a in unsafe{&_argv}
+    for a in unsafe{ &_argv }
     {
       argv.push(
         Arc::new(RwLock::new( // Добавляем линию с 1 токеном.
@@ -1123,7 +1121,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   // пока не будет вызван _exitCode на true.
   let mut lineLink: Arc< RwLock<Line> >;
 
-  while unsafe{_exit == false} && unsafe{*lineIndex < linesLength}
+  while unsafe{ _exit == false } && unsafe{ *lineIndex < linesLength }
   { // Если мы читаем строки, то создаём сразу ссылку на текущую линию.
     
     lineLink =
@@ -1138,7 +1136,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     // После чего проверяем, если линия пустая на токены, то не читаем и идём дальше.
     if line.tokens.is_none()
     {
-      unsafe{*lineIndex += 1}
+      unsafe{ *lineIndex += 1 }
       continue;
     }
     
@@ -1161,12 +1159,12 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     }
 
     // Идём дальше
-    unsafe{*lineIndex += 1}
+    unsafe{ *lineIndex += 1 }
   }
 
   // Сбрасываем указатель линий для текущей структуры на 0
   // Для того чтобы можно было запускать повторно.
-  unsafe{*lineIndex = 0}
+  unsafe{ *lineIndex = 0 }
 
   // FFI-обёртка: снимаем свой слот со стека.
   // Внутри scope дропается (если был создан) вместе с библиотеками

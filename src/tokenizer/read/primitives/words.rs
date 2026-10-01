@@ -62,11 +62,10 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
     {
       result.push(currentByte as char);
       savedIndex += 1;
-      match currentByte == b'.'
-      { false => {} true =>
+      if currentByte == b'.'
       { // Только если есть . то мы знаем что это ссылка.
         isLink = true;
-      }}
+      }
 
       // Пропуск пустот;
       // Перенос строки допустим только после `.`: это оператор в конце строки,
@@ -80,12 +79,11 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
       }
     } else
     {
-      match isLetter(&currentByte)
-      { false => { break; } true =>
+      if isLetter(&currentByte)
       {
         result.push(currentByte as char);
         savedIndex += 1;
-      }}
+      } else { break; }
       //
     }
   }
@@ -93,31 +91,28 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
   *index = savedIndex;
 
   // next return.
-  match isLink
-  {
-    true => Token::new(TokenType::Link, result),
-    false =>
+  if isLink {
+    Token::new(TokenType::Link, result)
+  } else
+  { // Ключевое слово.
+    for (keyword, tokenType) in keywords.iter() 
     {
-      // Ключевое слово.
-      for (keyword, tokenType) in keywords.iter() 
-      {
-        if result == *keyword 
-        { // todo true и false – особые случаи ?
-          //   Мб просто их сделать True/False как и 
-          //   должно быть и они будут отдельный от number в Parser?
-          // True/False/true/false — с data; остальные keywords — empty.
-          return if matches!(result.as_str(), "True" | "False") {
-            Token::new(*tokenType, result)
-          } else {
-            Token::newEmpty(*tokenType)
-          };
-          //
-        }
+      if result == *keyword 
+      { // todo true и false – особые случаи ?
+        //   Мб просто их сделать True/False как и 
+        //   должно быть и они будут отдельный от number в Parser?
+        // True/False/true/false — с data; остальные keywords — empty.
+        return if matches!(result.as_str(), "True" | "False") {
+          Token::new(*tokenType, result)
+        } else {
+          Token::newEmpty(*tokenType)
+        };
+        //
       }
-      // Обычное слово (идентификатор).
-      Token::new(TokenType::Word, result)
-      //
     }
+    // Обычное слово (идентификатор).
+    Token::new(TokenType::Word, result)
+    //
   }
   //
 }

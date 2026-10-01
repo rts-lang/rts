@@ -114,39 +114,31 @@ impl Function
     i: usize
   ) -> ()
   {
-    match parameters.get(0)
-    { None => {} Some(p0Link) =>
+    if let Some(parameter0Link) = parameters.get(0)
     { // Получаем 0 параметр.
       
-      let p0: RwLockReadGuard<Line> = p0Link.read().unwrap();
-      match &p0.tokens 
-      { None => {} Some(tokens) => 
+      let parameter0: RwLockReadGuard<Line> = parameter0Link.read().unwrap();
+      if let Some(tokens) = &parameter0.tokens
       { // Получаем список токенов.
 
         let token: &Token = tokens.first().unwrap(); // Получаем 0 токен.
         
         value[i].setDataType( TokenType::String );
-        let result: String = match token.getData().toString()
+        let result: String = if let Some(structureName) = token.getData().toString()
         {
-          None => String::from(""),
-          Some(structureName) =>
-          { // Получили название структуры.
-            match structure.getStructureByName(&structureName)
-            {
-              None => String::from(""),
-              Some(structureLink) =>
-              { // Получили ссылку на структуру.
-                let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-                structure.mutable.to_string()
-              }
-            }
-          }
-        };
+          // Получили название структуры.
+          if let Some(structureLink) = structure.getStructureByName(&structureName)
+          {
+            // Получили ссылку на структуру.
+            let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+            structure.mutable.to_string()
+          } else { String::from("") }
+        } else { String::from("") };
         value[i].setData(result);
         //
-      }}
+      }
       //
-    }}
+    }
     //
   }
   
@@ -164,31 +156,26 @@ impl Function
     if !parameters.isNone() // todo оставить либо это, либо снизу нули
     {
       let min: usize =
-        match parameters.getExpression(structure,0)
-        { None => 0, Some(p0) =>
+        if let Some(parameter0) = parameters.getExpression(structure,0)
         {
-          match p0.getData().toString()
-          {
-            Some(expressionData) => expressionData.parse::<usize>().unwrap_or_default(),
-            None => 0
-          }
-        }};
+          if let Some(expressionData) = parameter0.getData().toString() {
+            expressionData.parse::<usize>().unwrap_or_default()
+          } else { 0 }
+        } else { 0 };
+      
       let max: usize =
-        match parameters.getExpression(structure,1)
-        { None => 0, Some(p1) =>
+        if let Some(parameter1) = parameters.getExpression(structure,1)
         {
-          match p1.getData().toString()
-          {
-            Some(expressionData) => expressionData.parse::<usize>().unwrap_or_default(),
-            None => 0
-          }
-        }};
+          if let Some(expressionData) = parameter1.getData().toString() {
+            expressionData.parse::<usize>().unwrap_or_default()
+          } else { 0 }
+        } else { 0 };
+      
       let randomNumber: usize =
-        match min < max
-        {
-          true  => rand::rng().random_range(min..=max),
-          false => 0
-        };
+        if min < max {
+          rand::rng().random_range(min..=max)
+        } else { 0 };
+      
       value[i].setDataType( TokenType::UInt );
       value[i].setData( randomNumber.to_string() );
     }
@@ -204,10 +191,9 @@ impl Function
     i: usize
   ) -> ()
   {
-    match parameters.getExpression(structure,0)
-    { None => {} Some(p0) =>
+    if let Some(parameter0) = parameters.getExpression(structure,0)
     {
-      match *p0.getDataType()
+      match *parameter0.getDataType()
       {
         TokenType::None =>
         { // Результат 0.
@@ -221,7 +207,7 @@ impl Function
         { // Получаем размер строки.
           value[i] = Token::new(
             TokenType::UInt,
-            p0.getData().toString().unwrap_or_default()
+            parameter0.getData().toString().unwrap_or_default()
               .chars().count().to_string()
           );
         }
@@ -230,34 +216,25 @@ impl Function
           // Результат только в UInt.
           value[i].setDataType( TokenType::UInt );
           // Получаем значение
-          match structure.getStructureByName( &p0.getData().toString().unwrap_or_default() )
+          if let Some(structureLink) = 
+            structure.getStructureByName( &parameter0.getData().toString().unwrap_or_default() )
           {
-            Some(structureLink) =>
-            {
-              value[i].setData(
-                // Получаем количество линий структуры.
-                match &structureLink.read().unwrap().lines
-                {
-                  None => String::from("0"),
-                  Some(lines) =>
-                  {
-                    lines.len().to_string()
-                  }
-                  //
-                }
-                //
-              );
-            }
-            None =>
-            { // Результат 0 т.к. не нашли такой структуры.
-              value[i].setData( String::from("0") );
-            }
+            value[i].setData(
+              // Получаем количество линий структуры.
+              if let Some(lines) = &structureLink.read().unwrap().lines {
+                lines.len().to_string()
+              } else { String::from("0") }
+              //
+            );
+          } else
+          { // Результат 0 т.к. не нашли такой структуры.
+            value[i].setData( String::from("0") );
           }
           //
         }
       }
       //
-    }}
+    }
   }
   
   // ===============================================================================================
@@ -273,11 +250,9 @@ impl Function
     // Результат может быть только String.
     value[i].setDataType( TokenType::String );
 
-    match parameters.getExpression(structure,0)
-    { None => {} Some(p0) =>
+    if let Some(parameter0) = parameters.getExpression(structure,0)
     {
-      match p0.getData().toString()
-      { None => {} Some(data) =>
+      if let Some(data) = parameter0.getData().toString()
       { // Это может быть выведено перед вводом;
         //
         // todo: возможно потом это лучше убрать,
@@ -285,8 +260,8 @@ impl Function
         //       такое через иные методы
         print!("{}",data);
         io::stdout().flush().unwrap(); // forced withdrawal of old.
-      }}
-    }}
+      }
+    }
 
     let mut valueBuffer: String = String::new(); // Временный буфер ввода.
     match io::stdin().read_line(&mut valueBuffer)
@@ -314,10 +289,9 @@ impl Function
     i: usize
   ) -> ()
   {
-    match parameters.getExpression(structure,0)
-    { None => {} Some(p0) =>
+    if let Some(parameter0) = parameters.getExpression(structure,0)
     {
-      let data: String = p0.getData().toString().unwrap_or_default();
+      let data: String = parameter0.getData().toString().unwrap_or_default();
       let mut parts: SplitWhitespace<'_> = data.split_whitespace();
 
       let command: &str = parts.next().expect("No command found in parameters"); // todo: no errors
@@ -330,14 +304,13 @@ impl Function
           .expect("Failed to execute process"); // todo: no errors
 
       let outputString: String = String::from_utf8_lossy(&output.stdout).to_string();
-      match !outputString.is_empty()
-      { false => {} true =>
+      if !outputString.is_empty()
       { // result.
         value[i].setData( outputString.trim_end().to_string() );
         value[i].setDataType( TokenType::String );
-      }}
+      }
       //
-    }}
+    }
     //
   }
   
@@ -354,10 +327,9 @@ impl Function
     i: usize
   ) -> ()
   {
-    match parameters.getExpression(structure,0)
-    { None => {} Some(p0) =>
+    if let Some(parameter0) = parameters.getExpression(structure,0)
     {
-      let data: String = p0.getData().toString().unwrap_or_default();
+      let data: String = parameter0.getData().toString().unwrap_or_default();
       let mut parts: SplitWhitespace<'_> = data.split_whitespace();
 
       let command: &str = parts.next().expect("No command found in expression"); // todo: no errors
@@ -372,7 +344,7 @@ impl Function
           .expect("Failed to execute process"); // todo: no errors
       value[i].setData( status.code().unwrap_or(-1).to_string() );
       value[i].setDataType( TokenType::String );
-    }}
+    }
   }
 
   // ===============================================================================================
@@ -455,6 +427,7 @@ impl Function
       }
 
       // Если мы компилируем под WebAssembly, динамическая загрузка .so невозможна.
+      //
       // todo Это нужно будет решить
       #[cfg(target_family = "wasm")]
       {
