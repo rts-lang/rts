@@ -4,19 +4,19 @@
 #[derive(Clone)]
 pub struct Bytes 
 {
-  /// Набор байтов или пустота
+  /// Набор байтов или пустота.
   data: Option< Vec<u8> >
 }
 
 impl Bytes 
 {
-  /// Empty bytes
+  /// Empty bytes.
   pub const fn empty() -> Self 
   {
     Self { data: None }
   }
   
-  /// Создать из данных
+  /// Создать из данных.
   pub fn new<T: Into<Vec<u8>>>(data: T) -> Self 
   {
     let vec: Vec<u8> = data.into();
@@ -27,13 +27,14 @@ impl Bytes
     }
   }
 
-  /// Получить данные
+  /// Получить данные.
   pub fn getAll(&self) -> Option<&[u8]> 
   {
     self.data.as_deref()
   }
 
   /// Получает строку из байтов;
+  /// 
   /// Если байты будут неправильными - то будет None.
   pub fn toString(&self) -> Option<String>
   {
