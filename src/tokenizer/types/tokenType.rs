@@ -8,12 +8,12 @@
 ///   - string
 ///  Имелось ввиду общий список или макрос для
 ///  генерации всех отношений, как единое место.
-#[derive(PartialEq)]
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Eq, Copy, Clone, Default)]
 pub enum TokenType
 {
 // basic
   /// Пустота
+  #[default]
   None,
   /// Любой тип данных
   Any,
@@ -187,11 +187,11 @@ impl ToString for TokenType
     match self 
     {
       // basic
-      Self::None    => String::from("None"),
-      Self::Any    => String::from("Any"),
-      Self::Word    => String::from("Word"),
-      Self::Comma   => String::from(","),
-      Self::Dot     => String::from("."),
+      Self::None  => String::from("None"),
+      Self::Any   => String::from("Any"),
+      Self::Word  => String::from("Word"),
+      Self::Comma => String::from(","),
+      Self::Dot   => String::from("."),
 
       Self::Comment => String::from("Comment"),
       
@@ -260,10 +260,10 @@ impl ToString for TokenType
       Self::Link => String::from("Link"),
       
       //
-      Self::Int      => String::from("Int"),
-      Self::UInt     => String::from("UInt"),
-      Self::Float    => String::from("Float"),
-      Self::UFloat   => String::from("UFloat"),
+      Self::Int    => String::from("Int"),
+      Self::UInt   => String::from("UInt"),
+      Self::Float  => String::from("Float"),
+      Self::UFloat => String::from("UFloat"),
 
       //
       Self::Bool      => String::from("Bool"),
@@ -276,14 +276,6 @@ impl ToString for TokenType
       Self::Exclusion => String::from("Exclusion")
     }
     //
-  }
-}
-
-impl Default for TokenType
-{
-  fn default() -> Self 
-  {
-    Self::None
   }
 }
 

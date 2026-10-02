@@ -4,10 +4,10 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет что байт является буквой a-z A-Z
-pub fn isLetter(byte: &u8) -> bool
+/// Проверяет что байт является буквой a-z A-Z.
+pub const fn isLetter(byte: u8) -> bool
 {
-  (byte|32)>=b'a'&&(byte|32)<=b'z'
+  (byte|32) >= b'a' && (byte|32) <= b'z'
 }
 
 // =================================================================================================
@@ -57,7 +57,7 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
       continue;
     }
     
-    if (isDigit(&currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка.
+    if (isDigit(currentByte) || currentByte == b'.') || // Либо число, либо . как ссылка.
       (isLink && (currentByte == b'[' || currentByte == b']')) // В случае ссылки мы можем читать динамические [].
     {
       result.push(currentByte as char);
@@ -74,12 +74,12 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
       let whitespace: &[u8] = if currentByte == b'.' { b" \t\n" } else { b" \t" };
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, whitespace);
       // После `.` можно продолжить и буквой (`a.b`), и цифрой (`a.0` / `a.\n0`)
-      if temp < bufferLength && (isLetter(&buffer[temp]) || isDigit(&buffer[temp])) {
+      if temp < bufferLength && (isLetter(buffer[temp]) || isDigit(buffer[temp])) {
         savedIndex = temp;
       }
     } else
     {
-      if isLetter(&currentByte)
+      if isLetter(currentByte)
       {
         result.push(currentByte as char);
         savedIndex += 1;

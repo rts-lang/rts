@@ -1,4 +1,5 @@
 use std::sync::{Arc, LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::atomic::Ordering;
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge;
@@ -66,15 +67,15 @@ fn isFfiTagToken(token: &Token) -> bool
   {
     // todo desc
     let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-    let tokens: &Vec<Token> = if let Some(tokens) =
+    let tokens: &[Token] = if let Some(tokens) =
       line.tokens.as_ref() { tokens }
       else { continue };
 
     // todo desc
-    for t in tokens
+    for token in tokens
     {
-      if *t.getDataType() == TokenType::Word && 
-        t.getData().toString().unwrap_or_default() == "ffi"
+      if *token.getDataType() == TokenType::Word &&
+        token.getData().toString().unwrap_or_default() == "ffi"
       {
         return true;
       }
@@ -98,7 +99,7 @@ fn isPrevLineFfiTag(parentLink: &Arc<RwLock<Structure>>, lineIndex: usize) -> bo
   }
 
   // todo desc
-  let prevLineOpt: Option<Arc<RwLock<Line>>> = parentLink.read().unwrap()
+  let prevLineOpt: Option< Arc<RwLock<Line>> > = parentLink.read().unwrap()
     .lines.as_ref()
     .and_then(|lines| lines.get(lineIndex - 1).cloned());
 
@@ -109,7 +110,7 @@ fn isPrevLineFfiTag(parentLink: &Arc<RwLock<Structure>>, lineIndex: usize) -> bo
 
   // todo desc
   let prevGuard: RwLockReadGuard<Line> = prevLine.read().unwrap();
-  let prevTokens: &Vec<Token> = if let Some(tokens) =
+  let prevTokens: &[Token] = if let Some(tokens) =
     prevGuard.tokens.as_ref() { tokens }
     else { return false };
   
@@ -231,7 +232,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
           _ => return false // Это что-то другое, а не линейная запись.
         }
       }
-      else if let Some(_) = rightValue { // todo По сути можно is_some ?
+      else if rightValue.is_some() {
         StructureMut::Constant
       } else 
       { // Если нет флага изменяемости и правой части.
@@ -337,8 +338,8 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
               
               let moduleGuard: RwLockReadGuard<Structure> = moduleLink.read().unwrap();
               let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
-                Some(structureName.clone()),
-                structureMutability.clone(),
+                Some(structureName),
+                structureMutability,
                 moduleGuard.dataType.clone(),
                 moduleGuard.lines.clone(),
                 None
@@ -400,9 +401,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       Some(vec![
         Arc::new(RwLock::new(Line {
           tokens: rightValue.clone(),
-          indent: None,
-          lines:  None,
-          parent: None // todo Назначить родителя?
+          lines: None
         }))
       ]),
       None
@@ -625,8 +624,10 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
               let mut result: Vec<(Bytes, StructureType)> = Vec::new();
               for lineLink in lines
               {
-                let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-                let paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                let paramTokens: Vec<Token> = {
+                  let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
+                  line.tokens.clone().unwrap_or_default()
+                };
                 result.extend(
                   parentLink.read().unwrap().getStructureParameters(&paramTokens)
                 );
@@ -670,11 +671,8 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           );
         }
 
-        newStructure.result = if let Some(tokenType) = newStructureResultType {
-          Some(Token::newEmpty(*tokenType))
-        } else {
-          None
-        };
+        newStructure.result = newStructureResultType
+          .map(|tokenType| Token::newEmpty(*tokenType));
 
         let newStructureLink: Arc<RwLock<Structure>> =
           Arc::new(RwLock::new(newStructure));
@@ -720,8 +718,10 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
               for lineLink in lines
               { // Берём вложенные токены в TokenType::CircleBracketBegin 
                 // получаем параметры из этих токенов, давая доступ к родительским структурам.
-                let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-                let paramTokens: Vec<Token> = line.tokens.clone().unwrap_or_default();
+                let paramTokens: Vec<Token> = {
+                  let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
+                  line.tokens.clone().unwrap_or_default()
+                };
                 result.extend(
                   parentLink.read().unwrap().getStructureParameters(&paramTokens)
                 );
@@ -828,10 +828,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           }
         }
 
-        // Ставим результат структуры, если он есть
-        newStructure.result = if let Some(newStructureResultType) = newStructureResultType {
-          Some(Token::newEmpty(*newStructureResultType))
-        } else { None };
+        // Ставим результат структуры, если он есть.
+        newStructure.result = newStructureResultType
+          .map(|newStructureResultType| Token::newEmpty(*newStructureResultType));
 
         // Запоминаем, была ли это форма МЕТОДА (с круглыми скобками) или
         // просто именованного блока. Для метода body ждёт вызова `name()`,
@@ -1032,12 +1031,10 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
             tokens: Some(vec![
               Token::new(
                 TokenType::UInt,
-                Bytes::new( unsafe{ _argc.to_string() } )
+                Bytes::new(_argc.get().unwrap().to_string())
               )
             ]),
-            indent: None,
-            lines:  None,
-            parent: None
+            lines: None
           }))
         ]),
         Some( MainStructure.clone() ) // Ссылаемся на родителя.
@@ -1046,7 +1043,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
 
     // argv
     let mut argv: Vec< Arc<RwLock<Line>> > = Vec::new();
-    for a in unsafe{ &_argv }
+    for a in _argv.get().unwrap()
     {
       argv.push(
         Arc::new(RwLock::new( // Добавляем линию с 1 токеном.
@@ -1058,9 +1055,7 @@ pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
                 Bytes::new( String::from(a) )
               )
             ]),
-            indent: None,
-            lines: None,
-            parent: None
+            lines: None
           }
         ))
       );
@@ -1106,6 +1101,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   {
     let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap(); // Читаем структуру.
     (
+      // todo Тут есть вопросы по поводу адреса. Разве нельзя было просто ссылку или что-то безопаснее?
       { &structure.lineIndex as *const usize as *mut usize }, // Возвращаем ссылку на этот индекс.
       if let Some(lines) = &structure.lines
       {
@@ -1121,7 +1117,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   // пока не будет вызван _exitCode на true.
   let mut lineLink: Arc< RwLock<Line> >;
 
-  while unsafe{ _exit == false } && unsafe{ *lineIndex < linesLength }
+  while !_exit.load(Ordering::Relaxed) && unsafe{ *lineIndex < linesLength }
   { // Если мы читаем строки, то создаём сразу ссылку на текущую линию.
     
     lineLink =
@@ -1152,6 +1148,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
           &mut line
             .tokens.clone() // Клонируем токены, для сохранения возможности повторного запуска.
             .unwrap_or_default(); // todo плохо.
+        drop(line);
         // Линия-оператор: результат никому не нужен (`lib.print(x)`).
         structureLink.read().unwrap()
           .expressionWith(tokens, &bridge::FfiExpect::Discard);

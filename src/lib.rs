@@ -47,27 +47,27 @@ impl RTS
   pub fn new(name: String) -> Self 
   {
     // 
-    let main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
-    main.pushStructure(
-      Arc::new(RwLock::new(Structure::new(
-        Some(name.clone()),
-        StructureMut::Constant,
-        StructureType::List,
-        // В линии структуры
-        Some(vec![
-          Arc::new(RwLock::new(
-            Line
-            {
-              tokens: None,
-              indent: None,
-              lines:  None,
-              parent: None
-            }
-          ))
-        ]),
-        Some( MainStructure.clone() ) // Ссылаемся на родителя
-      )))
-    );
+    {
+      let main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
+      main.pushStructure(
+        Arc::new(RwLock::new(Structure::new(
+          Some(name.clone()),
+          StructureMut::Constant,
+          StructureType::List,
+          // В линии структуры
+          Some(vec![
+            Arc::new(RwLock::new(
+              Line
+              {
+                tokens: None,
+                lines: None
+              }
+            ))
+          ]),
+          Some( MainStructure.clone() ) // Ссылаемся на родителя
+        )))
+      );
+    }
     
     //
     Self {
@@ -85,8 +85,10 @@ impl RTS
   ) 
   {
     //
-    let mainStructure: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
-    let namespaceStructureLink: Arc<RwLock<Structure>> = mainStructure.getStructureByName(self.namespace.as_str()).unwrap();
+    let namespaceStructureLink: Arc<RwLock<Structure>> = {
+      let mainStructure: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
+      mainStructure.getStructureByName(self.namespace.as_str()).unwrap()
+    };
     let namespaceStructure: RwLockWriteGuard<Structure> = namespaceStructureLink.write().unwrap();
     namespaceStructure.pushStructure(
       Arc::new(RwLock::new(Structure::new(
@@ -99,9 +101,7 @@ impl RTS
             Line
             {
               tokens: Some(structureTokens),
-              indent: None,
-              lines:  None,
-              parent: None
+              lines: None
             }
           ))
         ]),

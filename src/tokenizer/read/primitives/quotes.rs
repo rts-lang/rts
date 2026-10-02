@@ -154,7 +154,7 @@ mod tests
       ("'a'!", TokenType::Char, "a", 3, false),
       ("\"123\"xyz", TokenType::String, "123", 5, false),
       ("`test`end", TokenType::RawString, "test", 6, false),
-      ("\"unterminated", TokenType::String, "unterminated", 13, false),
+      ("\"unterminated", TokenType::String, "unterminated", 13, false)
       //("\"line\n", TokenType::String, "", 5, false) // todo Должно было читать до закрывающей quote
     ] 
     {

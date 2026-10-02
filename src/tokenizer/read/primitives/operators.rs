@@ -3,10 +3,10 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Проверяет что байт является одиночным знаком
-pub const fn isSingleChar(byte: &u8) -> bool
+/// Проверяет что байт является одиночным знаком/
+pub const fn isSingleChar(byte: u8) -> bool
 {
-  matches!(*byte, 
+  matches!(byte, 
     b'+' | b'-' | b'*' | b'/' | b'=' | b'%' | b'^' |
     b'>' | b'<' | b'?' | b'!' | b'&' | b'|' | 
     b'(' | b')' | b'{' | b'}' | b'[' | b']' | 
@@ -88,7 +88,8 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
     {
       let mut scanIndex: usize = *index + 1;
       skipWhitespaceBytes(buffer, &mut scanIndex, bufferLength, b" \t\n");
-      if scanIndex < bufferLength && isSingleChar(&buffer[scanIndex]) {
+      if scanIndex < bufferLength && isSingleChar(buffer[scanIndex])
+      {
         byte2 = buffer[scanIndex];
         endIndex = scanIndex + 1;
       }
@@ -187,7 +188,7 @@ mod tests
       ("!=   ", TokenType::NotEquals, 2),
       ("->7", TokenType::Pointer, 2),
       ("~~ ", TokenType::DoubleTilde, 2),
-      ("...", TokenType::Dot, 1),
+      ("...", TokenType::Dot, 1)
     ] 
     {
       let buffer: &[u8] = input.as_bytes();

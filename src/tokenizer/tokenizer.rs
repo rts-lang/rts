@@ -34,9 +34,7 @@ fn pushLineFromTokens(
     linesLinks.push(
       Arc::new(RwLock::new(Line {
         tokens: Some(tokens),
-        indent: None, // todo Устаревшее поле, можно убрать позже.
-        lines: innerLines,
-        parent: None
+        lines: innerLines
       })
     ));
     //
@@ -67,16 +65,9 @@ fn addSingleCharToken(buffer: &[u8], index: &mut usize, bufferLength: usize, lin
 pub fn readTokensSimple(buffer: &mut Vec<u8>) -> Vec< Arc<RwLock<Line>> >
 {
   // Требуем обязательно \n в конце для правильного чтения;
-  // Получаем buffer без mut.
-  let buffer: &Vec<u8> =
-    if buffer.last() == Some(&b'\n')
-    { // Если есть, значит оставляем старый.
-      buffer
-    } else
-    { // Если нет, получаем новый.
-      buffer.push(b'\n');
-      buffer
-    };
+  if buffer.last() != Some(&b'\n') {
+    buffer.push(b'\n');
+  }
 
   readTokens(buffer, 0).0
 }
@@ -177,9 +168,7 @@ fn readTokens(
       let tokens: Vec<Token> = std::mem::take(&mut lineTokens);
       linesLinks.push(Arc::new(RwLock::new(Line {
         tokens: if tokens.is_empty() { Some(vec![]) } else { Some(tokens) },
-        indent: None,
-        lines: Some(innerLines),
-        parent: None
+        lines: Some(innerLines)
       })));
     } else
     if byte == b'}' || byte == b')' || byte == b']'
@@ -213,7 +202,7 @@ fn readTokens(
     //
     // После Word/Link точка — member/continuation (Dot), не float-литерал.
     // Иначе `a.0` и `a.\n0` съедались бы как UFloat `.0` / `0.0` (issue #31 follow-up).
-    if isDigit(&byte) || byte == b'-' || 
+    if isDigit(byte) || byte == b'-' || 
       (isFloatDotStart(buffer, index, bufferLength) && 
         !lineTokens.last().is_some_and(|token: &Token| {
           matches!(*token.getDataType(), TokenType::Word | TokenType::Link)
@@ -240,7 +229,7 @@ fn readTokens(
         }
       }
     } else
-    if isLetter(&byte)
+    if isLetter(byte)
     { // Получаем все возможные и зарезервированные слова.
       //
       #[cfg(feature = "analyzer")]
@@ -316,7 +305,7 @@ fn readTokens(
       }
     } else
     // Получаем возможные двойные и одиночные символы.
-    if isSingleChar(&byte) {
+    if isSingleChar(byte) {
       addSingleCharToken(buffer, &mut index, bufferLength, &mut lineTokens);
     } else
     { // Если мы ничего не нашли из возможного, значит этого нет в синтаксисе;

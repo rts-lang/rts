@@ -19,8 +19,7 @@ use crate::tokenizer::types::tokenType::{TokenType};
 // =================================================================================================
 
 /// Обозначает уровень изменения структуры.
-#[derive(PartialEq)]
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum StructureMut
 {
   /// Ожидает первое значение и превратится в Constant.
@@ -134,7 +133,7 @@ impl Structure
       structures: Arc::new(RwLock::new(None)),
       parent,
       isFfiBlock: false,
-      sourcePath: unsafe{ _sourcePath.clone() },
+      sourcePath: _sourcePath.read().unwrap().clone(),
       lineIndex: 0
     }
   }
@@ -210,6 +209,7 @@ impl Structure
           //
         }
       }
+      drop(childrenOption);
 
       // Если не найдено соответствие текущему сегменту - путь невалиден.
       if !found {
@@ -285,7 +285,7 @@ impl Structure
       // если типа нет (или Dynamic может его менять) — левая часть получит тип от правой.
       let expect: FfiExpect =
       {
-        let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+        let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
         if structure.dataType == StructureType::None ||
            structure.unionTypes.is_some() || // У объединения нет одного ABI-типа (#59).
            leftPartMutable == StructureMut::Dynamic
@@ -322,8 +322,10 @@ impl Structure
               if leftPartMutable == StructureMut::Final {
                 structure.mutable = StructureMut::Constant;
               }
-              return;
               
+              drop(moduleGuard);
+              drop(structure);
+              return;
               //
             }
           }
@@ -369,26 +371,22 @@ impl Structure
       // Приравниваем новое значение структуре.
       structure.lines =
         Some(vec![
-          Arc::new(RwLock::new(
-            Line
-            {
-              tokens: Some(vec![ rightPartValue ]),
-              indent: None,
-              lines:  None,
-              parent: None
-            }
-          ))
+          Arc::new(RwLock::new(Line
+          {
+            tokens: Some(vec![ rightPartValue ]),
+            lines: None
+          }))
         ]);
     } else
     { // Иные операторы, например += -= *= /=
       // получаем левую и правую часть.
       // todo сейчас тут много ошибок.
-      let leftValue: Token = 
+      let _leftValue: Token = 
       {
         let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
         if let Some(lines) = &structure.lines
         {
-          if lines.len() > 0
+          if !lines.is_empty()
           {
             self.expression(
               &mut lines[0].read().unwrap()
@@ -403,7 +401,7 @@ impl Structure
         }
         //
       };
-      let rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо.
+      let _rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо.
       
       /* todo Может плохо работать с #85, нужен контроль.
       // Далее обрабатываем саму операцию.
@@ -484,9 +482,7 @@ impl Structure
                 vec![
                   Arc::new(RwLock::new(Line {
                     tokens: Some(linesResult),
-                    indent: None,
-                    lines: None,
-                    parent: None
+                    lines: None
                   }))
                 ]
               );
@@ -542,18 +538,18 @@ impl Structure
                   .tokens.clone().unwrap_or_default() // todo плохо
               };
 
-              if lineTokens.len() > 0
+              if !lineTokens.is_empty()
               { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то.
                 
                 // В линии есть хотя бы 1 токен.
-                if link.len() != 0
+                if !link.is_empty()
                 { // Если дальше есть продолжение ссылки.
                   link.insert(0, lineTokens[0].getData().toString().unwrap_or_default());
 
                   // То мы сначала проверяем что такая структура есть во внутреннем пространстве.
-                  if let Some(_) = currentStructure.getStructureByName( // todo Возможно is_some() ?
+                  if currentStructure.getStructureByName(
                     &lineTokens[0].getData().toString().unwrap_or_default()
-                  )
+                  ).is_some()
                   {
                     drop(currentStructure);
                     return currentStructureLock.read().unwrap()
@@ -589,7 +585,7 @@ impl Structure
                     )
                     { // Пробуем проверить что там 1 линия вложена в структуре;
                       // После чего сможем посчитать её значение.
-                      let childStructure: RwLockReadGuard<Structure> = childStructureLink.read().unwrap();
+                      let childStructure: RwLockReadGuard<Self> = childStructureLink.read().unwrap();
                       if lines.len() == 1
                       {
                         if let Some(lines) = &childStructure.lines
@@ -608,6 +604,7 @@ impl Structure
                       }
                     }
                     // Если ничего не получилось, значит оставляем ссылку.
+                    drop(currentStructure);
                     return Token::new( TokenType::Link, lineTokens[0].getData() );
                   } else 
                   { // Если это не слово, то смотрим на результат expression.
@@ -641,7 +638,7 @@ impl Structure
               if let Some(childStructureLink) = childStructureLink
               {
                 if let Some(lines) = &childStructureLink.read().unwrap().lines {
-                  lines.len() != 0
+                  !lines.is_empty()
                 } else { false }
                 //
               } else { false }
@@ -674,35 +671,39 @@ impl Structure
               // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0].
               // Библиотека там лежит как токен типа String с путём к файлу библиотеки.
 
-              // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен).
-              let linesVec: &Vec< Arc<RwLock<Line>> > = match &structureGuard.lines {
-                Some(v) => v,
-                None => return Token::newEmpty(TokenType::None)
-              };
-              // Берём первую линию (индекс 0).
-              let lineLock: &Arc<RwLock<Line>> = match linesVec.get(0) {
-                Some(l) => l,
-                None => return Token::newEmpty(TokenType::None)
-              };
-              // Читаем линию, чтобы получить её токены.
-              let line: RwLockReadGuard<Line> = lineLock.read().unwrap();
-              // Токены линии — здесь должен быть один токен типа String.
-              let tokensVec: &Vec<Token> = match &line.tokens {
-                Some(t) => t,
-                None => return Token::newEmpty(TokenType::None)
-              };
-              // Берём первый (и единственный) токен.
-              let nativeToken: &Token = match tokensVec.first() {
-                Some(t) => t,
-                None => return Token::newEmpty(TokenType::None)
-              };
-              // Убеждаемся, что токен действительно типа String.
-              if *nativeToken.getDataType() != TokenType::String {
-                return Token::newEmpty(TokenType::None);
-              }
-
               // Из токена извлекаем сырые байты (путь к библиотеке).
-              let bytes: Bytes = nativeToken.getData();
+              let bytes: Bytes = {
+
+                // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен).
+                let linesVec: &Vec< Arc<RwLock<Line>> > = match &structureGuard.lines {
+                  Some(v) => v,
+                  None => return Token::newEmpty(TokenType::None)
+                };
+                // Берём первую линию (индекс 0).
+                let lineLock: &Arc<RwLock<Line>> = match linesVec.first() {
+                  Some(l) => l,
+                  None => return Token::newEmpty(TokenType::None)
+                };
+                // Читаем линию, чтобы получить её токены.
+                let line: RwLockReadGuard<Line> = lineLock.read().unwrap();
+                // Токены линии — здесь должен быть один токен типа String.
+                let tokensVec: &[Token] = match &line.tokens {
+                  Some(t) => t,
+                  None => return Token::newEmpty(TokenType::None)
+                };
+                // Берём первый (и единственный) токен.
+                let nativeToken: &Token = match tokensVec.first() {
+                  Some(t) => t,
+                  None => return Token::newEmpty(TokenType::None)
+                };
+                // Убеждаемся, что токен действительно типа String.
+                if *nativeToken.getDataType() != TokenType::String {
+                  return Token::newEmpty(TokenType::None);
+                }
+                
+                nativeToken.getData()
+              };
+              drop(structureGuard);
               let raw: &[u8] = match bytes.getAll() {
                 Some(r) => r,
                 None => return Token::newEmpty(TokenType::None)
@@ -723,9 +724,7 @@ impl Structure
                     // Имя метода, который вызывают; например: "method" в lib.method(...).
                     Token::new(TokenType::String, link[0].clone()) // todo Но кстати оно больше не надо будет? зачем тогда .clone.
                   ]),
-                  indent: None,
-                  lines: None,
-                  parent: None
+                  lines: None
                 }))
               ]);
               //
@@ -734,7 +733,7 @@ impl Structure
           
           // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
           // todo desc
-          if link.len() == 0
+          if link.is_empty()
           { // Закончилась ли ссылка?
             
             // Если это конец, то берём последнюю структуру и работаем с ней.
@@ -785,9 +784,7 @@ impl Structure
                     Arc::new(RwLock::new(Line
                     {
                       tokens: Some(parameters),
-                      indent: None,
-                      lines: None,
-                      parent: None
+                      lines: None
                     }))
                   ]
                 );
@@ -1148,7 +1145,7 @@ impl Structure
               //value[i+1].setData(
               //  format!("-{}", tokenData)
               //);
-              value[i+1].setData(tokenData.to_string());
+              value[i+1].setData(tokenData);
             }
 
             i += 1; // Мы уже посчитали скобку.
@@ -1159,7 +1156,7 @@ impl Structure
           value[i] =
             if let Some(linesLinks) = &value[i].lines
             {
-              if linesLinks.len() > 0 
+              if !linesLinks.is_empty()
               {
                 let line: RwLockReadGuard<Line> = linesLinks[0].read().unwrap();
                 if let Some(mut tokenTokens) = line.tokens.clone() // todo Может быть не 0.
@@ -1218,10 +1215,9 @@ impl Structure
             }
           } else 
           {
-            match *value[i].getDataType()
+            if *value[i].getDataType() == TokenType::Word
             { // Вычисляем значение для struct имени только при типе TokenType::Word.
-              TokenType::Word => self.replaceStructureByName(value, i),
-              _ => {}
+              self.replaceStructureByName(value, i);
             }
           }
           //

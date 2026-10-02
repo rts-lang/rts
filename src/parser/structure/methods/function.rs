@@ -383,12 +383,10 @@ impl Function
       let libraryPath: String = 
         if libraryPath.contains('/') && !std::path::Path::new(&libraryPath).is_absolute()
         {
-          unsafe{
-            std::path::Path::new(&*_filePath)
-              .parent()
-              .map(|dir| dir.join(&libraryPath).to_string_lossy().into_owned())
-              .unwrap_or(libraryPath)
-          }
+          std::path::Path::new(_filePath.get().unwrap())
+            .parent()
+            .map(|dir| dir.join(&libraryPath).to_string_lossy().into_owned())
+            .unwrap_or(libraryPath)
         } else { libraryPath };
 
       #[cfg(not(target_family = "wasm"))]
@@ -489,13 +487,11 @@ impl Function
       let importPath: String =
         if !std::path::Path::new(&importPath).is_absolute()
         {
-          let currentFile: String = unsafe
-          {
-            match &_sourcePath
-            {
-              Some(sourcePath) => sourcePath.as_str().to_string(),
-              None => _filePath.clone() // Код запущенного файла.
-            }
+          let currentFile: String = if let Some(sourcePath) = _sourcePath.read().unwrap().as_ref() {
+            sourcePath.as_str().to_string()
+          } else 
+          { // Код запущенного файла.
+            _filePath.get().unwrap().clone()
           };
           std::path::Path::new(&currentFile)
             .parent()
@@ -521,7 +517,9 @@ impl Function
       // (нужно, чтобы найти её обратно после возврата из expressionWith).
       let tempIndex: usize =
       {
-        let structuresLink = structure.structures.read().unwrap();
+        let structuresLink: RwLockReadGuard<Option<
+          Vec< Arc<RwLock<Structure>> >
+        >> = structure.structures.read().unwrap();
         structuresLink.as_ref().map(|v| v.len()).unwrap_or(0)
       };
       let tempName: String = format!("#import{}", tempIndex);
@@ -532,8 +530,8 @@ impl Function
       //
       // Пока модуль загружается, исполняется код его файла:
       // структуры модуля запомнят его путь при создании.
-      let previousSourcePath: Option<Arc<String>> = unsafe{ _sourcePath.clone() };
-      unsafe{ _sourcePath = Some(Arc::new(importPath.clone())); }
+      let previousSourcePath: Option<Arc<String>> = _sourcePath.read().unwrap().clone();
+      *_sourcePath.write().unwrap() = Some(Arc::new(importPath));
 
       let moduleLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
         Some(tempName.clone()),
@@ -548,7 +546,7 @@ impl Function
       // пушатся в moduleLink.structures по мере исполнения его строк,
       // так же, как это происходит для main.rt через parseLines().
       readLines(moduleLink.clone());
-      unsafe{ _sourcePath = previousSourcePath; }
+      *_sourcePath.write().unwrap() = previousSourcePath;
 
       structure.pushStructure(moduleLink);
 
@@ -592,9 +590,7 @@ impl Function
           StructureType::Usize,
           Some(vec![Arc::new(RwLock::new(Line {
             tokens: Some(vec![p0]),
-            indent: None,
-            lines: None,
-            parent: None,
+            lines: None
           }))]),
           None
         );
@@ -622,17 +618,14 @@ impl Function
         // Находим индекс этой структуры в structures.
         //
         // todo Не уверен что это лучший вариант
-        let index: usize = 
-        {
-          let structuresLink: RwLockReadGuard<Option< Vec< Arc<RwLock<Structure>> > >> = 
-            structure.structures.read().unwrap();
-          let structures: &Vec< Arc<RwLock<Structure>> > = structuresLink
+        let index: usize =
+          structure.structures.read().unwrap()
             .as_ref()
-            .expect("structures should be Some after pushStructure"); // todo TokenType::None
-          structures.iter()
+            .expect("structures should be Some after pushStructure") // todo TokenType::None
+            .iter()
             .position(|s| Arc::ptr_eq(s, &tempStructureLink))
-            .expect("newly added structure not found") // todo TokenType::None
-        };
+            .expect("newly added structure not found"); // todo TokenType::None
+        
         // Возвращаем Link с "#temp{index}".
         //
         // todo В теории правильно вернуть нормальную ссылку - потому что в expression
