@@ -205,10 +205,10 @@ impl std::ops::Sub for Value
       // UInt
       (Self::UInt(x), Self::UInt(y)) => 
       {
-        match y > x 
-        {
-          true  => { Self::UInt(0) }  
-          false => { Self::UInt(x-y) }
+        if y > x {
+          Self::UInt(0)
+        } else {
+          Self::UInt(x-y)
         }
       },
       (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_sub(y)),
@@ -309,15 +309,14 @@ impl std::ops::Div for Value
     // Нулевой делитель заменяем единицей того же варианта: x / 1 = x,
     // а тип результата идет по тем же веткам, что и при обычном делении,
     // т.е. зависит от типов операндов, а не от их значений.
-    let other: Self = match other.isZero() 
+    let other: Self = if other.isZero() 
     {
-      false => other,
-      true => match self 
+      match self 
       {
         Self::None() => return self, // Левой части нет - остается None.
         _ => other.one()
       }
-    };
+    } else { other };
     match (self.clone(), other) 
     {
       // None

@@ -196,10 +196,10 @@ fn unsignedToken(value: u64) -> Token
 /// Знаковое целое -> абстрактный токен (как у литералов: `>= 0` это UInt, `< 0` это Int).
 fn signedToken(value: i64) -> Token
 {
-  match value < 0
-  {
-    true  => Token::new(TokenType::Int,  value.to_string()),
-    false => Token::new(TokenType::UInt, value.to_string())
+  if value < 0 {
+    Token::new(TokenType::Int,  value.to_string())
+  } else {
+    Token::new(TokenType::UInt, value.to_string())
   }
 }
 
@@ -209,14 +209,13 @@ fn floatToken(text: String, negative: bool) -> Token
 {
   let mut text: String = text;
   // Rust печатает 4.0 как "4" — возвращаем точку, чтобы это оставалось числом с плавающей точкой.
-  if !text.contains(|c: char| c == '.' || c == 'e' || c == 'E' || c == 'N' || c == 'i')
-  {
+  if !text.contains(|c: char| c == '.' || c == 'e' || c == 'E' || c == 'N' || c == 'i') {
     text.push_str(".0");
   }
-  match negative
-  {
-    true  => Token::new(TokenType::Float,  text),
-    false => Token::new(TokenType::UFloat, text)
+  if negative {
+    Token::new(TokenType::Float,  text)
+  } else {
+    Token::new(TokenType::UFloat, text)
   }
 }
 

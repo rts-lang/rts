@@ -6,16 +6,14 @@ use termion::style;
 /// hex str -> `termion::color::Rgb`.
 fn hexToTermionColor(hex: &str) -> Option<Rgb>
 {
-  match hex.len() != 6 
-  { 
-    true => None,
-    false => {
-      Some(Rgb(
-        u8::from_str_radix(&hex[0..2], 16).ok()?, 
-        u8::from_str_radix(&hex[2..4], 16).ok()?, 
-        u8::from_str_radix(&hex[4..6], 16).ok()?
-      ))
-    } 
+  if hex.len() != 6 {
+    None
+  } else {
+    Some(Rgb(
+      u8::from_str_radix(&hex[0..2], 16).ok()?,
+      u8::from_str_radix(&hex[2..4], 16).ok()?,
+      u8::from_str_radix(&hex[4..6], 16).ok()?
+    ))
   }
   //
 }
@@ -231,13 +229,8 @@ pub fn log(textType: &str, text: &str) -> ()
       parts = text.split("|").map(|s| s.to_string()).collect();
       outputParts = Vec::new();
       // first word no format
-      match parts.first() 
-      {
-        None => {}
-        Some(firstPart) => 
-        {
-          outputParts.push( formatString(firstPart) );
-        }
+      if let Some(firstPart) = parts.first() {
+        outputParts.push( formatString(firstPart) );
       }
       // last word
       for part in parts.iter().skip(1) 
@@ -318,18 +311,14 @@ pub fn log(textType: &str, text: &str) -> ()
       parts = text.split("|").map(|s| s.to_string()).collect();
       outputParts = Vec::new();
       // left
-      match parts.first() 
+      if let Some(firstPart) = parts.first() 
       {
-        Some(firstPart) => 
-        {
-          outputParts.push(
-            formatString(&format!(
-              "  \\fg(#f0f8ff)\\b{} | \\c",
-              firstPart
-            ))
-          );
-        }
-        None => {}
+        outputParts.push(
+          formatString(&format!(
+            "  \\fg(#f0f8ff)\\b{} | \\c",
+            firstPart
+          ))
+        );
       }
       // right
       for part in parts.iter().skip(1) 

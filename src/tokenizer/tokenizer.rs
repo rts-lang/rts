@@ -649,36 +649,30 @@ mod tests
     for (i, line) in lines.iter().enumerate()
     {
       let guard: RwLockReadGuard<Line> = line.read().unwrap();
-      let tokensStr: String = match guard.tokens.as_ref()
+      let tokensStr: String = if let Some(token) = guard.tokens.as_ref()
       {
-        None => "<None>".to_string(),
-        Some(t) => t.iter()
+        token.iter()
           .map(|tok| format!("{}", tok.getDataType().to_string()))
           .collect::<Vec<_>>()
           .join(",")
-      };
-      let innerStr: String = match guard.lines.as_ref()
+      } else { "<None>".to_string() };
+      let innerStr: String = if let Some(inner) = guard.lines.as_ref()
       {
-        None => "<None>".to_string(),
-        Some(inner) =>
+        let mut s: String = String::new();
+        for (j, il) in inner.iter().enumerate()
         {
-          let mut s: String = String::new();
-          for (j, il) in inner.iter().enumerate()
+          let ig: RwLockReadGuard<Line> = il.read().unwrap();
+          let it: String = if let Some(token) = ig.tokens.as_ref()
           {
-            let ig: RwLockReadGuard<Line> = il.read().unwrap();
-            let it: String = match ig.tokens.as_ref()
-            {
-              None => "<None>".to_string(),
-              Some(t) => t.iter()
-                .map(|tok| format!("{}", tok.getDataType().to_string()))
-                .collect::<Vec<_>>()
-                .join(",")
-            };
-            s.push_str(&format!("  inner[{}] tokens=[{}]\n", j, it));
-          }
-          s
+            token.iter()
+              .map(|tok| format!("{}", tok.getDataType().to_string()))
+              .collect::<Vec<_>>()
+              .join(",")
+          } else { "<None>".to_string() };
+          s.push_str(&format!("  inner[{}] tokens=[{}]\n", j, it));
         }
-      };
+        s
+      } else { "<None>".to_string() };
       println!("line[{}] tokens=[{}] has_lines={}\n{}", i, tokensStr, guard.lines.is_some(), innerStr);
     }
   }
@@ -694,14 +688,13 @@ mod tests
     for (i, line) in lines.iter().enumerate()
     {
       let guard: RwLockReadGuard<Line> = line.read().unwrap();
-      let tokensStr: String = match guard.tokens.as_ref()
+      let tokensStr: String = if let Some(token) = guard.tokens.as_ref()
       {
-        None => "<None>".to_string(),
-        Some(t) => t.iter()
+        token.iter()
           .map(|tok| format!("{}", tok.getDataType().to_string()))
           .collect::<Vec<_>>()
           .join(",")
-      };
+      } else { "<None>".to_string() };
       println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }
   }
@@ -718,14 +711,13 @@ mod tests
     for (i, line) in lines.iter().enumerate()
     {
       let guard: RwLockReadGuard<Line> = line.read().unwrap();
-      let tokensStr: String = match guard.tokens.as_ref()
+      let tokensStr: String = if let Some(token) = guard.tokens.as_ref()
       {
-        None => "<None>".to_string(),
-        Some(t) => t.iter()
+        token.iter()
           .map(|tok| format!("{}", tok.getDataType().to_string()))
           .collect::<Vec<_>>()
           .join(",")
-      };
+      } else { "<None>".to_string() };
       println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }
   }

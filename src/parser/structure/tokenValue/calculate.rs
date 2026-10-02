@@ -21,7 +21,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
   // Получаем значение выражения, а также предварительный тип.
   let mut resultType: TokenType = TokenType::UInt;
-  let mut resultValue: String = match *op 
+  let resultValue: String = match *op 
   {
     TokenType::Plus     => (leftValue + rightValue).to_string(),
     TokenType::Minus    => (leftValue - rightValue).to_string(),
