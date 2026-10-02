@@ -186,16 +186,17 @@ fn readTokens(
       let start: usize = index;
       deleteComment(buffer, &mut index, bufferLength); // Пропускает комментарий.
 
+      // Analyzer сохраняет комментарий как токен - он виден как часть кода.
       #[cfg(feature = "analyzer")]
       {
         let mut token: Token = Token::newEmpty(TokenType::Comment);
         pushLineToken(&mut token, &mut lineTokens, start, index);
       }
-      #[cfg(not(feature = "analyzer"))]
-      lineTokens.push(Token::newEmpty(TokenType::Comment));
 
       // Комментарий всегда завершает текущую линию - как endline;
-      // Остается токен комментария; Добавляем новую линию.
+      //
+      // Добавляем новую линию. Если до комментария в линии ничего не было,
+      // то линии не будет и комментарий не займёт номер элемента: `a.N`.
       pushLineFromTokens(&mut lineTokens, None, &mut linesLinks);
     } else
     // Получаем все возможные численные примитивные типы данных;
@@ -736,6 +737,86 @@ mod tests
     let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
     eprintln!("types1 lines={}", lines.len());
     assert!(lines.len() >= 8, "types1 expected >= 8 lines, got {}", lines.len());
+  }
+
+  // ===============================================================================================
+  
+  /// Количество линий в результате чтения.
+  fn countLines(text: &str) -> usize
+  {
+    let mut buffer: Vec<u8> = text.as_bytes().to_vec();
+    readTokensSimple(&mut buffer).len()
+  }
+
+  /// Количество вложенных линий у первой линии.
+  fn countInnerLines(text: &str) -> usize
+  {
+    let mut buffer: Vec<u8> = text.as_bytes().to_vec();
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
+    let guard: RwLockReadGuard<Line> = lines[0].read().unwrap();
+    if let Some(inner) =
+      guard.lines.as_ref() { inner.len() }
+      else { 0 }
+  }
+
+  /// Комментарий - это запись, а не часть структуры: линия из одного комментария
+  /// не создаётся и не занимает номер элемента (`a.N`).
+  /// Analyzer сохраняет комментарии - они видны как часть кода.
+  #[test]
+  fn commentOnlyLine() -> ()
+  {
+    #[cfg(not(feature = "analyzer"))]
+    {
+      assert_eq!(countLines("a\n# comment\nb\n"), 2, "Comment is not a line");
+      assert_eq!(countLines("# only comment\n"), 0, "Only comment - empty");
+      assert_eq!(countLines("# first\n# second\na\n"), 1, "Several comments in a row");
+    }
+    #[cfg(feature = "analyzer")]
+    {
+      assert_eq!(countLines("a\n# comment\nb\n"), 3, "Analyzer preserves comment");
+      assert_eq!(countLines("# only comment\n"), 1, "Analyzer preserves comment");
+    }
+  }
+
+  /// Многострочный комментарий `##` на своих строках тоже не создаёт линию.
+  #[test]
+  fn blockCommentOnlyLines() -> ()
+  {
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(countLines("a\n##\nblock\n##\nb\n"), 2);
+    #[cfg(feature = "analyzer")]
+    assert_eq!(countLines("a\n##\nblock\n##\nb\n"), 3);
+  }
+
+  /// Комментарий в конце линии завершает её и не меняет число линий.
+  #[test]
+  fn trailingComment() -> ()
+  {
+    assert_eq!(countLines("10 # c\n20\n"), 2);
+
+    let mut buffer: Vec<u8> = b"10 # c\n20\n".to_vec();
+    let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
+    let guard: RwLockReadGuard<Line> = lines[0].read().unwrap();
+    let tokens: usize = if let Some(tokens) =
+      guard.tokens.as_ref() { tokens.len() }
+      else { 0 };
+    
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(tokens, 1, "Only 10");
+    #[cfg(feature = "analyzer")]
+    assert_eq!(tokens, 2, "10 and comment");
+  }
+
+  /// Внутри блока `{}` комментарий не занимает номер элемента: 10, 20, 30 это 0, 1, 2.
+  #[test]
+  fn commentInsideBlock() -> ()
+  {
+    let text: &str = "a {\n  10\n  # comment\n\n  20\n  ##\n  multi\n  ##\n  30\n}\n";
+    
+    #[cfg(not(feature = "analyzer"))]
+    assert_eq!(countInnerLines(text), 3);
+    #[cfg(feature = "analyzer")]
+    assert_eq!(countInnerLines(text), 5);
   }
 
   // ===============================================================================================
