@@ -42,9 +42,7 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
     Some(vec![Arc::new(RwLock::new(Line
     {
       tokens: Some(vec![token.clone()]),
-      indent: None,
-      lines: None,
-      parent: None
+      lines: None
     }))]),
     None
   )));
@@ -56,9 +54,7 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
     Some(vec![Arc::new(RwLock::new(Line
     {
       tokens: Some(vec![Token::new(TokenType::UInt, length.to_string())]),
-      indent: None,
-      lines: None,
-      parent: None
+      lines: None
     }))]),
     None
   )));
@@ -208,8 +204,9 @@ fn signedToken(value: i64) -> Token
 fn floatToken(text: String, negative: bool) -> Token
 {
   let mut text: String = text;
-  // Rust печатает 4.0 как "4" — возвращаем точку, чтобы это оставалось числом с плавающей точкой.
-  if !text.contains(|c: char| c == '.' || c == 'e' || c == 'E' || c == 'N' || c == 'i') {
+  // Rust печатает 4.0 как "4" — возвращаем точку, 
+  // чтобы это оставалось числом с плавающей точкой.
+  if !text.contains(['.', 'e', 'E', 'N', 'i']) {
     text.push_str(".0");
   }
   if negative {
@@ -324,11 +321,16 @@ pub fn callExternal(
   // Токен результата — обычные данные (не адрес и не ссылка на память scope),
   // поэтому спокойно живёт после выхода из ffi!{}.
   let result: Result<Token, FFIError> = ffi!(|scope| {
-    Ok::<_, FFIError>(
-      callExternalWithScope(&scope, libraryPath, methodName, parametersTokens, expect)
-        .map_err(|e: String| FFIError::Other(e))?
+    callExternalWithScope(
+      &scope,
+      libraryPath,
+      methodName,
+      parametersTokens,
+      expect
     )
+    .map_err(|e: String| FFIError::Other(e))
   });
+  
   result.map_err(|e| e.to_string())
 }
 

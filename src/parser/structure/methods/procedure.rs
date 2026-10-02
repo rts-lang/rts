@@ -13,6 +13,7 @@ use std::io;
 #[cfg(not(target_family = "wasm"))]
 use std::io::Write;
 use std::ops::DerefMut;
+use std::sync::atomic::Ordering;
 #[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
 use crate::parser::structure::methods::parameters::{Parameters};
@@ -119,12 +120,15 @@ impl Procedure
   fn exit(structure: &Structure, parameters: &Parameters) -> ()
   {
     if let Some(parameter0) = parameters.getExpression(structure,0)
-    {unsafe{
-      _exit = true;
-      _exitCode = parameter0
-        .getData().toString().unwrap_or_default()
-        .parse::<i32>().unwrap_or(1);
-    }}
+    {
+      _exit.store(true, Ordering::Relaxed);
+      _exitCode.store(
+        parameter0
+          .getData().toString().unwrap_or_default()
+          .parse::<i32>().unwrap_or(1), 
+        Ordering::Relaxed
+      );
+    }
   }
   
   // ===============================================================================================
@@ -208,7 +212,7 @@ impl Structure
 
                     // ABI-композит String: .pointer/.length;
                     // Считаем ДО перемещения токена в lines ниже.
-                    let stringFields: Option<[Arc<RwLock<Structure>>; 2]> = 
+                    let stringFields: Option<[Arc<RwLock<Self>>; 2]> = 
                       if calledStructureStructure.dataType == StructureType::String {
                         bridge::stringFields(&token)
                       } else { None };
@@ -217,9 +221,7 @@ impl Structure
                     calledStructureStructure.lines = Some(vec![
                       Arc::new(RwLock::new(Line {
                         tokens: Some(vec![token]),
-                        indent: None,
-                        lines: None,
-                        parent: None
+                        lines: None
                       }))
                     ]);
 
@@ -241,10 +243,10 @@ impl Structure
             // (нужно для import() внутри функции из импортированного файла).
             let calledSourcePath: Option<Arc<String>> =
               calledStructureLink.read().unwrap().sourcePath.clone();
-            let previousSourcePath: Option<Arc<String>> = unsafe{ _sourcePath.clone() };
-            unsafe{ _sourcePath = calledSourcePath; }
+            let previousSourcePath: Option<Arc<String>> = _sourcePath.read().unwrap().clone();
+            *_sourcePath.write().unwrap() = calledSourcePath;
             readLines(calledStructureLink);
-            unsafe{ _sourcePath = previousSourcePath; }
+            *_sourcePath.write().unwrap() = previousSourcePath;
           }
         }
         // -----------------------------------------------------------------------------------------

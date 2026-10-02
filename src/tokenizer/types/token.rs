@@ -79,7 +79,7 @@ impl Token
   ///  что результат будет 0
   /// 
   /// todo По идее это обрубание типов? константановое поведение.
-  const fn convertData(&mut self) -> ()
+  const fn convertData(&self) -> ()
   {
     return; // todo Работает криво например для `Float | F32 = -3.4028234663852886e38` - было 0.0
     /*

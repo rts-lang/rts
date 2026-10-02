@@ -66,7 +66,7 @@ pub enum StructureType
   ///   можно указать, но оно ничего не ограничивает (см. issue #22).
   ///
   /// Пустой список вариантов равносилен `None`.
-  Union(Vec<StructureType>)
+  Union(Vec<Self>)
 }
 
 // =================================================================================================
@@ -120,7 +120,7 @@ impl ToString for StructureType
       // Объединение типов (issue #59) — печатается так же, как записывается.
       Self::Union(variants) => variants
         .iter()
-        .map(|variant: &StructureType| variant.to_string())
+        .map(|variant: &Self| variant.to_string())
         .collect::<Vec<String>>()
         .join(" | "),
 
@@ -174,27 +174,23 @@ impl StructureType
   /// Возвращает `StructureType::Union(vec![..])`, если вариантов несколько.
   /// Если после `|` идёт не имя типа, лишние варианты отбрасываются —
   /// union из не-типов не имеет смысла (#59: `a: "name"|10` не поддерживается).
-  pub fn fromTypeTokens(typeTokens: &[Token]) -> StructureType
+  pub fn fromTypeTokens(typeTokens: &[Token]) -> Self
   {
-    let mut variants: Vec<StructureType> = Vec::new();
+    let mut variants: Vec<Self> = Vec::new();
 
     let mut current: Vec<Token> = Vec::new();
-    let pushVariant = |variants: &mut Vec<StructureType>, current: &mut Vec<Token>| -> ()
+    let pushVariant = |variants: &mut Vec<Self>, current: &mut Vec<Token>| -> ()
     {
-      match current.iter().find(|token: &&Token| Self::isTypeName(token))
+      if let Some(token) = current.iter().find(|token: &&Token| Self::isTypeName(token))
       {
-        Some(token) =>
+        let variant: Self = token.getStructureTypeSimple();
+        // Повторы и вложенные union'ы схлопываем в плоский список вариантов.
+        match variant
         {
-          let variant: StructureType = token.getStructureTypeSimple();
-          // Повторы и вложенные union'ы схлопываем в плоский список вариантов.
-          match variant
-          {
-            StructureType::Union(nested) => variants.extend(nested),
-            _ => if !variants.contains(&variant) { variants.push(variant); }
-          }
+          Self::Union(nested) => variants.extend(nested),
+          _ => if !variants.contains(&variant) { variants.push(variant); }
         }
-        None => {} // Не имя типа — просто пропускаем этот вариант.
-      }
+      } // Не имя типа — просто пропускаем этот вариант.
       current.clear();
     };
 
@@ -213,21 +209,21 @@ impl StructureType
 
     match variants.len()
     {
-      0 => StructureType::None, // Ни одного имени типа — тип не указан.
+      0 => Self::None, // Ни одного имени типа — тип не указан.
       1 => variants.into_iter().next().unwrap(), // Один вариант — обычный тип, без Union.
-      _ => StructureType::Union(variants)
+      _ => Self::Union(variants)
     }
   }
 
   /// Варианты объединения; для не-Union — единственный сам тип.
   ///
   /// Так `Union([U8])` и `U8` ведут себя одинаково, а пустой список — как `None`.
-  pub fn variants(&self) -> Vec<StructureType>
+  pub fn variants(&self) -> Vec<Self>
   {
     match self
     {
-      StructureType::Union(variants) => variants.clone(),
-      StructureType::None => Vec::new(),
+      Self::Union(variants) => variants.clone(),
+      Self::None => Vec::new(),
       other => vec![other.clone()]
     }
   }
@@ -238,35 +234,35 @@ impl StructureType
   /// (и насыщение по границам самого широкого типа, #71);
   /// для строки — `String`. Токен при этом НЕ очищается,
   /// в отличие от `Token::getStructureType()`, который чистит всё нечисловое.
-  pub fn naturalType(token: &mut Token) -> StructureType
+  pub fn naturalType(token: &mut Token) -> Self
   {
     match token.getDataType()
     {
-      TokenType::None   => StructureType::None,
-      TokenType::Any    => StructureType::Any,
-      TokenType::Link   => StructureType::Link,
-      TokenType::Bool   => StructureType::Bool,
-      TokenType::True   => StructureType::True,
-      TokenType::False  => StructureType::False,
-      TokenType::String => StructureType::String,
-      TokenType::RawString => StructureType::RawString,
+      TokenType::None => Self::None,
+      TokenType::Any => Self::Any,
+      TokenType::Link => Self::Link,
+      TokenType::Bool => Self::Bool,
+      TokenType::True => Self::True,
+      TokenType::False => Self::False,
+      TokenType::String => Self::String,
+      TokenType::RawString => Self::RawString,
       // Числа: ширину и насыщение считает сам getStructureType.
       TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
         token.getStructureType(),
       // Неизвестное — трактуем как отсутствие значения.
-      _ => StructureType::None
+      _ => Self::None
     }
   }
 
   /// Является ли вариант числовым (целочисленным или с плавающей точкой).
-  pub fn isNumeric(variant: &StructureType) -> bool
+  pub const fn isNumeric(variant: &Self) -> bool
   {
     matches!(variant,
-      StructureType::U8  | StructureType::U16  | StructureType::U32  |
-      StructureType::U64 | StructureType::Usize |
-      StructureType::I8  | StructureType::I16  | StructureType::I32  |
-      StructureType::I64 | StructureType::Isize |
-      StructureType::F32 | StructureType::F64
+      Self::U8  | Self::U16  | Self::U32  |
+      Self::U64 | Self::Usize |
+      Self::I8  | Self::I16  | Self::I32  |
+      Self::I64 | Self::Isize |
+      Self::F32 | Self::F64
     )
   }
 
@@ -274,14 +270,14 @@ impl StructureType
   ///
   /// Число приводится к любому числовому варианту (с зажимом в границы типа, #71),
   /// строка — только к строковому. Всё остальное не приводится.
-  fn isConvertible(token: &Token, variant: &StructureType) -> bool
+  const fn isConvertible(token: &Token, variant: &Self) -> bool
   {
     match token.getDataType()
     {
       TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
         Self::isNumeric(variant),
       TokenType::String | TokenType::RawString =>
-        matches!(variant, StructureType::String | StructureType::RawString),
+        matches!(variant, Self::String | Self::RawString),
       // Приводить нечего: точное совпадение уже было проверено отдельно.
       _ => false
     }
@@ -342,7 +338,7 @@ impl Structure
     { return token.getStructureType(); }
 
     let natural: StructureType = StructureType::naturalType(token);
-    let variant: StructureType = Self::matchUnion(token, &StructureType::Union(variants.clone()));
+    let variant: StructureType = Self::matchUnion(token, &StructureType::Union(variants));
 
     // Не подошло ни к одному варианту — токен очищается.
     if variant == StructureType::None
@@ -490,13 +486,11 @@ impl Structure
               match structureType 
               {
                 StructureType::F32 => {
-                  if value < f32::MIN as f64 { value = f32::MIN as f64; }
-                  if value > f32::MAX as f64 { value = f32::MAX as f64; }
+                  value = value.clamp(f32::MIN as f64, f32::MAX as f64);
                   token.setData( Bytes::from((value as f32).to_string()) );
                 }
                 StructureType::F64 => {
-                  if value < f64::MIN { value = f64::MIN; }
-                  if value > f64::MAX { value = f64::MAX; }
+                  value = value.clamp(f64::MIN, f64::MAX);
                   token.setData( Bytes::from(value.to_string()) );
                 }
                 // Приведение к целочисленным типам: округление и зажим в границы типа;
@@ -514,7 +508,6 @@ impl Structure
                   };
                   token.setData( Bytes::from(clamped) );
                 }
-                _ => {}
               }
             } else 
             { // Не распарсилось — базовое значение.

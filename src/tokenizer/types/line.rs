@@ -8,14 +8,8 @@ pub struct Line
 {
   /// Список вложенных токенов
   pub tokens: Option< Vec<Token> >,
-  /// Уровень отступа
-  pub indent: Option<usize>, // todo Indent больше не нужен - убрать, но тесты надо переписать;
-                             //  Также это потянет за собой parser - а там кучу мест.
-                             //  (Кстати сейчас он же вообще не юзается?)
   /// Вложенные линии
   pub lines: Option< Vec< Arc<RwLock<Self>> > >,
-  /// Ссылка на родителя
-  pub parent: Option< Arc<RwLock<Self>> >
 }
 impl Line 
 {
@@ -24,9 +18,7 @@ impl Line
     Self 
     {
       tokens: None,
-      indent: None,
-      lines: None,
-      parent: None
+      lines: None
     }
   }
 }
@@ -50,15 +42,12 @@ mod tests
     let token2: Token = Token::newEmpty(TokenType::UInt);
     let line: Line = Line {
       tokens: Some(vec![token1, token2]),
-      indent: None,
-      lines: None,
-      parent: None
+      lines: None
     };
 
     //
     assert!(line.tokens.is_some(), "tokens must be Some");
     assert_eq!(line.tokens.as_ref().unwrap().len(), 2, "The length of tokens must be 2");
-    assert!(line.indent.is_none(), "indent must be None");
   }
   
   /// todo desk
@@ -68,13 +57,10 @@ mod tests
     let token: Token = Token::newEmpty(TokenType::Bool);
     let line: Line = Line {
       tokens: Some(vec![token]),
-      indent: Some(4),
-      lines: None,
-      parent: None
+      lines: None
     };
 
     //
-    assert_eq!(line.indent.unwrap(), 4, "indent must be 4");
     assert_eq!(line.tokens.as_ref().unwrap().len(), 1, "The length of tokens must be 1");
   }
   
@@ -86,9 +72,7 @@ mod tests
     let innerArc: Arc<RwLock<Line>> = Arc::new(RwLock::new(inner));
     let outer: Line = Line {
       tokens: None,
-      indent: Some(0),
-      lines: Some(vec![innerArc]),
-      parent: None
+      lines: Some(vec![innerArc])
     };
 
     //

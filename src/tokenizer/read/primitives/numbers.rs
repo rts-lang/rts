@@ -1,12 +1,13 @@
 use crate::tokenizer::read::primitives::skipWhitespaceBytes;
-use crate::tokenizer::types::token::{Token};
+use crate::tokenizer::read::primitives::words::isLetter;
+use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Проверяет что байт является цифрой.
-pub const fn isDigit(byte: &u8) -> bool
+pub const fn isDigit(byte: u8) -> bool
 {
-  *byte >= b'0' && *byte <= b'9'
+  byte >= b'0' && byte <= b'9'
 }
 
 // =================================================================================================
@@ -25,19 +26,19 @@ pub fn isFloatDotStart(buffer: &[u8], index: usize, bufferLength: usize) -> bool
   let mut temp: usize = index + 1;
   skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t");
 
-  // `.1`, `. 14`
-  if temp < bufferLength && isDigit(&buffer[temp]) {
+  // `.1`, `. 14`.
+  if temp < bufferLength && isDigit(buffer[temp]) {
     return true;
   }
 
-  // голая `.` = 0.0 — не member access (после точки не идентификатор)
+  // голая `.` = 0.0 — не member access (после точки не идентификатор).
   if temp >= bufferLength {
     return true;
   }
 
   let next: u8 = buffer[temp];
-  // буква / `_` → member access (`a.b`), иначе числовой ноль
-  !(next == b'_' || (next >= b'a' && next <= b'z') || (next >= b'A' && next <= b'Z'))
+  // буква / `_` → member access (`a.b`), иначе числовой ноль.
+  !(next == b'_' || isLetter(next))
 }
 
 // =================================================================================================
@@ -60,7 +61,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
   let mut currentByte: u8; // Текущий символ
   while savedIndex < bufferLength
   {
-    currentByte = buffer[savedIndex]; // Значение текущего символа
+    currentByte = buffer[savedIndex]; // Значение текущего символа.
     
     if currentByte == b' ' || currentByte == b'\t'
     { // Внутренние пробелы (`12 34 . 20`) — ок; 
@@ -70,7 +71,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       if temp < bufferLength
       {
         let next: u8 = buffer[temp];
-        let canContinue: bool = isDigit(&next)
+        let canContinue: bool = isDigit(next)
           || (next == b'.' && !hasDot)
           || (!hasExponential && (next == b'e' || next == b'E'));
         if canContinue
@@ -99,13 +100,13 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
       
       //
-      if temp < bufferLength && (isDigit(&buffer[temp]) || isFloatDotStart(buffer, temp, bufferLength)) {
+      if temp < bufferLength && (isDigit(buffer[temp]) || isFloatDotStart(buffer, temp, bufferLength)) {
         savedIndex = temp;
       } else {
         return None; // Это было не число.
       }
     } else
-    if isDigit(&currentByte)
+    if isDigit(currentByte)
     { // UInt
       result.push(currentByte as char);
       hasDigit = true;
@@ -117,7 +118,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
       // Нужно, чтобы читать: `12 34 . 20` и `0.\n10` → `0.10`.
       let mut temp: usize = savedIndex + 1;
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
-      let hasDigitAfterDot: bool = temp < bufferLength && isDigit(&buffer[temp]);
+      let hasDigitAfterDot: bool = temp < bufferLength && isDigit(buffer[temp]);
 
       //
       if hasDigit || hasDigitAfterDot || isFloatDotStart(buffer, savedIndex, bufferLength)
@@ -237,11 +238,11 @@ mod tests
       let token: Token = getNumber(buffer, &mut index, bufferLength)
         .unwrap_or_else(|| panic!("getNumber returned None for '{}'", input));
 
-      let tokenType = token.getDataType().to_string();
-      let expectedTypeStr = expectedType.to_string();
+      let tokenType: String = token.getDataType().to_string();
+      let expectedTypeStr: String = expectedType.to_string();
       assert_eq!(tokenType, expectedTypeStr,
                  "For '{}' expected type {}, got {}", input, expectedTypeStr, tokenType);
-      let tokenData = token.getData().toString().unwrap_or_default();
+      let tokenData: String = token.getData().toString().unwrap_or_default();
       assert_eq!(tokenData, expectedValue,
                  "For '{}' expected '{}', got '{}'", input, expectedValue, tokenData);
       assert_eq!(index, bufferLength, "Index did not reach the end for '{}'", input);
@@ -272,7 +273,7 @@ mod tests
       ("-42x", TokenType::Int, "-42", 3),
       ("3.14+", TokenType::UFloat, "3.14", 4),
       ("-5.5abc", TokenType::Float, "-5.5", 4),
-      ("100500\n", TokenType::UInt, "100500", 6),
+      ("100500\n", TokenType::UInt, "100500", 6)
     ] 
     {
       let buffer: &[u8] = input.as_bytes();
@@ -327,7 +328,7 @@ mod tests
       ("0e0", TokenType::UFloat, "0", 3),
       ("-1E-5", TokenType::Float, "-0.00001", 5),
       ("2e+5", TokenType::UFloat, "200000", 4),
-      ("10e-1", TokenType::UFloat, "1", 5),
+      ("10e-1", TokenType::UFloat, "1", 5)
     ] 
     {
       let buffer: &[u8] = input.as_bytes();

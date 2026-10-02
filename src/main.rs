@@ -16,6 +16,7 @@ use std::{
   io::{self, Read},
   fs::File
 };
+use std::sync::atomic::Ordering;
 use crate::logger::logger::{log, logExit};
 use crate::parser::parser::parseLines;
 use crate::tokenizer::tokenizer::readTokensSimple;
@@ -87,22 +88,19 @@ fn main() -> io::Result<()>
       },
       "run" if valuesLength >= 1 =>
       { // run
-        unsafe{
-          _argc = valuesLength-1;
-          _argv = args.1[1..].to_vec();
-          _filePath = args.1[0].clone();
-        }
-
-        unsafe{
-          // Проверяем, что мы запускаем файл или скрипт;
-          // todo: В данном случае это является временным решением,
-          //       чтобы разделить скрипт и файлы;
-          let filePathEnd: String =
-            _filePath
-              .chars().rev().take(3)
-              .collect::<Vec<_>>().iter().rev().collect();
-          runFile = filePathEnd == ".rt";
-        }
+        
+        let _ = _argc.set(valuesLength-1);
+        let _ = _argv.set(args.1[1..].to_vec());
+        let _ = _filePath.set(args.1[0].clone());
+        
+        // Проверяем, что мы запускаем файл или скрипт;
+        // todo: В данном случае это является временным решением,
+        //       чтобы разделить скрипт и файлы;
+        let filePathEnd: String =
+          _filePath.get().unwrap()
+            .chars().rev().take(3)
+            .collect::<Vec<_>>().iter().rev().collect();
+        runFile = filePathEnd == ".rt";
 
         // run package
         // todo: run package
@@ -119,7 +117,7 @@ fn main() -> io::Result<()>
   { // Обработка файла
     
     // open file
-    let mut file: File = match File::open(unsafe{&*_filePath}) 
+    let mut file: File = match File::open(_filePath.get().unwrap()) 
     {
       Ok(file) => file,
       Err(_) => 
@@ -141,7 +139,7 @@ fn main() -> io::Result<()>
     }
   } else
   { // Обработка скрипта
-    unsafe{ buffer = _filePath.clone().into_bytes(); }
+    buffer = _filePath.get().unwrap().clone().into_bytes();
   }
 
   // Начинаем чтение кода
@@ -150,5 +148,5 @@ fn main() -> io::Result<()>
   // ** Для дополнительных тестов можно использовать hyperfine/perf
 
   // Возвращаем код завершения
-  logExit(unsafe{_exitCode});
+  logExit(_exitCode.load(Ordering::Relaxed));
 }

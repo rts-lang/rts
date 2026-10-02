@@ -105,6 +105,8 @@ collapsible_if = "allow"
 too_long_first_doc_paragraph = "allow"
 len_without_is_empty = "allow"
 suspicious_else_formatting = "allow"
+doc_lazy_continuation = "allow"
+type_complexity = "allow"
 nursery = { level = "warn", priority = -1 } # At the very bottom
 
 # ======================================================================================================================

@@ -25,9 +25,7 @@ pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line
       lines.push(Line
       {
         tokens: Some(buffer),
-        indent: None,
-        lines: None,
-        parent: None,
+        lines: None
       });
       buffer = Vec::new();
     }
@@ -42,9 +40,7 @@ pub fn splitByType(tokens: Vec<Token>, separatorTypes: &[TokenType]) -> Vec<Line
     lines.push(Line
     {
       tokens: Some(buffer),
-      indent: None,
-      lines: None,
-      parent: None,
+      lines: None
     });
   }
 

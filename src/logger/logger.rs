@@ -86,14 +86,12 @@ pub fn formatString(inputString: &str) -> String
               Bg(hexToTermionColor(string.as_str()).unwrap_or(Rgb(0, 0, 0)))
             ));
             i += string.len()+1;
-            continue;
-          }  
-          else
+          } else
           { // bold
             result.push_str( &format!("{}",style::Bold) );
             i += 2;
-            continue;
           }
+          continue;
         }
         'f' => 
         {
@@ -124,7 +122,6 @@ pub fn formatString(inputString: &str) -> String
                 "{}",
                 Bg(Reset)
               ));
-              continue;
             } else
             { // cb
               i += 3;
@@ -132,8 +129,8 @@ pub fn formatString(inputString: &str) -> String
                 "{}",
                 style::NoBold
               ));
-              continue;
             }
+            continue;
           } else
           if i+2 < stringLength && stringChars[i+2] == 'f' 
           {
@@ -158,7 +155,7 @@ pub fn formatString(inputString: &str) -> String
         }
         _ => 
         {
-          result.push_str("\\");
+          result.push('\\');
           i += 1;
           continue;
         }
@@ -246,16 +243,12 @@ pub fn log(textType: &str, text: &str) -> ()
     }} 
     "ok" => 
     { // ok
-      let (content, prefix): (&str, &str) = 
-        if text.starts_with('+') 
-        {
-          (&text[1..], "O\\cfg \\fg(#f0f8ff)┳")
-        } else
-        if text.starts_with('x') 
-        {
-          (&text[1..], "X\\cfg \\fg(#f0f8ff)┻")
-        } else 
-        {
+      let (content, prefix): (&str, &str) =
+        if let Some(stripped) = text.strip_prefix('+') {
+          (stripped, "O\\cfg \\fg(#f0f8ff)┳")
+        } else if let Some(stripped) = text.strip_prefix('x') {
+          (stripped, "X\\cfg \\fg(#f0f8ff)┻")
+        } else {
           (text, "+")
         };
       formatPrint(&format!(
