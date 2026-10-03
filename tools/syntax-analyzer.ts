@@ -59,7 +59,6 @@ interface Token {
 }
 
 interface Line {
-  indent: number;
   tokens?: Token[];
   lines?: Line[];
 }

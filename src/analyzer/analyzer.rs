@@ -44,9 +44,6 @@ pub struct AnalyzeToken
 pub struct AnalyzedLine
 {
   // todo desc
-  pub indent: usize,
-  
-  // todo desc
   pub tokens: Vec<AnalyzeToken>
 }
 
@@ -71,12 +68,11 @@ fn collectLines(lines: &[Arc<RwLock<Line>>], out: &mut Vec<AnalyzedLine>) -> ()
   for linLink in lines
   {
     let line: RwLockReadGuard<Line> = linLink.read().unwrap();
-    let indent: usize = line.indent.unwrap_or(0);
     let mut tokens: Vec<AnalyzeToken> = Vec::new();
     if let Some(lineTokens) = &line.tokens {
       flattenTokensTo(lineTokens, &mut tokens);
     }
-    out.push(AnalyzedLine { indent, tokens });
+    out.push(AnalyzedLine { tokens });
 
     // recursively process nested lines (indented blocks)
     if let Some(nested) = &line.lines {
@@ -161,9 +157,6 @@ pub struct TreeToken
 pub struct TreeLine
 {
   /// todo desc
-  pub indent: usize,
-
-  /// todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub tokens: Option<Vec<TreeToken>>,
   
@@ -191,10 +184,9 @@ fn convertTreeLines(lines: &[Arc<RwLock<Line>>]) -> Vec<TreeLine>
   for link in lines
   {
     let line: RwLockReadGuard<Line> = link.read().unwrap();
-    let indent: usize = line.indent.unwrap_or(0);
     let tokens: Option<Vec<TreeToken>> = line.tokens.as_ref().map(|t| convertTreeTokens(t));
     let nested: Option<Vec<TreeLine>> = line.lines.as_ref().map(|n| convertTreeLines(n));
-    out.push(TreeLine { indent, tokens, lines: nested });
+    out.push(TreeLine { tokens, lines: nested });
   }
   out
 }
