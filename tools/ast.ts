@@ -80,7 +80,6 @@ interface Token {
 }
 
 interface Line {
-  indent: number;
   tokens?: Token[] | null;
   lines?: Line[] | null;
 }

@@ -619,7 +619,7 @@ println(a())
 #[cfg(test)]
 mod tests
 {
-  use crate::readTokensSimple;
+  use crate::tokenizer::tokenizer::readTokensSimple;
   use crate::tokenizer::types::line::Line;
   use std::sync::{Arc, RwLock, RwLockReadGuard};
   // ===============================================================================================
