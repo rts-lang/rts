@@ -10,7 +10,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // =================================================================================================
 
-/// Вычисляет по математической операции значение и тип нового токена из двух.
+/// Вычисляет по операции значение и тип нового токена из двух.
 pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
 {
   // Получаем значение левой части выражения.
@@ -19,6 +19,34 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   // Получаем значение правой части выражения.
   let rightTokenDataType: TokenType = *rightToken.getDataType();
   let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
+
+  // -----------------------------------------------------------------------------------------------
+  // Логические операции и сравнения: результат всегда токен True или False (#39, #65).
+  //
+  // todo #39: `&` и `|` пока двоичные (None приводится к False). Таблицы троичной логики
+  //  с None добавятся вместе с операторами, сейчас они не подключены в expressionWith.
+  let truth: Option<bool> = match *op
+  {
+    TokenType::Inclusion           => Some(leftValue.toBool() || rightValue.toBool()),
+    TokenType::Joint               => Some(leftValue.toBool() && rightValue.toBool()),
+    TokenType::Equals              => Some(leftValue == rightValue),
+    TokenType::NotEquals           => Some(leftValue != rightValue),
+    TokenType::GreaterThan         => Some(leftValue > rightValue),
+    TokenType::LessThan            => Some(leftValue < rightValue),
+    TokenType::GreaterThanOrEquals => Some(leftValue >= rightValue),
+    TokenType::LessThanOrEquals    => Some(leftValue <= rightValue),
+    _ => None
+  };
+  if let Some(truth) = truth
+  {
+    return if truth {
+      Token::new(TokenType::True, String::from("True")) // todo По идее не должно быть String, а только newEmpty(...)
+    } else {
+      Token::new(TokenType::False, String::from("False")) // todo По идее не должно быть String, а только newEmpty(...)
+    };
+  }
+
+  // -----------------------------------------------------------------------------------------------
   // Получаем значение выражения, а также предварительный тип.
   let mut resultType: TokenType = TokenType::UInt;
   let resultValue: String = match *op 
@@ -27,134 +55,59 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
     TokenType::Minus    => (leftValue - rightValue).to_string(),
     TokenType::Multiply => (leftValue * rightValue).to_string(),
     TokenType::Divide   => (leftValue / rightValue).to_string(),
-    TokenType::Inclusion => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue.toBool() || rightValue.toBool() {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::Joint => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue.toBool() && rightValue.toBool() {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::Equals => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue == rightValue {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::NotEquals => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue != rightValue {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::GreaterThan => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue > rightValue {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::LessThan => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue < rightValue {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::GreaterThanOrEquals => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue >= rightValue {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
-    TokenType::LessThanOrEquals => 
-    { 
-      resultType = TokenType::Bool;
-      if leftValue <= rightValue {
-        String::from("1")
-      } else {
-        String::from("0")
-      }
-    }
     _ => "0".to_string(),
   };
   // После того как значение было получено,
   // смотрим какой точно тип выдать новому токену.
-  if resultType != TokenType::Bool 
+  if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
   {
-    if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
-    {
-      resultType = TokenType::String;
-    } else
-    if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
-        rightTokenDataType == TokenType::Char
-    { //
-      resultType = leftTokenDataType;
-    } else
-    if leftTokenDataType == TokenType::Char
-    {
-      resultType = TokenType::Char;
-    } else
-    if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
-    {
-      // Проверяем смену типа;
-      //
-      // TokenType::UFloat не ограничен - это тип токена, а не Value::UFloat(uf64).
-      // Ограничение по размеру накладывается структурой (F32/F64), а не здесь.
-      // Поэтому тип результата зависит только от знака строкового значения.
-      if resultValue.starts_with('-') {
-        resultType = TokenType::Float;
-      } else {
-        resultType = TokenType::UFloat;
-      }
-    } else
-    if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
-    {
-      resultType = TokenType::Float;
-    } else
-    if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
-    {
-      // Проверяем смену типа;
-      //
-      // TokenType::UInt не ограничен сверху - это тип токена, а не Value::UInt(u64).
-      // Ограничение по размеру накладывается структурой (USize/ABI), а не здесь.
-      // Поэтому тип результата зависит только от знака строкового значения.
-      if resultValue.starts_with('-') {
-        resultType = TokenType::Int;
-      } else {
-        resultType = TokenType::UInt;
-      }
-    } else
-    if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {
-      resultType = TokenType::Int;
-    }
+    resultType = TokenType::String;
+  } else
+  if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
+      rightTokenDataType == TokenType::Char
+  { //
+    resultType = leftTokenDataType;
+  } else
+  if leftTokenDataType == TokenType::Char
+  {
+    resultType = TokenType::Char;
+  } else
+  if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
+  {
+    // Проверяем смену типа;
     //
+    // TokenType::UFloat не ограничен - это тип токена, а не Value::UFloat(uf64).
+    // Ограничение по размеру накладывается структурой (F32/F64), а не здесь.
+    // Поэтому тип результата зависит только от знака строкового значения.
+    if resultValue.starts_with('-') {
+      resultType = TokenType::Float;
+    } else {
+      resultType = TokenType::UFloat;
+    }
+  } else
+  if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
+  {
+    resultType = TokenType::Float;
+  } else
+  if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
+  {
+    // Проверяем смену типа;
+    //
+    // TokenType::UInt не ограничен сверху - это тип токена, а не Value::UInt(u64).
+    // Ограничение по размеру накладывается структурой (USize/ABI), а не здесь.
+    // Поэтому тип результата зависит только от знака строкового значения.
+    if resultValue.starts_with('-') {
+      resultType = TokenType::Int;
+    } else {
+      resultType = TokenType::UInt;
+    }
+  } else
+  if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {
+    resultType = TokenType::Int;
   }
   // return
   Token::new(resultType, resultValue)
+  // -----------------------------------------------------------------------------------------------
 }
 /// Зависимость для calculate;
 /// Считает значение левой и правой части выражения
@@ -215,14 +168,6 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
       tokenData.parse::<String>()
         .map(Value::String)
         .unwrap_or_else(|_| Value::String(String::new()))
-    },
-    TokenType::Bool =>
-    {
-      if tokenData == "True" {
-        Value::UInt(1)
-      } else {
-        Value::UInt(0)
-      }
     },
     TokenType::True => Value::UInt(1),
     TokenType::False => Value::UInt(0),
@@ -296,6 +241,38 @@ mod tests
 
   // ===============================================================================================
 
+  /// Сравнения возвращают True/False, а не число (#39, #65).
+  #[test]
+  fn comparison()
+  {
+    let t: TokenType = TokenType::True;
+    let f: TokenType = TokenType::False;
+    check(TokenType::Equals,              (TokenType::UInt, "1"), (TokenType::UInt, "1"), t, "True");
+    check(TokenType::Equals,              (TokenType::UInt, "1"), (TokenType::UInt, "2"), f, "False");
+    check(TokenType::NotEquals,           (TokenType::UInt, "1"), (TokenType::UInt, "1"), f, "False");
+    check(TokenType::NotEquals,           (TokenType::UInt, "1"), (TokenType::UInt, "2"), t, "True");
+    check(TokenType::LessThan,            (TokenType::UInt, "1"), (TokenType::UInt, "2"), t, "True");
+    check(TokenType::GreaterThan,         (TokenType::UInt, "1"), (TokenType::UInt, "2"), f, "False");
+    check(TokenType::LessThanOrEquals,    (TokenType::UInt, "3"), (TokenType::UInt, "2"), f, "False");
+    check(TokenType::GreaterThanOrEquals, (TokenType::UInt, "2"), (TokenType::UInt, "2"), t, "True");
+  }
+
+  /// Явная проверка на пустоту: `x = None` / `x != None` (#39).
+  #[test]
+  fn comparisonNone()
+  {
+    let t: TokenType = TokenType::True;
+    let f: TokenType = TokenType::False;
+    check(TokenType::Equals,    (TokenType::None, ""),  (TokenType::None, ""), t, "True");
+    check(TokenType::NotEquals, (TokenType::None, ""),  (TokenType::None, ""), f, "False");
+    check(TokenType::Equals,    (TokenType::UInt, "5"), (TokenType::None, ""), f, "False");
+    check(TokenType::NotEquals, (TokenType::UInt, "5"), (TokenType::None, ""), t, "True");
+    // 0 - это не пустота.
+    check(TokenType::Equals,    (TokenType::UInt, "0"), (TokenType::None, ""), f, "False");
+  }
+
+  // ===============================================================================================
+  
   /// Умножение смешанных типов: `*` в выражениях пока отключён (structure.rs, expressionWith),
   /// поэтому Value::Mul проверяется здесь напрямую, до его включения.
   #[test]

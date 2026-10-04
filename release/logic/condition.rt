@@ -1,0 +1,191 @@
+
+###
+  Условие `?` и True / False / None (issue #39)
+
+  Блок запускается только по True.
+  False и None - идём к следующему блоку (else).
+  Число и строка не True - блок тоже не запускается.
+
+  Подряд идущие `?` - одна цепочка, поэтому проверки разделены println.
+###
+
+# ======================================================================================================================
+# Литералы.
+println("")
+
+print("True  | ")  # True
+? True {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+print("False  | ")  # False
+? False {
+  println("if")
+}
+? {
+  println("else")  # else
+}
+
+print("None  | ")  # None
+? None {
+  println("if")
+}
+? {
+  println("else")  # else
+}
+
+print("1  | ")  # 1
+? 1 {
+  println("if")
+}
+? {
+  println("else")  # else
+}
+
+# ======================================================================================================================
+# Константы.
+println("")
+
+a = True
+b = False
+c = None
+
+print("a = True  | ")  # a = True
+? a {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+print("b = False  | ")  # b = False
+? b {
+  println("if")
+}
+? {
+  println("else")  # else
+}
+
+print("c = None  | ")  # c = None
+? c {
+  println("if")
+}
+? {
+  println("else")  # else
+}
+
+# ======================================================================================================================
+# Цепочка: False и None пропускаются, берётся первый True.
+println("")
+
+print("chain  | ")  # chain
+? False {
+  println("A (if)")
+}
+? None {
+  # Пропускается е потому что None = False, а потому что он не True 
+  # и не может быть обработан ? т.к. он принимает только True/False. 
+  println("B (elif)")
+}
+? True {
+  println("C (elif)")  # C
+}
+? {
+  println("D (else)")
+}
+
+# ======================================================================================================================
+# Результат сравнения - это True/False.
+println("")
+
+r1 = 1 < 2
+println(f"{r1}  | {type(r1)}")  # True | True
+
+r2 = 2 < 1
+println(f"{r2}  | {type(r2)}")  # False | False
+
+r3 = 5 != None
+println(f"{r3}  | {type(r3)}")  # True | True
+
+# ======================================================================================================================
+# Сравнения в условии; арифметика считается раньше сравнения;
+# Т.е.: арифметика -> сравнения -> логика (здесь не указана).
+println("")
+
+n = 5
+
+print("n = 5  | ")  # n = 5
+? n = 5 {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+print("n + 1 > 5  | ")  # n + 1 > 5
+? n + 1 > 5 {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+print("n < 3  | ")  # n < 3
+? n < 3 {
+  println("if")
+}
+? {
+  println("else")  # else
+}
+
+print("10 / 2 = n  | ")  # 10 / 2 = n
+? 10 / 2 = n {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+# ======================================================================================================================
+# Явная проверка на пустоту: `x = None` / `x != None`.
+println("")
+
+e = None
+
+print("e = None  | ")  # e = None
+? e = None {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+print("n != None  | ")  # n != None
+? n != None {
+  println("if")  # if
+}
+? {
+  println("else")
+}
+
+print("n = None  | ")  # n = None
+? n = None {
+  println("THEN")
+}
+? {
+  println("else")  # else
+}
+
+# 0 - это не пустота
+print("0 = None  | ")  # 0 = None
+? 0 = None {
+  println("THEN")
+}
+? {
+  println("else")  # else
+}
+
+# ======================================================================================================================

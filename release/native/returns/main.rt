@@ -16,6 +16,7 @@ libc: Pointer = importNative("libc.so.6")
 libm: Pointer = importNative("libm.so.6")
 
 # ======================================================================================================================
+println("\n1. =====")
 # Вариант 1: `a: Type = lib.f()`
 
 a1: U8    = lib.retU8()
@@ -42,6 +43,7 @@ println(f"typed F32   {b1} {stype(b1)}") # -1.5 F32
 println(f"typed F64   {b2} {stype(b2)}") # 2.5 F64
 
 # Тот же вариант, но с libc / libm
+println("")
 s1: Usize = libc.strnlen("hello world")
 s2: I32   = libc.abs(-5)
 s3: I32   = libc.close(999)
@@ -54,6 +56,7 @@ println(f"libm sqrt    {s4} {stype(s4)}") # 4 F64
 println(f"libm floor   {s5} {stype(s5)}") # -3 F64
 
 # ======================================================================================================================
+println("\n2. =====")
 ##
   ---- Вариант 2: `a = lib.f()`
   Тип структуры выводится из значения — так же, как для `a = 10` (native/types,
@@ -74,12 +77,14 @@ println(f"infer retU64   {c2} {stype(c2)}") # 18446744073709551615 U64
 println(f"infer strnlen  {c3} {stype(c3)}") # 11 U8
 
 # ---- Аргументы и результат
+println("")
 d1: U16 = lib.addU8(200; 100)
 d2: F64 = lib.mulF64(1.5; 4.0)
 println(f"args addU8  {d1} {stype(d1)}") # 300 U16
 println(f"args mulF64 {d2} {stype(d2)}") # 6 F64
 
 # ---- Результат внутри выражения
+println("")
 e1: Usize = lib.retUsize() + 1
 e2: I32   = lib.retI32() + 1
 e3        = libc.strnlen("abc") + 1
@@ -90,12 +95,14 @@ println(f"expr {e1} {e2} {e3}") # 123456790 -1999999999 4
 t1: I32 = libc.abs(-2) + libc.abs(-3)
 println(f"sum {t1} {stype(t1)}") # 5 I32
 
-# ---- Аргумент из переменной
+# ---- Аргумент из константы
+println("")
 y: I32 = libc.close(999)
 t2: I32 = libc.abs(y)
 println(f"argvar {t2}") # 1
 
 # ---- Присваивание в существующую структуру
+println("")
 r1~ : I32 = 0
 r1 = lib.retI32()
 r2~~ = 0
@@ -104,20 +111,24 @@ println(f"assign variable {r1} {stype(r1)}") # -2000000000 I32
 println(f"assign dynamic  {r2} {stype(r2)}") # 123456789 U32
 
 # ---- Вызов-оператор: результат не нужен
+println("")
 lib.retVoid()
 lib.retI32()
 println("statement ok") # statement ok
 
 # ---- Pointer: адрес читается как число
+println("")
 # todo Вне [ffi] блока scope временный, поэтому полученный адрес после вызова использовать нельзя
 p: Pointer = libc.malloc(16)
 println(f"pointer {stype(p)}") # Pointer
 
 # ---- Ошибки: неизвестный метод и тип без поддержки результата дают None → default типа
+println("")
 z1: I32 = lib.noSuchFunction()
 println(f"missing method {z1}") # 0
 
 # ---- Внутри [ffi] блока (scope retention)
+println("")
 [ffi]
 {
   inner: Pointer = importNative("./libreturns.so")
@@ -127,6 +138,7 @@ println(f"missing method {z1}") # 0
 }
 
 # ---- Результат FFI-вызова как return функции (`= value`)
+println("")
 lenOf(s: String) {
   libc: Pointer = importNative("libc.so.6")
   = libc.strnlen(s)
@@ -156,10 +168,10 @@ println(f"func typed {w2} {stype(w2)}") # 11 Usize
   println(f"sqrtf {f1}") # ожидается 4
   ```
 
-  todo Bool в результате (issue #65). Ожидается число 0 или 1, у нас None
+  todo True/False в результате (issue #65). Ожидается True, у нас None
   ```
-  b1: Bool = libc.abs(1)
-  println(f"bool {b1}") # ожидается 1
+  b1: True | False = libc.abs(1)
+  println(f"bool {b1}") # ожидается True
   ```
 
   todo Вложенные скобки обрывают токенизацию — остаток файла молча отбрасывается.

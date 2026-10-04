@@ -1,5 +1,5 @@
 
-# Простой тест вывода
+# Простой тест вывода.
 
 printc(pointer: Pointer; len: Usize) {
   #println(f"pointer: '{pointer}' mut '{mut(pointer)}' stype '{stype(pointer)}'")

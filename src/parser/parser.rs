@@ -929,15 +929,11 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
             conditionTokens.remove(0);
             // И проверяем.
             conditionTruth =
-            { // Получаем string ответ от expression, true/false.
-              let expressionResult: Option<String> =
-                parentLink.read().unwrap() // Для этого берём родительскую линию.
-                  .expression(&mut conditionTokens)
-                  .getData().toString(); // И её токены.
-              // Итоговый boolean результат.
-              if let Some(expressionResult) = 
-                expressionResult { expressionResult == "1" } 
-                else{ false }
+            { // Блок запускается только по True;
+              // False и None (пустота, #39) - идём дальше к следующему блоку.
+              *parentLink.read().unwrap() // Для этого берём родительскую линию.
+                .expression(&mut conditionTokens) // И её токены.
+                .getDataType() == TokenType::True
             };
           }
           // Если условие верно.

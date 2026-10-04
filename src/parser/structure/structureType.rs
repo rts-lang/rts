@@ -26,7 +26,6 @@ pub enum StructureType
   Any,
   Link,
 
-  Bool, // legacy, issue #65
   /// Отдельный логический тип-литерал (#60 / #65).
   True,
   /// Отдельный логический тип-литерал (#60 / #65).
@@ -83,7 +82,6 @@ impl ToString for StructureType
       Self::None => String::from("None"),
       Self::Any => String::from("Any"),
       Self::Link => String::from("Link"),
-      Self::Bool => String::from("Bool"),
       Self::True => String::from("True"),
       Self::False => String::from("False"),
 
@@ -153,7 +151,7 @@ impl StructureType
 
       // Ключевые слова типов, у которых нет одноимённых литералов.
       TokenType::None | TokenType::Any | TokenType::Link |
-      TokenType::Bool | TokenType::True | TokenType::False => true,
+      TokenType::True | TokenType::False => true,
 
       // Ключевые слова, одноимённые с литералами (`UInt` и `10`, `String` и `"abc"`).
       // Имя типа токенизируется БЕЗ данных, у литерала данные есть — это и есть
@@ -241,7 +239,6 @@ impl StructureType
       TokenType::None => Self::None,
       TokenType::Any => Self::Any,
       TokenType::Link => Self::Link,
-      TokenType::Bool => Self::Bool,
       TokenType::True => Self::True,
       TokenType::False => Self::False,
       TokenType::String => Self::String,
@@ -661,7 +658,6 @@ impl Token
           }
         }
       }
-      TokenType::Bool => StructureType::Bool,
       TokenType::True => StructureType::True,
       TokenType::False => StructureType::False,
       TokenType::UFloat | TokenType::Float => 
@@ -707,7 +703,6 @@ impl Token
       "None" => StructureType::None,
       "Any" => StructureType::Any,
       "Link" => StructureType::Link,
-      "Bool" => StructureType::Bool,
       "True" => StructureType::True,
       "False" => StructureType::False,
 
@@ -1040,7 +1035,7 @@ mod tests
   fn unionNone() -> ()
   {
     let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
-    // Bool не приводится ни к числу, ни к строке.
+    // True/False не приводятся ни к числу, ни к строке.
     union(TokenType::True, "True",  u8String.clone(), &StructureType::None, "");
     union(TokenType::Link, "a.b",   u8String.clone(), &StructureType::None, "");
     // Явный `| None` в объединении: значение не подходит - всё равно None.
