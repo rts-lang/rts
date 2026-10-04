@@ -144,8 +144,6 @@ pub enum TokenType
   /// Unsigned float
   UFloat,
 
-  /// Bool (legacy, issue #65 — уйдёт в пользу True/False)
-  Bool,
   /// True — отдельный примитив (#65)
   True,
   /// False — отдельный примитив (#65)
@@ -158,7 +156,6 @@ pub enum TokenType
   Inclusion,
   /// ! (not)
   Exclusion
-  // todo здесь должна быть троичная логика
 }
 
 impl TokenType
@@ -266,9 +263,8 @@ impl ToString for TokenType
       Self::UFloat => String::from("UFloat"),
 
       //
-      Self::Bool      => String::from("Bool"),
-      Self::True      => String::from("True"),
-      Self::False     => String::from("False"),
+      Self::True  => String::from("True"),
+      Self::False => String::from("False"),
 
       Self::Joint     => String::from("Joint"),
       Self::Disjoint  => String::from("Disjoint"),

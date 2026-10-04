@@ -265,7 +265,7 @@ fn callWithResult<'a, 'g>(builder: CallBuilder<'a, 'g>, expect: &FfiExpect) -> R
       let value: f64 = builder.result::<f64>().map_err(error)?;
       Ok(floatToken(value.to_string(), value.is_sign_negative()))
     }
-    // todo Bool (issue #65), String/CString/RawString (нужна длина), Custom и т.д.
+    // todo True/False (issue #65), String/CString/RawString (нужна длина), Custom и т.д.
     other => Err(format!("Unsupported FFI result type: {}", other.to_string()))
   }
 }

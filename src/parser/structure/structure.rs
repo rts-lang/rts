@@ -1227,26 +1227,27 @@ impl Structure
     }
 
     // Далее идут варианты математических и логических операций.
-    // Проверка на логические операции 1
-    // todo Работало за другие операторы (преждевременно + или -)
-    //self.expressionOp(value, &mut valueLength,
-    //  &[TokenType::Equals, TokenType::NotEquals,
-    //    TokenType::GreaterThan, TokenType::LessThan,
-    //    TokenType::GreaterThanOrEquals, TokenType::LessThanOrEquals]
-    //);
-
-    // Проверка на логические операции 2
-    // todo Работало за другие операторы (преждевременно + или -)
-    //self.expressionOp(value, &mut valueLength,
-    //  &[TokenType::Inclusion, TokenType::Joint]
-    //);
-
     // Проверка /
     // todo * пока отключен: его нужно включать вместе с проверкой Value::Mul
     self.expressionOp(value, &mut valueLength, &[TokenType::Divide]);
 
     // Проверка + и -
     self.expressionOp(value, &mut valueLength, &[TokenType::Plus, TokenType::Minus]);
+
+    // Проверка сравнений: результат True/False (#39).
+    // Идут после арифметики, поэтому `a + 1 = b` читается как `(a + 1) = b`.
+    self.expressionOp(value, &mut valueLength,
+      &[TokenType::Equals, TokenType::NotEquals,
+        TokenType::GreaterThan, TokenType::LessThan,
+        TokenType::GreaterThanOrEquals, TokenType::LessThanOrEquals]
+    );
+
+    // Проверка на логические операции `&` и `|`.
+    //
+    // todo #39: не подключены, добавятся вместе с таблицами троичной логики.
+    //self.expressionOp(value, &mut valueLength,
+    //  &[TokenType::Inclusion, TokenType::Joint]
+    //);
 
     // Конец чтения выражения
     match valueLength != 0
