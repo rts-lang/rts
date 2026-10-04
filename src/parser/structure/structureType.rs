@@ -754,10 +754,11 @@ mod tests
   use std::sync::{Arc, RwLock, RwLockReadGuard};
   use crate::parser::structure::structureType::StructureType;
   use crate::parser::structure::structure::Structure;
+  use crate::parser::testing::check;
   // ===============================================================================================
 
   /// Проверяет тип и значение токена после getStructureType().
-  fn check(
+  fn checkToken(
     tokenType: TokenType, 
     data: &str, 
     expectedType: StructureType, 
@@ -780,11 +781,11 @@ mod tests
   #[test]
   fn inRange()
   {
-    check(TokenType::UInt,   "255",                  StructureType::U8,  "255");
-    check(TokenType::UInt,   "18446744073709551615", StructureType::U64, "18446744073709551615");
-    check(TokenType::Int,    "-128",                 StructureType::I8,  "-128");
-    check(TokenType::Int,    "-9223372036854775808", StructureType::I64, "-9223372036854775808");
-    check(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
+    checkToken(TokenType::UInt,   "255",                  StructureType::U8,  "255");
+    checkToken(TokenType::UInt,   "18446744073709551615", StructureType::U64, "18446744073709551615");
+    checkToken(TokenType::Int,    "-128",                 StructureType::I8,  "-128");
+    checkToken(TokenType::Int,    "-9223372036854775808", StructureType::I64, "-9223372036854775808");
+    checkToken(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
   }
 
   /// За рамками ABI тип и значение становятся границей крайнего типа (#71).
@@ -792,16 +793,16 @@ mod tests
   fn saturation() -> ()
   {
     // UInt: > u64 и очень большое число.
-    check(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
-    check(TokenType::UInt, "99999999999999999999999999999999999999999999", StructureType::U64, &u64::MAX.to_string());
+    checkToken(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
+    checkToken(TokenType::UInt, "99999999999999999999999999999999999999999999", StructureType::U64, &u64::MAX.to_string());
     // Int: < i64 и очень большое отрицательное число.
-    check(TokenType::Int, "-9223372036854775809", StructureType::I64, &i64::MIN.to_string());
-    check(TokenType::Int, "-99999999999999999999999999999999999999999999", StructureType::I64, &i64::MIN.to_string());
+    checkToken(TokenType::Int, "-9223372036854775809", StructureType::I64, &i64::MIN.to_string());
+    checkToken(TokenType::Int, "-99999999999999999999999999999999999999999999", StructureType::I64, &i64::MIN.to_string());
     // Int: > i64.
-    check(TokenType::Int, "9223372036854775808", StructureType::I64, &i64::MAX.to_string());
+    checkToken(TokenType::Int, "9223372036854775808", StructureType::I64, &i64::MAX.to_string());
     // Float: inf после parse.
-    check(TokenType::UFloat, "1e309",  StructureType::F64, &format!("{:e}", f64::MAX));
-    check(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
+    checkToken(TokenType::UFloat, "1e309",  StructureType::F64, &format!("{:e}", f64::MAX));
+    checkToken(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
   }
 
   /// Проверяет значение токена после normalizeToken() в явный тип.
@@ -892,9 +893,9 @@ mod tests
   #[test]
   fn notNumber() -> ()
   {
-    check(TokenType::UInt,   "abc", StructureType::None, "");
-    check(TokenType::Int,    "-",   StructureType::None, "");
-    check(TokenType::UFloat, "NaN", StructureType::None, "");
+    checkToken(TokenType::UInt,   "abc", StructureType::None, "");
+    checkToken(TokenType::Int,    "-",   StructureType::None, "");
+    checkToken(TokenType::UFloat, "NaN", StructureType::None, "");
   }
 
   // ===============================================================================================
@@ -1078,6 +1079,135 @@ mod tests
       StructureType::Union(vec![StructureType::U8, StructureType::String]),
       StructureType::U16
     ]).to_string(), "U8 | String | U16");
+  }
+
+  // ===============================================================================================
+
+  /// Число без знака получает наименьший подходящий ABI тип.
+  #[test]
+  fn autoUnsigned() -> ()
+  {
+    // U8
+    check!("a~~ = 0", a, type TokenType::UInt, stype StructureType::U8, val "0");
+    check!("a = 255", a, type TokenType::UInt, stype StructureType::U8, val "255");
+    // U16
+    check!("a = 256", a, type TokenType::UInt, stype StructureType::U16, val "256");
+    check!("a = 65535", a, type TokenType::UInt, stype StructureType::U16, val "65535");
+    // U32
+    check!("a = 65536", a, type TokenType::UInt, stype StructureType::U32, val "65536");
+    check!("a = 4294967295", a, type TokenType::UInt, stype StructureType::U32, val "4294967295");
+    // U64
+    check!("a = 4294967296", a, type TokenType::UInt, stype StructureType::U64, val "4294967296");
+    check!("a = 18446744073709551615", a, type TokenType::UInt, stype StructureType::U64, val "18446744073709551615");
+  }
+
+  /// Число со знаком получает наименьший подходящий ABI тип.
+  #[test]
+  fn autoSigned() -> ()
+  {
+    // I8
+    check!("a = -1", a, type TokenType::Int, stype StructureType::I8, val "-1");
+    check!("a = -128", a, type TokenType::Int, stype StructureType::I8, val "-128");
+    // I16
+    check!("a = -129", a, type TokenType::Int, stype StructureType::I16, val "-129");
+    check!("a = -32768", a, type TokenType::Int, stype StructureType::I16, val "-32768");
+    // I32
+    check!("a = -32769", a, type TokenType::Int, stype StructureType::I32, val "-32769");
+    check!("a = -2147483648", a, type TokenType::Int, stype StructureType::I32, val "-2147483648");
+    // I64
+    check!("a = -2147483649", a, type TokenType::Int, stype StructureType::I64, val "-2147483649");
+    check!("a = -9223372036854775808", a, type TokenType::Int, stype StructureType::I64, val "-9223372036854775808");
+  }
+
+  /// Число за крайним ABI типом становится его границей (#71).
+  #[test]
+  fn autoSaturation() -> ()
+  {
+    // Больше U64
+    check!("a = 18446744073709551616", a, type TokenType::UInt, stype StructureType::U64, val &u64::MAX.to_string());
+    // Меньше I64
+    check!("a = -9223372036854775809", a, type TokenType::Int, stype StructureType::I64, val &i64::MIN.to_string());
+  }
+
+  /// Usize и Isize не выводятся автоматически, только явным типом.
+  /// Они зависят от платформы.
+  #[test]
+  fn explicitPlatform() -> ()
+  {
+    check!("b: Usize = 18446744073709551616", b, type TokenType::UInt, stype StructureType::Usize, val &usize::MAX.to_string());
+    check!("c: Isize = -9223372036854775809", c, type TokenType::Int, stype StructureType::Isize, val &isize::MIN.to_string());
+  }
+
+  /// Дробное число получает F32, если помещается, иначе F64.
+  /// Значения в `.rt` не сверяются - только type и stype.
+  #[test]
+  fn autoFloat() -> ()
+  {
+    // f32
+    check!("a = 0.0", a, type TokenType::UFloat, stype StructureType::F32);
+    check!("a = 3.4028234663852886e38", a, type TokenType::UFloat, stype StructureType::F32);
+    check!("a = -3.4028234663852886e38", a, type TokenType::Float, stype StructureType::F32);
+    // f64
+    check!("a = 1.7976931348623157e308", a, type TokenType::UFloat, stype StructureType::F64);
+    check!("a = -1.7976931348623157e308", a, type TokenType::Float, stype StructureType::F64);
+  }
+
+  /// Дробное число за F64 остаётся границей F64 (#71).
+  /// Значения в `.rt` не сверяются - только type и stype.
+  #[test]
+  fn autoFloatSaturation() -> ()
+  {
+    check!("a = 1.7976931348623157e309", a, type TokenType::UFloat, stype StructureType::F64);
+    check!("a = -1.7976931348623157e309", a, type TokenType::Float, stype StructureType::F64);
+  }
+
+  // ===============================================================================================
+
+  /// Явный целый тип зажимает значение в свои границы.
+  #[test]
+  fn castInteger() -> ()
+  {
+    check!("a: U8 = 300", a, type TokenType::UInt, stype StructureType::U8, val "255");
+    check!("b: U8 = -10", b, type TokenType::Int, stype StructureType::U8, val "0");
+    check!("c: I8 = -300", c, type TokenType::Int, stype StructureType::I8, val "-128");
+    check!("d: U64 = 18446744073709551616", d, type TokenType::UInt, stype StructureType::U64, val "18446744073709551615");
+    check!("e: Usize = 18446744073709551616", e, type TokenType::UInt, stype StructureType::Usize, val "18446744073709551615");
+    check!("f: Isize = -9223372036854775809", f, type TokenType::Int, stype StructureType::Isize, val "-9223372036854775808");
+  }
+
+  /// Число за u64/i64: сначала граница u64/i64, затем зажим в явный тип (#71).
+  #[test]
+  fn castBigNumbers() -> ()
+  {
+    check!("g: U8 = 44444444444444444444444444444444444444444444", g, type TokenType::UInt, stype StructureType::U8, val "255");
+    check!("h: I8 = 44444444444444444444444444444444444444444444", h, type TokenType::UInt, stype StructureType::I8, val "127");
+    check!("i: I64 = -44444444444444444444444444444444444444444444", i, type TokenType::Int, stype StructureType::I64, val "-9223372036854775808");
+    check!("j: Usize = 44444444444444444444444444444444444444444444", j, type TokenType::UInt, stype StructureType::Usize, val "18446744073709551615");
+    check!("k: Isize = -44444444444444444444444444444444444444444444", k, type TokenType::Int, stype StructureType::Isize, val "-9223372036854775808");
+  }
+
+  /// Огромное число в F32 и Float за F64 в F32/U8: зажим в границу целевого типа.
+  #[test]
+  fn castFloats() -> ()
+  {
+    check!("l: F32 = 44444444444444444444444444444444444444444444", l, type TokenType::UInt, stype StructureType::F32, val "340282350000000000000000000000000000000");
+    check!("m: F32 = -1.7976931348623157e309", m, type TokenType::Float, stype StructureType::F32, val "-340282350000000000000000000000000000000");
+    check!("n: U8 = 1.7976931348623157e309", n, type TokenType::UFloat, stype StructureType::U8, val "255");
+  }
+
+  /// Float в целый явный тип: округляется и зажимается;
+  /// знак сохраняется для знаковых типов, беззнаковые дают 0.
+  #[test]
+  fn castFloatToInteger() -> ()
+  {
+    check!("q: I8 = 5.4", q, type TokenType::UFloat, stype StructureType::I8, val "5");
+    check!("r: I8 = 5.5", r, type TokenType::UFloat, stype StructureType::I8, val "6");
+    check!("s: U8 = -10.0", s, type TokenType::Float, stype StructureType::U8, val "0");
+    check!("t: U8 = -5.5", t, type TokenType::Float, stype StructureType::U8, val "0");
+    check!("u: I8 = -5.5", u, type TokenType::Float, stype StructureType::I8, val "-6");
+    check!("v: I8 = -5.4", v, type TokenType::Float, stype StructureType::I8, val "-5");
+    check!("w: I8 = -200.5", w, type TokenType::Float, stype StructureType::I8, val "-128");
+    check!("x: I64 = -1000000.7", x, type TokenType::Float, stype StructureType::I64, val "-1000001");
   }
 
   // ===============================================================================================
