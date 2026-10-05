@@ -12,9 +12,13 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 //
 // Модуль подключён в `parser/mod.rs` под `#[cfg(test)]`, поэтому в обычную сборку не попадает.
 //
-// Проверка - макрос `check!`: одна строка на кейс, и сверяются ТОЛЬКО указанные грани.
+// Проверка - макрос `checkStructure!`: одна строка на кейс, и сверяются ТОЛЬКО указанные грани.
 // В `.rt` файлах проверки бывают разные: где-то `type` и `stype`, где-то только один
 // из них, где-то ещё и значение. Макрос повторяет ровно тот набор, что проверяет файл.
+//
+// todo rewrite desc
+
+// =================================================================================================
 
 /// Выполняет код в отдельной структуре, как модуль в `include`, и возвращает её.
 ///
@@ -58,7 +62,7 @@ fn tokenOf(main: &Arc<RwLock<Structure>>, name: &str) -> (TokenType, String)
   (*token.getDataType(), token.getData().toString().unwrap_or_default())
 }
 
-// Грани возвращают `Err(текст)`, а не паникуют: `check!` паникует сам, а `tryCheck!` отдаёт
+// Грани возвращают `Err(текст)`, а не паникуют: `checkStructure!` паникует сам, а `tryCheckStructure!` отдаёт
 // `Result`, поэтому ошибку сверки можно проверить без паники и без вывода в `--nocapture`.
 
 /// `type` - тип токена.
@@ -121,30 +125,32 @@ pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &s
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
 /// фиксированный - `type` → `stype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
-///     check!("a: U8 = 300", a, type TokenType::UInt, stype StructureType::U8, value "255");
-///     check!("a = 0.0", a, type TokenType::UFloat, stype StructureType::F32); // Без значения
-///     check!("a = 10", a, stype StructureType::U8); // Только stype
+///     checkStructure!("a: U8 = 300", a, type TokenType::UInt, stype StructureType::U8, value "255");
+///     checkStructure!("a = 0.0", a, type TokenType::UFloat, stype StructureType::F32); // Без значения
+///     checkStructure!("a = 10", a, stype StructureType::U8); // Только stype
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
 /// `value` - значение (`{a}`). Имя структуры - идентификатор (`a`) или путь строкой
 /// (`"a.b"`); каждый вызов исполняет свой код в отдельной структуре.
 ///
-/// Паникует на первой неверной грани; `tryCheck!` вместо паники возвращает `Err`.
-macro_rules! check
+/// Паникует на первой неверной грани; `tryCheckStructure!` вместо паники возвращает `Err`.
+macro_rules! checkStructure
 {
   ($($arguments:tt)*) =>
   {
-    if let Err(message) = $crate::parser::testing::tryCheck!($($arguments)*)
+    if let Err(message) = $crate::parser::testing::tryCheckStructure!($($arguments)*)
     {
       panic!("{}", message);
     }
   };
 }
 
-/// То же, что `check!`, но возвращает `Result<(), String>`: первая неверная грань - `Err`.
-macro_rules! tryCheck
+pub(super) use checkStructure;
+
+/// То же, что `tryCheckStructure!`, но возвращает `Result<(), String>`: первая неверная грань - `Err`.
+macro_rules! tryCheckStructure
 {
-  // Имя структуры - идентификатор: `tryCheck!("a = 10", a, value "10")`
+  // Имя структуры - идентификатор: `tryCheckStructure!("a = 10", a, value "10")`
   ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
@@ -163,7 +169,7 @@ macro_rules! tryCheck
     })()
   }};
 
-  // Имя структуры - путь строкой: `tryCheck!("a = 10", "a.b", value "10")`
+  // Имя структуры - путь строкой: `tryChecktryCheckStructure!("a = 10", "a.b", value "10")`
   ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
@@ -183,14 +189,14 @@ macro_rules! tryCheck
   }};
 }
 
-pub(super) use tryCheck;
-pub(super) use check;
+#[allow(unused_imports)]
+pub(super) use tryCheckStructure;
 
 // =================================================================================================
 
 /// Отладка без assert: выполняет код и печатает type, stype, value структуры.
 ///
-/// Не замена `check!` — только чтобы увидеть данные для отладки.
+/// Не замена `checkStructure!` — только чтобы увидеть данные для отладки.
 /// 
 /// Вывод в консоль:
 ///
@@ -221,7 +227,7 @@ pub(super) use showStructure;
 
 // =================================================================================================
 
-/// Смоук-тесты самого `check!`: разные наборы граней компилируются и реально сверяются.
+/// Смоук-тесты самого `tryCheckStructure!`: разные наборы граней компилируются и реально сверяются.
 #[cfg(test)]
 mod tests
 {
@@ -233,55 +239,55 @@ mod tests
   #[test]
   fn typeOnly() -> ()
   {
-    check!("a = 10", a, type TokenType::UInt);
+    checkStructure!("a = 10", a, type TokenType::UInt);
   }
 
   /// Только `stype`.
   #[test]
   fn stypeOnly() -> ()
   {
-    check!("a = 10", a, stype StructureType::U8);
+    checkStructure!("a = 10", a, stype StructureType::U8);
   }
 
   /// Только `value`.
   #[test]
   fn valueOnly() -> ()
   {
-    check!("a = 10", a, value "10");
+    checkStructure!("a = 10", a, value "10");
   }
 
   /// `stype` и `value` без `type`.
   #[test]
   fn stypeAndValue() -> ()
   {
-    check!("a = 10", a, stype StructureType::U8, value "10");
+    checkStructure!("a = 10", a, stype StructureType::U8, value "10");
   }
 
   /// Все грани и висячая запятая.
   #[test]
   fn allFacetsTrailingComma() -> ()
   {
-    check!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10",);
+    checkStructure!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10",);
   }
 
-  /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheck!`: паники нет.
+  /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheckStructure!`: паники нет.
   #[test]
   fn catchesMismatch() -> ()
   {
     assert_eq!(
-      tryCheck!("a = 10", a, type TokenType::Int).unwrap_err(),
+      tryCheckStructure!("a = 10", a, type TokenType::Int).unwrap_err(),
       "check type in `a = 10` for 'a': expected 'Int', got 'UInt'"
     );
     assert_eq!(
-      tryCheck!("a = 10", a, stype StructureType::U16).unwrap_err(),
+      tryCheckStructure!("a = 10", a, stype StructureType::U16).unwrap_err(),
       "check stype in `a = 10` for 'a': expected 'U16', got 'U8'"
     );
     assert_eq!(
-      tryCheck!("a = 10", a, value "11").unwrap_err(),
+      tryCheckStructure!("a = 10", a, value "11").unwrap_err(),
       "check value in `a = 10` for 'a': expected '11', got '10'"
     );
     // Верные грани - `Ok`.
-    assert!(tryCheck!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10").is_ok());
+    assert!(tryCheckStructure!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10").is_ok());
   }
 
   /// `showStructure!` не паникует и печатает грани (смотреть с `-- --nocapture`).

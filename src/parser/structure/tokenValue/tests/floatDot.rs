@@ -1,4 +1,4 @@
-use crate::parser::testing::check;
+use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
@@ -10,25 +10,25 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[test]
 fn floatDotZeros() -> ()
 {
-  check!(
+  checkStructure!(
     "a = .",
     a,
     type TokenType::UFloat,
     value "0"
   );
-  check!(
+  checkStructure!(
     "a = .0",
     a,
     type TokenType::UFloat,
     value "0"
   );
-  check!(
+  checkStructure!(
     "a = 0.",
     a,
     type TokenType::UFloat,
     value "0"
   );
-  check!(
+  checkStructure!(
     "a = 0.0",
     a,
     type TokenType::UFloat,
@@ -40,19 +40,19 @@ fn floatDotZeros() -> ()
 #[test]
 fn floatDotLeading() -> ()
 {
-  check!(
+  checkStructure!(
     "a = .1",
     a,
     type TokenType::UFloat,
     value "0.1"
   );
-  check!(
+  checkStructure!(
     "a = .5",
     a,
     type TokenType::UFloat,
     value "0.5"
   );
-  check!(
+  checkStructure!(
     "a = .25",
     a,
     type TokenType::UFloat,
@@ -64,13 +64,13 @@ fn floatDotLeading() -> ()
 #[test]
 fn floatDotTrailing() -> ()
 {
-  check!(
+  checkStructure!(
     "a = 3.",
     a,
     type TokenType::UFloat,
     value "3"
   );
-  check!(
+  checkStructure!(
     "a = 201.",
     a,
     type TokenType::UFloat,
@@ -82,43 +82,43 @@ fn floatDotTrailing() -> ()
 #[test]
 fn floatDotExpressions() -> ()
 {
-  check!(
+  checkStructure!(
     "a = .5 + .5",
     a,
     type TokenType::UFloat,
     value "1"
   );
-  check!(
+  checkStructure!(
     "a = 1. + .5",
     a,
     type TokenType::UFloat,
     value "1.5"
   );
-  check!(
+  checkStructure!(
     "a = 3. + 2.",
     a,
     type TokenType::UFloat,
     value "5"
   );
-  check!(
+  checkStructure!(
     "a = .5 - .25",
     a,
     type TokenType::UFloat,
     value "0.25"
   );
-  check!(
+  checkStructure!(
     "a = 10.5 - 10.0",
     a,
     type TokenType::UFloat,
     value "0.5"
   );
-  check!(
+  checkStructure!(
     "a = . + .5",
     a,
     type TokenType::UFloat,
     value "0.5"
   );
-  check!(
+  checkStructure!(
     "a = 1 / .5",
     a,
     type TokenType::UFloat,

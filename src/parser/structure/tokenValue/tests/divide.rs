@@ -1,4 +1,4 @@
-use crate::parser::testing::check;
+use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
@@ -10,31 +10,31 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[test]
 fn divideInteger() -> ()
 {
-  check!(
+  checkStructure!(
     "a = 10 / 4",
     a,
     type TokenType::UInt,
     value "2"
   );
-  check!(
+  checkStructure!(
     "a = 10 / 5",
     a,
     type TokenType::UInt,
     value "2"
   );
-  check!(
+  checkStructure!(
     "a = -7 / 2",
     a,
     type TokenType::Int,
     value "-3"
   );
-  check!(
+  checkStructure!(
     "a = 7 / -2",
     a,
     type TokenType::Int,
     value "-3"
   );
-  check!(
+  checkStructure!(
     "a = -7 / -2",
     a,
     type TokenType::Int,
@@ -46,25 +46,25 @@ fn divideInteger() -> ()
 #[test]
 fn divideFloat() -> ()
 {
-  check!(
+  checkStructure!(
     "a = 10 / 4.0",
     a,
     type TokenType::UFloat,
     value "2.5"
   );
-  check!(
+  checkStructure!(
     "a = 10 / 0.5",
     a,
     type TokenType::UFloat,
     value "20"
   );
-  check!(
+  checkStructure!(
     "a = 1 / 0.1",
     a,
     type TokenType::UFloat,
     value "10"
   );
-  check!(
+  checkStructure!(
     "a = -7.5 / 2",
     a,
     type TokenType::Float,
@@ -76,25 +76,25 @@ fn divideFloat() -> ()
 #[test]
 fn divideChainsAndPrecedence() -> ()
 {
-  check!(
+  checkStructure!(
     "a = 100 / 10 / 2",
     a,
     type TokenType::UInt,
     value "5"
   );
-  check!(
+  checkStructure!(
     "a = 10 - 6 / 2",
     a,
     type TokenType::UInt,
     value "7"
   );
-  check!(
+  checkStructure!(
     "a = 10 + 6 / 2",
     a,
     type TokenType::UInt,
     value "13"
   );
-  check!(
+  checkStructure!(
     "a = 20 - 8 / 4 - 1",
     a,
     type TokenType::UInt,
@@ -106,7 +106,7 @@ fn divideChainsAndPrecedence() -> ()
 #[test]
 fn divideAdjacentMinus() -> ()
 {
-  check!(
+  checkStructure!(
     "a = 10 -6 / 2",
     a,
     type TokenType::UInt,

@@ -1,29 +1,32 @@
 use crate::parser::structure::structureType::StructureType;
-use crate::parser::testing::check;
+use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
+
 // Границы: type токена бесконечен (UInt/Int/UFloat), а stype и значение зажимает структура (#71).
+
+// =================================================================================================
 
 /// Большой литерал в делении: на 1 и на 0 (issue #30).
 #[test]
 fn limitsDivideBig() -> ()
 {
   // UInt.
-  check!(
+  checkStructure!(
     "a = 18446744073709551615 / 1",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     "a = 99999999999999999999999 / 0",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     "a = 99999999999999999999999 / 1",
     a,
     type TokenType::UInt,
@@ -32,14 +35,14 @@ fn limitsDivideBig() -> ()
   );
 
   // Int.
-  check!(
+  checkStructure!(
     "a = -99999999999999999999999 / 0",
     a,
     type TokenType::Int,
     stype StructureType::I64,
     value &i64::MIN.to_string()
   );
-  check!(
+  checkStructure!(
     "a = -99999999999999999999999 / 1",
     a,
     type TokenType::Int,
@@ -52,21 +55,21 @@ fn limitsDivideBig() -> ()
 #[test]
 fn limitsOverflow() -> ()
 {
-  check!(
+  checkStructure!(
     "a = 18446744073709551615 + 1",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     "a = 18446744073709551615 * 2",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     "a = -9223372036854775808 - 1",
     a,
     type TokenType::Int,
@@ -74,7 +77,7 @@ fn limitsOverflow() -> ()
     value &i64::MIN.to_string()
   );
   // Результат больше i64::MAX.
-  check!(
+  checkStructure!(
     "a = -9223372036854775808 / -1",
     a,
     type TokenType::Int,
@@ -87,7 +90,7 @@ fn limitsOverflow() -> ()
 #[test]
 fn limitsReassign() -> ()
 {
-  check!(
+  checkStructure!(
     r#"
       a~~ = 0
       a = 18446744073709551615
@@ -97,7 +100,7 @@ fn limitsReassign() -> ()
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     r#"
       a~~ = 0
       a = 18446744073709551616
@@ -107,7 +110,7 @@ fn limitsReassign() -> ()
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     r#"
       a~~ = 0
       a = 99999999999999999999999
@@ -117,7 +120,7 @@ fn limitsReassign() -> ()
     stype StructureType::U64,
     value &u64::MAX.to_string()
   );
-  check!(
+  checkStructure!(
     r#"
       a~~ = 0
       a = -9223372036854775809
@@ -134,26 +137,26 @@ fn limitsReassign() -> ()
 fn limitsFloat() -> ()
 {
   // UFloat - UFloat с отрицательным результатом.
-  check!(
+  checkStructure!(
     "a = 1.0 - 2.0",
     a,
     type TokenType::Float,
     value "-1"
   );
   // inf (переполнение UFloat + UFloat).
-  check!(
+  checkStructure!(
     "a = 1e308 + 1e308",
     a,
     type TokenType::UFloat
   );
   // NaN (inf - inf): не начинается с `-`, значит UFloat.
-  check!(
+  checkStructure!(
     "a = (1e308 + 1e308) - (1e308 + 1e308)",
     a,
     type TokenType::UFloat
   );
   // Литерал больше f64::MAX: токенайзер хранит как есть.
-  check!(
+  checkStructure!(
     "a = 1e309",
     a,
     type TokenType::UFloat

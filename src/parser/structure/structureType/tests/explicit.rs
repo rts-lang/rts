@@ -1,6 +1,6 @@
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
-use crate::parser::testing::check;
+use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -105,21 +105,21 @@ fn normalizeFloatToInteger() -> ()
 #[test]
 fn castInteger() -> ()
 {
-  check!(
+  checkStructure!(
     "a: U8 = 300",
     a,
     type TokenType::UInt,
     stype StructureType::U8,
     value "255"
   );
-  check!(
+  checkStructure!(
     "b: U8 = -10",
     b,
     type TokenType::Int,
     stype StructureType::U8,
     value "0"
   );
-  check!(
+  checkStructure!(
     "c: I8 = -300",
     c,
     type TokenType::Int,
@@ -128,21 +128,21 @@ fn castInteger() -> ()
   );
   
   //
-  check!(
+  checkStructure!(
     "d: U64 = 18446744073709551616",
     d,
     type TokenType::UInt,
     stype StructureType::U64,
     value "18446744073709551615"
   );
-  check!(
+  checkStructure!(
     "e: Usize = 18446744073709551616",
     e,
     type TokenType::UInt,
     stype StructureType::Usize,
     value "18446744073709551615"
   );
-  check!(
+  checkStructure!(
     "f: Isize = -9223372036854775809",
     f,
     type TokenType::Int,
@@ -155,35 +155,35 @@ fn castInteger() -> ()
 #[test]
 fn castBigNumbers() -> ()
 {
-  check!(
+  checkStructure!(
     "g: U8 = 44444444444444444444444444444444444444444444",
     g,
     type TokenType::UInt,
     stype StructureType::U8,
     value "255"
   );
-  check!(
+  checkStructure!(
     "h: I8 = 44444444444444444444444444444444444444444444",
     h,
     type TokenType::UInt,
     stype StructureType::I8,
     value "127"
   );
-  check!(
+  checkStructure!(
     "i: I64 = -44444444444444444444444444444444444444444444",
     i,
     type TokenType::Int,
     stype StructureType::I64,
     value "-9223372036854775808"
   );
-  check!(
+  checkStructure!(
     "j: Usize = 44444444444444444444444444444444444444444444",
     j,
     type TokenType::UInt,
     stype StructureType::Usize,
     value "18446744073709551615"
   );
-  check!(
+  checkStructure!(
     "k: Isize = -44444444444444444444444444444444444444444444",
     k,
     type TokenType::Int,
@@ -196,21 +196,21 @@ fn castBigNumbers() -> ()
 #[test]
 fn castFloats() -> ()
 {
-  check!(
+  checkStructure!(
     "l: F32 = 44444444444444444444444444444444444444444444",
     l,
     type TokenType::UInt,
     stype StructureType::F32,
     value "340282350000000000000000000000000000000"
   );
-  check!(
+  checkStructure!(
     "m: F32 = -1.7976931348623157e309",
     m,
     type TokenType::Float,
     stype StructureType::F32,
     value "-340282350000000000000000000000000000000"
   );
-  check!(
+  checkStructure!(
     "n: U8 = 1.7976931348623157e309",
     n,
     type TokenType::UFloat,
@@ -224,56 +224,56 @@ fn castFloats() -> ()
 #[test]
 fn castFloatToInteger() -> ()
 {
-  check!(
+  checkStructure!(
     "q: I8 = 5.4",
     q,
     type TokenType::UFloat,
     stype StructureType::I8,
     value "5"
   );
-  check!(
+  checkStructure!(
     "r: I8 = 5.5",
     r,
     type TokenType::UFloat,
     stype StructureType::I8,
     value "6")
   ;
-  check!(
+  checkStructure!(
     "s: U8 = -10.0",
     s,
     type TokenType::Float,
     stype StructureType::U8,
     value "0"
   );
-  check!(
+  checkStructure!(
     "t: U8 = -5.5",
     t,
     type TokenType::Float,
     stype StructureType::U8,
     value "0"
   );
-  check!(
+  checkStructure!(
     "u: I8 = -5.5",
     u,
     type TokenType::Float,
     stype StructureType::I8,
     value "-6"
   );
-  check!(
+  checkStructure!(
     "v: I8 = -5.4",
     v,
     type TokenType::Float,
     stype StructureType::I8,
     value "-5"
   );
-  check!(
+  checkStructure!(
     "w: I8 = -200.5",
     w,
     type TokenType::Float,
     stype StructureType::I8,
     value "-128"
   );
-  check!(
+  checkStructure!(
     "x: I64 = -1000000.7",
     x,
     type TokenType::Float,
