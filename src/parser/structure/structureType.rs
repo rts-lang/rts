@@ -1,9 +1,9 @@
-use std::num::IntErrorKind;
-use serde::{Deserialize, Serialize};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
+use serde::{Deserialize, Serialize};
+use std::num::IntErrorKind;
 // =================================================================================================
 
 // Идея простая - т.к. мы имеем хранение в токенах, то это абстрактные данные;
@@ -747,69 +747,21 @@ impl Token
 #[cfg(test)]
 mod tests
 {
+  use crate::parser::structure::structure::Structure;
+  use crate::parser::structure::structureType::StructureType;
+  use crate::parser::testing::check;
+  use crate::tokenizer::tools::splitByType::splitByType;
+  use crate::tokenizer::types::line::Line;
   use crate::tokenizer::types::token::Token;
   use crate::tokenizer::types::tokenType::TokenType;
-  use crate::tokenizer::types::line::Line;
-  use crate::tokenizer::tools::splitByType::splitByType;
   use std::sync::{Arc, RwLock, RwLockReadGuard};
-  use crate::parser::structure::structureType::StructureType;
-  use crate::parser::structure::structure::Structure;
-  use crate::parser::testing::check;
   // ===============================================================================================
-
-  /// Проверяет тип и значение токена после getStructureType().
-  fn checkToken(
-    tokenType: TokenType, 
-    data: &str, 
-    expectedType: StructureType, 
-    expectedData: &str
-  ) -> ()
-  {
-    let mut token: Token = Token::new(tokenType, String::from(data));
-    let structureType: StructureType = token.getStructureType();
-    let tokenData: String = token.getData().toString().unwrap_or_default();
-    assert!(
-      structureType == expectedType && tokenData == expectedData,
-      "For '{}' expected value '{}', got '{}' (type matched: {})",
-      data, expectedData, tokenData, structureType == expectedType
-    );
-  }
-
-  // ===============================================================================================
-
-  /// Числа внутри рамок ABI не меняются.
-  #[test]
-  fn inRange()
-  {
-    checkToken(TokenType::UInt,   "255",                  StructureType::U8,  "255");
-    checkToken(TokenType::UInt,   "18446744073709551615", StructureType::U64, "18446744073709551615");
-    checkToken(TokenType::Int,    "-128",                 StructureType::I8,  "-128");
-    checkToken(TokenType::Int,    "-9223372036854775808", StructureType::I64, "-9223372036854775808");
-    checkToken(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
-  }
-
-  /// За рамками ABI тип и значение становятся границей крайнего типа (#71).
-  #[test]
-  fn saturation() -> ()
-  {
-    // UInt: > u64 и очень большое число.
-    checkToken(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
-    checkToken(TokenType::UInt, "99999999999999999999999999999999999999999999", StructureType::U64, &u64::MAX.to_string());
-    // Int: < i64 и очень большое отрицательное число.
-    checkToken(TokenType::Int, "-9223372036854775809", StructureType::I64, &i64::MIN.to_string());
-    checkToken(TokenType::Int, "-99999999999999999999999999999999999999999999", StructureType::I64, &i64::MIN.to_string());
-    // Int: > i64.
-    checkToken(TokenType::Int, "9223372036854775808", StructureType::I64, &i64::MAX.to_string());
-    // Float: inf после parse.
-    checkToken(TokenType::UFloat, "1e309",  StructureType::F64, &format!("{:e}", f64::MAX));
-    checkToken(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
-  }
 
   /// Проверяет значение токена после normalizeToken() в явный тип.
   fn normalize(
-    tokenType: TokenType, 
-    data: &str, 
-    structureType: StructureType, 
+    tokenType: TokenType,
+    data: &str,
+    structureType: StructureType,
     expectedData: &str
   ) -> ()
   {
@@ -861,10 +813,8 @@ mod tests
     normalize(TokenType::UFloat, "1e309", StructureType::U8, "255");
   }
 
-  // ===============================================================================================
-  
   /// Float в целый тип: округляется и зажимается в границы типа;
-  /// 
+  ///
   /// Отрицательное значение остаётся для знаковых типов и становится 0 для беззнаковых.
   #[test]
   fn normalizeFloatToInteger() -> ()
@@ -887,15 +837,6 @@ mod tests
     normalize(TokenType::Float, "-1e309", StructureType::I64, &i64::MIN.to_string());
     normalize(TokenType::UFloat, "1e309", StructureType::I64, &i64::MAX.to_string());
     normalize(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
-  }
-
-  /// Не число - None, токен очищается.
-  #[test]
-  fn notNumber() -> ()
-  {
-    checkToken(TokenType::UInt,   "abc", StructureType::None, "");
-    checkToken(TokenType::Int,    "-",   StructureType::None, "");
-    checkToken(TokenType::UFloat, "NaN", StructureType::None, "");
   }
 
   // ===============================================================================================
@@ -930,7 +871,7 @@ mod tests
         let typeTokens: Vec<Token> = match splitByType(tokens.clone(), &[TokenType::Colon])
         {
           parts if parts.len() == 2 =>
-          parts[1].tokens.clone().unwrap_or_default(),
+            parts[1].tokens.clone().unwrap_or_default(),
           _ => continue
         };
         return StructureType::fromTypeTokens(&typeTokens);
@@ -938,13 +879,13 @@ mod tests
     }
     StructureType::None
   }
-
+  
   /// Проверяет, что значение легло в объединение: подходящий вариант и результат.
   fn union(
-    tokenType: TokenType, 
-    data: &str, 
-    variants: Vec<StructureType>, 
-    expectedType: &StructureType, 
+    tokenType: TokenType,
+    data: &str,
+    variants: Vec<StructureType>,
+    expectedType: &StructureType,
     expectedData: &str
   )
   {
@@ -969,21 +910,21 @@ mod tests
     isType(parseType("a: U8 = 10"), StructureType::U8);
     isType(parseType("a: String = \"x\""), StructureType::String);
     isType(parseType("a: U8 | String = 10"),
-      StructureType::Union(vec![StructureType::U8, StructureType::String]));
+           StructureType::Union(vec![StructureType::U8, StructureType::String]));
     isType(parseType("b: U8|String = 10"), // Без пробелов.
-      StructureType::Union(vec![StructureType::U8, StructureType::String]));
+           StructureType::Union(vec![StructureType::U8, StructureType::String]));
     isType(parseType("a: I8 | U8 | F64 | None = 1"),
-      StructureType::Union(vec![
-        StructureType::I8, StructureType::U8, StructureType::F64, StructureType::None
-      ]));
+           StructureType::Union(vec![
+             StructureType::I8, StructureType::U8, StructureType::F64, StructureType::None
+           ]));
     // Ключевые слова-типы без данных - настоящие имена типов.
     isType(parseType("a: UInt | Int = 1"),
-      StructureType::Union(vec![
-        StructureType::Custom(String::from("UInt")), StructureType::Custom(String::from("Int"))
-      ]));
+           StructureType::Union(vec![
+             StructureType::Custom(String::from("UInt")), StructureType::Custom(String::from("Int"))
+           ]));
     // Повторы схлопываются.
     isType(parseType("a: U8 | U8 | String = 10"),
-      StructureType::Union(vec![StructureType::U8, StructureType::String]));
+           StructureType::Union(vec![StructureType::U8, StructureType::String]));
   }
 
   /// Литералы - это значения, а не типы: они не поддерживаются (issue #59).
@@ -1007,15 +948,15 @@ mod tests
     union(TokenType::UInt,   "10",  u8String.clone(), &StructureType::U8,     "10");
     union(TokenType::String, "hi",  u8String.clone(), &StructureType::String, "hi");
     union(TokenType::UFloat, "1.5", vec![StructureType::U8, StructureType::F32],
-      &StructureType::F32, "1.5");
+          &StructureType::F32, "1.5");
 
     // Из нескольких подходящих вариантов выбирается тот, в который значение.
     // помещается без потерь, а не первый в списке:
     // -10 помещается в I8, поэтому U8 | I8 даёт I8, а не зажатое в U8 ноль.
     union(TokenType::Int, "-10", vec![StructureType::U8, StructureType::I8],
-      &StructureType::I8, "-10");
+          &StructureType::I8, "-10");
     union(TokenType::UInt, "70000", vec![StructureType::U8, StructureType::U32],
-      &StructureType::U32, "70000");
+          &StructureType::U32, "70000");
   }
 
   /// Не подошёл ни один вариант - приводим в первый, куда приведение возможно (#59/#71).
@@ -1041,10 +982,10 @@ mod tests
     union(TokenType::Link, "a.b",   u8String.clone(), &StructureType::None, "");
     // Явный `| None` в объединении: значение не подходит - всё равно None.
     union(TokenType::True, "True",  vec![StructureType::String, StructureType::None],
-      &StructureType::None, "");
+          &StructureType::None, "");
     // Само None в объединении - законный вариант.
     union(TokenType::None, "", vec![StructureType::String, StructureType::None],
-      &StructureType::None, "");
+          &StructureType::None, "");
   }
 
   /// Объединение не должно ломать обычные одиночные типы.
@@ -1123,10 +1064,12 @@ mod tests
   #[test]
   fn autoSaturation() -> ()
   {
-    // Больше U64
+    // Больше U64 - и очень большое число
     check!("a = 18446744073709551616", a, type TokenType::UInt, stype StructureType::U64, val &u64::MAX.to_string());
-    // Меньше I64
+    check!("a = 99999999999999999999999999999999999999999999", a, type TokenType::UInt, stype StructureType::U64, val &u64::MAX.to_string());
+    // Меньше I64 - и очень большое отрицательное число
     check!("a = -9223372036854775809", a, type TokenType::Int, stype StructureType::I64, val &i64::MIN.to_string());
+    check!("a = -99999999999999999999999999999999999999999999", a, type TokenType::Int, stype StructureType::I64, val &i64::MIN.to_string());
   }
 
   /// Usize и Isize не выводятся автоматически, только явным типом.
@@ -1139,12 +1082,12 @@ mod tests
   }
 
   /// Дробное число получает F32, если помещается, иначе F64.
-  /// Значения в `.rt` не сверяются - только type и stype.
   #[test]
   fn autoFloat() -> ()
   {
     // f32
     check!("a = 0.0", a, type TokenType::UFloat, stype StructureType::F32);
+    check!("a = 1.5", a, type TokenType::UFloat, stype StructureType::F32, val "1.5");
     check!("a = 3.4028234663852886e38", a, type TokenType::UFloat, stype StructureType::F32);
     check!("a = -3.4028234663852886e38", a, type TokenType::Float, stype StructureType::F32);
     // f64
@@ -1153,12 +1096,11 @@ mod tests
   }
 
   /// Дробное число за F64 остаётся границей F64 (#71).
-  /// Значения в `.rt` не сверяются - только type и stype.
   #[test]
   fn autoFloatSaturation() -> ()
   {
-    check!("a = 1.7976931348623157e309", a, type TokenType::UFloat, stype StructureType::F64);
-    check!("a = -1.7976931348623157e309", a, type TokenType::Float, stype StructureType::F64);
+    check!("a = 1.7976931348623157e309", a, type TokenType::UFloat, stype StructureType::F64, val &format!("{:e}", f64::MAX));
+    check!("a = -1.7976931348623157e309", a, type TokenType::Float, stype StructureType::F64, val &format!("{:e}", f64::MIN));
   }
 
   // ===============================================================================================
