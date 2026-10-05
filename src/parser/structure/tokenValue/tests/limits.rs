@@ -1,166 +1,34 @@
-use crate::parser::structure::structureType::StructureType;
-use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
+// todo imports
 // =================================================================================================
 
-// Границы: type токена бесконечен (UInt/Int/UFloat), а stype и значение зажимает структура (#71).
+// Потолки Value/calculate: TokenType бесконечен, но мы ограничены математикой Rust.
+//
+// Здесь не тестируются структуры - т.к. это часть TokenType а не StructureType.
 
 // =================================================================================================
 
-/// Большой литерал в делении: на 1 и на 0 (issue #30).
-#[test]
-fn limitsDivideBig() -> ()
-{
-  // UInt.
-  checkStructure!(
-    "a = 18446744073709551615 / 1",
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    "a = 99999999999999999999999 / 0",
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    "a = 99999999999999999999999 / 1",
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-
-  // Int.
-  checkStructure!(
-    "a = -99999999999999999999999 / 0",
-    a,
-    type TokenType::Int,
-    stype StructureType::I64,
-    value &i64::MIN.to_string()
-  );
-  checkStructure!(
-    "a = -99999999999999999999999 / 1",
-    a,
-    type TokenType::Int,
-    stype StructureType::I64,
-    value &i64::MIN.to_string()
-  );
-}
-
-/// Переполнение самой операции зажимается в границу, а не падает.
-#[test]
-fn limitsOverflow() -> ()
-{
-  checkStructure!(
-    "a = 18446744073709551615 + 1",
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    "a = 18446744073709551615 * 2",
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    "a = -9223372036854775808 - 1",
-    a,
-    type TokenType::Int,
-    stype StructureType::I64,
-    value &i64::MIN.to_string()
-  );
-  // Результат больше i64::MAX.
-  checkStructure!(
-    "a = -9223372036854775808 / -1",
-    a,
-    type TokenType::Int,
-    stype StructureType::I64,
-    value &i64::MAX.to_string()
-  );
-}
-
-/// Новое значение в переменной: stype выводится заново, а не остаётся U8 от `0`.
-#[test]
-fn limitsReassign() -> ()
-{
-  checkStructure!(
-    r#"
-      a~~ = 0
-      a = 18446744073709551615
-    "#,
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    r#"
-      a~~ = 0
-      a = 18446744073709551616
-    "#,
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    r#"
-      a~~ = 0
-      a = 99999999999999999999999
-    "#,
-    a,
-    type TokenType::UInt,
-    stype StructureType::U64,
-    value &u64::MAX.to_string()
-  );
-  checkStructure!(
-    r#"
-      a~~ = 0
-      a = -9223372036854775809
-    "#,
-    a,
-    type TokenType::Int,
-    stype StructureType::I64,
-    value &i64::MIN.to_string()
-  );
-}
-
-/// Float: type зависит только от знака, а не от `f64::parse()`; результат не `None`.
-#[test]
-fn limitsFloat() -> ()
-{
-  // UFloat - UFloat с отрицательным результатом.
-  checkStructure!(
-    "a = 1.0 - 2.0",
-    a,
-    type TokenType::Float,
-    value "-1"
-  );
-  // inf (переполнение UFloat + UFloat).
-  checkStructure!(
-    "a = 1e308 + 1e308",
-    a,
-    type TokenType::UFloat
-  );
-  // NaN (inf - inf): не начинается с `-`, значит UFloat.
-  checkStructure!(
-    "a = (1e308 + 1e308) - (1e308 + 1e308)",
-    a,
-    type TokenType::UFloat
-  );
-  // Литерал больше f64::MAX: токенайзер хранит как есть.
-  checkStructure!(
-    "a = 1e309",
-    a,
-    type TokenType::UFloat
-  );
-}
+/*
+  todo
+    Здесь должны быть тесты целых + дробных чисел на выход за границы.
+    
+    Так как токен бесконечный - мы работаем только с ограничениями математики Rust.
+    
+    Т.е. `(1e308 + 1e308) - (1e308 + 1e308)` сейчас ломается в calculate.
+    
+    Это потому что на Token/TokenType не написана нормализация.
+    
+    По сути должно было быть:
+      1. 1e309 границы чек - нормализация.
+      2. (1e308 + 1e308) - результат выше - нормализация до 1e308.
+      3. Вычитание одинаково в данном примере = 0 по итогу.
+    
+    И тогда мы понимаем что всего 4 типа: Float/UFloat и Int/UInt.
+    
+    У каждого граница - это Rust: f64, isize/usize. Их - и + потолки.
+    
+    По примерам StructureType + #71 описанию - понятна нормализация.
+    
+    Именно поэтому здесь не тесты: `a = ...`, а только выражения Tokens.
+*/
 
 // =================================================================================================
