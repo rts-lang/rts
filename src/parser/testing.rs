@@ -16,13 +16,32 @@ use crate::tokenizer::types::tokenType::TokenType;
 // В `.rt` файлах проверки бывают разные: где-то `type` и `stype`, где-то только один
 // из них, где-то ещё и значение. Макрос повторяет ровно тот набор, что проверяет файл.
 
+/// Убирает общий отступ и крайние пустые строки: многострочный код в тесте можно
+/// писать `r#"` с отступом, относительные отступы внутри кода сохраняются.
+/// Однострочный код без отступа возвращается как есть.
+pub fn dedent(code: &str) -> String
+{
+  let mut lines: Vec<&str> = code.split('\n').collect();
+  if lines.first().is_some_and(|line| line.trim().is_empty()) { lines.remove(0); }
+  if lines.last().is_some_and(|line| line.trim().is_empty()) { lines.pop(); }
+  let minIndent: usize = lines.iter()
+    .filter(|line| !line.trim().is_empty())
+    .map(|line| line.len() - line.trim_start().len())
+    .min()
+    .unwrap_or(0);
+  lines.iter()
+    .map(|line| if line.trim().is_empty() { "" } else { &line[minIndent..] })
+    .collect::<Vec<&str>>()
+    .join("\n")
+}
+
 /// Выполняет код в отдельной структуре, как модуль в `include`, и возвращает её.
 ///
 /// `RTS::run` не подходит: он пишет в общую `MainStructure`, и константа `a` из одного
 /// теста остаётся в другом.
 pub fn runCode(code: &str) -> Arc<RwLock<Structure>>
 {
-  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+  let mut buffer: Vec<u8> = dedent(code).into_bytes();
   let main: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("main")),
     StructureMut::Constant,
@@ -181,6 +200,32 @@ mod tests
   fn allFacetsTrailingComma() -> ()
   {
     check!("a = 10", a, type TokenType::UInt, stype StructureType::U8, val "10",);
+  }
+
+  /// Многострочный `r#"` с отступом: общий отступ снимается.
+  #[test]
+  fn multilineIndented() -> ()
+  {
+    check!(
+      r#"
+        x = 10
+        n = -10
+        z = 0
+        a = x / z
+      "#,
+      a,
+      type TokenType::UInt,
+      val "10"
+    );
+  }
+
+  /// `dedent` сохраняет относительные отступы и не трогает однострочный код.
+  #[test]
+  fn dedentKeepsRelativeIndent() -> ()
+  {
+    assert_eq!(super::dedent("\n    a\n      b\n\n    c\n  "), "a\n  b\n\nc");
+    assert_eq!(super::dedent("a = 10"), "a = 10");
+    assert_eq!(super::dedent("x = 1\na = x"), "x = 1\na = x");
   }
 
   /// Сверка ловит неверное значение, а не проходит молча.

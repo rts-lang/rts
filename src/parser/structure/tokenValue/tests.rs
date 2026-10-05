@@ -297,31 +297,51 @@ fn divideByZeroInteger() -> ()
 
   // Константы.
   check!(
-    "x = 10\nn = -10\nz = 0\na = x / z",
+    r#"
+      x = 10
+      n = -10
+      z = 0
+      a = x / z
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "x = 10\nz = 0\na = x / 0",
+    r#"
+      x = 10
+      z = 0
+      a = x / 0
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "x = 10\nz = 0\na = 10 / z",
+    r#"
+      x = 10
+      z = 0
+      a = 10 / z
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "n = -10\nz = 0\na = n / z",
+    r#"
+      n = -10
+      z = 0
+      a = n / z
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   check!(
-    "z = 0\na = z / z",
+    r#"
+      z = 0
+      a = z / z
+    "#,
     a,
     type TokenType::UInt,
     val "0"
@@ -367,19 +387,30 @@ fn divideByZeroFloat() -> ()
 
   // Константы.
   check!(
-    "x = 10.5\nz = 0.0\na = x / z",
+    r#"
+      x = 10.5
+      z = 0.0
+      a = x / z
+    "#,
     a,
     type TokenType::UFloat,
     val "10.5"
   );
   check!(
-    "x = 10.5\na = x / 0.0",
+    r#"
+      x = 10.5
+      a = x / 0.0
+    "#,
     a,
     type TokenType::UFloat,
     val "10.5"
   );
   check!(
-    "n = -10.5\nz = 0.0\na = n / z",
+    r#"
+      n = -10.5
+      z = 0.0
+      a = n / z
+    "#,
     a,
     type TokenType::Float,
     val "-10.5"
@@ -455,65 +486,95 @@ fn divideByZeroAbi() -> ()
 {
   // U8
   check!(
-    "zA: U8 = 0\na = 10 / zA",
+    r#"
+      zA: U8 = 0
+      a = 10 / zA
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "xA: U8 = 10\na = xA / 0",
+    r#"
+      xA: U8 = 10
+      a = xA / 0
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   // U16
   check!(
-    "zB: U16 = 0\na = 10 / zB",
+    r#"
+      zB: U16 = 0
+      a = 10 / zB
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "xB: U16 = 10\na = xB / 0",
+    r#"
+      xB: U16 = 10
+      a = xB / 0
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   // U32
   check!(
-    "zC: U32 = 0\na = 10 / zC",
+    r#"
+      zC: U32 = 0
+      a = 10 / zC
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "xC: U32 = 10\na = xC / 0",
+    r#"
+      xC: U32 = 10
+      a = xC / 0
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   // U64
   check!(
-    "zD: U64 = 0\na = 10 / zD",
+    r#"
+      zD: U64 = 0
+      a = 10 / zD
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "xD: U64 = 10\na = xD / 0",
+    r#"
+      xD: U64 = 10
+      a = xD / 0
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   // Usize
   check!(
-    "zE: Usize = 0\na = 10 / zE",
+    r#"
+      zE: Usize = 0
+      a = 10 / zE
+    "#,
     a,
     type TokenType::UInt,
     val "10"
   );
   check!(
-    "xE: Usize = 10\na = xE / 0",
+    r#"
+      xE: Usize = 10
+      a = xE / 0
+    "#,
     a,
     type TokenType::UInt,
     val "10"
@@ -521,65 +582,95 @@ fn divideByZeroAbi() -> ()
 
   // I8
   check!(
-    "zF: I8 = 0\na = -10 / zF",
+    r#"
+      zF: I8 = 0
+      a = -10 / zF
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   check!(
-    "xF: I8 = -10\na = xF / 0",
+    r#"
+      xF: I8 = -10
+      a = xF / 0
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   // I16
   check!(
-    "zG: I16 = 0\na = -10 / zG",
+    r#"
+      zG: I16 = 0
+      a = -10 / zG
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   check!(
-    "xG: I16 = -10\na = xG / 0",
+    r#"
+      xG: I16 = -10
+      a = xG / 0
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   // I32
   check!(
-    "zH: I32 = 0\na = -10 / zH",
+    r#"
+      zH: I32 = 0
+      a = -10 / zH
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   check!(
-    "xH: I32 = -10\na = xH / 0",
+    r#"
+      xH: I32 = -10
+      a = xH / 0
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   // I64
   check!(
-    "zI: I64 = 0\na = -10 / zI",
+    r#"
+      zI: I64 = 0
+      a = -10 / zI
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   check!(
-    "xI: I64 = -10\na = xI / 0",
+    r#"
+      xI: I64 = -10
+      a = xI / 0
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   // Isize
   check!(
-    "zJ: Isize = 0\na = -10 / zJ",
+    r#"
+      zJ: Isize = 0
+      a = -10 / zJ
+    "#,
     a,
     type TokenType::Int,
     val "-10"
   );
   check!(
-    "xJ: Isize = -10\na = xJ / 0",
+    r#"
+      xJ: Isize = -10
+      a = xJ / 0
+    "#,
     a,
     type TokenType::Int,
     val "-10"
@@ -587,19 +678,28 @@ fn divideByZeroAbi() -> ()
 
   // F32
   check!(
-    "zK: F32 = 0.0\na = 10.5 / zK",
+    r#"
+      zK: F32 = 0.0
+      a = 10.5 / zK
+    "#,
     a,
     type TokenType::UFloat,
     val "10.5"
   );
   check!(
-    "xK: F32 = 10.5\na = xK / 0.0",
+    r#"
+      xK: F32 = 10.5
+      a = xK / 0.0
+    "#,
     a,
     type TokenType::UFloat,
     val "10.5"
   );
   check!(
-    "yK: F32 = 0.0\na = -10.5 / yK",
+    r#"
+      yK: F32 = 0.0
+      a = -10.5 / yK
+    "#,
     a,
     type TokenType::Float,
     val "-10.5"
@@ -607,19 +707,28 @@ fn divideByZeroAbi() -> ()
 
   // F64
   check!(
-    "zL: F64 = 0.0\na = 10.5 / zL",
+    r#"
+      zL: F64 = 0.0
+      a = 10.5 / zL
+    "#,
     a,
     type TokenType::UFloat,
     val "10.5"
   );
   check!(
-    "xL: F64 = 10.5\na = xL / 0.0",
+    r#"
+      xL: F64 = 10.5
+      a = xL / 0.0
+    "#,
     a,
     type TokenType::UFloat,
     val "10.5"
   );
   check!(
-    "yL: F64 = 0.0\na = -10.5 / yL",
+    r#"
+      yL: F64 = 0.0
+      a = -10.5 / yL
+    "#,
     a,
     type TokenType::Float,
     val "-10.5"
@@ -630,7 +739,7 @@ fn divideByZeroAbi() -> ()
 #[test]
 fn divideByZeroOther() -> ()
 {
-  // Char и String (в .rt — println выражения; после assignment data пустая, сверяем type).
+  // Char и String.
   check!(
     "a = 'a' / 0",
     a,
