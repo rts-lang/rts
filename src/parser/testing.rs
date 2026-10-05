@@ -196,29 +196,55 @@ pub(super) use tryCheckStructure;
 
 /// Отладка без assert: выполняет код и печатает type, stype, value структуры.
 ///
-/// Не замена `checkStructure!` — только чтобы увидеть данные для отладки.
-/// 
+/// Принимает те же грани, что и `checkStructure!`: чтобы переключиться между показом и
+/// проверкой, достаточно поменять имя макроса. Печатает ВСЕ грани, а для указанных
+/// ещё и расхождение с ожиданием (`≠`). Не паникует.
+///
 /// Вывод в консоль:
 ///
 ///     cargo test -- --nocapture --test-threads=1
 ///     cargo test testName -- --nocapture
 ///
-///     showStructure!("a = (1e308 + 1e308) - (1e308 + 1e308)", a);
-///     // show `a = ...` for 'a' | type=UFloat, stype=F64, value=NaN
+///     showStructure!("a = 1e308 + 1e308", a, type TokenType::UFloat);
+///     // show `a = 1e308 + 1e308` for 'a' | type=UFloat, stype=F64, value=1.7976931348623157e308
 macro_rules! showStructure
 {
-  // Имя структуры - идентификатор: `showStructure!("a = 10", a)`
-  ($code:expr, $name:ident $(,)?) =>
+  // Имя структуры - идентификатор: `showStructure!("a = 10", a, value "11")`
+  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
     $crate::parser::testing::printStructure(&main, stringify!($name), $code);
+    $(
+      if let Err(message) = $crate::parser::testing::checkType(&main, stringify!($name), $code, &$t)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkStype(&main, stringify!($name), $code, &$s)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v)
+      { println!("  ≠ {}", message); }
+    )?
   }};
 
-  // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b")`
-  ($code:expr, $name:expr $(,)?) =>
+  // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b", value "11")`
+  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
     $crate::parser::testing::printStructure(&main, $name, $code);
+    $(
+      if let Err(message) = $crate::parser::testing::checkType(&main, $name, $code, &$t)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkStype(&main, $name, $code, &$s)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkValue(&main, $name, $code, &$v)
+      { println!("  ≠ {}", message); }
+    )?
   }};
 }
 
