@@ -14,21 +14,21 @@ fn limitsDivideBig() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     "a = 99999999999999999999999 / 0",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     "a = 99999999999999999999999 / 1",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
 
   // Int.
@@ -37,14 +37,14 @@ fn limitsDivideBig() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MIN.to_string()
+    value &i64::MIN.to_string()
   );
   check!(
     "a = -99999999999999999999999 / 1",
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MIN.to_string()
+    value &i64::MIN.to_string()
   );
 }
 
@@ -57,21 +57,21 @@ fn limitsOverflow() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     "a = 18446744073709551615 * 2",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     "a = -9223372036854775808 - 1",
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MIN.to_string()
+    value &i64::MIN.to_string()
   );
   // Результат больше i64::MAX.
   check!(
@@ -79,7 +79,7 @@ fn limitsOverflow() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MAX.to_string()
+    value &i64::MAX.to_string()
   );
 }
 
@@ -95,7 +95,7 @@ fn limitsReassign() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     r#"
@@ -105,7 +105,7 @@ fn limitsReassign() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     r#"
@@ -115,7 +115,7 @@ fn limitsReassign() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     r#"
@@ -125,7 +125,7 @@ fn limitsReassign() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MIN.to_string()
+    value &i64::MIN.to_string()
   );
 }
 
@@ -138,7 +138,7 @@ fn limitsFloat() -> ()
     "a = 1.0 - 2.0",
     a,
     type TokenType::Float,
-    val "-1"
+    value "-1"
   );
   // inf (переполнение UFloat + UFloat).
   check!(

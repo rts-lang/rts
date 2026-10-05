@@ -1,4 +1,3 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::parser::parser::readLines;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
@@ -6,6 +5,7 @@ use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
 
 // Общие помощники для tests: запуск кода RTS прямо из `cargo test`.
@@ -16,32 +16,15 @@ use crate::tokenizer::types::tokenType::TokenType;
 // В `.rt` файлах проверки бывают разные: где-то `type` и `stype`, где-то только один
 // из них, где-то ещё и значение. Макрос повторяет ровно тот набор, что проверяет файл.
 
-/// Убирает общий отступ и крайние пустые строки: многострочный код в тесте можно
-/// писать `r#"` с отступом, относительные отступы внутри кода сохраняются.
-/// Однострочный код без отступа возвращается как есть.
-pub fn dedent(code: &str) -> String
-{
-  let mut lines: Vec<&str> = code.split('\n').collect();
-  if lines.first().is_some_and(|line| line.trim().is_empty()) { lines.remove(0); }
-  if lines.last().is_some_and(|line| line.trim().is_empty()) { lines.pop(); }
-  let minIndent: usize = lines.iter()
-    .filter(|line| !line.trim().is_empty())
-    .map(|line| line.len() - line.trim_start().len())
-    .min()
-    .unwrap_or(0);
-  lines.iter()
-    .map(|line| if line.trim().is_empty() { "" } else { &line[minIndent..] })
-    .collect::<Vec<&str>>()
-    .join("\n")
-}
-
 /// Выполняет код в отдельной структуре, как модуль в `include`, и возвращает её.
 ///
 /// `RTS::run` не подходит: он пишет в общую `MainStructure`, и константа `a` из одного
 /// теста остаётся в другом.
-pub fn runCode(code: &str) -> Arc<RwLock<Structure>>
+/// 
+/// todo rewrite desc
+pub(super) fn runCode(code: &str) -> Arc<RwLock<Structure>>
 {
-  let mut buffer: Vec<u8> = dedent(code).into_bytes();
+  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
   let main: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("main")),
     StructureMut::Constant,
@@ -53,63 +36,86 @@ pub fn runCode(code: &str) -> Arc<RwLock<Structure>>
   main
 }
 
-/// Возвращает переменную `name` из выполненного кода; если её нет - паника.
-pub fn getVariable(main: &Arc<RwLock<Structure>>, name: &str) -> Arc<RwLock<Structure>>
+/// Возвращает структуру по `name` из выполненного кода; если её нет - паника.
+pub(super) fn getStructure(main: &Arc<RwLock<Structure>>, name: &str) -> Arc<RwLock<Structure>>
 {
   main.read().unwrap().getStructureByName(name)
-    .unwrap_or_else(|| panic!("Variable '{}' was not created", name))
+    .unwrap_or_else(|| panic!("Structure '{}' was not created", name))
 }
 
-/// Токен переменной: (тип токена, строковое значение).
+/// Токен структуры: тип токена, строковое значение.
 fn tokenOf(main: &Arc<RwLock<Structure>>, name: &str) -> (TokenType, String)
 {
-  let variable: Arc<RwLock<Structure>> = getVariable(main, name);
-  let structure: RwLockReadGuard<Structure> = variable.read().unwrap();
-  let line: RwLockReadGuard<Line> = structure.lines.as_ref()
-    .unwrap_or_else(|| panic!("Variable '{}' has no lines", name))[0].read().unwrap();
+  let structure: Arc<RwLock<Structure>> = getStructure(main, name);
+  let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  
+  let line: RwLockReadGuard<Line> = structureLock.lines.as_ref()
+    .unwrap_or_else(|| panic!("Structure '{}' has no lines", name))[0].read().unwrap();
   let token: &Token = line.tokens.as_ref()
-    .unwrap_or_else(|| panic!("Variable '{}' has no tokens", name))
+    .unwrap_or_else(|| panic!("Structure '{}' has no tokens", name))
     .first().unwrap();
+  
   (*token.getDataType(), token.getData().toString().unwrap_or_default())
 }
 
-/// `type` - тип токена переменной, как `type(a)` в `.rt` (TokenType::to_string()).
-pub fn checkType(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &TokenType) -> ()
+// Грани возвращают `Err(текст)`, а не паникуют: `check!` паникует сам, а `tryCheck!` отдаёт
+// `Result`, поэтому ошибку сверки можно проверить без паники и без вывода в `--nocapture`.
+
+/// `type` - тип токена.
+pub(super) fn checkType(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &TokenType) -> Result<(), String>
 {
   let (tokenType, _): (TokenType, String) = tokenOf(main, name);
-  assert!(
-    tokenType == *expected,
+  if tokenType == *expected { return Ok(()); }
+  Err(format!(
     "check type in `{}` for '{}': expected '{}', got '{}'",
     code, name, expected.to_string(), tokenType.to_string()
-  );
+  ))
 }
 
-/// `stype` - тип структуры переменной, как `stype(a)` в `.rt` (StructureType::to_string()).
-pub fn checkStype(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &StructureType) -> ()
+/// `stype` - тип структуры.
+pub(super) fn checkStype(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &StructureType) -> Result<(), String>
 {
-  let variable: Arc<RwLock<Structure>> = getVariable(main, name);
-  let structure: RwLockReadGuard<Structure> = variable.read().unwrap();
-  assert!(
-    structure.dataType == *expected,
+  let structure: Arc<RwLock<Structure>> = getStructure(main, name);
+  let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  if structureLock.dataType == *expected { return Ok(()); }
+  Err(format!(
     "check stype in `{}` for '{}': expected '{}', got '{}'",
-    code, name, expected.to_string(), structure.dataType.to_string()
-  );
+    code, name, expected.to_string(), structureLock.dataType.to_string()
+  ))
 }
 
-/// `val` - значение переменной, как `{a}` в `.rt`.
-pub fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &str) -> ()
+/// ``value` - значение структуры.
+pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &str) -> Result<(), String>
 {
   let (_, data): (TokenType, String) = tokenOf(main, name);
-  assert!(
-    data == expected,
+  if data == expected { return Ok(()); }
+  Err(format!(
     "check value in `{}` for '{}': expected '{}', got '{}'",
     code, name, expected, data
+  ))
+}
+
+/// Печатает все грани структуры: type, stype, value.
+///
+/// Для отладки кейсов без assert.
+/// 
+/// В `cargo test` вывод виден только с `-- --nocapture`
+/// (или `RUST_TEST_NOCAPTURE=1`).
+pub(super) fn showStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &str) -> ()
+{
+  let (tokenType, data): (TokenType, String) = tokenOf(main, name);
+  let structure: Arc<RwLock<Structure>> = getStructure(main, name);
+  let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  let stype: String = structureLock.dataType.to_string();
+  println!(
+    "show `{}` for '{}' | type={}, stype={}, value={}",
+    code, name, tokenType.to_string(), stype, data
   );
 }
 
 // =================================================================================================
 
-/// Проверка переменной одной строкой; выполняет код и сверяет ТОЛЬКО указанные грани.
+/// Проверка структуры одной строкой; выполняет код и сверяет ТОЛЬКО указанные грани.
 ///
 /// Грани юзаются в любом наборе - ровно те, что проверяет `.rt` файл: где-то сверяются
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
@@ -120,42 +126,97 @@ pub fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expecte
 ///     check!("a = 10", a, stype StructureType::U8); // Только stype
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
-/// `val` - значение (`{a}`). Имя переменной - идентификатор (`a`) или путь строкой
+/// `val` - значение (`{a}`). Имя структуры - идентификатор (`a`) или путь строкой
 /// (`"a.b"`); каждый вызов исполняет свой код в отдельной структуре.
+///
+/// Паникует на первой неверной грани; `tryCheck!` вместо паники возвращает `Err`.
 macro_rules! check
 {
-  // Имя переменной - идентификатор: `check!("a = 10", a, val "10")`
-  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, val $v:expr)? $(,)?) =>
+  ($($arguments:tt)*) =>
+  {
+    if let Err(message) = $crate::parser::testing::tryCheck!($($arguments)*)
+    {
+      panic!("{}", message);
+    }
+  };
+}
+
+/// То же, что `check!`, но возвращает `Result<(), String>`: первая неверная грань - `Err`.
+macro_rules! tryCheck
+{
+  // Имя структуры - идентификатор: `tryCheck!("a = 10", a, value "10")`
+  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
-    $(
-      $crate::parser::testing::checkType(&main, stringify!($name), $code, &$t);
-    )?
-    $(
-      $crate::parser::testing::checkStype(&main, stringify!($name), $code, &$s);
-    )?
-    $(
-      $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v);
-    )?
+    (|| -> Result<(), String>
+    {
+      $(
+        $crate::parser::testing::checkType(&main, stringify!($name), $code, &$t)?;
+      )?
+      $(
+        $crate::parser::testing::checkStype(&main, stringify!($name), $code, &$s)?;
+      )?
+      $(
+        $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v)?;
+      )?
+      Ok(())
+    })()
   }};
 
-  // Имя переменной - путь строкой: `check!("a = 10", "a.b", val "10")`
-  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, val $v:expr)? $(,)?) =>
+  // Имя структуры - путь строкой: `tryCheck!("a = 10", "a.b", value "10")`
+  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
-    $(
-      $crate::parser::testing::checkType(&main, $name, $code, &$t);
-    )?
-    $(
-      $crate::parser::testing::checkStype(&main, $name, $code, &$s);
-    )?
-    $(
-      $crate::parser::testing::checkValue(&main, $name, $code, &$v);
-    )?
+    (|| -> Result<(), String>
+    {
+      $(
+        $crate::parser::testing::checkType(&main, $name, $code, &$t)?;
+      )?
+      $(
+        $crate::parser::testing::checkStype(&main, $name, $code, &$s)?;
+      )?
+      $(
+        $crate::parser::testing::checkValue(&main, $name, $code, &$v)?;
+      )?
+      Ok(())
+    })()
   }};
 }
 
-pub(crate) use check;
+pub(super) use tryCheck;
+pub(super) use check;
+
+// =================================================================================================
+
+/// Отладка без assert: выполняет код и печатает type, stype, value структуры.
+///
+/// Не замена `check!` — только чтобы увидеть данные для отладки.
+/// 
+/// Вывод в консоль:
+///
+///     cargo test -- --nocapture --test-threads=1
+///     cargo test testName -- --nocapture
+///
+///     showStructure!("a = (1e308 + 1e308) - (1e308 + 1e308)", a);
+///     // showStructure `a = ...` for 'a': type=UFloat | stype=F64 = NaN
+macro_rules! showStructure
+{
+  // Имя структуры - идентификатор: `showStructure!("a = 10", a)`
+  ($code:expr, $name:ident $(,)?) =>
+  {{
+    let main = $crate::parser::testing::runCode($code);
+    $crate::parser::testing::showStructure(&main, stringify!($name), $code);
+  }};
+
+  // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b")`
+  ($code:expr, $name:expr $(,)?) =>
+  {{
+    let main = $crate::parser::testing::runCode($code);
+    $crate::parser::testing::showStructure(&main, $name, $code);
+  }};
+}
+
+// pub(super) use showStructure; todo Дублирование имен.
 
 // =================================================================================================
 
@@ -185,55 +246,48 @@ mod tests
   #[test]
   fn valueOnly() -> ()
   {
-    check!("a = 10", a, val "10");
+    check!("a = 10", a, value "10");
   }
 
   /// `stype` и `val` без `type`.
   #[test]
   fn stypeAndValue() -> ()
   {
-    check!("a = 10", a, stype StructureType::U8, val "10");
+    check!("a = 10", a, stype StructureType::U8, value "10");
   }
 
   /// Все грани и висячая запятая.
   #[test]
   fn allFacetsTrailingComma() -> ()
   {
-    check!("a = 10", a, type TokenType::UInt, stype StructureType::U8, val "10",);
+    check!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10",);
   }
 
-  /// Многострочный `r#"` с отступом: общий отступ снимается.
+  /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheck!`: паники нет.
   #[test]
-  fn multilineIndented() -> ()
-  {
-    check!(
-      r#"
-        x = 10
-        n = -10
-        z = 0
-        a = x / z
-      "#,
-      a,
-      type TokenType::UInt,
-      val "10"
-    );
-  }
-
-  /// `dedent` сохраняет относительные отступы и не трогает однострочный код.
-  #[test]
-  fn dedentKeepsRelativeIndent() -> ()
-  {
-    assert_eq!(super::dedent("\n    a\n      b\n\n    c\n  "), "a\n  b\n\nc");
-    assert_eq!(super::dedent("a = 10"), "a = 10");
-    assert_eq!(super::dedent("x = 1\na = x"), "x = 1\na = x");
-  }
-
-  /// Сверка ловит неверное значение, а не проходит молча.
-  #[test]
-  #[should_panic(expected = "check value in `a = 10` for 'a'")]
   fn catchesMismatch() -> ()
   {
-    check!("a = 10", a, val "11");
+    assert_eq!(
+      tryCheck!("a = 10", a, type TokenType::Int).unwrap_err(),
+      "check type in `a = 10` for 'a': expected 'Int', got 'UInt'"
+    );
+    assert_eq!(
+      tryCheck!("a = 10", a, stype StructureType::U16).unwrap_err(),
+      "check stype in `a = 10` for 'a': expected 'U16', got 'U8'"
+    );
+    assert_eq!(
+      tryCheck!("a = 10", a, value "11").unwrap_err(),
+      "check value in `a = 10` for 'a': expected '11', got '10'"
+    );
+    // Верные грани - `Ok`.
+    assert!(tryCheck!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10").is_ok());
+  }
+
+  /// `showStructure!` не паникует и печатает грани (смотреть с `-- --nocapture`).
+  #[test]
+  fn showStructure() -> ()
+  {
+    showStructure!("a = 10", a);
   }
 
   // ===============================================================================================

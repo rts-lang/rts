@@ -110,21 +110,21 @@ fn castInteger() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U8,
-    val "255"
+    value "255"
   );
   check!(
     "b: U8 = -10",
     b,
     type TokenType::Int,
     stype StructureType::U8,
-    val "0"
+    value "0"
   );
   check!(
     "c: I8 = -300",
     c,
     type TokenType::Int,
     stype StructureType::I8,
-    val "-128"
+    value "-128"
   );
   
   //
@@ -133,21 +133,21 @@ fn castInteger() -> ()
     d,
     type TokenType::UInt,
     stype StructureType::U64,
-    val "18446744073709551615"
+    value "18446744073709551615"
   );
   check!(
     "e: Usize = 18446744073709551616",
     e,
     type TokenType::UInt,
     stype StructureType::Usize,
-    val "18446744073709551615"
+    value "18446744073709551615"
   );
   check!(
     "f: Isize = -9223372036854775809",
     f,
     type TokenType::Int,
     stype StructureType::Isize,
-    val "-9223372036854775808"
+    value "-9223372036854775808"
   );
 }
 
@@ -160,35 +160,35 @@ fn castBigNumbers() -> ()
     g,
     type TokenType::UInt,
     stype StructureType::U8,
-    val "255"
+    value "255"
   );
   check!(
     "h: I8 = 44444444444444444444444444444444444444444444",
     h,
     type TokenType::UInt,
     stype StructureType::I8,
-    val "127"
+    value "127"
   );
   check!(
     "i: I64 = -44444444444444444444444444444444444444444444",
     i,
     type TokenType::Int,
     stype StructureType::I64,
-    val "-9223372036854775808"
+    value "-9223372036854775808"
   );
   check!(
     "j: Usize = 44444444444444444444444444444444444444444444",
     j,
     type TokenType::UInt,
     stype StructureType::Usize,
-    val "18446744073709551615"
+    value "18446744073709551615"
   );
   check!(
     "k: Isize = -44444444444444444444444444444444444444444444",
     k,
     type TokenType::Int,
     stype StructureType::Isize,
-    val "-9223372036854775808"
+    value "-9223372036854775808"
   );
 }
 
@@ -201,21 +201,21 @@ fn castFloats() -> ()
     l,
     type TokenType::UInt,
     stype StructureType::F32,
-    val "340282350000000000000000000000000000000"
+    value "340282350000000000000000000000000000000"
   );
   check!(
     "m: F32 = -1.7976931348623157e309",
     m,
     type TokenType::Float,
     stype StructureType::F32,
-    val "-340282350000000000000000000000000000000"
+    value "-340282350000000000000000000000000000000"
   );
   check!(
     "n: U8 = 1.7976931348623157e309",
     n,
     type TokenType::UFloat,
     stype StructureType::U8,
-    val "255"
+    value "255"
   );
 }
 
@@ -229,56 +229,56 @@ fn castFloatToInteger() -> ()
     q,
     type TokenType::UFloat,
     stype StructureType::I8,
-    val "5"
+    value "5"
   );
   check!(
     "r: I8 = 5.5",
     r,
     type TokenType::UFloat,
     stype StructureType::I8,
-    val "6")
+    value "6")
   ;
   check!(
     "s: U8 = -10.0",
     s,
     type TokenType::Float,
     stype StructureType::U8,
-    val "0"
+    value "0"
   );
   check!(
     "t: U8 = -5.5",
     t,
     type TokenType::Float,
     stype StructureType::U8,
-    val "0"
+    value "0"
   );
   check!(
     "u: I8 = -5.5",
     u,
     type TokenType::Float,
     stype StructureType::I8,
-    val "-6"
+    value "-6"
   );
   check!(
     "v: I8 = -5.4",
     v,
     type TokenType::Float,
     stype StructureType::I8,
-    val "-5"
+    value "-5"
   );
   check!(
     "w: I8 = -200.5",
     w,
     type TokenType::Float,
     stype StructureType::I8,
-    val "-128"
+    value "-128"
   );
   check!(
     "x: I64 = -1000000.7",
     x,
     type TokenType::Float,
     stype StructureType::I64,
-    val "-1000001"
+    value "-1000001"
   );
 }
 

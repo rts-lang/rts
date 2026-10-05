@@ -1,11 +1,6 @@
-use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
 use crate::parser::testing::check;
-use crate::tokenizer::tools::splitByType::splitByType;
-use crate::tokenizer::types::line::Line;
-use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
-use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
 
 /// Число без знака получает наименьший подходящий ABI тип.
@@ -18,14 +13,14 @@ fn autoUnsigned() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U8,
-    val "0"
+    value "0"
   );
   check!(
     "a = 255",
     a,
     type TokenType::UInt,
     stype StructureType::U8,
-    val "255"
+    value "255"
   );
   
   // U16
@@ -34,14 +29,14 @@ fn autoUnsigned() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U16,
-    val "256"
+    value "256"
   );
   check!(
     "a = 65535",
     a,
     type TokenType::UInt,
     stype StructureType::U16,
-    val "65535"
+    value "65535"
   );
   
   // U32
@@ -50,14 +45,14 @@ fn autoUnsigned() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U32,
-    val "65536"
+    value "65536"
   );
   check!(
     "a = 4294967295",
     a,
     type TokenType::UInt,
     stype StructureType::U32,
-    val "4294967295"
+    value "4294967295"
   );
   
   // U64
@@ -66,14 +61,14 @@ fn autoUnsigned() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val "4294967296"
+    value "4294967296"
   );
   check!(
     "a = 18446744073709551615",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val "18446744073709551615"
+    value "18446744073709551615"
   );
 }
 
@@ -87,14 +82,14 @@ fn autoSigned() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I8,
-    val "-1"
+    value "-1"
   );
   check!(
     "a = -128",
     a,
     type TokenType::Int,
     stype StructureType::I8,
-    val "-128"
+    value "-128"
   );
   
   // I16
@@ -103,14 +98,14 @@ fn autoSigned() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I16,
-    val "-129"
+    value "-129"
   );
   check!(
     "a = -32768",
     a,
     type TokenType::Int,
     stype StructureType::I16,
-    val "-32768"
+    value "-32768"
   );
   
   // I32
@@ -119,14 +114,14 @@ fn autoSigned() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I32,
-    val "-32769"
+    value "-32769"
   );
   check!(
     "a = -2147483648",
     a,
     type TokenType::Int,
     stype StructureType::I32,
-    val "-2147483648"
+    value "-2147483648"
   );
   
   // I64
@@ -135,14 +130,14 @@ fn autoSigned() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val "-2147483649"
+    value "-2147483649"
   );
   check!(
     "a = -9223372036854775808",
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val "-9223372036854775808"
+    value "-9223372036854775808"
   );
 }
 
@@ -156,14 +151,14 @@ fn autoSaturation() -> ()
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   check!(
     "a = 99999999999999999999999999999999999999999999",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val &u64::MAX.to_string()
+    value &u64::MAX.to_string()
   );
   
   // Меньше I64 - и очень большое отрицательное число.
@@ -172,14 +167,14 @@ fn autoSaturation() -> ()
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MIN.to_string()
+    value &i64::MIN.to_string()
   );
   check!(
     "a = -99999999999999999999999999999999999999999999",
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val &i64::MIN.to_string()
+    value &i64::MIN.to_string()
   );
 }
 
@@ -192,13 +187,13 @@ fn explicitPlatform() -> ()
     "b: Usize = 18446744073709551616",
     b, type TokenType::UInt,
     stype StructureType::Usize,
-    val &usize::MAX.to_string()
+    value &usize::MAX.to_string()
   );
   check!(
     "c: Isize = -9223372036854775809",
     c, type TokenType::Int,
     stype StructureType::Isize,
-    val &isize::MIN.to_string()
+    value &isize::MIN.to_string()
   );
 }
 
@@ -218,7 +213,7 @@ fn autoFloat() -> ()
     a,
     type TokenType::UFloat,
     stype StructureType::F32,
-    val "1.5"
+    value "1.5"
   );
   check!(
     "a = 3.4028234663852886e38",
@@ -257,14 +252,14 @@ fn autoFloatSaturation() -> ()
     a,
     type TokenType::UFloat,
     stype StructureType::F64,
-    val &format!("{:e}", f64::MAX)
+    value &format!("{:e}", f64::MAX)
   );
   check!(
     "a = -1.7976931348623157e309",
     a,
     type TokenType::Float,
     stype StructureType::F64,
-    val &format!("{:e}", f64::MIN)
+    value &format!("{:e}", f64::MIN)
   );
 }
 

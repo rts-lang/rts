@@ -14,31 +14,31 @@ fn divideInteger() -> ()
     "a = 10 / 4",
     a,
     type TokenType::UInt,
-    val "2"
+    value "2"
   );
   check!(
     "a = 10 / 5",
     a,
     type TokenType::UInt,
-    val "2"
+    value "2"
   );
   check!(
     "a = -7 / 2",
     a,
     type TokenType::Int,
-    val "-3"
+    value "-3"
   );
   check!(
     "a = 7 / -2",
     a,
     type TokenType::Int,
-    val "-3"
+    value "-3"
   );
   check!(
     "a = -7 / -2",
     a,
     type TokenType::Int,
-    val "3"
+    value "3"
   );
 }
 
@@ -50,25 +50,25 @@ fn divideFloat() -> ()
     "a = 10 / 4.0",
     a,
     type TokenType::UFloat,
-    val "2.5"
+    value "2.5"
   );
   check!(
     "a = 10 / 0.5",
     a,
     type TokenType::UFloat,
-    val "20"
+    value "20"
   );
   check!(
     "a = 1 / 0.1",
     a,
     type TokenType::UFloat,
-    val "10"
+    value "10"
   );
   check!(
     "a = -7.5 / 2",
     a,
     type TokenType::Float,
-    val "-3.75"
+    value "-3.75"
   );
 }
 
@@ -80,25 +80,25 @@ fn divideChainsAndPrecedence() -> ()
     "a = 100 / 10 / 2",
     a,
     type TokenType::UInt,
-    val "5"
+    value "5"
   );
   check!(
     "a = 10 - 6 / 2",
     a,
     type TokenType::UInt,
-    val "7"
+    value "7"
   );
   check!(
     "a = 10 + 6 / 2",
     a,
     type TokenType::UInt,
-    val "13"
+    value "13"
   );
   check!(
     "a = 20 - 8 / 4 - 1",
     a,
     type TokenType::UInt,
-    val "17"
+    value "17"
   );
 }
 
@@ -110,7 +110,7 @@ fn divideAdjacentMinus() -> ()
     "a = 10 -6 / 2",
     a,
     type TokenType::UInt,
-    val "7"
+    value "7"
   );
 }
 

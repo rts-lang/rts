@@ -18,26 +18,26 @@ fn divideByZeroInteger() -> ()
     "a = 10 / 0",
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     "a = 0 / 0",
     a,
     type TokenType::UInt,
-    val "0"
+    value "0"
   );
   check!(
     "a = 255 / 0",
     a,
     type TokenType::UInt,
-    val "255"
+    value "255"
   );
   check!(
     "a = 18446744073709551615 / 0",
     a,
     type TokenType::UInt,
     stype StructureType::U64,
-    val "18446744073709551615"
+    value "18446744073709551615"
   );
 
   // Int / UInt.
@@ -45,14 +45,14 @@ fn divideByZeroInteger() -> ()
     "a = -10 / 0",
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     "a = -9223372036854775808 / 0",
     a,
     type TokenType::Int,
     stype StructureType::I64,
-    val "-9223372036854775808"
+    value "-9223372036854775808"
   );
 
   // Нулевой делитель со знаком.
@@ -60,13 +60,13 @@ fn divideByZeroInteger() -> ()
     "a = 10 / -0",
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     "a = -10 / -0",
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
 
   // Константы.
@@ -79,7 +79,7 @@ fn divideByZeroInteger() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -89,7 +89,7 @@ fn divideByZeroInteger() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -99,7 +99,7 @@ fn divideByZeroInteger() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -109,7 +109,7 @@ fn divideByZeroInteger() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     r#"
@@ -118,7 +118,7 @@ fn divideByZeroInteger() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "0"
+    value "0"
   );
 }
 
@@ -130,19 +130,19 @@ fn divideByZeroFloat() -> ()
     "a = 10.5 / 0.0",
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     "a = 0.0 / 0.0",
     a,
     type TokenType::UFloat,
-    val "0"
+    value "0"
   );
   check!(
     "a = -10.5 / 0.0",
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
   
   // UFloat / Float (отрицательный ноль тоже ноль).
@@ -150,13 +150,13 @@ fn divideByZeroFloat() -> ()
     "a = 10.5 / -0.0",
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     "a = -10.5 / -0.0",
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
 
   // Константы.
@@ -168,7 +168,7 @@ fn divideByZeroFloat() -> ()
     "#,
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     r#"
@@ -177,7 +177,7 @@ fn divideByZeroFloat() -> ()
     "#,
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     r#"
@@ -187,7 +187,7 @@ fn divideByZeroFloat() -> ()
     "#,
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
 }
 
@@ -200,31 +200,31 @@ fn divideByZeroMixed() -> ()
     "a = 10 / 0.0",
     a,
     type TokenType::UFloat,
-    val "10"
+    value "10"
   );
   check!(
     "a = 0 / 0.0",
     a,
     type TokenType::UFloat,
-    val "0"
+    value "0"
   );
   check!(
     "a = -10 / 0.0",
     a,
     type TokenType::Float,
-    val "-10"
+    value "-10"
   );
   check!(
     "a = 10 / -0.0",
     a,
     type TokenType::Float,
-    val "10"
+    value "10"
   );
   check!(
     "a = -10 / -0.0",
     a,
     type TokenType::Float,
-    val "-10"
+    value "-10"
   );
 
   // Дробное / целый ноль.
@@ -232,25 +232,25 @@ fn divideByZeroMixed() -> ()
     "a = 10.5 / 0",
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     "a = -10.5 / 0",
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
   check!(
     "a = 10.5 / -0",
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     "a = -10.5 / -0",
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
 }
 
@@ -266,7 +266,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -275,7 +275,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   // U16
   check!(
@@ -285,7 +285,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -294,7 +294,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   // U32
   check!(
@@ -304,7 +304,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -313,7 +313,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   // U64
   check!(
@@ -323,7 +323,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -332,7 +332,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   // Usize
   check!(
@@ -342,7 +342,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     r#"
@@ -351,7 +351,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
 
   // I8
@@ -362,7 +362,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     r#"
@@ -371,7 +371,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   // I16
   check!(
@@ -381,7 +381,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     r#"
@@ -390,7 +390,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   // I32
   check!(
@@ -400,7 +400,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     r#"
@@ -409,7 +409,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   // I64
   check!(
@@ -419,7 +419,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     r#"
@@ -428,7 +428,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   // Isize
   check!(
@@ -438,7 +438,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
   check!(
     r#"
@@ -447,7 +447,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Int,
-    val "-10"
+    value "-10"
   );
 
   // F32
@@ -458,7 +458,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     r#"
@@ -467,7 +467,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     r#"
@@ -476,7 +476,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
 
   // F64
@@ -487,7 +487,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     r#"
@@ -496,7 +496,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::UFloat,
-    val "10.5"
+    value "10.5"
   );
   check!(
     r#"
@@ -505,7 +505,7 @@ fn divideByZeroAbi() -> ()
     "#,
     a,
     type TokenType::Float,
-    val "-10.5"
+    value "-10.5"
   );
 }
 
@@ -528,13 +528,13 @@ fn divideByZeroOther() -> ()
     "a = 10 / 'a'",
     a,
     type TokenType::UInt,
-    val "10"
+    value "10"
   );
   check!(
     "a = True / False",
     a,
     type TokenType::UInt,
-    val "1"
+    value "1"
   );
 
   // Цепочки: каждый шаг слева направо.
@@ -542,19 +542,19 @@ fn divideByZeroOther() -> ()
     "a = 100 / 0 / 2",
     a,
     type TokenType::UInt,
-    val "50"
+    value "50"
   );
   check!(
     "a = 100 / 5 / 0",
     a,
     type TokenType::UInt,
-    val "20"
+    value "20"
   );
   check!(
     "a = 100 / 0 / 0",
     a,
     type TokenType::UInt,
-    val "100"
+    value "100"
   );
 
   // Приоритет: деление раньше + и -.
@@ -562,25 +562,25 @@ fn divideByZeroOther() -> ()
     "a = 10 - 6 / 0",
     a,
     type TokenType::UInt,
-    val "4"
+    value "4"
   );
   check!(
     "a = 10 + 6 / 0",
     a,
     type TokenType::UInt,
-    val "16"
+    value "16"
   );
   check!(
     "a = 1 / 0 + 2 / 0",
     a,
     type TokenType::UInt,
-    val "3"
+    value "3"
   );
   check!(
     "a = -1 - 1 / 0",
     a,
     type TokenType::Int,
-    val "-2"
+    value "-2"
   );
 }
 

@@ -14,25 +14,25 @@ fn floatDotZeros() -> ()
     "a = .",
     a,
     type TokenType::UFloat,
-    val "0"
+    value "0"
   );
   check!(
     "a = .0",
     a,
     type TokenType::UFloat,
-    val "0"
+    value "0"
   );
   check!(
     "a = 0.",
     a,
     type TokenType::UFloat,
-    val "0"
+    value "0"
   );
   check!(
     "a = 0.0",
     a,
     type TokenType::UFloat,
-    val "0"
+    value "0"
   );
 }
 
@@ -44,19 +44,19 @@ fn floatDotLeading() -> ()
     "a = .1",
     a,
     type TokenType::UFloat,
-    val "0.1"
+    value "0.1"
   );
   check!(
     "a = .5",
     a,
     type TokenType::UFloat,
-    val "0.5"
+    value "0.5"
   );
   check!(
     "a = .25",
     a,
     type TokenType::UFloat,
-    val "0.25"
+    value "0.25"
   );
 }
 
@@ -68,13 +68,13 @@ fn floatDotTrailing() -> ()
     "a = 3.",
     a,
     type TokenType::UFloat,
-    val "3"
+    value "3"
   );
   check!(
     "a = 201.",
     a,
     type TokenType::UFloat,
-    val "201"
+    value "201"
   );
 }
 
@@ -86,43 +86,43 @@ fn floatDotExpressions() -> ()
     "a = .5 + .5",
     a,
     type TokenType::UFloat,
-    val "1"
+    value "1"
   );
   check!(
     "a = 1. + .5",
     a,
     type TokenType::UFloat,
-    val "1.5"
+    value "1.5"
   );
   check!(
     "a = 3. + 2.",
     a,
     type TokenType::UFloat,
-    val "5"
+    value "5"
   );
   check!(
     "a = .5 - .25",
     a,
     type TokenType::UFloat,
-    val "0.25"
+    value "0.25"
   );
   check!(
     "a = 10.5 - 10.0",
     a,
     type TokenType::UFloat,
-    val "0.5"
+    value "0.5"
   );
   check!(
     "a = . + .5",
     a,
     type TokenType::UFloat,
-    val "0.5"
+    value "0.5"
   );
   check!(
     "a = 1 / .5",
     a,
     type TokenType::UFloat,
-    val "2"
+    value "2"
   );
 }
 
