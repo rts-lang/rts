@@ -115,10 +115,7 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
 {
   match tokenDataType
   {
-    TokenType::None =>
-    {
-      Value::None()
-    }
+    TokenType::None => Value::None(),
     TokenType::Int =>
     { // Токен бесконечен, а Value::Int(i64) нет: всё что больше или меньше - граница i64 (#71).
       match tokenData.parse::<i64>() 
