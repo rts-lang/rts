@@ -1,3 +1,3 @@
-mod limits;
-mod auto;
+mod explicit;
+mod inferred;
 mod union;

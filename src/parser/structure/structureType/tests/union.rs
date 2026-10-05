@@ -9,6 +9,8 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 /// Сравнивает типы через to_string(): у StructureType нет Debug, а печать
 /// заодно показывает, как объединение выглядит в коде.
+/// 
+/// todo rewrite desc.
 fn isType(actual: StructureType, expected: StructureType) -> bool
 {
   assert!(
@@ -20,9 +22,8 @@ fn isType(actual: StructureType, expected: StructureType) -> bool
 }
 
 /// Разбирает type-секцию объявления в StructureType (issue #59).
-///
-/// `a: U8` — это по-прежнему обычный одиночный тип, а не Union из одного
-/// элемента: иначе поменялось бы поведение всех существующих объявлений.
+/// 
+/// todo rewrite desc.
 fn parseType(code: &str) -> StructureType
 {
   let mut buffer: Vec<u8> = code.as_bytes().to_vec();
@@ -47,6 +48,8 @@ fn parseType(code: &str) -> StructureType
 }
 
 /// Проверяет, что значение легло в объединение: подходящий вариант и результат.
+/// 
+/// todo rewrite desc.
 fn union(
   tokenType: TokenType,
   data: &str,
@@ -105,7 +108,9 @@ fn unionParse() -> ()
   );
 }
 
-/// Литералы - это значения, а не типы: они не поддерживаются (issue #59).
+/// Литералы - это значения, а не типы (issue #59).
+/// 
+/// todo При поддержке литералов как типов - стоит изменить эти проверки.
 #[test]
 fn unionLiteralsAreNotTypes() -> ()
 {
@@ -148,7 +153,7 @@ fn unionExactMatch() -> ()
   );
 
   // Из нескольких подходящих вариантов выбирается тот, в который значение.
-  // помещается без потерь, а не первый в списке:
+  // Помещается без потерь, а не первый в списке:
   // -10 помещается в I8, поэтому U8 | I8 даёт I8, а не зажатое в U8 ноль.
   union(
     TokenType::Int,
@@ -175,7 +180,7 @@ fn unionConvert() -> ()
   // 300 не помещается в U8, но приводится в него с зажимом (#71).
   union(TokenType::UInt, "300",  u8String.clone(), &StructureType::U8, "255");
   
-  // Отрицательное в беззнаковый - тоже приведение, не совпадение.
+  // Отрицательное в беззнаковый - приведение.
   union(TokenType::Int,  "-10",  u8String.clone(), &StructureType::U8, "0");
   
   // Float приводится в целый вариант с округлением.
