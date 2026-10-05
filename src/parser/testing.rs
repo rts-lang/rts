@@ -101,7 +101,7 @@ pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
 /// 
 /// В `cargo test` вывод виден только с `-- --nocapture`
 /// (или `RUST_TEST_NOCAPTURE=1`).
-pub(super) fn showStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &str) -> ()
+pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &str) -> ()
 {
   let (tokenType, data): (TokenType, String) = tokenOf(main, name);
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
@@ -119,14 +119,14 @@ pub(super) fn showStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &st
 ///
 /// Грани юзаются в любом наборе - ровно те, что проверяет `.rt` файл: где-то сверяются
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
-/// фиксированный - `type` → `stype` → `val`, как в `.rt` файлах (`type(a) | stype(a) = a`):
+/// фиксированный - `type` → `stype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
-///     check!("a: U8 = 300", a, type TokenType::UInt, stype StructureType::U8, val "255");
+///     check!("a: U8 = 300", a, type TokenType::UInt, stype StructureType::U8, value "255");
 ///     check!("a = 0.0", a, type TokenType::UFloat, stype StructureType::F32); // Без значения
 ///     check!("a = 10", a, stype StructureType::U8); // Только stype
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
-/// `val` - значение (`{a}`). Имя структуры - идентификатор (`a`) или путь строкой
+/// `value` - значение (`{a}`). Имя структуры - идентификатор (`a`) или путь строкой
 /// (`"a.b"`); каждый вызов исполняет свой код в отдельной структуре.
 ///
 /// Паникует на первой неверной грани; `tryCheck!` вместо паники возвращает `Err`.
@@ -198,25 +198,26 @@ pub(super) use check;
 ///     cargo test testName -- --nocapture
 ///
 ///     showStructure!("a = (1e308 + 1e308) - (1e308 + 1e308)", a);
-///     // showStructure `a = ...` for 'a': type=UFloat | stype=F64 = NaN
+///     // show `a = ...` for 'a' | type=UFloat, stype=F64, value=NaN
 macro_rules! showStructure
 {
   // Имя структуры - идентификатор: `showStructure!("a = 10", a)`
   ($code:expr, $name:ident $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
-    $crate::parser::testing::showStructure(&main, stringify!($name), $code);
+    $crate::parser::testing::printStructure(&main, stringify!($name), $code);
   }};
 
   // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b")`
   ($code:expr, $name:expr $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
-    $crate::parser::testing::showStructure(&main, $name, $code);
+    $crate::parser::testing::printStructure(&main, $name, $code);
   }};
 }
 
-// pub(super) use showStructure; todo Дублирование имен.
+#[allow(unused_imports)]
+pub(super) use showStructure;
 
 // =================================================================================================
 
@@ -242,14 +243,14 @@ mod tests
     check!("a = 10", a, stype StructureType::U8);
   }
 
-  /// Только `val`.
+  /// Только `value`.
   #[test]
   fn valueOnly() -> ()
   {
     check!("a = 10", a, value "10");
   }
 
-  /// `stype` и `val` без `type`.
+  /// `stype` и `value` без `type`.
   #[test]
   fn stypeAndValue() -> ()
   {
