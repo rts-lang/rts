@@ -5,14 +5,15 @@ use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope,
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::{StructureType};
-use crate::parser::structure::tokenValue::calculate::calculate;
+use crate::parser::structure::tokenValue::calculate::{calculate, normalizeToken};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{TokenType};
 // =================================================================================================
+
 /* 
-  структура, которая представляет свободную ячейку данных в памяти;
+  Структура, которая представляет свободную ячейку данных в памяти;
   имеет свои настройки, место хранения.
 */
 
@@ -967,6 +968,11 @@ impl Structure
             }
             //
           }
+        }
+        TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
+        { // Токен бесконечен: сразу обрубаем до потолка u64/i64/f64 (#71),
+          // дальше структура приводит уже обрубленное значение к своему типу.
+          normalizeToken(&mut value[0]);
         }
         _ => {} // Идём дальше.
       }

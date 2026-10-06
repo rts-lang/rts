@@ -458,11 +458,11 @@ impl Structure
                   token.setData( Bytes::from(floatValue.to_string()) );
                 }
                 _ => if let Some((min, max)) = Self::integerLimits(structureType) {
-                  let clamped: String = 
+                  let normalized: String = 
                     if value < min { min.to_string() } else 
                     if value > 0 && (value as u64) > max { max.to_string() } else 
                     { value.to_string() };
-                  token.setData( Bytes::from(clamped) );
+                  token.setData( Bytes::from(normalized) );
                 }
               }
             }
@@ -496,14 +496,14 @@ impl Structure
                 target => if let Some((min, max)) = Self::integerLimits(target) 
                 {
                   let rounded: f64 = value.round();
-                  let clamped: String = if rounded < 0.0 
+                  let normalized: String = if rounded < 0.0 
                   { // Приведение f64 в i64 насыщается само, inf тоже.
                     (rounded as i64).max(min).to_string() 
                   } else 
                   { 
                     (rounded as u64).min(max).to_string() 
                   };
-                  token.setData( Bytes::from(clamped) );
+                  token.setData( Bytes::from(normalized) );
                 }
               }
             } else 

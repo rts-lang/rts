@@ -16,7 +16,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 //  Если это устаревшее - его можно адаптировать под новый стиль просто.
 
 /// Проверяет значение токена после normalizeToken() в явный тип.
-fn normalize(
+fn normalizeToken(
   tokenType: TokenType,
   data: &str,
   structureType: StructureType,
@@ -35,31 +35,31 @@ fn normalize(
 
 /// Явный тип зажимает значение в свои границы, даже если число больше u64 и i64 (#71).
 #[test]
-fn normalizeClamp() -> ()
+fn normalize() -> ()
 {
   let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
   let negBig: String = format!("-{}", big);
   
-  // Обычный clamp
-  normalize(TokenType::UInt, "300", StructureType::U8, "255");
-  normalize(TokenType::Int, "-10", StructureType::U8, "0");
-  normalize(TokenType::Int, "-300", StructureType::I8, "-128");
+  // Обычный normalize.
+  normalizeToken(TokenType::UInt, "300", StructureType::U8, "255");
+  normalizeToken(TokenType::Int, "-10", StructureType::U8, "0");
+  normalizeToken(TokenType::Int, "-300", StructureType::I8, "-128");
   
-  // Больше u64
-  normalize(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
-  normalize(TokenType::UInt, big, StructureType::U8, "255");
-  normalize(TokenType::UInt, big, StructureType::I8, "127");
-  normalize(TokenType::UInt, big, StructureType::I64, &i64::MAX.to_string());
-  normalize(TokenType::UInt, big, StructureType::Usize, &usize::MAX.to_string());
+  // Больше u64.
+  normalizeToken(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::U8, "255");
+  normalizeToken(TokenType::UInt, big, StructureType::I8, "127");
+  normalizeToken(TokenType::UInt, big, StructureType::I64, &i64::MAX.to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::Usize, &usize::MAX.to_string());
   
-  // Меньше i64
-  normalize(TokenType::Int, &negBig, StructureType::I8, "-128");
-  normalize(TokenType::Int, &negBig, StructureType::I64, &i64::MIN.to_string());
-  normalize(TokenType::Int, &negBig, StructureType::Isize, &isize::MIN.to_string());
-  normalize(TokenType::Int, &negBig, StructureType::U64, "0");
+  // Меньше i64.
+  normalizeToken(TokenType::Int, &negBig, StructureType::I8, "-128");
+  normalizeToken(TokenType::Int, &negBig, StructureType::I64, &i64::MIN.to_string());
+  normalizeToken(TokenType::Int, &negBig, StructureType::Isize, &isize::MIN.to_string());
+  normalizeToken(TokenType::Int, &negBig, StructureType::U64, "0");
   
-  // Не число - базовое значение
-  normalize(TokenType::UInt, "abc", StructureType::U8, "0");
+  // Не число - базовое значение.
+  normalizeToken(TokenType::UInt, "abc", StructureType::U8, "0");
 }
 
 /// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71).
@@ -67,13 +67,13 @@ fn normalizeClamp() -> ()
 fn normalizeFloat() -> ()
 {
   let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
-  normalize(TokenType::UInt, big, StructureType::F32, &f32::MAX.to_string());
-  normalize(TokenType::UInt, big, StructureType::F64, &big.parse::<f64>().unwrap().to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::F32, &f32::MAX.to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::F64, &big.parse::<f64>().unwrap().to_string());
   
   // Бесконечность зажимается в границу типа.
-  normalize(TokenType::Float, "-1e309", StructureType::F32, &f32::MIN.to_string());
-  normalize(TokenType::UFloat, "1e309", StructureType::F64, &f64::MAX.to_string());
-  normalize(TokenType::UFloat, "1e309", StructureType::U8, "255");
+  normalizeToken(TokenType::Float, "-1e309", StructureType::F32, &f32::MIN.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::F64, &f64::MAX.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::U8, "255");
 }
 
 /// Float в целый тип: округляется и зажимается в границы типа;
@@ -82,27 +82,27 @@ fn normalizeFloat() -> ()
 #[test]
 fn normalizeFloatToInteger() -> ()
 {
-  normalize(TokenType::UFloat, "5.4", StructureType::I8, "5");
-  normalize(TokenType::UFloat, "5.5", StructureType::I8, "6");
+  normalizeToken(TokenType::UFloat, "5.4", StructureType::I8, "5");
+  normalizeToken(TokenType::UFloat, "5.5", StructureType::I8, "6");
   
-  // Беззнаковые
-  normalize(TokenType::Float, "-10.0", StructureType::U8, "0");
-  normalize(TokenType::Float, "-5.5", StructureType::U8, "0");
-  normalize(TokenType::Float, "-0.4", StructureType::U8, "0");
+  // Беззнаковые.
+  normalizeToken(TokenType::Float, "-10.0", StructureType::U8, "0");
+  normalizeToken(TokenType::Float, "-5.5", StructureType::U8, "0");
+  normalizeToken(TokenType::Float, "-0.4", StructureType::U8, "0");
   
   // Знаковые принимают отрицательное, если оно в диапазоне.
-  normalize(TokenType::Float, "-5.5", StructureType::I8, "-6");
-  normalize(TokenType::Float, "-5.4", StructureType::I8, "-5");
-  normalize(TokenType::Float, "-0.4", StructureType::I8, "0");
-  normalize(TokenType::Float, "-1000000.7", StructureType::I64, "-1000001");
+  normalizeToken(TokenType::Float, "-5.5", StructureType::I8, "-6");
+  normalizeToken(TokenType::Float, "-5.4", StructureType::I8, "-5");
+  normalizeToken(TokenType::Float, "-0.4", StructureType::I8, "0");
+  normalizeToken(TokenType::Float, "-1000000.7", StructureType::I64, "-1000001");
   
   // Вне диапазона - граница типа.
-  normalize(TokenType::Float, "-200.5", StructureType::I8, "-128");
-  normalize(TokenType::UFloat, "200.5", StructureType::I8, "127");
-  normalize(TokenType::UFloat, "300.5", StructureType::U8, "255");
-  normalize(TokenType::Float, "-1e309", StructureType::I64, &i64::MIN.to_string());
-  normalize(TokenType::UFloat, "1e309", StructureType::I64, &i64::MAX.to_string());
-  normalize(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
+  normalizeToken(TokenType::Float, "-200.5", StructureType::I8, "-128");
+  normalizeToken(TokenType::UFloat, "200.5", StructureType::I8, "127");
+  normalizeToken(TokenType::UFloat, "300.5", StructureType::U8, "255");
+  normalizeToken(TokenType::Float, "-1e309", StructureType::I64, &i64::MIN.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::I64, &i64::MAX.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
 }
 
 // =================================================================================================
@@ -202,12 +202,14 @@ fn castBigNumbers() -> ()
 #[test]
 fn castFloats() -> ()
 {
+  // UInt токен бесконечный: в expression он обрубается до usize::MAX,
+  // а `l: F32 =` приводит уже обрубленное значение к f32.
   checkStructure!(
     "l: F32 = 44444444444444444444444444444444444444444444",
     l,
     type TokenType::UInt,
     stype StructureType::F32,
-    value "340282350000000000000000000000000000000"
+    value &(usize::MAX as f32).to_string()
   );
   checkStructure!(
     "m: F32 = -1.7976931348623157e309",

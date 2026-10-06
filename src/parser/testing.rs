@@ -40,6 +40,30 @@ pub(super) fn runCode(code: &str) -> Arc<RwLock<Structure>>
   main
 }
 
+/// Считает выражение из токенов и возвращает токен-результат.
+///
+/// Для тестов Token/TokenType: структуры и StructureType тут не участвуют, поэтому нет `a = ...`.
+pub(super) fn expressionOf(code: &str) -> Token
+{
+  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+  let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
+  
+  let mut tokens: Vec<Token> = lines.first()
+    .unwrap_or_else(|| panic!("Expression `{}` has no lines", code))
+    .read().unwrap().tokens.clone()
+    .unwrap_or_else(|| panic!("Expression `{}` has no tokens", code));
+  
+  let main: Structure = Structure::new(
+    Some(String::from("main")),
+    StructureMut::Constant,
+    StructureType::Method,
+    None,
+    None
+  );
+  
+  main.expression(&mut tokens)
+}
+
 /// Возвращает структуру по `name` из выполненного кода; если её нет - паника.
 pub(super) fn getStructure(main: &Arc<RwLock<Structure>>, name: &str) -> Arc<RwLock<Structure>>
 {
@@ -254,6 +278,44 @@ pub(super) use showStructure;
 // =================================================================================================
 
 /// Смоук-тесты самого `tryCheckStructure!`: разные наборы граней компилируются и реально сверяются.
+/// Проверка выражения из токенов (без `a = ...`): сверяются ТОЛЬКО указанные грани.
+///
+/// Грани: `type` - тип токена результата, `value` - его значение; порядок `type` → `value`.
+///
+///     checkExpression!("(1e308 + 1e308) - (1e308 + 1e308)", type TokenType::UFloat, value "0");
+///     checkExpression!("1e309", value &f64::MAX.to_string()); // Только значение
+///
+/// Паникует на первой неверной грани.
+macro_rules! checkExpression
+{
+  ($code:expr $(, type $t:expr)? $(, value $v:expr)? $(,)?) =>
+  {{
+    let code: &str = $code;
+    let token: $crate::tokenizer::types::token::Token = $crate::parser::testing::expressionOf(code);
+    $(
+      let expectedType: $crate::tokenizer::types::tokenType::TokenType = $t;
+      assert!(
+        *token.getDataType() == expectedType,
+        "check expression type in `{}`: expected '{}', got '{}'",
+        code, expectedType.to_string(), token.getDataType().to_string()
+      );
+    )?
+    $(
+      let expectedValue: &str = &$v;
+      let data: String = token.getData().toString().unwrap_or_default();
+      assert!(
+        data == expectedValue,
+        "check expression value in `{}`: expected '{}', got '{}'",
+        code, expectedValue, data
+      );
+    )?
+  }};
+}
+
+pub(super) use checkExpression;
+
+// =================================================================================================
+
 #[cfg(test)]
 mod tests
 {

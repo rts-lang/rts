@@ -15,10 +15,16 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
 {
   // Получаем значение левой части выражения.
   let leftTokenDataType: TokenType = *leftToken.getDataType();
-  let leftValue: Value = getValue(leftToken.getData().toString().unwrap_or_default(), &leftTokenDataType);
+  let leftValue: Value = getValue(
+    leftToken.getData().toString().unwrap_or_default(),
+    &leftTokenDataType
+  );
   // Получаем значение правой части выражения.
   let rightTokenDataType: TokenType = *rightToken.getDataType();
-  let rightValue: Value = getValue(rightToken.getData().toString().unwrap_or_default(), &rightTokenDataType);
+  let rightValue: Value = getValue(
+    rightToken.getData().toString().unwrap_or_default(),
+    &rightTokenDataType
+  );
 
   // -----------------------------------------------------------------------------------------------
   // Логические операции и сравнения: результат всегда токен True или False (#39, #65).
@@ -51,10 +57,10 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   let mut resultType: TokenType = TokenType::UInt;
   let resultValue: String = match *op 
   {
-    TokenType::Plus     => (leftValue + rightValue).to_string(),
-    TokenType::Minus    => (leftValue - rightValue).to_string(),
-    TokenType::Multiply => (leftValue * rightValue).to_string(),
-    TokenType::Divide   => (leftValue / rightValue).to_string(),
+    TokenType::Plus     => normalizeValue(leftValue + rightValue).to_string(),
+    TokenType::Minus    => normalizeValue(leftValue - rightValue).to_string(),
+    TokenType::Multiply => normalizeValue(leftValue * rightValue).to_string(),
+    TokenType::Divide   => normalizeValue(leftValue / rightValue).to_string(),
     _ => "0".to_string(),
   };
   // После того как значение было получено,
@@ -109,7 +115,79 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
   Token::new(resultType, resultValue)
   // -----------------------------------------------------------------------------------------------
 }
+
+// =================================================================================================
+
+/// Нормализация (#71) Token по его TokenType: токен бесконечен, а математика Rust нет.
+///
+/// 4 класса токенов для чисел, у каждого свои min и max значения:
+///   UInt    0 ... usize::MAX;
+///   Int     isize::MIN ... -1.
+///   UFloat  0 ... f64::MAX;
+///   Float   f64::MIN ... -0.
+///
+/// todo У floats inf становится границей в виде `{:e}`, как в структуре; NaN - 0.
+pub fn normalizeToken(token: &mut Token) -> ()
+{
+  let data: String = token.getData().toString().unwrap_or_default();
+  let normalized: Option<String> = match *token.getDataType()
+  {
+    TokenType::UInt => match data.parse::<u64>()
+    {
+      Ok(value) if value > usize::MAX as u64 => Some(usize::MAX.to_string()),
+      Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(usize::MAX.to_string()),
+      _ => None
+    },
+    TokenType::Int => match data.parse::<i64>()
+    {
+      Ok(value) if value > isize::MAX as i64 => Some(isize::MAX.to_string()),
+      Ok(value) if value < isize::MIN as i64 => Some(isize::MIN.to_string()),
+      Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(isize::MAX.to_string()),
+      Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(isize::MIN.to_string()),
+      _ => None
+    },
+    TokenType::UFloat | TokenType::Float => match data.parse::<f64>()
+    {
+      Ok(value) if value.is_nan() => Some(String::from("0")),
+      Ok(value) if value.is_infinite() => Some(format!("{:e}", normalizeFloat(value))),
+      _ => None
+    },
+    _ => None
+  };
+  if let Some(normalized) = normalized { 
+    token.setData(normalized);
+  }
+}
+
 /// Зависимость для calculate;
+/// Значение за границей f64 зажимается в границу, как в структуре: inf - f64::MAX/MIN, NaN - 0.
+fn normalizeFloat(value: f64) -> f64
+{
+  if value.is_nan() { 0.0 } else { value.clamp(f64::MIN, f64::MAX) }
+}
+
+/// Зависимость для calculate;
+/// Зажимает результат операции: промежуточное значение не должно быть inf или NaN (#71).
+///
+/// Иначе `(1e308 + 1e308) - (1e308 + 1e308)` считалось бы как `inf - inf = NaN`,
+/// а не как `f64::MAX - f64::MAX = 0`, потому что структура зажимает только итог.
+fn normalizeValue(value: Value) -> Value
+{
+  match value
+  {
+    // UInt - usize, Int - isize (Value хранит u64/i64, на 32 битах потолок ниже).
+    Value::UInt(x) => Value::UInt(x.min(usize::MAX as u64)),
+    Value::Int(x) => Value::Int(x.clamp(isize::MIN as i64, isize::MAX as i64)),
+    Value::Float(x) => Value::Float(normalizeFloat(x)),
+    // Отрицательный UFloat сохраняется: из него calculate делает Float (`1.0 - 2.0`).
+    Value::UFloat(x) if !f64::from(x).is_finite() =>
+      Value::UFloat(uf64::from(normalizeFloat(f64::from(x)))),
+    other => other
+  }
+}
+
+/// Зависимость для calculate;
+/// 
 /// Считает значение левой и правой части выражения
 fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value 
 {
@@ -117,41 +195,40 @@ fn getValue(tokenData: String, tokenDataType: &TokenType) -> Value
   {
     TokenType::None => Value::None(),
     TokenType::Int =>
-    { // Токен бесконечен, а Value::Int(i64) нет: всё что больше или меньше - граница i64 (#71).
+    { // Токен бесконечен, а Int нет: всё что больше или меньше - граница isize (#71).
       match tokenData.parse::<i64>() 
       {
-        Ok(value) => Value::Int(value),
+        Ok(value) => Value::Int(value.clamp(isize::MIN as i64, isize::MAX as i64)),
         Err(error) => match error.kind() 
         {
-          IntErrorKind::PosOverflow => Value::Int(i64::MAX),
-          IntErrorKind::NegOverflow => Value::Int(i64::MIN),
+          IntErrorKind::PosOverflow => Value::Int(isize::MAX as i64),
+          IntErrorKind::NegOverflow => Value::Int(isize::MIN as i64),
           _ => Value::Int(0)
         }
       }
     },
     TokenType::UInt =>
-    { // Токен бесконечен, а Value::UInt(u64) нет: всё что больше - граница u64 (#71).
+    { // Токен бесконечен, а UInt нет: всё что больше - граница usize (#71).
       match tokenData.parse::<u64>() 
       {
-        Ok(value) => Value::UInt(value),
+        Ok(value) => Value::UInt(value.min(usize::MAX as u64)),
         Err(error) => match error.kind() 
         {
-          IntErrorKind::PosOverflow => Value::UInt(u64::MAX),
+          IntErrorKind::PosOverflow => Value::UInt(usize::MAX as u64),
           _ => Value::UInt(0)
         }
       }
     },
     TokenType::Float =>
-    {
+    { // Токен бесконечен, а Value::Float(f64) нет: inf - граница f64 (#71).
       tokenData.parse::<f64>()
-        .map(Value::Float)
+        .map(|value| Value::Float(normalizeFloat(value)))
         .unwrap_or_else(|_| Value::Float(0.0))
     },
     TokenType::UFloat =>
-    {
+    { // Токен бесконечен, а Value::UFloat(uf64) нет: inf - граница f64 (#71).
       tokenData.parse::<f64>()
-        .map(uf64::from)
-        .map(Value::UFloat)
+        .map(|value| Value::UFloat(uf64::from(normalizeFloat(value))))
         .unwrap_or_else(|_| Value::UFloat(uf64::from(0.0)))
     },
     TokenType::Char =>
@@ -311,6 +388,23 @@ mod tests
         );
       }
     }
+  }
+
+  /// Результат за границей f64 зажимается, а не становится inf/NaN (#71).
+  #[test]
+  fn floatOverflow() -> ()
+  {
+    let max: String = f64::MAX.to_string();
+    let min: String = f64::MIN.to_string();
+    // Сумма за границей.
+    check(TokenType::Plus,  (TokenType::UFloat, "1e308"),  (TokenType::UFloat, "1e308"), TokenType::UFloat, &max);
+    check(TokenType::Minus, (TokenType::Float,  "-1e308"), (TokenType::UFloat, "1e308"), TokenType::Float,  &min);
+    // Литерал за границей зажимается до операции: MAX - MAX = 0, а не inf - inf.
+    check(TokenType::Minus, (TokenType::UFloat, "1e309"),  (TokenType::UFloat, "1e309"),  TokenType::UFloat, "0");
+    check(TokenType::Minus, (TokenType::UFloat, "inf"),    (TokenType::UFloat, "inf"),    TokenType::UFloat, "0");
+    check(TokenType::Minus, (TokenType::Float,  "-1e309"), (TokenType::Float,  "-1e309"), TokenType::Float,  "0");
+    // Отрицательный UFloat не теряется: из него получается Float.
+    check(TokenType::Minus, (TokenType::UFloat, "1.0"),    (TokenType::UFloat, "2.0"),    TokenType::Float,  "-1");
   }
 
   // ===============================================================================================
