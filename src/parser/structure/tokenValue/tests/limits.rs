@@ -2,9 +2,11 @@ use crate::parser::testing::checkExpression;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Потолки Value/calculate: TokenType бесконечен, но мы ограничены математикой Rust.
+// Потолки Value + calculate: TokenType бесконечен, но мы ограничены математикой Rust.
 //
 // Здесь не тестируются структуры - т.к. это часть TokenType а не StructureType.
+//
+// А также это полная работа парсера, а не просто calculate.
 //
 // 4 класса токенов для чисел, у каждого свои min и max значения:
 //   UInt    0 ... usize::MAX;

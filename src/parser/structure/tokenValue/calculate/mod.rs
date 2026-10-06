@@ -1,5 +1,5 @@
-pub mod structureType;
-pub use structureType::*;
+pub mod calculate;
+pub use calculate::*;
 // =================================================================================================
 #[cfg(test)]
 mod tests;
