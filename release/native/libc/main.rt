@@ -1,0 +1,25 @@
+
+###
+  Замена убранных методов через libc (issue #45).
+
+  Платформозависимые методы больше не встроены в язык, их место - native-пакеты.
+  Самый простой пакет - обёртка над libc через importNative:
+
+    randUInt -> libc.rand
+    sleep    -> libc.usleep (микросекунды, не миллисекунды)
+    exec     -> libc.system
+    clear    -> libc.system("clear")
+###
+
+libc: Pointer = importNative("libc.so.6")
+
+# randUInt: число из rand() приводится к диапазону обычной арифметикой
+a = libc.rand()
+print(f"{type(a)}\n")  # UInt
+
+# sleep: 1 ms
+libc.usleep(1000)
+print("slept\n")  # slept
+
+# exec: вывод процесса идёт напрямую в stdout
+libc.system("echo from libc")  # from libc

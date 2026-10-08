@@ -16,8 +16,8 @@ use crate::tokenizer::types::tokenType::TokenType;
 fn builtins() -> HashSet<&'static str>
 {
   HashSet::from([
-    "println", "print", "clear", "go", "sleep", "exit",
-    "type", "stype", "utype", "mut", "randUInt", "len", "input", "exec", "execs"
+    "println", "print", "go", "exit",
+    "type", "stype", "utype", "mut", "len"
   ])
 }
 

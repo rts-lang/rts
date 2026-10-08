@@ -1,7 +1,4 @@
-use std::process::Command;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::thread::sleep;
-use std::time::Duration;
 use crate::{_exit, _exitCode, _sourcePath};
 use crate::parser::parser::{readLines, searchStructure};
 use crate::parser::structure::ffi::bridge;
@@ -48,17 +45,6 @@ impl Procedure
   
   // ===============================================================================================
   
-  /// Отчищаем вывод.
-  ///
-  /// todo Можно выдавать результат boolean при ошибке.
-  fn clear() -> ()
-  {
-    let _ = Command::new("clear")
-      .status(); // Игнорируем ошибки.
-  }
-  
-  // ===============================================================================================
-  
   /// Запускаем линию выше заново.
   ///
   /// todo Должна принимать количество на которое поднимает наверх.
@@ -94,25 +80,6 @@ impl Procedure
     println!("ex");
   }
   */
-  
-  // ===============================================================================================
-  
-  /// Ожидает определённое количество ms.
-  fn sleep(structure: &Structure, parameters: &Parameters) -> ()
-  {
-    if let Some(parameter0) = parameters.getExpression(structure, 0)
-    {
-      let valueNumber: u64 = parameter0
-        .getData().toString().unwrap_or_default()
-        .parse::<u64>().unwrap_or_default(); // todo: depends on Value.rs ?
-      if valueNumber > 0
-      {
-        sleep(Duration::from_millis(valueNumber));
-      }
-      //
-    }
-    //
-  }
   
   // ===============================================================================================
   
@@ -159,9 +126,7 @@ impl Structure
       { // Проверяем на сходство стандартных функций
         "println" => Procedure::print(self, &parameters, true),
         "print" => Procedure::print(self, &parameters, false),
-        "clear" => Procedure::clear(),
         "go" => Procedure::go(self),
-        "sleep" => Procedure::sleep(self, &parameters),
         "exit" => Procedure::exit(self, &parameters),
         // -----------------------------------------------------------------------------------------
         _ => 
