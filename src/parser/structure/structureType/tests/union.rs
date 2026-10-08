@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 //
 // todo Есть баг еще вроде как с U8 = None будет 0, что ошибка. НО оно не к этому к StructureType.
 //
-// tod Еще тут есть вопросы, возможно использовать общие макросы + вынести часть проверок туда отсюда.
+// todo Еще тут есть вопросы, возможно использовать общие макросы + вынести часть проверок туда отсюда.
 
 // =================================================================================================
 
@@ -164,16 +164,17 @@ fn unionLiteralParse() -> ()
 fn unionLiteralMatch() -> ()
 {
   let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
-  union(TokenType::UInt, "10", tenTwenty.clone(), &StructureType::U8, "10");
-  union(TokenType::UInt, "20", tenTwenty.clone(), &StructureType::U8, "20");
+  // stype = сам литерал, не natural U8/F32.
+  union(TokenType::UInt, "10", tenTwenty.clone(), &number("10"), "10");
+  union(TokenType::UInt, "20", tenTwenty.clone(), &number("20"), "20");
   // Числа равны по значению, а не по записи.
-  union(TokenType::UFloat, "10.0", tenTwenty.clone(), &StructureType::F32, "10.0");
-  union(TokenType::Int, "-1", vec![number("-1"), number("1")], &StructureType::I8, "-1");
-  union(TokenType::UInt, "1", vec![number("-1"), number("1")], &StructureType::U8, "1");
+  union(TokenType::UFloat, "10.0", tenTwenty.clone(), &number("10"), "10.0");
+  union(TokenType::Int, "-1", vec![number("-1"), number("1")], &number("-1"), "-1");
+  union(TokenType::UInt, "1", vec![number("-1"), number("1")], &number("1"), "1");
 
   let textTen: Vec<StructureType> = vec![text("x"), number("10")];
-  union(TokenType::String, "x", textTen.clone(), &StructureType::String, "x");
-  union(TokenType::UInt, "10", textTen.clone(), &StructureType::U8, "10");
+  union(TokenType::String, "x", textTen.clone(), &text("x"), "x");
+  union(TokenType::UInt, "10", textTen.clone(), &number("10"), "10");
 }
 
 /// Значение вне литералов - `None` (#71): без приведения, без зажима и без явного `None`.
@@ -213,9 +214,9 @@ fn unionLiteralWithType() -> ()
   union(TokenType::UInt,   "11",  u8Ten.clone(), &StructureType::U8, "11");
   union(TokenType::UInt,   "300", u8Ten.clone(), &StructureType::U8, "255");
   union(TokenType::Int,    "-5",  u8Ten.clone(), &StructureType::U8, "0");
-  // Строковый литерал рядом с типом.
+  // Строковый литерал рядом с типом: матч литерала → stype = литерал.
   let textU8: Vec<StructureType> = vec![text("name"), StructureType::U8];
-  union(TokenType::String, "name", textU8.clone(), &StructureType::String, "name");
+  union(TokenType::String, "name", textU8.clone(), &text("name"), "name");
   union(TokenType::String, "other", textU8.clone(), &StructureType::None, "");
   union(TokenType::UInt,   "300",  textU8.clone(), &StructureType::U8, "255");
 }
@@ -226,6 +227,30 @@ fn unionLiteralToString() -> ()
 {
   assert_eq!(StructureType::Union(vec![number("10"), number("20")]).to_string(), "10 | 20");
   assert_eq!(StructureType::Union(vec![text("text"), StructureType::U8]).to_string(), "\"text\" | U8");
+}
+
+/// Смешанный union: тип + литерал — stype литерал при точном матче.
+#[test]
+fn unionLiteralMixedType() -> ()
+{
+  let stringTen: Vec<StructureType> = vec![StructureType::String, number("10")];
+  union(TokenType::UInt, "10", stringTen.clone(), &number("10"), "10");
+  union(TokenType::String, "hi", stringTen.clone(), &StructureType::String, "hi");
+  union(TokenType::UInt, "11", stringTen.clone(), &StructureType::None, "");
+
+  let stringText: Vec<StructureType> = vec![StructureType::String, text("text")];
+  union(TokenType::String, "text", stringText.clone(), &text("text"), "text");
+  union(TokenType::String, "other", stringText.clone(), &StructureType::String, "other");
+}
+
+/// abiType сводит литерал к storage-форме.
+#[test]
+fn literalAbiType() -> ()
+{
+  assert!(text("text").abiType() == StructureType::String);
+  assert!(number("10").abiType() == StructureType::U8);
+  assert!(number("-1").abiType() == StructureType::I8);
+  assert!(StructureType::U8.abiType() == StructureType::U8);
 }
 
 /// Значение ложится в тот вариант, в который помещается как есть (issue #59).

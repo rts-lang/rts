@@ -17,7 +17,7 @@ fn builtins() -> HashSet<&'static str>
 {
   HashSet::from([
     "println", "print", "clear", "go", "sleep", "exit",
-    "type", "mut", "randUInt", "len", "input", "exec", "execs"
+    "type", "stype", "utype", "mut", "randUInt", "len", "input", "exec", "execs"
   ])
 }
 

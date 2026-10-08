@@ -83,10 +83,11 @@ pub enum StructureType
 
   /// Примитив как граница типизации: `a: 10 | 20 = 10`.
   ///
-  /// Это НЕ ABI-тип, а ограничение значения: допустимо только точное совпадение,
-  /// без приведения и без зажима. Поэтому в `Structure` как `dataType`
-  /// литерал никогда не хранится - там лежит естественный тип самого значения
-  /// (`a: 10 | 20 = 10` -> U8). Значение вне литералов - `None` (#71).
+  /// Это ограничение значения: допустимо только точное совпадение,
+  /// без приведения и без зажима. При матче литерал сам становится
+  /// `dataType` структуры (`stype` → `10` / `"text"`), а не natural ABI-тип.
+  /// Для ABI (FFI, string fields) см. `abiType()`: Text → String, Number → natural.
+  /// Значение вне литералов - `None` (#71).
   ///
   /// Живёт только в type-секции (слева от `=`): справа `|` - это логическое ИЛИ.
   /// Отдельный литерал `a: 10` оборачивается в `Union` из одного варианта.
@@ -333,6 +334,35 @@ impl StructureType
     }
   }
 
+  /// ABI / storage тип: литерал сводится к natural-форме значения.
+  ///
+  /// `Literal(Text, _)` → `String`; `Literal(Number, v)` → наименьший числовой
+  /// ABI-тип для `v`; всё остальное — как есть. Нужен там, где `dataType`
+  /// участвует в FFI, string-полях и `normalizeToken`, а не в `stype`.
+  pub fn abiType(&self) -> Self
+  {
+    match self
+    {
+      Self::Literal(LiteralKind::Text, _) => Self::String,
+      Self::Literal(LiteralKind::Number, value) =>
+      {
+        // Те же правила, что naturalType для числового токена: через временный UInt/Int.
+        let tokenType: TokenType = 
+          if value.starts_with('-') {
+            TokenType::Int
+          } else
+          if value.contains('.') {
+            TokenType::UFloat
+          } else {
+            TokenType::UInt
+          };
+        let mut token: Token = Token::new(tokenType, value.clone());
+        Self::naturalType(&mut token)
+      }
+      other => other.clone()
+    }
+  }
+
   /// Тип, который значение занимает САМО по себе, без учёта объявления.
   ///
   /// Для числа это наименьший ABI-тип, в который оно помещается
@@ -463,10 +493,11 @@ impl Structure
     let variant: StructureType = Self::matchUnion(token, &StructureType::Union(variants));
     let natural: StructureType = StructureType::naturalType(token);
 
-    // Литерал - ограничение значения, а не ABI-тип: токен остаётся как есть,
-    // а структура хранит естественный тип самого значения (`a: 10 | 20 = 10` -> U8).
-    if matches!(variant, StructureType::Literal(..)) { 
-      return natural;
+    // Литерал - выбранный вариант типизации: токен (значение) не трогаем,
+    // dataType/stype становится самим литералом (`a: 10 | 20 = 10` -> stype 10).
+    // ABI-форма — через abiType() там, где нужен String/U8/...
+    if matches!(variant, StructureType::Literal(..)) {
+      return variant;
     }
 
     // Не подошло ни к одному варианту — токен очищается.
