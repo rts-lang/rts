@@ -102,6 +102,7 @@ impl Function
   /// `unionTypes` хранит исходный набор вариантов и не сужается при присваивании.
   /// 
   /// todo Здесь система отличается немного от других, а еще нет комментов по частям кода.
+  ///   Я думаю тут просто у прощена в плане реализации, что стоит применить stype, type ...
   fn utype(
     structure: &Structure,
     parameters: &Parameters,
@@ -128,14 +129,8 @@ impl Function
           if let Some(structureLink) = structure.getStructureByName(&structureName)
           {
             let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-            let full: String = match &structure.unionTypes
-            {
-              Some(variants) if !variants.is_empty() =>
-                StructureType::Union(variants.clone()).to_string(),
-              _ => structure.dataType.to_string()
-            };
             value[i].setDataType(TokenType::String);
-            value[i].setData(full);
+            value[i].setData(structure.utype().to_string());
             return;
           }
         }
