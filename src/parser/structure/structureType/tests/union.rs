@@ -1,10 +1,18 @@
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{StructureType, LiteralKind};
 use crate::tokenizer::tools::splitByType::splitByType;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
+// =================================================================================================
+
+// todo desc + я бы раскрыл все строки.
+//
+// todo Есть баг еще вроде как с U8 = None будет 0, что ошибка. НО оно не к этому к StructureType.
+//
+// tod Еще тут есть вопросы, возможно использовать общие макросы + вынести часть проверок туда отсюда.
+
 // =================================================================================================
 
 /// Сравнивает типы через to_string(): у StructureType нет Debug, а печать
@@ -34,8 +42,16 @@ fn parseType(code: &str) -> StructureType
     let line: RwLockReadGuard<Line> = line.read().unwrap();
     if let Some(tokens) = &line.tokens
     {
+      // Как в парсере: сначала режем по `=`, и только левая часть - это объявление;
+      // правая часть - выражение, и в type-секцию она не попадает.
+      let left: Vec<Token> = match tokens.iter().position(|token: &Token| *token.getDataType() == TokenType::Equals)
+      {
+        Some(position) => tokens[..position].to_vec(),
+        None => tokens.clone()
+      };
+
       // Отрезаем всё после `:` — это и есть type-секция.
-      let typeTokens: Vec<Token> = match splitByType(tokens.clone(), &[TokenType::Colon])
+      let typeTokens: Vec<Token> = match splitByType(left, &[TokenType::Colon])
       {
         parts if parts.len() == 2 =>
           parts[1].tokens.clone().unwrap_or_default(),
@@ -108,21 +124,108 @@ fn unionParse() -> ()
   );
 }
 
-/// Литералы - это значения, а не типы (issue #59).
-/// 
-/// todo При поддержке литералов как типов - стоит изменить эти проверки.
-#[test]
-fn unionLiteralsAreNotTypes() -> ()
+/// Числовой литерал как вариант типизации.
+fn number(data: &str) -> StructureType
 {
-  // Ни одного имени типа - тип не указан, объявление ведёт себя как `a = 10`.
-  isType(parseType("a: 1 | 2 = 10"), StructureType::None);
-  
-  // Строковый литерал отбрасывается, `U8` остаётся единственным вариантом.
-  isType(parseType("a: \"name\" | 10 = 10"), StructureType::None);
-  isType(parseType("a: \"name\" | U8 = 10"), StructureType::U8);
-  
+  StructureType::Literal(LiteralKind::Number, String::from(data))
+}
+
+/// Строковый литерал как вариант типизации.
+fn text(data: &str) -> StructureType
+{
+  StructureType::Literal(LiteralKind::Text, String::from(data))
+}
+
+/// Литералы - варианты типизации наравне с именами типов (type-секция слева от `=`).
+#[test]
+fn unionLiteralParse() -> ()
+{
+  isType(parseType("a: 10 | 20 = 10"), StructureType::Union(vec![number("10"), number("20")]));
+  isType(parseType("a: 10|20 = 10"), StructureType::Union(vec![number("10"), number("20")])); // Без пробелов.
+  isType(parseType("a: \"text\" | 10 = 10"), StructureType::Union(vec![text("text"), number("10")]));
+  isType(parseType("a: \"name\" | U8 = 10"), StructureType::Union(vec![text("name"), StructureType::U8]));
+  isType(parseType("a: U8 | 10 = 10"), StructureType::Union(vec![StructureType::U8, number("10")]));
+  isType(parseType("a: 1.5 | 2 = 2"), StructureType::Union(vec![number("1.5"), number("2")]));
+  // Отрицательное число - один токен Int.
+  isType(parseType("a: -1 | 1 = 1"), StructureType::Union(vec![number("-1"), number("1")]));
+  // Одиночный литерал - Union из одного варианта, иначе значение не проверялось бы.
+  isType(parseType("a: 10 = 10"), StructureType::Union(vec![number("10")]));
+  isType(parseType("a: \"x\" = \"x\""), StructureType::Union(vec![text("x")]));
+  // Повторы схлопываются.
+  isType(parseType("a: 10 | 10 | 20 = 10"), StructureType::Union(vec![number("10"), number("20")]));
   // Незакрытый `|` не ломает разбор.
   isType(parseType("a: U8 | = 10"), StructureType::U8);
+  isType(parseType("a: 10 | = 10"), StructureType::Union(vec![number("10")]));
+}
+
+/// Значение, точно совпавшее с литералом, остаётся как есть;
+/// структура хранит естественный тип значения, а не сам литерал.
+#[test]
+fn unionLiteralMatch() -> ()
+{
+  let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
+  union(TokenType::UInt, "10", tenTwenty.clone(), &StructureType::U8, "10");
+  union(TokenType::UInt, "20", tenTwenty.clone(), &StructureType::U8, "20");
+  // Числа равны по значению, а не по записи.
+  union(TokenType::UFloat, "10.0", tenTwenty.clone(), &StructureType::F32, "10.0");
+  union(TokenType::Int, "-1", vec![number("-1"), number("1")], &StructureType::I8, "-1");
+  union(TokenType::UInt, "1", vec![number("-1"), number("1")], &StructureType::U8, "1");
+
+  let textTen: Vec<StructureType> = vec![text("x"), number("10")];
+  union(TokenType::String, "x", textTen.clone(), &StructureType::String, "x");
+  union(TokenType::UInt, "10", textTen.clone(), &StructureType::U8, "10");
+}
+
+/// Значение вне литералов - `None` (#71): без приведения, без зажима и без явного `None`.
+#[test]
+fn unionLiteralNone() -> ()
+{
+  let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
+  // Ближайшее число не подставляется: только точное совпадение.
+  union(TokenType::UInt,   "15",   tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::UInt,   "300",  tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::UFloat, "10.5", tenTwenty.clone(), &StructureType::None, "");
+  // Другой вид значения.
+  union(TokenType::String, "text", tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::String, "10",   tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::True,   "True", tenTwenty.clone(), &StructureType::None, "");
+  // `None` как значение - тоже `None`, хотя в объединении он не указан.
+  union(TokenType::None,   "",     tenTwenty.clone(), &StructureType::None, "");
+
+  let textTen: Vec<StructureType> = vec![text("x"), number("10")];
+  union(TokenType::String, "y",    textTen.clone(), &StructureType::None, "");
+  union(TokenType::True,   "True", textTen.clone(), &StructureType::None, "");
+  union(TokenType::UInt,   "11",   textTen.clone(), &StructureType::None, "");
+}
+
+/// Литерал вместе с типом: сначала точный литерал, потом тип как есть, потом приведение.
+#[test]
+fn unionLiteralWithType() -> ()
+{
+  let u8Ten: Vec<StructureType> = vec![StructureType::U8, number("10")];
+  // Приоритет: литерал раньше типа.
+  let mut token: Token = Token::new(TokenType::UInt, String::from("10"));
+  assert!(
+    Structure::matchUnion(&mut token, &StructureType::Union(u8Ten.clone())) == number("10"),
+    "The exact literal must win over the type variant"
+  );
+  // Не литерал - работают правила типов: приведение с зажимом (#71).
+  union(TokenType::UInt,   "11",  u8Ten.clone(), &StructureType::U8, "11");
+  union(TokenType::UInt,   "300", u8Ten.clone(), &StructureType::U8, "255");
+  union(TokenType::Int,    "-5",  u8Ten.clone(), &StructureType::U8, "0");
+  // Строковый литерал рядом с типом.
+  let textU8: Vec<StructureType> = vec![text("name"), StructureType::U8];
+  union(TokenType::String, "name", textU8.clone(), &StructureType::String, "name");
+  union(TokenType::String, "other", textU8.clone(), &StructureType::None, "");
+  union(TokenType::UInt,   "300",  textU8.clone(), &StructureType::U8, "255");
+}
+
+/// Union печатается так же, как записывается в коде.
+#[test]
+fn unionLiteralToString() -> ()
+{
+  assert_eq!(StructureType::Union(vec![number("10"), number("20")]).to_string(), "10 | 20");
+  assert_eq!(StructureType::Union(vec![text("text"), StructureType::U8]).to_string(), "\"text\" | U8");
 }
 
 /// Значение ложится в тот вариант, в который помещается как есть (issue #59).
