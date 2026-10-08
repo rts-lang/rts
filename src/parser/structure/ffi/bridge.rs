@@ -189,7 +189,7 @@ fn unsignedToken(value: u64) -> Token
   Token::new(TokenType::UInt, value.to_string())
 }
 
-/// Знаковое целое -> абстрактный токен (как у литералов: `>= 0` это UInt, `< 0` это Int).
+/// Знаковое целое -> абстрактный токен (как у примитивов: `>= 0` это UInt, `< 0` это Int).
 fn signedToken(value: i64) -> Token
 {
   if value < 0 {
@@ -427,10 +427,10 @@ mod tests
       FfiExpect::Infer
     ).unwrap();
     assert!(dataOf(&result) == (TokenType::UInt, String::from("11")));
-    assert!(result.clone().getStructureType() == StructureType::U8); // как у литерала `a = 11`
+    assert!(result.clone().getStructureType() == StructureType::U8); // Как у примитива `a = 11`.
   }
 
-  /// Знаковые результаты: `>= 0` это UInt, `< 0` это Int (как у литералов).
+  /// Знаковые результаты: `>= 0` это UInt, `< 0` это Int (как у примитивов).
   #[test]
   fn typedSigned() -> ()
   {

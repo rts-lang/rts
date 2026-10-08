@@ -102,6 +102,56 @@ impl Function
     }
   }
   
+  /// Возвращает полный union-тип структуры (`a: U8 | 10` → `U8 | 10`).
+  ///
+  /// Если структура объявлена без объединения — совпадает со `stype`.
+  /// `unionTypes` хранит исходный набор вариантов и не сужается при присваивании.
+  /// 
+  /// todo Здесь система отличается немного от других, а еще нет комментов по частям кода.
+  fn utype(
+    structure: &Structure,
+    parameters: &Parameters,
+    value: &mut [Token],
+    i: usize
+  ) -> ()
+  {
+    if parameters.isNone()
+    {
+      value[i].setDataType(TokenType::None);
+      value[i].setData(None);
+      return;
+    }
+
+    if let Some(parameter0Link) = parameters.get(0)
+    {
+      let parameter0: RwLockReadGuard<Line> = parameter0Link.read().unwrap();
+      if let Some(tokens) = &parameter0.tokens
+      {
+        let token: &Token = tokens.first().unwrap();
+        let structureName: String = token.getData().toString().unwrap_or_default();
+        if !structureName.is_empty()
+        {
+          if let Some(structureLink) = structure.getStructureByName(&structureName)
+          {
+            let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+            let full: String = match &structure.unionTypes
+            {
+              Some(variants) if !variants.is_empty() =>
+                StructureType::Union(variants.clone()).to_string(),
+              _ => structure.dataType.to_string()
+            };
+            value[i].setDataType(TokenType::String);
+            value[i].setData(full);
+            return;
+          }
+        }
+      }
+    }
+
+    value[i].setDataType(TokenType::None);
+    value[i].setData(None);
+  }
+
   // ===============================================================================================
   
   /// Возвращает уровень модификации переданной структуры.
@@ -683,6 +733,7 @@ impl Structure
 
           "type" => Function::_type(self, &parameters, value, i),
           "stype" => Function::stype(self, &parameters, value, i),
+          "utype" => Function::utype(self, &parameters, value, i),
           "mut" => Function::_mut(self, &parameters, value, i),
           "randUInt" => Function::randUInt(self, &parameters, value, i),
           "len" => Function::len(self, &parameters, value, i),

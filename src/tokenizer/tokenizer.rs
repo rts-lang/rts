@@ -201,7 +201,7 @@ fn readTokens(
     } else
     // Получаем все возможные численные примитивные типы данных;
     //
-    // После Word/Link точка — member/continuation (Dot), не float-литерал.
+    // После Word/Link точка — member/continuation (Dot), не float-примитив.
     // Иначе `a.0` и `a.\n0` съедались бы как UFloat `.0` / `0.0` (issue #31 follow-up).
     if isDigit(byte) || byte == b'-' || 
       (isFloatDotStart(buffer, index, bufferLength) && 

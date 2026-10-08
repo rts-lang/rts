@@ -360,7 +360,8 @@ impl Structure
             }
           } else
           { // Требуется выполнить преобразование в указанный тип данных.
-            Self::normalizeToken(&mut rightPartValue, structure.dataType.clone())
+            // Primitive → natural ABI-форма (normalizeToken не знает примитивов).
+            Self::normalizeToken(&mut rightPartValue, structure.dataType.abiType())
           }
       }
 

@@ -10,7 +10,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // =================================================================================================
 
-/// Целые UInt/Int: литералы и константы.
+/// Целые UInt/Int: примитивы и константы.
 #[test]
 fn divideByZeroInteger() -> ()
 {
@@ -123,7 +123,7 @@ fn divideByZeroInteger() -> ()
   );
 }
 
-/// Дробные UFloat/Float: литералы и константы.
+/// Дробные UFloat/Float: примитивы и константы.
 #[test]
 fn divideByZeroFloat() -> ()
 {

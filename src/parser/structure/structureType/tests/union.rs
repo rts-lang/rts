@@ -1,10 +1,18 @@
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{StructureType, PrimitiveKind};
 use crate::tokenizer::tools::splitByType::splitByType;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
+// =================================================================================================
+
+// todo desc + я бы раскрыл все строки.
+//
+// todo Есть баг еще вроде как с U8 = None будет 0, что ошибка. НО оно не к этому к StructureType.
+//
+// todo Еще тут есть вопросы, возможно использовать общие макросы + вынести часть проверок туда отсюда.
+
 // =================================================================================================
 
 /// Сравнивает типы через to_string(): у StructureType нет Debug, а печать
@@ -34,8 +42,16 @@ fn parseType(code: &str) -> StructureType
     let line: RwLockReadGuard<Line> = line.read().unwrap();
     if let Some(tokens) = &line.tokens
     {
+      // Как в парсере: сначала режем по `=`, и только левая часть - это объявление;
+      // правая часть - выражение, и в type-секцию она не попадает.
+      let left: Vec<Token> = match tokens.iter().position(|token: &Token| *token.getDataType() == TokenType::Equals)
+      {
+        Some(position) => tokens[..position].to_vec(),
+        None => tokens.clone()
+      };
+
       // Отрезаем всё после `:` — это и есть type-секция.
-      let typeTokens: Vec<Token> = match splitByType(tokens.clone(), &[TokenType::Colon])
+      let typeTokens: Vec<Token> = match splitByType(left, &[TokenType::Colon])
       {
         parts if parts.len() == 2 =>
           parts[1].tokens.clone().unwrap_or_default(),
@@ -108,21 +124,133 @@ fn unionParse() -> ()
   );
 }
 
-/// Литералы - это значения, а не типы (issue #59).
-/// 
-/// todo При поддержке литералов как типов - стоит изменить эти проверки.
-#[test]
-fn unionLiteralsAreNotTypes() -> ()
+/// Числовой примитив как вариант типизации.
+fn number(data: &str) -> StructureType
 {
-  // Ни одного имени типа - тип не указан, объявление ведёт себя как `a = 10`.
-  isType(parseType("a: 1 | 2 = 10"), StructureType::None);
-  
-  // Строковый литерал отбрасывается, `U8` остаётся единственным вариантом.
-  isType(parseType("a: \"name\" | 10 = 10"), StructureType::None);
-  isType(parseType("a: \"name\" | U8 = 10"), StructureType::U8);
-  
+  StructureType::Primitive(PrimitiveKind::Number, String::from(data))
+}
+
+/// Строковый примитив как вариант типизации.
+fn text(data: &str) -> StructureType
+{
+  StructureType::Primitive(PrimitiveKind::Text, String::from(data))
+}
+
+/// Примитивы - варианты типизации наравне с именами типов (type-секция слева от `=`).
+#[test]
+fn unionPrimitiveParse() -> ()
+{
+  isType(parseType("a: 10 | 20 = 10"), StructureType::Union(vec![number("10"), number("20")]));
+  isType(parseType("a: 10|20 = 10"), StructureType::Union(vec![number("10"), number("20")])); // Без пробелов.
+  isType(parseType("a: \"text\" | 10 = 10"), StructureType::Union(vec![text("text"), number("10")]));
+  isType(parseType("a: \"name\" | U8 = 10"), StructureType::Union(vec![text("name"), StructureType::U8]));
+  isType(parseType("a: U8 | 10 = 10"), StructureType::Union(vec![StructureType::U8, number("10")]));
+  isType(parseType("a: 1.5 | 2 = 2"), StructureType::Union(vec![number("1.5"), number("2")]));
+  // Отрицательное число - один токен Int.
+  isType(parseType("a: -1 | 1 = 1"), StructureType::Union(vec![number("-1"), number("1")]));
+  // Одиночный примитив - Union из одного варианта, иначе значение не проверялось бы.
+  isType(parseType("a: 10 = 10"), StructureType::Union(vec![number("10")]));
+  isType(parseType("a: \"x\" = \"x\""), StructureType::Union(vec![text("x")]));
+  // Повторы схлопываются.
+  isType(parseType("a: 10 | 10 | 20 = 10"), StructureType::Union(vec![number("10"), number("20")]));
   // Незакрытый `|` не ломает разбор.
   isType(parseType("a: U8 | = 10"), StructureType::U8);
+  isType(parseType("a: 10 | = 10"), StructureType::Union(vec![number("10")]));
+}
+
+/// Значение, точно совпавшее с примитивом, остаётся как есть;
+/// структура хранит естественный тип значения, а не сам примитив.
+#[test]
+fn unionPrimitiveMatch() -> ()
+{
+  let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
+  // stype = сам примитив, не natural U8/F32.
+  union(TokenType::UInt, "10", tenTwenty.clone(), &number("10"), "10");
+  union(TokenType::UInt, "20", tenTwenty.clone(), &number("20"), "20");
+  // Числа равны по значению, а не по записи.
+  union(TokenType::UFloat, "10.0", tenTwenty.clone(), &number("10"), "10.0");
+  union(TokenType::Int, "-1", vec![number("-1"), number("1")], &number("-1"), "-1");
+  union(TokenType::UInt, "1", vec![number("-1"), number("1")], &number("1"), "1");
+
+  let textTen: Vec<StructureType> = vec![text("x"), number("10")];
+  union(TokenType::String, "x", textTen.clone(), &text("x"), "x");
+  union(TokenType::UInt, "10", textTen.clone(), &number("10"), "10");
+}
+
+/// Значение вне примитивов - `None` (#71): без приведения, без зажима и без явного `None`.
+#[test]
+fn unionPrimitiveNone() -> ()
+{
+  let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
+  // Ближайшее число не подставляется: только точное совпадение.
+  union(TokenType::UInt,   "15",   tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::UInt,   "300",  tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::UFloat, "10.5", tenTwenty.clone(), &StructureType::None, "");
+  // Другой вид значения.
+  union(TokenType::String, "text", tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::String, "10",   tenTwenty.clone(), &StructureType::None, "");
+  union(TokenType::True,   "True", tenTwenty.clone(), &StructureType::None, "");
+  // `None` как значение - тоже `None`, хотя в объединении он не указан.
+  union(TokenType::None,   "",     tenTwenty.clone(), &StructureType::None, "");
+
+  let textTen: Vec<StructureType> = vec![text("x"), number("10")];
+  union(TokenType::String, "y",    textTen.clone(), &StructureType::None, "");
+  union(TokenType::True,   "True", textTen.clone(), &StructureType::None, "");
+  union(TokenType::UInt,   "11",   textTen.clone(), &StructureType::None, "");
+}
+
+/// Примитив вместе с типом: сначала точный примитив, потом тип как есть, потом приведение.
+#[test]
+fn unionPrimitiveWithType() -> ()
+{
+  let u8Ten: Vec<StructureType> = vec![StructureType::U8, number("10")];
+  // Приоритет: примитив раньше типа.
+  let mut token: Token = Token::new(TokenType::UInt, String::from("10"));
+  assert!(
+    Structure::matchUnion(&mut token, &StructureType::Union(u8Ten.clone())) == number("10"),
+    "The exact primitive must win over the type variant"
+  );
+  // Не примитив - работают правила типов: приведение с зажимом (#71).
+  union(TokenType::UInt,   "11",  u8Ten.clone(), &StructureType::U8, "11");
+  union(TokenType::UInt,   "300", u8Ten.clone(), &StructureType::U8, "255");
+  union(TokenType::Int,    "-5",  u8Ten.clone(), &StructureType::U8, "0");
+  // Строковый примитив рядом с типом: матч примитива → stype = примитив.
+  let textU8: Vec<StructureType> = vec![text("name"), StructureType::U8];
+  union(TokenType::String, "name", textU8.clone(), &text("name"), "name");
+  union(TokenType::String, "other", textU8.clone(), &StructureType::None, "");
+  union(TokenType::UInt,   "300",  textU8.clone(), &StructureType::U8, "255");
+}
+
+/// Union печатается так же, как записывается в коде.
+#[test]
+fn unionPrimitiveToString() -> ()
+{
+  assert_eq!(StructureType::Union(vec![number("10"), number("20")]).to_string(), "10 | 20");
+  assert_eq!(StructureType::Union(vec![text("text"), StructureType::U8]).to_string(), "\"text\" | U8");
+}
+
+/// Смешанный union: тип + примитив — stype примитив при точном матче.
+#[test]
+fn unionPrimitiveMixedType() -> ()
+{
+  let stringTen: Vec<StructureType> = vec![StructureType::String, number("10")];
+  union(TokenType::UInt, "10", stringTen.clone(), &number("10"), "10");
+  union(TokenType::String, "hi", stringTen.clone(), &StructureType::String, "hi");
+  union(TokenType::UInt, "11", stringTen.clone(), &StructureType::None, "");
+
+  let stringText: Vec<StructureType> = vec![StructureType::String, text("text")];
+  union(TokenType::String, "text", stringText.clone(), &text("text"), "text");
+  union(TokenType::String, "other", stringText.clone(), &StructureType::String, "other");
+}
+
+/// abiType сводит примитив к storage-форме.
+#[test]
+fn primitiveAbiType() -> ()
+{
+  assert!(text("text").abiType() == StructureType::String);
+  assert!(number("10").abiType() == StructureType::U8);
+  assert!(number("-1").abiType() == StructureType::I8);
+  assert!(StructureType::U8.abiType() == StructureType::U8);
 }
 
 /// Значение ложится в тот вариант, в который помещается как есть (issue #59).
