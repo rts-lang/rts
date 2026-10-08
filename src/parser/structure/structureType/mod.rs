@@ -1,6 +1,5 @@
-pub(super) mod calculate;
-pub(super) mod uf64;
-pub(super) mod value;
+pub mod structureType;
+pub use structureType::*;
 // =================================================================================================
 #[cfg(test)]
 mod tests;

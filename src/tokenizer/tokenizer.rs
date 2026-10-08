@@ -635,7 +635,7 @@ mod tests
     let mut buffer: Vec<u8> =
       b"[ffi]\n{\n  lib: Pointer = importNative(\"./libhello.so\")\n  lib.hello(4)\n}\n".to_vec();
     let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
-    println!("total lines = {}", lines.len());
+    //println!("total lines = {}", lines.len());
     for (i, line) in lines.iter().enumerate()
     {
       let guard: RwLockReadGuard<Line> = line.read().unwrap();
@@ -663,7 +663,7 @@ mod tests
         }
         s
       } else { "<None>".to_string() };
-      println!("line[{}] tokens=[{}] has_lines={}\n{}", i, tokensStr, guard.lines.is_some(), innerStr);
+      //println!("line[{}] tokens=[{}] has_lines={}\n{}", i, tokensStr, guard.lines.is_some(), innerStr);
     }
   }
 
@@ -674,7 +674,7 @@ mod tests
     let mut buffer: Vec<u8> =
       b"[ffi] { lib.hello(4) }\n".to_vec();
     let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
-    println!("[one-line] total lines = {}", lines.len());
+    //println!("[one-line] total lines = {}", lines.len());
     for (i, line) in lines.iter().enumerate()
     {
       let guard: RwLockReadGuard<Line> = line.read().unwrap();
@@ -685,7 +685,7 @@ mod tests
           .collect::<Vec<_>>()
           .join(",")
       } else { "<None>".to_string() };
-      println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
+      //println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }
   }
 
@@ -697,7 +697,7 @@ mod tests
     let mut buffer: Vec<u8> =
       b"{ lib.hello(4) }\n".to_vec();
     let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
-    println!("[plain block] total lines = {}", lines.len());
+    //println!("[plain block] total lines = {}", lines.len());
     for (i, line) in lines.iter().enumerate()
     {
       let guard: RwLockReadGuard<Line> = line.read().unwrap();
@@ -708,7 +708,7 @@ mod tests
           .collect::<Vec<_>>()
           .join(",")
       } else { "<None>".to_string() };
-      println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
+      //println!("  line[{}] tokens=[{}] has_lines={}", i, tokensStr, guard.lines.is_some());
     }
   }
 
@@ -735,7 +735,7 @@ mod tests
     let mut buffer: Vec<u8> = 
       include_str!("../../release/native/types/types1.rt").as_bytes().to_vec();
     let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
-    eprintln!("types1 lines={}", lines.len());
+    //println!("types1 lines={}", lines.len());
     assert!(lines.len() >= 8, "types1 expected >= 8 lines, got {}", lines.len());
   }
 

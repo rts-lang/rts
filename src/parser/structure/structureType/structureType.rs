@@ -1,9 +1,9 @@
-use std::num::IntErrorKind;
-use serde::{Deserialize, Serialize};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
+use serde::{Deserialize, Serialize};
+use std::num::IntErrorKind;
 // =================================================================================================
 
 // Идея простая - т.к. мы имеем хранение в токенах, то это абстрактные данные;
@@ -458,11 +458,11 @@ impl Structure
                   token.setData( Bytes::from(floatValue.to_string()) );
                 }
                 _ => if let Some((min, max)) = Self::integerLimits(structureType) {
-                  let clamped: String = 
+                  let normalized: String = 
                     if value < min { min.to_string() } else 
                     if value > 0 && (value as u64) > max { max.to_string() } else 
                     { value.to_string() };
-                  token.setData( Bytes::from(clamped) );
+                  token.setData( Bytes::from(normalized) );
                 }
               }
             }
@@ -496,14 +496,14 @@ impl Structure
                 target => if let Some((min, max)) = Self::integerLimits(target) 
                 {
                   let rounded: f64 = value.round();
-                  let clamped: String = if rounded < 0.0 
+                  let normalized: String = if rounded < 0.0 
                   { // Приведение f64 в i64 насыщается само, inf тоже.
                     (rounded as i64).max(min).to_string() 
                   } else 
                   { 
                     (rounded as u64).min(max).to_string() 
                   };
-                  token.setData( Bytes::from(clamped) );
+                  token.setData( Bytes::from(normalized) );
                 }
               }
             } else 
@@ -740,347 +740,6 @@ impl Token
     }
     //
   }
-}
-
-// =================================================================================================
-
-#[cfg(test)]
-mod tests
-{
-  use crate::tokenizer::types::token::Token;
-  use crate::tokenizer::types::tokenType::TokenType;
-  use crate::tokenizer::types::line::Line;
-  use crate::tokenizer::tools::splitByType::splitByType;
-  use std::sync::{Arc, RwLock, RwLockReadGuard};
-  use crate::parser::structure::structureType::StructureType;
-  use crate::parser::structure::structure::Structure;
-  // ===============================================================================================
-
-  /// Проверяет тип и значение токена после getStructureType().
-  fn check(
-    tokenType: TokenType, 
-    data: &str, 
-    expectedType: StructureType, 
-    expectedData: &str
-  ) -> ()
-  {
-    let mut token: Token = Token::new(tokenType, String::from(data));
-    let structureType: StructureType = token.getStructureType();
-    let tokenData: String = token.getData().toString().unwrap_or_default();
-    assert!(
-      structureType == expectedType && tokenData == expectedData,
-      "For '{}' expected value '{}', got '{}' (type matched: {})",
-      data, expectedData, tokenData, structureType == expectedType
-    );
-  }
-
-  // ===============================================================================================
-
-  /// Числа внутри рамок ABI не меняются.
-  #[test]
-  fn inRange()
-  {
-    check(TokenType::UInt,   "255",                  StructureType::U8,  "255");
-    check(TokenType::UInt,   "18446744073709551615", StructureType::U64, "18446744073709551615");
-    check(TokenType::Int,    "-128",                 StructureType::I8,  "-128");
-    check(TokenType::Int,    "-9223372036854775808", StructureType::I64, "-9223372036854775808");
-    check(TokenType::UFloat, "1.5",                  StructureType::F32, "1.5");
-  }
-
-  /// За рамками ABI тип и значение становятся границей крайнего типа (#71).
-  #[test]
-  fn saturation() -> ()
-  {
-    // UInt: > u64 и очень большое число.
-    check(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
-    check(TokenType::UInt, "99999999999999999999999999999999999999999999", StructureType::U64, &u64::MAX.to_string());
-    // Int: < i64 и очень большое отрицательное число.
-    check(TokenType::Int, "-9223372036854775809", StructureType::I64, &i64::MIN.to_string());
-    check(TokenType::Int, "-99999999999999999999999999999999999999999999", StructureType::I64, &i64::MIN.to_string());
-    // Int: > i64.
-    check(TokenType::Int, "9223372036854775808", StructureType::I64, &i64::MAX.to_string());
-    // Float: inf после parse.
-    check(TokenType::UFloat, "1e309",  StructureType::F64, &format!("{:e}", f64::MAX));
-    check(TokenType::Float,  "-1e309", StructureType::F64, &format!("{:e}", f64::MIN));
-  }
-
-  /// Проверяет значение токена после normalizeToken() в явный тип.
-  fn normalize(
-    tokenType: TokenType, 
-    data: &str, 
-    structureType: StructureType, 
-    expectedData: &str
-  ) -> ()
-  {
-    let mut token: Token = Token::new(tokenType, String::from(data));
-    Structure::normalizeToken(&mut token, structureType);
-    let tokenData: String = token.getData().toString().unwrap_or_default();
-    assert!(
-      tokenData == expectedData,
-      "For '{}' the value '{}' was expected, got '{}'",
-      data, expectedData, tokenData
-    );
-  }
-
-  /// Явный тип зажимает значение в свои границы, даже если число больше u64 и i64 (#71).
-  #[test]
-  fn normalizeClamp() -> ()
-  {
-    let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
-    let negBig: String = format!("-{}", big);
-    // Обычный clamp
-    normalize(TokenType::UInt, "300", StructureType::U8, "255");
-    normalize(TokenType::Int, "-10", StructureType::U8, "0");
-    normalize(TokenType::Int, "-300", StructureType::I8, "-128");
-    // Больше u64
-    normalize(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
-    normalize(TokenType::UInt, big, StructureType::U8, "255");
-    normalize(TokenType::UInt, big, StructureType::I8, "127");
-    normalize(TokenType::UInt, big, StructureType::I64, &i64::MAX.to_string());
-    normalize(TokenType::UInt, big, StructureType::Usize, &usize::MAX.to_string());
-    // Меньше i64
-    normalize(TokenType::Int, &negBig, StructureType::I8, "-128");
-    normalize(TokenType::Int, &negBig, StructureType::I64, &i64::MIN.to_string());
-    normalize(TokenType::Int, &negBig, StructureType::Isize, &isize::MIN.to_string());
-    normalize(TokenType::Int, &negBig, StructureType::U64, "0");
-    // Не число - базовое значение
-    normalize(TokenType::UInt, "abc", StructureType::U8, "0");
-  }
-
-  /// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71).
-  #[test]
-  fn normalizeFloat() -> ()
-  {
-    let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
-    normalize(TokenType::UInt, big, StructureType::F32, &f32::MAX.to_string());
-    normalize(TokenType::UInt, big, StructureType::F64, &big.parse::<f64>().unwrap().to_string());
-    // Бесконечность зажимается в границу типа.
-    normalize(TokenType::Float, "-1e309", StructureType::F32, &f32::MIN.to_string());
-    normalize(TokenType::UFloat, "1e309", StructureType::F64, &f64::MAX.to_string());
-    normalize(TokenType::UFloat, "1e309", StructureType::U8, "255");
-  }
-
-  // ===============================================================================================
-  
-  /// Float в целый тип: округляется и зажимается в границы типа;
-  /// 
-  /// Отрицательное значение остаётся для знаковых типов и становится 0 для беззнаковых.
-  #[test]
-  fn normalizeFloatToInteger() -> ()
-  {
-    normalize(TokenType::UFloat, "5.4", StructureType::I8, "5");
-    normalize(TokenType::UFloat, "5.5", StructureType::I8, "6");
-    // Беззнаковые
-    normalize(TokenType::Float, "-10.0", StructureType::U8, "0");
-    normalize(TokenType::Float, "-5.5", StructureType::U8, "0");
-    normalize(TokenType::Float, "-0.4", StructureType::U8, "0");
-    // Знаковые принимают отрицательное, если оно в диапазоне.
-    normalize(TokenType::Float, "-5.5", StructureType::I8, "-6");
-    normalize(TokenType::Float, "-5.4", StructureType::I8, "-5");
-    normalize(TokenType::Float, "-0.4", StructureType::I8, "0");
-    normalize(TokenType::Float, "-1000000.7", StructureType::I64, "-1000001");
-    // Вне диапазона - граница типа.
-    normalize(TokenType::Float, "-200.5", StructureType::I8, "-128");
-    normalize(TokenType::UFloat, "200.5", StructureType::I8, "127");
-    normalize(TokenType::UFloat, "300.5", StructureType::U8, "255");
-    normalize(TokenType::Float, "-1e309", StructureType::I64, &i64::MIN.to_string());
-    normalize(TokenType::UFloat, "1e309", StructureType::I64, &i64::MAX.to_string());
-    normalize(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
-  }
-
-  /// Не число - None, токен очищается.
-  #[test]
-  fn notNumber() -> ()
-  {
-    check(TokenType::UInt,   "abc", StructureType::None, "");
-    check(TokenType::Int,    "-",   StructureType::None, "");
-    check(TokenType::UFloat, "NaN", StructureType::None, "");
-  }
-
-  // ===============================================================================================
-
-  /// Сравнивает типы через to_string(): у StructureType нет Debug, а печать
-  /// заодно показывает, как объединение выглядит в коде.
-  fn isType(actual: StructureType, expected: StructureType) -> bool
-  {
-    assert!(
-      actual == expected,
-      "Expected type '{}', got '{}'",
-      expected.to_string(), actual.to_string()
-    );
-    true
-  }
-
-  /// Разбирает type-секцию объявления в StructureType (issue #59).
-  ///
-  /// `a: U8` — это по-прежнему обычный одиночный тип, а не Union из одного
-  /// элемента: иначе поменялось бы поведение всех существующих объявлений.
-  fn parseType(code: &str) -> StructureType
-  {
-    let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-    let lines: Vec< Arc<RwLock<Line>> > = crate::tokenizer::tokenizer::readTokensSimple(&mut buffer);
-
-    for line in lines
-    {
-      let line: RwLockReadGuard<Line> = line.read().unwrap();
-      if let Some(tokens) = &line.tokens
-      {
-        // Отрезаем всё после `:` — это и есть type-секция.
-        let typeTokens: Vec<Token> = match splitByType(tokens.clone(), &[TokenType::Colon])
-        {
-          parts if parts.len() == 2 =>
-          parts[1].tokens.clone().unwrap_or_default(),
-          _ => continue
-        };
-        return StructureType::fromTypeTokens(&typeTokens);
-      }
-    }
-    StructureType::None
-  }
-
-  /// Проверяет, что значение легло в объединение: подходящий вариант и результат.
-  fn union(
-    tokenType: TokenType, 
-    data: &str, 
-    variants: Vec<StructureType>, 
-    expectedType: &StructureType, 
-    expectedData: &str
-  )
-  {
-    let mut token: Token = Token::new(tokenType, String::from(data));
-    let union: StructureType = StructureType::Union(variants.clone());
-    let resultType: StructureType = Structure::normalizeUnion(&mut token, &union);
-
-    let tokenData: String = token.getData().toString().unwrap_or_default();
-    assert!(
-      resultType == *expectedType && tokenData == expectedData,
-      "For '{}' in '{}' the '{}' variant with value '{}' was expected, got '{}' with value '{}'",
-      data, union.to_string(), expectedType.to_string(), expectedData, resultType.to_string(), tokenData
-    );
-  }
-
-  // ===============================================================================================
-
-  /// Один вариант — обычный тип; несколько — Union (issue #59).
-  #[test]
-  fn unionParse() -> ()
-  {
-    isType(parseType("a: U8 = 10"), StructureType::U8);
-    isType(parseType("a: String = \"x\""), StructureType::String);
-    isType(parseType("a: U8 | String = 10"),
-      StructureType::Union(vec![StructureType::U8, StructureType::String]));
-    isType(parseType("b: U8|String = 10"), // Без пробелов.
-      StructureType::Union(vec![StructureType::U8, StructureType::String]));
-    isType(parseType("a: I8 | U8 | F64 | None = 1"),
-      StructureType::Union(vec![
-        StructureType::I8, StructureType::U8, StructureType::F64, StructureType::None
-      ]));
-    // Ключевые слова-типы без данных - настоящие имена типов.
-    isType(parseType("a: UInt | Int = 1"),
-      StructureType::Union(vec![
-        StructureType::Custom(String::from("UInt")), StructureType::Custom(String::from("Int"))
-      ]));
-    // Повторы схлопываются.
-    isType(parseType("a: U8 | U8 | String = 10"),
-      StructureType::Union(vec![StructureType::U8, StructureType::String]));
-  }
-
-  /// Литералы - это значения, а не типы: они не поддерживаются (issue #59).
-  #[test]
-  fn unionLiteralsAreNotTypes() -> ()
-  {
-    // Ни одного имени типа - тип не указан, объявление ведёт себя как `a = 10`.
-    isType(parseType("a: 1 | 2 = 10"), StructureType::None);
-    // Строковый литерал отбрасывается, `U8` остаётся единственным вариантом.
-    isType(parseType("a: \"name\" | 10 = 10"), StructureType::None);
-    isType(parseType("a: \"name\" | U8 = 10"), StructureType::U8);
-    // Незакрытый `|` не ломает разбор.
-    isType(parseType("a: U8 | = 10"), StructureType::U8);
-  }
-
-  /// Значение ложится в тот вариант, в который помещается как есть (issue #59).
-  #[test]
-  fn unionExactMatch() -> ()
-  {
-    let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
-    union(TokenType::UInt,   "10",  u8String.clone(), &StructureType::U8,     "10");
-    union(TokenType::String, "hi",  u8String.clone(), &StructureType::String, "hi");
-    union(TokenType::UFloat, "1.5", vec![StructureType::U8, StructureType::F32],
-      &StructureType::F32, "1.5");
-
-    // Из нескольких подходящих вариантов выбирается тот, в который значение.
-    // помещается без потерь, а не первый в списке:
-    // -10 помещается в I8, поэтому U8 | I8 даёт I8, а не зажатое в U8 ноль.
-    union(TokenType::Int, "-10", vec![StructureType::U8, StructureType::I8],
-      &StructureType::I8, "-10");
-    union(TokenType::UInt, "70000", vec![StructureType::U8, StructureType::U32],
-      &StructureType::U32, "70000");
-  }
-
-  /// Не подошёл ни один вариант - приводим в первый, куда приведение возможно (#59/#71).
-  #[test]
-  fn unionConvert() -> ()
-  {
-    let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
-    // 300 не помещается в U8, но приводится в него с зажимом (#71).
-    union(TokenType::UInt, "300",  u8String.clone(), &StructureType::U8, "255");
-    // Отрицательное в беззнаковый - тоже приведение, не совпадение.
-    union(TokenType::Int,  "-10",  u8String.clone(), &StructureType::U8, "0");
-    // Float приводится в целый вариант с округлением.
-    union(TokenType::UFloat, "1.5", u8String.clone(), &StructureType::U8, "2");
-  }
-
-  /// Ни один вариант не подошёл и привести нельзя - None (issue #59).
-  #[test]
-  fn unionNone() -> ()
-  {
-    let u8String: Vec<StructureType> = vec![StructureType::U8, StructureType::String];
-    // True/False не приводятся ни к числу, ни к строке.
-    union(TokenType::True, "True",  u8String.clone(), &StructureType::None, "");
-    union(TokenType::Link, "a.b",   u8String.clone(), &StructureType::None, "");
-    // Явный `| None` в объединении: значение не подходит - всё равно None.
-    union(TokenType::True, "True",  vec![StructureType::String, StructureType::None],
-      &StructureType::None, "");
-    // Само None в объединении - законный вариант.
-    union(TokenType::None, "", vec![StructureType::String, StructureType::None],
-      &StructureType::None, "");
-  }
-
-  /// Объединение не должно ломать обычные одиночные типы.
-  #[test]
-  fn unionSingleVariantBehavesLikeType() -> ()
-  {
-    // Union из одного варианта - это просто этот тип.
-    let one: StructureType = StructureType::Union(vec![StructureType::U8]);
-    isType(StructureType::Union(one.variants()), StructureType::Union(vec![StructureType::U8]));
-    union(TokenType::UInt, "300", vec![StructureType::U8], &StructureType::U8, "255");
-    // Пустое объединение равносильно отсутствию типа.
-    assert!(
-      StructureType::Union(vec![]).variants().is_empty(),
-      "An empty union should produce an empty list of variants"
-    );
-  }
-
-  /// Union печатается так же, как записывается в коде.
-  #[test]
-  fn unionToString() -> ()
-  {
-    assert_eq!(
-      StructureType::Union(vec![StructureType::U8, StructureType::String]).to_string(),
-      "U8 | String"
-    );
-    assert_eq!(
-      StructureType::Union(vec![StructureType::I8, StructureType::F64, StructureType::None]).to_string(),
-      "I8 | F64 | None"
-    );
-    // Вложенный union схлопывается при разборе, но и сам печатается нормально.
-    assert_eq!(StructureType::Union(vec![
-      StructureType::Union(vec![StructureType::U8, StructureType::String]),
-      StructureType::U16
-    ]).to_string(), "U8 | String | U16");
-  }
-
-  // ===============================================================================================
 }
 
 // =================================================================================================

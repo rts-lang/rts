@@ -1,6 +1,5 @@
-pub(super) mod calculate;
-pub(super) mod uf64;
-pub(super) mod value;
+pub mod calculate;
+pub use calculate::*;
 // =================================================================================================
 #[cfg(test)]
 mod tests;
