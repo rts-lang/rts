@@ -414,7 +414,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     }
 
     // ABI-композит String: .pointer/.length поверх исходного токена.
-    // Literal(Text) тоже String на уровне ABI (stype при этом показывает литерал).
+    // Primitive(Text) тоже String на уровне ABI (stype при этом показывает примитив).
     if structureType.abiType() == StructureType::String
     {
       if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.first())

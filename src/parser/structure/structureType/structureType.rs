@@ -18,9 +18,9 @@ use std::num::IntErrorKind;
 
 // =================================================================================================
 
-/// Вид литерала, допустимого как граница типизации (`a: 10 | "text"`).
+/// Вид примитива, допустимого как граница типизации (`a: 10 | "text"`).
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum LiteralKind
+pub enum PrimitiveKind
 {
   /// Число: UInt, Int, UFloat, Float.
   Number,
@@ -38,9 +38,9 @@ pub enum StructureType
   Any,
   Link,
 
-  /// Отдельный логический тип-литерал (#60 / #65).
+  /// Логический примитив
   True,
-  /// Отдельный логический тип-литерал (#60 / #65).
+  /// Логический примитив
   False,
 
   U8, U16, U32, U64,
@@ -78,20 +78,20 @@ pub enum StructureType
   ///
   /// Пустой список вариантов равносилен `None`.
   ///
-  /// Вариантом может быть и литерал (`Literal`): `a: 10 | 20`, `a: "text" | U8`.
+  /// Вариантом может быть и примитив (`Primitive`): `a: 10 | 20`, `a: "text" | U8`.
   Union(Vec<Self>),
 
   /// Примитив как граница типизации: `a: 10 | 20 = 10`.
   ///
   /// Это ограничение значения: допустимо только точное совпадение,
-  /// без приведения и без зажима. При матче литерал сам становится
+  /// без приведения и без зажима. При матче примитив сам становится
   /// `dataType` структуры (`stype` → `10` / `"text"`), а не natural ABI-тип.
   /// Для ABI (FFI, string fields) см. `abiType()`: Text → String, Number → natural.
-  /// Значение вне литералов - `None` (#71).
+  /// Значение вне примитивов - `None` (#71).
   ///
   /// Живёт только в type-секции (слева от `=`): справа `|` - это логическое ИЛИ.
-  /// Отдельный литерал `a: 10` оборачивается в `Union` из одного варианта.
-  Literal(LiteralKind, String)
+  /// Отдельный примитив `a: 10` оборачивается в `Union` из одного варианта.
+  Primitive(PrimitiveKind, String)
 }
 
 // =================================================================================================
@@ -148,9 +148,9 @@ impl ToString for StructureType
         .collect::<Vec<String>>()
         .join(" | "),
 
-      // Литерал печатается так же, как записывается.
-      Self::Literal(LiteralKind::Number, value) => value.clone(),
-      Self::Literal(LiteralKind::Text, value) => format!("\"{}\"", value),
+      // Примитив печатается так же, как записывается.
+      Self::Primitive(PrimitiveKind::Number, value) => value.clone(),
+      Self::Primitive(PrimitiveKind::Text, value) => format!("\"{}\"", value),
 
       // Custom.
       Self::Custom(value) => value.clone()
@@ -164,13 +164,13 @@ impl StructureType
 {
   /// Является ли токен именем типа, пригодным для объединения (issue #59).
   ///
-  /// Числовые литералы (`a: 1 | 2`) и строковые литералы (`a: "name" | 10`)
-  /// именами типов не являются: они разбираются отдельно, см. `fromLiteralToken`.
+  /// Числовые примитивы (`a: 1 | 2`) и строковые примитивы (`a: "name" | 10`)
+  /// именами типов не являются: они разбираются отдельно, см. `fromPrimitiveToken`.
   ///
   /// Ключевые слова типов (`UInt`, `Int`, `UFloat`, `Float`, `String`, `RawString`)
   /// токенизируются как токен БЕЗ данных — их имя живёт в самом TokenType.
-  /// Одноимённые литералы (`10`, `"abc"`) — это уже значения с данными.
-  /// Поэтому «имя типа» отличается от литерала именно наличием данных.
+  /// Одноимённые примитивы (`10`, `"abc"`) — это уже значения с данными.
+  /// Поэтому «имя типа» отличается от примитива именно наличием данных.
   fn isTypeName(token: &Token) -> bool
   {
     match token.getDataType()
@@ -178,13 +178,13 @@ impl StructureType
       // Идентификатор: U8, I32, Pointer, List и пользовательские типы.
       TokenType::Word => true,
 
-      // Ключевые слова типов, у которых нет одноимённых литералов.
+      // Ключевые слова типов, у которых нет одноимённых примитивов.
       TokenType::None | TokenType::Any | TokenType::Link |
       TokenType::True | TokenType::False => true,
 
-      // Ключевые слова, одноимённые с литералами (`UInt` и `10`, `String` и `"abc"`).
-      // Имя типа токенизируется БЕЗ данных, у литерала данные есть — это и есть
-      // разница между `a: UInt | Int` (типы) и `a: 1 | 2` (значения-литералы).
+      // Ключевые слова, одноимённые с примитивами (`UInt` и `10`, `String` и `"abc"`).
+      // Имя типа токенизируется БЕЗ данных, у примитива данные есть — это и есть
+      // разница между `a: UInt | Int` (типы) и `a: 1 | 2` (значения-примитивы).
       TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float |
       TokenType::String | TokenType::RawString |
       TokenType::FormattedString | TokenType::FormattedRawString |
@@ -196,12 +196,12 @@ impl StructureType
     }
   }
 
-  /// Литерал как вариант типизации: `a: 10 | 20`, `a: "text" | U8`.
+  /// Примитив как вариант типизации: `a: 10 | 20`, `a: "text" | U8`.
   ///
-  /// Литерал отличается от имени типа наличием данных (см. `isTypeName`).
+  /// Примитив отличается от имени типа наличием данных (см. `isTypeName`).
   /// Поддерживаются числа и строки; `True`, `False` и `None` уже являются типами.
-  /// Пустая строка `""` от ключевого слова `String` неотличима и литералом не считается.
-  fn fromLiteralToken(token: &Token) -> Option<Self>
+  /// Пустая строка `""` от ключевого слова `String` неотличима и примитивом не считается.
+  fn fromPrimitiveToken(token: &Token) -> Option<Self>
   {
     let data: String = token.getData().toString()?;
     if data.is_empty() {
@@ -211,9 +211,9 @@ impl StructureType
     match token.getDataType()
     {
       TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
-        Some(Self::Literal(LiteralKind::Number, data)),
+        Some(Self::Primitive(PrimitiveKind::Number, data)),
       TokenType::String | TokenType::RawString =>
-        Some(Self::Literal(LiteralKind::Text, data)),
+        Some(Self::Primitive(PrimitiveKind::Text, data)),
       _ => None
     }
   }
@@ -233,22 +233,22 @@ impl StructureType
     }
   }
 
-  /// Подходит ли значение токена под этот вариант-литерал: только точное совпадение.
+  /// Подходит ли значение токена под этот вариант-примитив: только точное совпадение.
   ///
-  /// Для всех вариантов, кроме `Literal`, всегда `false`.
+  /// Для всех вариантов, кроме `Primitive`, всегда `false`.
   fn acceptsValue(&self, token: &Token) -> bool
   {
-    let Self::Literal(kind, expected) = self else { return false };
+    let Self::Primitive(kind, expected) = self else { return false };
     let Some(data) = token.getData().toString() else { return false };
 
     match (kind, token.getDataType())
     {
       (
-        LiteralKind::Number,
+        PrimitiveKind::Number,
         TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float
       ) => Self::numberEquals(expected, &data),
       (
-        LiteralKind::Text,
+        PrimitiveKind::Text,
         TokenType::String | TokenType::RawString
       ) => *expected == data,
       _ => false
@@ -258,10 +258,10 @@ impl StructureType
   /// Читает тип из type-секции объявления: `U8`, `String`, `U8 | String` (issue #59).
   ///
   /// Возвращает `StructureType::Union(vec![..])`, если вариантов несколько.
-  /// Варианты - это имена типов или литералы (`a: 10 | 20`, `a: "text" | U8`).
+  /// Варианты - это имена типов или примитивы (`a: 10 | 20`, `a: "text" | U8`).
   /// Всё остальное в варианте (операторы, скобки) отбрасывается.
   ///
-  /// Одиночный литерал `a: 10` возвращается как `Union` из одного варианта,
+  /// Одиночный примитив `a: 10` возвращается как `Union` из одного варианта,
   /// иначе он не прошёл бы проверку значения: обычный тип этого не делает.
   pub fn fromTypeTokens(typeTokens: &[Token]) -> Self
   {
@@ -274,7 +274,7 @@ impl StructureType
         if Self::isTypeName(token) {
           Some(token.getStructureTypeSimple()) 
         } else {
-          Self::fromLiteralToken(token)
+          Self::fromPrimitiveToken(token)
         }
       );
       if let Some(variant) = found
@@ -287,7 +287,7 @@ impl StructureType
             variants.push(variant);
           }
         }
-      } // Ни имя типа, ни литерал — просто пропускаем этот вариант.
+      } // Ни имя типа, ни примитив — просто пропускаем этот вариант.
       current.clear();
     };
 
@@ -314,7 +314,7 @@ impl StructureType
       0 => Self::None, // Ни одного имени типа — тип не указан.
       1 => match variants.into_iter().next().unwrap()
       {
-        literal @ Self::Literal(..) => Self::Union(vec![literal]), // Литерал проверяется только через Union.
+        primitive @ Self::Primitive(..) => Self::Union(vec![primitive]), // Примитив проверяется только через Union.
         single => single // Один вариант — обычный тип, без Union.
       },
       _ => Self::Union(variants)
@@ -334,17 +334,17 @@ impl StructureType
     }
   }
 
-  /// ABI / storage тип: литерал сводится к natural-форме значения.
+  /// ABI / storage тип: примитив сводится к natural-форме значения.
   ///
-  /// `Literal(Text, _)` → `String`; `Literal(Number, v)` → наименьший числовой
+  /// `Primitive(Text, _)` → `String`; `Primitive(Number, v)` → наименьший числовой
   /// ABI-тип для `v`; всё остальное — как есть. Нужен там, где `dataType`
   /// участвует в FFI, string-полях и `normalizeToken`, а не в `stype`.
   pub fn abiType(&self) -> Self
   {
     match self
     {
-      Self::Literal(LiteralKind::Text, _) => Self::String,
-      Self::Literal(LiteralKind::Number, value) =>
+      Self::Primitive(PrimitiveKind::Text, _) => Self::String,
+      Self::Primitive(PrimitiveKind::Number, value) =>
       {
         // Те же правила, что naturalType для числового токена: через временный UInt/Int.
         let tokenType: TokenType = 
@@ -425,7 +425,7 @@ impl Structure
   /// Подбирает вариант объединения под значение токена (issue #59).
   ///
   /// Порядок такой же, как при объявлении обычного типа:
-  /// 0. значение точно совпало с литералом (`a: 10 | 20`) — берём его, без приведения;
+  /// 0. значение точно совпало с примитивом (`a: 10 | 20`) — берём его, без приведения;
   /// 1. значение уже помещается в один из вариантов как есть — берём его;
   /// 2. иначе приводим в первый вариант, в который приведение возможно;
   /// 3. иначе — `None`, как и при неудачном приведении (#71).
@@ -433,7 +433,7 @@ impl Structure
   /// `None` не нужно указывать в объединении: это скрытый вариант, он выбирается
   /// всегда, когда не подошёл ни один из указанных.
   ///
-  /// Возвращает выбранный вариант (в том числе `Literal`); `None` — значение не подошло ни к одному.
+  /// Возвращает выбранный вариант (в том числе `Primitive`); `None` — значение не подошло ни к одному.
   pub fn matchUnion(token: &mut Token, union: &StructureType) -> StructureType
   {
     let variants: Vec<StructureType> = union.variants();
@@ -443,7 +443,7 @@ impl Structure
       return token.getStructureType();
     }
 
-    // 0. Литерал: только точное совпадение, и раньше типов - `a: U8 | 10 = 10`
+    // 0. Примитив: только точное совпадение, и раньше типов - `a: U8 | 10 = 10`
     //    сохраняет именно значение 10, а не просто "число, помещающееся в U8".
     //    Проверка идёт до naturalType, пока токен не зажат границами (#71).
     for variant in variants.iter()
@@ -493,10 +493,10 @@ impl Structure
     let variant: StructureType = Self::matchUnion(token, &StructureType::Union(variants));
     let natural: StructureType = StructureType::naturalType(token);
 
-    // Литерал - выбранный вариант типизации: токен (значение) не трогаем,
-    // dataType/stype становится самим литералом (`a: 10 | 20 = 10` -> stype 10).
+    // Примитив - выбранный вариант типизации: токен (значение) не трогаем,
+    // dataType/stype становится самим примитивом (`a: 10 | 20 = 10` -> stype 10).
     // ABI-форма — через abiType() там, где нужен String/U8/...
-    if matches!(variant, StructureType::Literal(..)) {
+    if matches!(variant, StructureType::Primitive(..)) {
       return variant;
     }
 

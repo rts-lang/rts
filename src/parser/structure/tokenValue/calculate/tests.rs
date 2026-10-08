@@ -122,7 +122,7 @@ fn floatOverflow() -> ()
   // Сумма за границей.
   check(TokenType::Plus,  (TokenType::UFloat, "1e308"),  (TokenType::UFloat, "1e308"), TokenType::UFloat, &max);
   check(TokenType::Minus, (TokenType::Float,  "-1e308"), (TokenType::UFloat, "1e308"), TokenType::Float,  &min);
-  // Литерал за границей зажимается до операции: MAX - MAX = 0, а не inf - inf.
+  // Примитив за границей зажимается до операции: MAX - MAX = 0, а не inf - inf.
   check(TokenType::Minus, (TokenType::UFloat, "1e309"),  (TokenType::UFloat, "1e309"),  TokenType::UFloat, "0");
   // todo Это бред, inf нет в RTS, если оно есть где-то в обработке - это нужно удалить.
   check(TokenType::Minus, (TokenType::UFloat, "inf"),    (TokenType::UFloat, "inf"),    TokenType::UFloat, "0");

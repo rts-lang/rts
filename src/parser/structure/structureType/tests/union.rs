@@ -1,5 +1,5 @@
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{StructureType, LiteralKind};
+use crate::parser::structure::structureType::{StructureType, PrimitiveKind};
 use crate::tokenizer::tools::splitByType::splitByType;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -124,21 +124,21 @@ fn unionParse() -> ()
   );
 }
 
-/// Числовой литерал как вариант типизации.
+/// Числовой примитив как вариант типизации.
 fn number(data: &str) -> StructureType
 {
-  StructureType::Literal(LiteralKind::Number, String::from(data))
+  StructureType::Primitive(PrimitiveKind::Number, String::from(data))
 }
 
-/// Строковый литерал как вариант типизации.
+/// Строковый примитив как вариант типизации.
 fn text(data: &str) -> StructureType
 {
-  StructureType::Literal(LiteralKind::Text, String::from(data))
+  StructureType::Primitive(PrimitiveKind::Text, String::from(data))
 }
 
-/// Литералы - варианты типизации наравне с именами типов (type-секция слева от `=`).
+/// Примитивы - варианты типизации наравне с именами типов (type-секция слева от `=`).
 #[test]
-fn unionLiteralParse() -> ()
+fn unionPrimitiveParse() -> ()
 {
   isType(parseType("a: 10 | 20 = 10"), StructureType::Union(vec![number("10"), number("20")]));
   isType(parseType("a: 10|20 = 10"), StructureType::Union(vec![number("10"), number("20")])); // Без пробелов.
@@ -148,7 +148,7 @@ fn unionLiteralParse() -> ()
   isType(parseType("a: 1.5 | 2 = 2"), StructureType::Union(vec![number("1.5"), number("2")]));
   // Отрицательное число - один токен Int.
   isType(parseType("a: -1 | 1 = 1"), StructureType::Union(vec![number("-1"), number("1")]));
-  // Одиночный литерал - Union из одного варианта, иначе значение не проверялось бы.
+  // Одиночный примитив - Union из одного варианта, иначе значение не проверялось бы.
   isType(parseType("a: 10 = 10"), StructureType::Union(vec![number("10")]));
   isType(parseType("a: \"x\" = \"x\""), StructureType::Union(vec![text("x")]));
   // Повторы схлопываются.
@@ -158,13 +158,13 @@ fn unionLiteralParse() -> ()
   isType(parseType("a: 10 | = 10"), StructureType::Union(vec![number("10")]));
 }
 
-/// Значение, точно совпавшее с литералом, остаётся как есть;
-/// структура хранит естественный тип значения, а не сам литерал.
+/// Значение, точно совпавшее с примитивом, остаётся как есть;
+/// структура хранит естественный тип значения, а не сам примитив.
 #[test]
-fn unionLiteralMatch() -> ()
+fn unionPrimitiveMatch() -> ()
 {
   let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
-  // stype = сам литерал, не natural U8/F32.
+  // stype = сам примитив, не natural U8/F32.
   union(TokenType::UInt, "10", tenTwenty.clone(), &number("10"), "10");
   union(TokenType::UInt, "20", tenTwenty.clone(), &number("20"), "20");
   // Числа равны по значению, а не по записи.
@@ -177,9 +177,9 @@ fn unionLiteralMatch() -> ()
   union(TokenType::UInt, "10", textTen.clone(), &number("10"), "10");
 }
 
-/// Значение вне литералов - `None` (#71): без приведения, без зажима и без явного `None`.
+/// Значение вне примитивов - `None` (#71): без приведения, без зажима и без явного `None`.
 #[test]
-fn unionLiteralNone() -> ()
+fn unionPrimitiveNone() -> ()
 {
   let tenTwenty: Vec<StructureType> = vec![number("10"), number("20")];
   // Ближайшее число не подставляется: только точное совпадение.
@@ -199,22 +199,22 @@ fn unionLiteralNone() -> ()
   union(TokenType::UInt,   "11",   textTen.clone(), &StructureType::None, "");
 }
 
-/// Литерал вместе с типом: сначала точный литерал, потом тип как есть, потом приведение.
+/// Примитив вместе с типом: сначала точный примитив, потом тип как есть, потом приведение.
 #[test]
-fn unionLiteralWithType() -> ()
+fn unionPrimitiveWithType() -> ()
 {
   let u8Ten: Vec<StructureType> = vec![StructureType::U8, number("10")];
-  // Приоритет: литерал раньше типа.
+  // Приоритет: примитив раньше типа.
   let mut token: Token = Token::new(TokenType::UInt, String::from("10"));
   assert!(
     Structure::matchUnion(&mut token, &StructureType::Union(u8Ten.clone())) == number("10"),
-    "The exact literal must win over the type variant"
+    "The exact primitive must win over the type variant"
   );
-  // Не литерал - работают правила типов: приведение с зажимом (#71).
+  // Не примитив - работают правила типов: приведение с зажимом (#71).
   union(TokenType::UInt,   "11",  u8Ten.clone(), &StructureType::U8, "11");
   union(TokenType::UInt,   "300", u8Ten.clone(), &StructureType::U8, "255");
   union(TokenType::Int,    "-5",  u8Ten.clone(), &StructureType::U8, "0");
-  // Строковый литерал рядом с типом: матч литерала → stype = литерал.
+  // Строковый примитив рядом с типом: матч примитива → stype = примитив.
   let textU8: Vec<StructureType> = vec![text("name"), StructureType::U8];
   union(TokenType::String, "name", textU8.clone(), &text("name"), "name");
   union(TokenType::String, "other", textU8.clone(), &StructureType::None, "");
@@ -223,15 +223,15 @@ fn unionLiteralWithType() -> ()
 
 /// Union печатается так же, как записывается в коде.
 #[test]
-fn unionLiteralToString() -> ()
+fn unionPrimitiveToString() -> ()
 {
   assert_eq!(StructureType::Union(vec![number("10"), number("20")]).to_string(), "10 | 20");
   assert_eq!(StructureType::Union(vec![text("text"), StructureType::U8]).to_string(), "\"text\" | U8");
 }
 
-/// Смешанный union: тип + литерал — stype литерал при точном матче.
+/// Смешанный union: тип + примитив — stype примитив при точном матче.
 #[test]
-fn unionLiteralMixedType() -> ()
+fn unionPrimitiveMixedType() -> ()
 {
   let stringTen: Vec<StructureType> = vec![StructureType::String, number("10")];
   union(TokenType::UInt, "10", stringTen.clone(), &number("10"), "10");
@@ -243,9 +243,9 @@ fn unionLiteralMixedType() -> ()
   union(TokenType::String, "other", stringText.clone(), &StructureType::String, "other");
 }
 
-/// abiType сводит литерал к storage-форме.
+/// abiType сводит примитив к storage-форме.
 #[test]
-fn literalAbiType() -> ()
+fn primitiveAbiType() -> ()
 {
   assert!(text("text").abiType() == StructureType::String);
   assert!(number("10").abiType() == StructureType::U8);
