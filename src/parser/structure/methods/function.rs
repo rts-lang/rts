@@ -1,13 +1,7 @@
-use std::io;
-use std::io::Write;
-use std::process::{Command, ExitStatus, Output};
-use std::str::SplitWhitespace;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
-#[cfg(not(target_family = "wasm"))]
-use rand::Rng;
 use crate::{_filePath, _sourcePath};
 use crate::parser::parser::readLines;
 use crate::parser::structure::methods::parameters::{Parameters};
@@ -194,45 +188,6 @@ impl Function
   
   // ===============================================================================================
   
-  /// Возвращаем случайное число типа UInt от min до max.
-  fn randUInt(
-    structure: &Structure, 
-    parameters: &Parameters, 
-    value: &mut [Token], 
-    i: usize
-  ) -> ()
-  {
-    #[cfg(not(target_family = "wasm"))]
-    if !parameters.isNone() // todo оставить либо это, либо снизу нули
-    {
-      let min: usize =
-        if let Some(parameter0) = parameters.getExpression(structure,0)
-        {
-          if let Some(expressionData) = parameter0.getData().toString() {
-            expressionData.parse::<usize>().unwrap_or_default()
-          } else { 0 }
-        } else { 0 };
-      
-      let max: usize =
-        if let Some(parameter1) = parameters.getExpression(structure,1)
-        {
-          if let Some(expressionData) = parameter1.getData().toString() {
-            expressionData.parse::<usize>().unwrap_or_default()
-          } else { 0 }
-        } else { 0 };
-      
-      let randomNumber: usize =
-        if min < max {
-          rand::rng().random_range(min..=max)
-        } else { 0 };
-      
-      value[i].setDataType( TokenType::UInt );
-      value[i].setData( randomNumber.to_string() );
-    }
-  }
-  
-  // ===============================================================================================
-  
   /// Получаем размер структуры.
   fn len(
     structure: &Structure, 
@@ -289,116 +244,6 @@ impl Function
   
   // ===============================================================================================
   
-  /// Получаем результат ввода.
-  fn input(
-    structure: &Structure, 
-    parameters: &Parameters, 
-    value: &mut [Token], 
-    i: usize
-  ) -> ()
-  {
-    // Результат может быть только String.
-    value[i].setDataType( TokenType::String );
-
-    if let Some(parameter0) = parameters.getExpression(structure,0)
-    {
-      if let Some(data) = parameter0.getData().toString()
-      { // Это может быть выведено перед вводом;
-        //
-        // todo: возможно потом это лучше убрать,
-        //       т.к. программист сам может вызвать
-        //       такое через иные методы
-        print!("{}",data);
-        io::stdout().flush().unwrap(); // forced withdrawal of old.
-      }
-    }
-
-    let mut valueBuffer: String = String::new(); // Временный буфер ввода.
-    match io::stdin().read_line(&mut valueBuffer)
-    { // Читаем ввод.
-      Ok(_) =>
-      { // Успешно ввели и записали.
-        value[i].setData(
-          valueBuffer.trim_end().to_string()
-        );
-      }
-      Err(_) =>
-      { // Не удалось ввести, пустая строка.
-        value[i].setData(None);
-      }
-    }
-  }
-  
-  // ===============================================================================================
-  
-  /// Запускает что-то и возвращает строковый output работы.
-  fn exec(
-    structure: &Structure, 
-    parameters: &Parameters, 
-    value: &mut [Token], 
-    i: usize
-  ) -> ()
-  {
-    if let Some(parameter0) = parameters.getExpression(structure,0)
-    {
-      let data: String = parameter0.getData().toString().unwrap_or_default();
-      let mut parts: SplitWhitespace<'_> = data.split_whitespace();
-
-      let command: &str = parts.next().expect("No command found in parameters"); // todo: no errors
-      let args: Vec<&str> = parts.collect();
-
-      let output: Output =
-        Command::new(command)
-          .args(&args)
-          .output()
-          .expect("Failed to execute process"); // todo: no errors
-
-      let outputString: String = String::from_utf8_lossy(&output.stdout).to_string();
-      if !outputString.is_empty()
-      { // result.
-        value[i].setData( outputString.trim_end().to_string() );
-        value[i].setDataType( TokenType::String );
-      }
-      //
-    }
-    //
-  }
-  
-  // ===============================================================================================
-  
-  /// Запускает что-то и возвращает кодовый результат работы.
-  /// 
-  /// todo: Возможно изменение: Следует ли оставлять вывод stdout & stderr ?
-  ///       -> Возможно следует сделать отдельные методы для подобных операций.
-  fn execs(
-    structure: &Structure, 
-    parameters: &Parameters, 
-    value: &mut [Token], 
-    i: usize
-  ) -> ()
-  {
-    if let Some(parameter0) = parameters.getExpression(structure,0)
-    {
-      let data: String = parameter0.getData().toString().unwrap_or_default();
-      let mut parts: SplitWhitespace<'_> = data.split_whitespace();
-
-      let command: &str = parts.next().expect("No command found in expression"); // todo: no errors
-      let args: Vec<&str> = parts.collect();
-
-      let status: ExitStatus =
-        Command::new(command)
-          .args(&args)
-          .stdout(std::process::Stdio::null())
-          .stderr(std::process::Stdio::null())
-          .status()
-          .expect("Failed to execute process"); // todo: no errors
-      value[i].setData( status.code().unwrap_or(-1).to_string() );
-      value[i].setDataType( TokenType::String );
-    }
-  }
-
-  // ===============================================================================================
-
   /// importNative(path) — загружает native-библиотеку в текущий FFI-scope.
   ///
   /// - Вызов сам по себе является FFI-операцией: если мы внутри `[ffi] { ... }`
@@ -735,11 +580,7 @@ impl Structure
           "stype" => Function::stype(self, &parameters, value, i),
           "utype" => Function::utype(self, &parameters, value, i),
           "mut" => Function::_mut(self, &parameters, value, i),
-          "randUInt" => Function::randUInt(self, &parameters, value, i),
           "len" => Function::len(self, &parameters, value, i),
-          "input" => Function::input(self, &parameters, value, i),
-          "exec" => Function::exec(self, &parameters, value, i),
-          "execs" => Function::execs(self, &parameters, value, i),
           "importNative" => Function::importNative(self, &parameters, value, i),
           "import" => Function::import(self, &parameters, value, i),
           "Usize" => Function::usize(self, &parameters, value, i),
