@@ -140,6 +140,24 @@ impl Structure
   }
 
   // ===============================================================================================
+
+  /// Полный объявленный тип: набор вариантов объединения (`a: U8 | 10` → `U8 | 10`),
+  /// а без объединения - `dataType`.
+  ///
+  /// `dataType` хранит выбранный вариант, `unionTypes` - исходный набор, 
+  /// он не сужается при присваивании.
+  /// 
+  /// todo rewrite desc + я не уверен что ей место здесь. Но она вроде объединяет 2 места.
+  pub fn utype(&self) -> StructureType
+  {
+    match &self.unionTypes
+    {
+      Some(variants) if !variants.is_empty() => StructureType::Union(variants.clone()),
+      _ => self.dataType.clone()
+    }
+  }
+
+  // ===============================================================================================
   
   /// todo desc
   pub fn parseLink(linkName: &str) -> Vec<String> 

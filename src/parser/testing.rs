@@ -14,7 +14,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 //
 // Проверка - макрос `checkStructure!`: одна строка на кейс, и сверяются ТОЛЬКО указанные грани.
 // В `.rt` файлах проверки бывают разные: где-то `type` и `stype`, где-то только один
-// из них, где-то ещё и значение. Макрос повторяет ровно тот набор, что проверяет файл.
+// из них, где-то `utype` (объединения), где-то ещё и значение. Макрос повторяет ровно тот набор, что проверяет файл.
 //
 // todo rewrite desc
 
@@ -112,6 +112,19 @@ pub(super) fn checkStype(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
+/// `utype` - полный объявленный тип: набор вариантов объединения или `stype`, если объединения нет.
+pub(super) fn checkUtype(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &StructureType) -> Result<(), String>
+{
+  let structure: Arc<RwLock<Structure>> = getStructure(main, name);
+  let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  let utype: StructureType = structureLock.utype();
+  if utype == *expected { return Ok(()); }
+  Err(format!(
+    "check utype in `{}` for '{}': expected '{}', got '{}'",
+    code, name, expected.to_string(), utype.to_string()
+  ))
+}
+
 /// ``value` - значение структуры.
 pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &str) -> Result<(), String>
 {
@@ -123,7 +136,7 @@ pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// Печатает все грани структуры: type, stype, value.
+/// Печатает все грани структуры: type, stype, utype, value.
 ///
 /// Для отладки кейсов без assert.
 /// 
@@ -135,9 +148,10 @@ pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &s
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
   let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
   let stype: String = structureLock.dataType.to_string();
+  let utype: String = structureLock.utype().to_string();
   println!(
-    "show `{}` for '{}' | type={}, stype={}, value={}",
-    code, name, tokenType.to_string(), stype, data
+    "show `{}` for '{}' | type={}, stype={}, utype={}, value={}",
+    code, name, tokenType.to_string(), stype, utype, data
   );
 }
 
@@ -147,14 +161,17 @@ pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &s
 ///
 /// Грани юзаются в любом наборе - ровно те, что проверяет `.rt` файл: где-то сверяются
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
-/// фиксированный - `type` → `stype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
+/// фиксированный - `type` → `stype` → `utype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
 ///     checkStructure!("a: U8 = 300", a, type TokenType::UInt, stype StructureType::U8, value "255");
 ///     checkStructure!("a = 0.0", a, type TokenType::UFloat, stype StructureType::F32); // Без значения
 ///     checkStructure!("a = 10", a, stype StructureType::U8); // Только stype
+///     checkStructure!("a: U8 | 10 = 10", a, stype number("10"), utype Union(vec![U8, number("10")]));
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
-/// `value` - значение (`{a}`). Имя структуры - идентификатор (`a`) или путь строкой
+/// `utype` - полный объявленный тип: набор вариантов объединения (`utype(a)`), а без
+/// объединения он равен `stype`; `value` - значение (`{a}`).
+/// Имя структуры - идентификатор (`a`) или путь строкой
 /// (`"a.b"`); каждый вызов исполняет свой код в отдельной структуре.
 ///
 /// Паникует на первой неверной грани; `tryCheckStructure!` вместо паники возвращает `Err`.
@@ -175,7 +192,7 @@ pub(super) use checkStructure;
 macro_rules! tryCheckStructure
 {
   // Имя структуры - идентификатор: `tryCheckStructure!("a = 10", a, value "10")`
-  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
     (|| -> Result<(), String>
@@ -187,6 +204,9 @@ macro_rules! tryCheckStructure
         $crate::parser::testing::checkStype(&main, stringify!($name), $code, &$s)?;
       )?
       $(
+        $crate::parser::testing::checkUtype(&main, stringify!($name), $code, &$u)?;
+      )?
+      $(
         $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v)?;
       )?
       Ok(())
@@ -194,7 +214,7 @@ macro_rules! tryCheckStructure
   }};
 
   // Имя структуры - путь строкой: `tryChecktryCheckStructure!("a = 10", "a.b", value "10")`
-  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
     (|| -> Result<(), String>
@@ -204,6 +224,9 @@ macro_rules! tryCheckStructure
       )?
       $(
         $crate::parser::testing::checkStype(&main, $name, $code, &$s)?;
+      )?
+      $(
+        $crate::parser::testing::checkUtype(&main, $name, $code, &$u)?;
       )?
       $(
         $crate::parser::testing::checkValue(&main, $name, $code, &$v)?;
@@ -234,7 +257,7 @@ pub(super) use tryCheckStructure;
 macro_rules! showStructure
 {
   // Имя структуры - идентификатор: `showStructure!("a = 10", a, value "11")`
-  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
     $crate::parser::testing::printStructure(&main, stringify!($name), $code);
@@ -247,13 +270,17 @@ macro_rules! showStructure
       { println!("  ≠ {}", message); }
     )?
     $(
+      if let Err(message) = $crate::parser::testing::checkUtype(&main, stringify!($name), $code, &$u)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
       if let Err(message) = $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v)
       { println!("  ≠ {}", message); }
     )?
   }};
 
   // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b", value "11")`
-  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let main = $crate::parser::testing::runCode($code);
     $crate::parser::testing::printStructure(&main, $name, $code);
@@ -263,6 +290,10 @@ macro_rules! showStructure
     )?
     $(
       if let Err(message) = $crate::parser::testing::checkStype(&main, $name, $code, &$s)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkUtype(&main, $name, $code, &$u)
       { println!("  ≠ {}", message); }
     )?
     $(
@@ -344,6 +375,17 @@ mod tests
     checkStructure!("a = 10", a, value "10");
   }
 
+  /// Только `utype`: без объединения равен `stype`, с объединением - набор вариантов.
+  #[test]
+  fn utypeOnly() -> ()
+  {
+    checkStructure!("a = 10", a, utype StructureType::U8);
+    checkStructure!(
+      "a: U8 | String = 10", a,
+      utype StructureType::Union(vec![StructureType::U8, StructureType::String])
+    );
+  }
+
   /// `stype` и `value` без `type`.
   #[test]
   fn stypeAndValue() -> ()
@@ -373,6 +415,10 @@ mod tests
     assert_eq!(
       tryCheckStructure!("a = 10", a, value "11").unwrap_err(),
       "check value in `a = 10` for 'a': expected '11', got '10'"
+    );
+    assert_eq!(
+      tryCheckStructure!("a: U8 | String = 10", a, utype StructureType::U8).unwrap_err(),
+      "check utype in `a: U8 | String = 10` for 'a': expected 'U8', got 'U8 | String'"
     );
     // Верные грани - `Ok`.
     assert!(tryCheckStructure!("a = 10", a, type TokenType::UInt, stype StructureType::U8, value "10").is_ok());
