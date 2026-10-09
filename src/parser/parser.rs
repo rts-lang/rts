@@ -184,7 +184,7 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
 fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> bool
 {
   // Получаем тип операции.
-  let opType: TokenType = lineTokens.iter().find_map(|token| {
+  let operatorType: TokenType = lineTokens.iter().find_map(|token| {
     if isMathOperator( *token.getDataType() ) {
       Some(*token.getDataType())
     } else {
@@ -196,13 +196,13 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   let leftValue: Vec<Token>;
   let mut rightValue: Option< Vec<Token> > = None;
   {
-    if opType == TokenType::None
+    if operatorType == TokenType::None
     { // Операции не было.
       leftValue = std::mem::take(&mut lineTokens.to_owned()); // todo: Тут точно клонирование ?
     }
     else
     {// Операция есть.
-      let mut parts: Vec<Line> = splitByType(lineTokens.to_owned(), &[opType]); // todo: Тут точно клонирование ?
+      let mut parts: Vec<Line> = splitByType(lineTokens.to_owned(), &[operatorType]); // todo: Тут точно клонирование ?
 
       leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
       rightValue = std::mem::take(&mut parts[1].tokens);
@@ -257,18 +257,13 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
 
   drop(leftValue);
 
-  // Ищем структуру с таким именем. Здесь две РАЗНЫЕ области видимости,
-  // и это не одно и то же:
+  // Ищем структуру с таким именем. Здесь две разные области видимости:
   //
-  //   `:=` — создание в текущей области. Ищем ТОЛЬКО среди своих структур,
-  //          наверх не идём. Иначе `limit := 5` внутри функции нашла бы
-  //          внешний `limit` и переписала его вместо своего.
+  // - `:=` => Создание в текущем области. Ищем только среди своих структур, наверх не идём.
   //
-  //   `=`  — присваивание по области видимости: сначала свои, потом вверх
-  //          до корня. Именно так `counter = counter + 1` внутри функции
-  //          доходит до `counter` в main, а `? { a = 20 }` меняет внешний `a`.
+  // - `=` => Присваивание по области видимости: сначала свои структуры, потом до самого верха.
   //
-  let isCreation: bool = opType == TokenType::Creation;
+  let isCreation: bool = operatorType == TokenType::Creation;
 
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
@@ -277,7 +272,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     { // Только свои, строго вниз.
       parent.getStructureByLink(&structureName)
     } else
-    { // Свои, потом вверх до корня.
+    { // Свои, потом вверх до самого верха.
       parent.getStructureByScope(&structureName)
     }
   };
@@ -297,15 +292,20 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       StructureMut::Constant => {} // Константные структуры изменить нельзя.
       StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
       { // Всё остальное изменить можно.
-        // `:=` отличается от `=` ТОЛЬКО тем, где искали структуру.
+        
+        // `:=` отличается от `=` только тем, где искать структуру.
+        //
         // Само присваивание делается то же самое, поэтому `:=` сводим к `=`
         // уже после того, как нужная структура найдена.
-        let op: TokenType =
-          if opType == TokenType::Creation { TokenType::Equals } else { opType };
+        let operator: TokenType = if operatorType == TokenType::Creation {
+          TokenType::Equals
+        } else {
+          operatorType
+        };
 
         parent.structureOp(
           structureLink,
-          op,
+          operator,
           structureMut,
           rightValue.unwrap_or_default()
         );
@@ -316,9 +316,10 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   { // Если мы не нашли структуру, то создаём новую
     // и работаем с правой частью выражения.
 
-    // Объединение типов (issue #59): сам набор вариантов объявления.
+    // Объединение типов: сам набор вариантов объявления;
+    //
     // Хранится отдельно от structureType, потому что в структуре лежит
-    // ровно ОДИН из вариантов, а объединение продолжает ограничивать
+    // ровно один из вариантов, а объединение продолжает ограничивать
     // все следующие присваивания.
     let unionTypes: Option<Vec<StructureType>> = match structureType
     {
@@ -326,22 +327,30 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       _ => None
     };
 
+    // Считаем правую часть только когда она реально есть;
+    //
     // Правая часть бывает не у всех объявлений:
-    //   `a`        — Final без значения, ждём первого `=` (станет Const);
-    //   `a: UInt`  — то же с явным типом;
-    //   `a~`       — Variable без значения, тип выведется при первом присваивании.
-    // Раньше здесь стоял `rightValue.unwrap()`, и объявление без значения
-    // падало. Теперь считаем правую часть только когда она реально есть.
+    //
+    // - `a` => Final без значения, ждём первого `=` (станет Const);
+    //
+    // - `a: UInt` => То же с явным типом;
+    //
+    // - `a~` => Variable без значения, тип выведется при первом присваивании.
+    //
+    // todo `a~~` еще по идее? нужно проверить отдельно и вписать сюда все варианты.
     let hasValue: bool = rightValue.is_some();
 
     // Вычисляем правое выражение?
     if hasValue
     {
       // Что ждём от FFI-вызова справа:
-      // - `a: Usize = lib.f(x)` — тип указан, он же тип возврата C-функции
+      //
+      // - `a: Usize = lib.f(x)` => Тип указан, он же тип возврата C-функции
       //   и в него кастуется результат (normalizeToken ниже);
-      // - `a = lib.f(x)` / `a~~ = lib.f(x)` — тип слева получаем от правой части.
-      // - `a: U8 | String = lib.f(x)` — у объединения нет единственного ABI-типа,
+      //
+      // - `a = lib.f(x)` / `a~~ = lib.f(x)` => Тип слева получаем от правой части;
+      //
+      // - `a: U8 | String = lib.f(x)` => У объединения нет единственного ABI-типа,
       //   поэтому вызов читается как Infer, а вариант подбирается уже по значению.
       let expect: bridge::FfiExpect =
         if structureType == StructureType::None || unionTypes.is_some() ||
@@ -349,13 +358,16 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
 
-      // ВАЖНО: правую часть считаем под БЛОКИРОВКОЙ ЧТЕНИЯ, а не записи.
+      // Важно: правую часть считаем под блокировкой чтения, а не записи.
+      //
       // Вычисление выражения может искать имя вверх по области видимости
       // (getStructureByScope) — а он берёт read() на каждого родителя, включая
       // текущий. Если бы read() приходился на структуру, которую мы уже держим
       // на записи, то std::sync::RwLock не перевзводим и процесс вставал бы
       // навсегда (0% CPU, sleeping). Старый код (tag 231206) считал ровно так же:
       // сначала expression, потом write на pushStructure.
+      //
+      // todo rewrite desc, должно быть по смыслу работы.
       let mut value: Token =
       {
         let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
@@ -368,6 +380,8 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       // Обычная ветка ниже (inference/normalizeToken/Line{tokens: Some(vec![value])}) 
       // рассчитана на скаляр, поэтому переносим (dataType, lines, structures) модуля
       // напрямую в новую структуру и выходим раньше.
+      //
+      // todo rewrite desc
       if *value.getDataType() == TokenType::Link
       {
         if let Some(markerName) = value.getData().toString()
