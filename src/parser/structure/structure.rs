@@ -102,6 +102,13 @@ pub struct Structure
   /// Создана ли структура из блока FFI.
   pub isFfiBlock: bool,
 
+  /// Создана ли структура из блока условия `? { }` (issue #39).
+  ///
+  /// Такой блок - это обычный код, просто записанный с отступом,
+  /// поэтому он работает в области ОБЪЕМЛЮЩЕЙ структуры: то, что объявлено
+  /// выше блока, должно быть видно и изменяться внутри него.
+  pub isConditionBlock: bool,
+
   /// Файл, в котором написан код структуры (`None` — запущенный файл);
   /// 
   /// Запоминается при создании из `_sourcePath`.
@@ -134,6 +141,7 @@ impl Structure
       structures: Arc::new(RwLock::new(None)),
       parent,
       isFfiBlock: false,
+      isConditionBlock: false,
       sourcePath: _sourcePath.read().unwrap().clone(),
       lineIndex: 0
     }
@@ -241,6 +249,33 @@ impl Structure
 
     // После успешного прохождения всех сегментов возвращаем найденную структуру.
     currentStructure
+  }
+
+  /// Ищет структуру по имени с учётом области видимости блока условия `? { }`.
+  ///
+  /// Обычный `getStructureByName` смотрит строго на один уровень вниз, поэтому
+  /// блок условия не видел бы структуру, объявленную ВЫШЕ него. Но блок условия -
+  /// это тот же самый код, просто с отступом, поэтому объёмлющая структура для
+  /// него часть области видимости.
+  ///
+  /// Ищем сначала здесь, потом у родителя - но только для блока условия и только
+  /// на один уровень. Дальше не идём: иначе блок внутри функции начал бы видеть
+  /// переменные внешней структуры, а это уже другая (и неверная) область видимости.
+  pub fn getStructureInScope(&self, name: &str) -> Option< Arc<RwLock<Self>> >
+  {
+    if let Some(structureLink) = self.getStructureByName(name) {
+      return Some(structureLink);
+    }
+
+    if self.isConditionBlock
+    {
+      if let Some(parentLink) = &self.parent
+      {
+        return parentLink.read().unwrap().getStructureByName(name);
+      }
+    }
+
+    None
   }
 
   /// Добавляет новую вложенную структуру в текущую структуру;
@@ -468,7 +503,7 @@ impl Structure
 
     if let Some(structureName) = value[index].getData().toString() 
     {
-      if let Some(structureLink) = self.getStructureByName(&structureName) 
+      if let Some(structureLink) = self.getStructureInScope(&structureName) 
       {
         let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
         // Если это просто обращение к имени структуры.
@@ -654,24 +689,31 @@ impl Structure
             let structure: RwLockReadGuard<Self> = currentStructureLink.read().unwrap();
             let hasLines: bool = 
             {
-              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureByName(&link[0]);
+              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureInScope(&link[0]);
               if let Some(childStructureLink) = childStructureLink
               {
                 if let Some(lines) = &childStructureLink.read().unwrap().lines {
                   !lines.is_empty()
-                } else { false }
+                } else {
+                  false
+                }
                 //
-              } else { false }
+              } else {
+                false
+              }
               //
             };
 
             if hasLines {
-              structure.getStructureByName(&link[0])
+              structure.getStructureInScope(&link[0])
             } else {
-              self.getStructureByName(&link[0])
+              // По области видимости: из блока `? { }` видна и структура выше блока.
+              self.getStructureInScope(&link[0])
             }
             //
-          } else { self.getStructureByName(&link[0]) };
+          } else {
+            self.getStructureInScope(&link[0])
+          };
         // Далее мы работаем с полученной ссылкой пространства.
         link.remove(0);
         if let Some(structureLink) = structureLink

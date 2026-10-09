@@ -257,10 +257,13 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
 
   // Получаем родительскую структуру;
   // Ищем в родительской структуре, есть ли там похожая на structureName.
+  //
+  // С учётом области видимости: из блока `? { }` должна быть видна и изменяться
+  // структура, объявленная выше блока.
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
     parentLink.read().unwrap()
-      .getStructureByName(&structureName)
+      .getStructureInScope(&structureName)
   };
 
   if let Some(structureLink) = structureLink
@@ -319,6 +322,9 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
            structureMutability == StructureMut::Dynamic
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
+      // todo Объявление без правой части (`a~` или `a: U8`)
+      //  доходит сюда с rightValue = None и вылетает на unwrap ниже.
+      //  Это проблема - ведь Final как тип должен работать и работал раньше.
       let mut value: Token = parentStructure.expressionWith(&mut rightValue.unwrap(), &expect);
 
       // Динамический import(): правая часть выражения — не скаляр, а целая
@@ -948,6 +954,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 condition.lines.clone(),
                 Some(parentLink)
               )));
+            // Это блок условия: он работает в области объемлющей структуры,
+            // поэтому то, что объявлено выше блока, видно и меняется внутри него.
+            structure.write().unwrap().isConditionBlock = true;
             // После создания, читаем эту структуру.
             drop(condition);
             readLines(structure);
@@ -966,6 +975,9 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
               condition.lines.clone(),
               Some(parentLink)
             )));
+          // Это блок условия: он работает в области объемлющей структуры,
+          // поэтому то, что объявлено выше блока, видно и меняется внутри него.
+          structure.write().unwrap().isConditionBlock = true;
           // После создания, читаем эту структуру.
           drop(condition);
           readLines(structure);
