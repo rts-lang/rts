@@ -62,6 +62,7 @@ pub const operators: &[(&str, TokenType)] = &[
 
   // Прочее
   (":", TokenType::Colon),
+  (":=", TokenType::Creation),
   ("->", TokenType::Pointer),
   ("~", TokenType::Tilde),
   ("~~", TokenType::DoubleTilde),

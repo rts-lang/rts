@@ -132,7 +132,7 @@ impl Structure
         _ => 
         { // Если не найдено совпадений среди стандартных процедур,
           // значит это нестандартный метод.
-          if let Some(calledStructureLink) = self.getStructureByName(structureName) 
+          if let Some(calledStructureLink) = self.getStructureByScope(structureName) 
           {
             // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны;
             // Они здесь точно есть, но в Some мы оборачиваем чтобы не делать clone ниже при take.

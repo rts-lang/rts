@@ -168,15 +168,17 @@ impl Structure
       .collect()
   }
 
-  /// Ищет структуру по имени (даже если это ссылка)
+  /// Ищет структуру по пути `a.b.c` [`TokenType::Link`] — строго вниз.
   ///
   /// Пример: "parent.child.grandchild" будет искать:
   ///   1. "parent" в корневых структурах
   ///   2. "child" в дочерних структурах "parent"
   ///   3. "grandchild" в дочерних структурах "child"
+  ///
+  /// Ссылка `a.b` — это путь внутрь структуры, поэтому она идёт только вниз.
   /// 
-  /// todo Не смотрит выше self. Должен ли?
-  pub fn getStructureByName(&self, name: &str) -> Option< Arc<RwLock<Self>> > 
+  /// Отличие от [`Self::getStructureByScope`]: этот метод опускается строго по пути вниз.
+  pub fn getStructureByLink(&self, name: &str) -> Option< Arc<RwLock<Self>> > 
   {
     // "a.b.c" -> ["a", "b", "c"]
     let segments: Vec<String> = Self::parseLink(name);
@@ -241,6 +243,42 @@ impl Structure
 
     // После успешного прохождения всех сегментов возвращаем найденную структуру.
     currentStructure
+  }
+
+  /// Ищет структуру по области видимости: сначала свои дети, потом вверх по родителям.
+  ///
+  /// Возвращает первое найденное совпадение — ближайшее к текущей структуре.
+  ///
+  /// Отличие от [`Self::getStructureByLink`]: этот метод поднимается к корню и ищет первый.
+  pub fn getStructureByScope(&self, name: &str) -> Option< Arc<RwLock<Self>> >
+  {
+    // Сначала ищем среди своих дочерних структур — они ближе всего.
+    let ownChildren: Arc<RwLock< Option<Vec< Arc<RwLock<Self>> >> >> =
+      self.structures.clone();
+
+    if let Some(children) = ownChildren.read().unwrap().as_deref()
+    {
+      for childStructureLink in children
+      {
+        let isMatch: bool = {
+          let child: RwLockReadGuard<Self> = childStructureLink.read().unwrap();
+          child.name.as_deref() == Some(name)
+        };
+        if isMatch {
+          return Some(childStructureLink.clone());
+        }
+        //
+      }
+    }
+
+    // Не нашли у себя — поднимаемся в родительскую структуру и пробуем там;
+    //
+    // Это рекурсивный поиск до самого верха.
+    if let Some(parentLink) = &self.parent {
+      parentLink.read().unwrap().getStructureByScope(name)
+    } else {
+      None
+    }
   }
 
   /// Добавляет новую вложенную структуру в текущую структуру;
@@ -326,7 +364,7 @@ impl Structure
       {
         if let Some(markerName) = rightPartValue.getData().toString()
         {
-          if let Some(moduleLink) = self.getStructureByName(&markerName)
+          if let Some(moduleLink) = self.getStructureByScope(&markerName)
           {
             if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
             { // Если это модуль.
@@ -468,7 +506,7 @@ impl Structure
 
     if let Some(structureName) = value[index].getData().toString() 
     {
-      if let Some(structureLink) = self.getStructureByName(&structureName) 
+      if let Some(structureLink) = self.getStructureByScope(&structureName) 
       {
         let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
         // Если это просто обращение к имени структуры.
@@ -567,7 +605,7 @@ impl Structure
                   link.insert(0, lineTokens[0].getData().toString().unwrap_or_default());
 
                   // То мы сначала проверяем что такая структура есть во внутреннем пространстве.
-                  if currentStructure.getStructureByName(
+                  if currentStructure.getStructureByLink(
                     &lineTokens[0].getData().toString().unwrap_or_default()
                   ).is_some()
                   {
@@ -600,7 +638,7 @@ impl Structure
                     // Если это слово, то это либо ссылка т.к. там много значений в ней;
                     // Либо это структура с одиночным вложением и мы можем его забрать сейчас.
 
-                    if let Some(childStructureLink) = currentStructure.getStructureByName(
+                    if let Some(childStructureLink) = currentStructure.getStructureByLink(
                       &lineTokens[0].getData().toString().unwrap_or_default()
                     )
                     { // Пробуем проверить что там 1 линия вложена в структуре;
@@ -654,24 +692,31 @@ impl Structure
             let structure: RwLockReadGuard<Self> = currentStructureLink.read().unwrap();
             let hasLines: bool = 
             {
-              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureByName(&link[0]);
+              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureByScope(&link[0]);
               if let Some(childStructureLink) = childStructureLink
               {
                 if let Some(lines) = &childStructureLink.read().unwrap().lines {
                   !lines.is_empty()
-                } else { false }
+                } else {
+                  false
+                }
                 //
-              } else { false }
+              } else {
+                false
+              }
               //
             };
 
             if hasLines {
-              structure.getStructureByName(&link[0])
+              structure.getStructureByScope(&link[0])
             } else {
-              self.getStructureByName(&link[0])
+              // По области видимости: из блока `? { }` видна и структура выше блока.
+              self.getStructureByScope(&link[0])
             }
             //
-          } else { self.getStructureByName(&link[0]) };
+          } else {
+            self.getStructureByScope(&link[0])
+          };
         // Далее мы работаем с полученной ссылкой пространства.
         link.remove(0);
         if let Some(structureLink) = structureLink
@@ -1200,7 +1245,7 @@ impl Structure
             // Запускает метод; но он может быть либо обычный, либо из ссылки.
             let structureName:String = value[i].getData().toString().unwrap_or_default();
             let mut runBasicMethod: bool = true;
-            if let Some(structureLink) = self.getStructureByName(&structureName)
+            if let Some(structureLink) = self.getStructureByScope(&structureName)
             { // Мы должны проверить, что структура имеет только одно вложение.
               let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
               if let Some(lines) = &structure.lines

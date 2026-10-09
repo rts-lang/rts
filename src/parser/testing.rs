@@ -67,7 +67,7 @@ pub(super) fn expressionOf(code: &str) -> Token
 /// Возвращает структуру по `name` из выполненного кода; если её нет - паника.
 pub(super) fn getStructure(main: &Arc<RwLock<Structure>>, name: &str) -> Arc<RwLock<Structure>>
 {
-  main.read().unwrap().getStructureByName(name)
+  main.read().unwrap().getStructureByScope(name)
     .unwrap_or_else(|| panic!("Structure '{}' was not created", name))
 }
 

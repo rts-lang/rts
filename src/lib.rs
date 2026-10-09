@@ -87,7 +87,7 @@ impl RTS
     //
     let namespaceStructureLink: Arc<RwLock<Structure>> = {
       let mainStructure: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
-      mainStructure.getStructureByName(self.namespace.as_str()).unwrap()
+      mainStructure.getStructureByScope(self.namespace.as_str()).unwrap()
     };
     let namespaceStructure: RwLockWriteGuard<Structure> = namespaceStructureLink.write().unwrap();
     namespaceStructure.pushStructure(

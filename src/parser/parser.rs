@@ -20,9 +20,11 @@ use crate::parser::structure::structureType::StructureType;
 /// Проверяет, что переданный dataType является математическим оператором.
 const fn isMathOperator(dataType: TokenType) -> bool
 {
-  matches!(dataType, 
-    // todo А еще почему тут только 1 single оператор а не все math?
-    TokenType::Equals      /* | // =
+  matches!(dataType,
+    // `=` — присваивание по области видимости (ищет вверх);
+    // `:=` — создание в текущей области (вверх НЕ ищет).
+    TokenType::Equals | TokenType::Creation
+    /* | // =
     todo Может плохо работать с #85, нужен контроль
     TokenType::UnaryPlus      | // ++
     TokenType::PlusEquals     | // +=
@@ -182,7 +184,7 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
 fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> bool
 {
   // Получаем тип операции.
-  let opType: TokenType = lineTokens.iter().find_map(|token| {
+  let operatorType: TokenType = lineTokens.iter().find_map(|token| {
     if isMathOperator( *token.getDataType() ) {
       Some(*token.getDataType())
     } else {
@@ -194,13 +196,13 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   let leftValue: Vec<Token>;
   let mut rightValue: Option< Vec<Token> > = None;
   {
-    if opType == TokenType::None
+    if operatorType == TokenType::None
     { // Операции не было.
       leftValue = std::mem::take(&mut lineTokens.to_owned()); // todo: Тут точно клонирование ?
     }
     else
     {// Операция есть.
-      let mut parts: Vec<Line> = splitByType(lineTokens.to_owned(), &[opType]); // todo: Тут точно клонирование ?
+      let mut parts: Vec<Line> = splitByType(lineTokens.to_owned(), &[operatorType]); // todo: Тут точно клонирование ?
 
       leftValue = std::mem::take(&mut parts[0].tokens).unwrap();
       rightValue = std::mem::take(&mut parts[1].tokens);
@@ -255,12 +257,24 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
 
   drop(leftValue);
 
-  // Получаем родительскую структуру;
-  // Ищем в родительской структуре, есть ли там похожая на structureName.
+  // Ищем структуру с таким именем. Здесь две разные области видимости:
+  //
+  // - `:=` => Создание в текущем области. Ищем только среди своих структур, наверх не идём.
+  //
+  // - `=` => Присваивание по области видимости: сначала свои структуры, потом до самого верха.
+  //
+  let isCreation: bool = operatorType == TokenType::Creation;
+
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
-    parentLink.read().unwrap()
-      .getStructureByName(&structureName)
+    let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+    if isCreation
+    { // Только свои, строго вниз.
+      parent.getStructureByLink(&structureName)
+    } else
+    { // Свои, потом вверх до самого верха.
+      parent.getStructureByScope(&structureName)
+    }
   };
 
   if let Some(structureLink) = structureLink
@@ -278,9 +292,20 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       StructureMut::Constant => {} // Константные структуры изменить нельзя.
       StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
       { // Всё остальное изменить можно.
+        
+        // `:=` отличается от `=` только тем, где искать структуру.
+        //
+        // Само присваивание делается то же самое, поэтому `:=` сводим к `=`
+        // уже после того, как нужная структура найдена.
+        let operator: TokenType = if operatorType == TokenType::Creation {
+          TokenType::Equals
+        } else {
+          operatorType
+        };
+
         parent.structureOp(
           structureLink,
-          opType,
+          operator,
           structureMut,
           rightValue.unwrap_or_default()
         );
@@ -291,12 +316,10 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   { // Если мы не нашли структуру, то создаём новую
     // и работаем с правой частью выражения.
 
-    // Закидываем новую структуру в родительскую структуру.
-    let parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
-
-    // Объединение типов (issue #59): сам набор вариантов объявления.
+    // Объединение типов: сам набор вариантов объявления;
+    //
     // Хранится отдельно от structureType, потому что в структуре лежит
-    // ровно ОДИН из вариантов, а объединение продолжает ограничивать
+    // ровно один из вариантов, а объединение продолжает ограничивать
     // все следующие присваивания.
     let unionTypes: Option<Vec<StructureType>> = match structureType
     {
@@ -304,22 +327,52 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       _ => None
     };
 
+    // Считаем правую часть только когда она реально есть;
+    //
+    // Правая часть бывает не у всех объявлений:
+    //
+    // - `a` => Final без значения, ждём первого `=` (станет Const);
+    //
+    // - `a: UInt` => То же с явным типом;
+    //
+    // - `a~` => Variable без значения, тип выведется при первом присваивании.
+    //
+    // todo `a~~` еще по идее? нужно проверить отдельно и вписать сюда все варианты.
+    let hasValue: bool = rightValue.is_some();
+
     // Вычисляем правое выражение?
-    if structureMutability != StructureMut::Final
-    { 
-      let hasTokens: bool = rightValue.is_none();
+    if hasValue
+    {
       // Что ждём от FFI-вызова справа:
-      // - `a: Usize = lib.f(x)` — тип указан, он же тип возврата C-функции
+      //
+      // - `a: Usize = lib.f(x)` => Тип указан, он же тип возврата C-функции
       //   и в него кастуется результат (normalizeToken ниже);
-      // - `a = lib.f(x)` / `a~~ = lib.f(x)` — тип слева получаем от правой части.
-      // - `a: U8 | String = lib.f(x)` — у объединения нет единственного ABI-типа,
+      //
+      // - `a = lib.f(x)` / `a~~ = lib.f(x)` => Тип слева получаем от правой части;
+      //
+      // - `a: U8 | String = lib.f(x)` => У объединения нет единственного ABI-типа,
       //   поэтому вызов читается как Infer, а вариант подбирается уже по значению.
       let expect: bridge::FfiExpect =
         if structureType == StructureType::None || unionTypes.is_some() ||
            structureMutability == StructureMut::Dynamic
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
-      let mut value: Token = parentStructure.expressionWith(&mut rightValue.unwrap(), &expect);
+
+      // Важно: правую часть считаем под блокировкой чтения, а не записи.
+      //
+      // Вычисление выражения может искать имя вверх по области видимости
+      // (getStructureByScope) — а он берёт read() на каждого родителя, включая
+      // текущий. Если бы read() приходился на структуру, которую мы уже держим
+      // на записи, то std::sync::RwLock не перевзводим и процесс вставал бы
+      // навсегда (0% CPU, sleeping). Старый код (tag 231206) считал ровно так же:
+      // сначала expression, потом write на pushStructure.
+      //
+      // todo rewrite desc, должно быть по смыслу работы.
+      let mut value: Token =
+      {
+        let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+        parent.expressionWith(&mut rightValue.unwrap(), &expect)
+      };
 
       // Динамический import(): правая часть выражения — не скаляр, а целая
       // под-структура (модуль со своими подструктурами).
@@ -327,11 +380,18 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       // Обычная ветка ниже (inference/normalizeToken/Line{tokens: Some(vec![value])}) 
       // рассчитана на скаляр, поэтому переносим (dataType, lines, structures) модуля
       // напрямую в новую структуру и выходим раньше.
+      //
+      // todo rewrite desc
       if *value.getDataType() == TokenType::Link
       {
         if let Some(markerName) = value.getData().toString()
         {
-          if let Some(moduleLink) = parentStructure.getStructureByName(&markerName)
+          let moduleLink: Option< Arc<RwLock<Structure>> > =
+          {
+            let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+            parent.getStructureByScope(&markerName)
+          };
+          if let Some(moduleLink) = moduleLink
           {
             if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
             { // Если это модуль.
@@ -347,8 +407,9 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
               *newStructureLink.read().unwrap().structures.write().unwrap() =
                 moduleGuard.structures.read().unwrap().clone();
               drop(moduleGuard);
-              
-              parentStructure.pushStructure(newStructureLink);
+
+              parentLink.write().unwrap()
+                .pushStructure(newStructureLink);
               return true;
               
               //
@@ -386,11 +447,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       }
 
       //
-      rightValue = if hasTokens {
-        None
-      } else {
-        Some(vec![value])
-      };
+      rightValue = Some(vec![value]);
     }
 
     // Создаём структуру.
@@ -431,8 +488,12 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       }
     }
 
-    //
-    parentStructure.pushStructure(newStructureLink);
+    // Блокировку на запись берём только здесь — уже после того, как правая
+    // часть посчитана. Так ничего не держит родителя на записи, пока
+    // вычисляется выражение, и поиск вверх по области видимости остаётся
+    // безопасным.
+    parentLink.write().unwrap()
+      .pushStructure(newStructureLink);
   }
   
   //
@@ -858,7 +919,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
         }
         //            readLines(
         //              parentLink.read().unwrap()
-        //                .getStructureByName(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
+        //                .getStructureByLink(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
         //            );
         return true;
       }
