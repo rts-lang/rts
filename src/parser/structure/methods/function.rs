@@ -70,7 +70,7 @@ impl Function
           let structureName: String = token.getData().toString().unwrap_or_default();
           if !structureName.is_empty()
           { // Ищем структуру.
-            if let Some(structureLink) = structure.getStructureByName(&structureName)
+            if let Some(structureLink) = structure.getStructureByScope(&structureName)
             { // Это custom structure.
               let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
               value[i].setDataType(TokenType::String);
@@ -126,7 +126,7 @@ impl Function
         let structureName: String = token.getData().toString().unwrap_or_default();
         if !structureName.is_empty()
         {
-          if let Some(structureLink) = structure.getStructureByName(&structureName)
+          if let Some(structureLink) = structure.getStructureByScope(&structureName)
           {
             let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
             value[i].setDataType(TokenType::String);
@@ -166,13 +166,17 @@ impl Function
         let result: String = if let Some(structureName) = token.getData().toString()
         {
           // Получили название структуры.
-          if let Some(structureLink) = structure.getStructureByName(&structureName)
+          if let Some(structureLink) = structure.getStructureByScope(&structureName)
           {
             // Получили ссылку на структуру.
             let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
             structure.mutable.to_string()
-          } else { String::from("") }
-        } else { String::from("") };
+          } else {
+            String::from("")
+          }
+        } else {
+          String::from("")
+        };
         value[i].setData(result);
         //
       }
@@ -217,7 +221,7 @@ impl Function
           value[i].setDataType( TokenType::UInt );
           // Получаем значение
           if let Some(structureLink) = 
-            structure.getStructureByName( &parameter0.getData().toString().unwrap_or_default() )
+            structure.getStructureByScope( &parameter0.getData().toString().unwrap_or_default() )
           {
             value[i].setData(
               // Получаем количество линий структуры.
@@ -591,7 +595,7 @@ impl Structure
 //        println!("  > A1 {:?}",parameters.getAllExpressions(self).unwrap_or_default());
       self.procedureCall(&structureName, parameters);
       // После чего решаем какой результат оставить.
-      if let Some(structureLink) = self.getStructureByName(&structureName)
+      if let Some(structureLink) = self.getStructureByScope(&structureName)
       { // По результату структуры, определяем пустой он или нет.
         if let Some(result) = &structureLink.read().unwrap().result
         { // Результат не пустой, значит оставляем его.

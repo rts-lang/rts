@@ -20,9 +20,11 @@ use crate::parser::structure::structureType::StructureType;
 /// Проверяет, что переданный dataType является математическим оператором.
 const fn isMathOperator(dataType: TokenType) -> bool
 {
-  matches!(dataType, 
-    // todo А еще почему тут только 1 single оператор а не все math?
-    TokenType::Equals      /* | // =
+  matches!(dataType,
+    // `=` — присваивание по области видимости (ищет вверх);
+    // `:=` — создание в текущей области (вверх НЕ ищет).
+    TokenType::Equals | TokenType::Creation
+    /* | // =
     todo Может плохо работать с #85, нужен контроль
     TokenType::UnaryPlus      | // ++
     TokenType::PlusEquals     | // +=
@@ -255,15 +257,29 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
 
   drop(leftValue);
 
-  // Получаем родительскую структуру;
-  // Ищем в родительской структуре, есть ли там похожая на structureName.
+  // Ищем структуру с таким именем. Здесь две РАЗНЫЕ области видимости,
+  // и это не одно и то же:
   //
-  // С учётом области видимости: из блока `? { }` должна быть видна и изменяться
-  // структура, объявленная выше блока.
+  //   `:=` — создание в текущей области. Ищем ТОЛЬКО среди своих структур,
+  //          наверх не идём. Иначе `limit := 5` внутри функции нашла бы
+  //          внешний `limit` и переписала его вместо своего.
+  //
+  //   `=`  — присваивание по области видимости: сначала свои, потом вверх
+  //          до корня. Именно так `counter = counter + 1` внутри функции
+  //          доходит до `counter` в main, а `? { a = 20 }` меняет внешний `a`.
+  //
+  let isCreation: bool = opType == TokenType::Creation;
+
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
-    parentLink.read().unwrap()
-      .getStructureInScope(&structureName)
+    let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+    if isCreation
+    { // Только свои, строго вниз.
+      parent.getStructureByLink(&structureName)
+    } else
+    { // Свои, потом вверх до корня.
+      parent.getStructureByScope(&structureName)
+    }
   };
 
   if let Some(structureLink) = structureLink
@@ -281,9 +297,15 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       StructureMut::Constant => {} // Константные структуры изменить нельзя.
       StructureMut::Final | StructureMut::Variable | StructureMut::Dynamic =>
       { // Всё остальное изменить можно.
+        // `:=` отличается от `=` ТОЛЬКО тем, где искали структуру.
+        // Само присваивание делается то же самое, поэтому `:=` сводим к `=`
+        // уже после того, как нужная структура найдена.
+        let op: TokenType =
+          if opType == TokenType::Creation { TokenType::Equals } else { opType };
+
         parent.structureOp(
           structureLink,
-          opType,
+          op,
           structureMut,
           rightValue.unwrap_or_default()
         );
@@ -293,9 +315,6 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   } else
   { // Если мы не нашли структуру, то создаём новую
     // и работаем с правой частью выражения.
-
-    // Закидываем новую структуру в родительскую структуру.
-    let parentStructure: RwLockWriteGuard<Structure> = parentLink.write().unwrap();
 
     // Объединение типов (issue #59): сам набор вариантов объявления.
     // Хранится отдельно от structureType, потому что в структуре лежит
@@ -307,10 +326,17 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       _ => None
     };
 
+    // Правая часть бывает не у всех объявлений:
+    //   `a`        — Final без значения, ждём первого `=` (станет Const);
+    //   `a: UInt`  — то же с явным типом;
+    //   `a~`       — Variable без значения, тип выведется при первом присваивании.
+    // Раньше здесь стоял `rightValue.unwrap()`, и объявление без значения
+    // падало. Теперь считаем правую часть только когда она реально есть.
+    let hasValue: bool = rightValue.is_some();
+
     // Вычисляем правое выражение?
-    if structureMutability != StructureMut::Final
-    { 
-      let hasTokens: bool = rightValue.is_none();
+    if hasValue
+    {
       // Что ждём от FFI-вызова справа:
       // - `a: Usize = lib.f(x)` — тип указан, он же тип возврата C-функции
       //   и в него кастуется результат (normalizeToken ниже);
@@ -322,10 +348,19 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
            structureMutability == StructureMut::Dynamic
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
-      // todo Объявление без правой части (`a~` или `a: U8`)
-      //  доходит сюда с rightValue = None и вылетает на unwrap ниже.
-      //  Это проблема - ведь Final как тип должен работать и работал раньше.
-      let mut value: Token = parentStructure.expressionWith(&mut rightValue.unwrap(), &expect);
+
+      // ВАЖНО: правую часть считаем под БЛОКИРОВКОЙ ЧТЕНИЯ, а не записи.
+      // Вычисление выражения может искать имя вверх по области видимости
+      // (getStructureByScope) — а он берёт read() на каждого родителя, включая
+      // текущий. Если бы read() приходился на структуру, которую мы уже держим
+      // на записи, то std::sync::RwLock не перевзводим и процесс вставал бы
+      // навсегда (0% CPU, sleeping). Старый код (tag 231206) считал ровно так же:
+      // сначала expression, потом write на pushStructure.
+      let mut value: Token =
+      {
+        let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+        parent.expressionWith(&mut rightValue.unwrap(), &expect)
+      };
 
       // Динамический import(): правая часть выражения — не скаляр, а целая
       // под-структура (модуль со своими подструктурами).
@@ -337,7 +372,12 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       {
         if let Some(markerName) = value.getData().toString()
         {
-          if let Some(moduleLink) = parentStructure.getStructureByName(&markerName)
+          let moduleLink: Option< Arc<RwLock<Structure>> > =
+          {
+            let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+            parent.getStructureByScope(&markerName)
+          };
+          if let Some(moduleLink) = moduleLink
           {
             if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
             { // Если это модуль.
@@ -353,8 +393,9 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
               *newStructureLink.read().unwrap().structures.write().unwrap() =
                 moduleGuard.structures.read().unwrap().clone();
               drop(moduleGuard);
-              
-              parentStructure.pushStructure(newStructureLink);
+
+              parentLink.write().unwrap()
+                .pushStructure(newStructureLink);
               return true;
               
               //
@@ -392,11 +433,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       }
 
       //
-      rightValue = if hasTokens {
-        None
-      } else {
-        Some(vec![value])
-      };
+      rightValue = Some(vec![value]);
     }
 
     // Создаём структуру.
@@ -437,8 +474,12 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       }
     }
 
-    //
-    parentStructure.pushStructure(newStructureLink);
+    // Блокировку на запись берём только здесь — уже после того, как правая
+    // часть посчитана. Так ничего не держит родителя на записи, пока
+    // вычисляется выражение, и поиск вверх по области видимости остаётся
+    // безопасным.
+    parentLink.write().unwrap()
+      .pushStructure(newStructureLink);
   }
   
   //
@@ -864,7 +905,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
         }
         //            readLines(
         //              parentLink.read().unwrap()
-        //                .getStructureByName(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
+        //                .getStructureByLink(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
         //            );
         return true;
       }
@@ -954,9 +995,6 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
                 condition.lines.clone(),
                 Some(parentLink)
               )));
-            // Это блок условия: он работает в области объемлющей структуры,
-            // поэтому то, что объявлено выше блока, видно и меняется внутри него.
-            structure.write().unwrap().isConditionBlock = true;
             // После создания, читаем эту структуру.
             drop(condition);
             readLines(structure);
@@ -975,9 +1013,6 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
               condition.lines.clone(),
               Some(parentLink)
             )));
-          // Это блок условия: он работает в области объемлющей структуры,
-          // поэтому то, что объявлено выше блока, видно и меняется внутри него.
-          structure.write().unwrap().isConditionBlock = true;
           // После создания, читаем эту структуру.
           drop(condition);
           readLines(structure);

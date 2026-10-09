@@ -123,6 +123,10 @@ pub enum TokenType
 // other
   /// :
   Colon,
+  /// :=
+  /// Создание структуры в текущей области; в отличие от `=` никогда не ищет
+  /// вверх, а всегда создает структуру.
+  Creation,
   /// ->
   Pointer,
 
@@ -169,7 +173,7 @@ impl TokenType
       Self::Equals | Self::Modulo | Self::Exponent |
       Self::GreaterThan | Self::LessThan |
       Self::GreaterThanOrEquals | Self::LessThanOrEquals | Self::NotEquals |
-      Self::Colon | Self::Pointer | Self::Tilde | Self::DoubleTilde |
+      Self::Colon | Self::Creation | Self::Pointer | Self::Tilde | Self::DoubleTilde |
       Self::Dot | Self::Comma |
       Self::Joint | Self::Disjoint | Self::Inclusion | Self::Exclusion
     )
@@ -248,7 +252,10 @@ impl ToString for TokenType
       Self::FigureBracketEnd   => String::from("}"),
       
       // other
-      Self::Colon   => String::from(":"),
+      Self::Colon => String::from(":"),
+      
+      Self::Creation => String::from(":="),
+      
       Self::Pointer => String::from("->"),
 
       Self::Tilde       => String::from("~"),

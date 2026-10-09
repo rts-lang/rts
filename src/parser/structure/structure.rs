@@ -102,13 +102,6 @@ pub struct Structure
   /// Создана ли структура из блока FFI.
   pub isFfiBlock: bool,
 
-  /// Создана ли структура из блока условия `? { }` (issue #39).
-  ///
-  /// Такой блок - это обычный код, просто записанный с отступом,
-  /// поэтому он работает в области ОБЪЕМЛЮЩЕЙ структуры: то, что объявлено
-  /// выше блока, должно быть видно и изменяться внутри него.
-  pub isConditionBlock: bool,
-
   /// Файл, в котором написан код структуры (`None` — запущенный файл);
   /// 
   /// Запоминается при создании из `_sourcePath`.
@@ -141,7 +134,6 @@ impl Structure
       structures: Arc::new(RwLock::new(None)),
       parent,
       isFfiBlock: false,
-      isConditionBlock: false,
       sourcePath: _sourcePath.read().unwrap().clone(),
       lineIndex: 0
     }
@@ -176,15 +168,17 @@ impl Structure
       .collect()
   }
 
-  /// Ищет структуру по имени (даже если это ссылка)
+  /// Ищет структуру по пути `a.b.c` — строго ВНИЗ (TokenType::Link).
   ///
   /// Пример: "parent.child.grandchild" будет искать:
   ///   1. "parent" в корневых структурах
   ///   2. "child" в дочерних структурах "parent"
   ///   3. "grandchild" в дочерних структурах "child"
-  /// 
-  /// todo Не смотрит выше self. Должен ли?
-  pub fn getStructureByName(&self, name: &str) -> Option< Arc<RwLock<Self>> > 
+  ///
+  /// Ссылка `a.b` — это путь ВНУТРЬ структуры, поэтому она идёт только вниз.
+  /// За подъём вверх отвечает [`Self::getStructureByScope`], который применяется
+  /// к первому сегменту (простому имени) — см. `linkExpression`.
+  pub fn getStructureByLink(&self, name: &str) -> Option< Arc<RwLock<Self>> > 
   {
     // "a.b.c" -> ["a", "b", "c"]
     let segments: Vec<String> = Self::parseLink(name);
@@ -251,31 +245,45 @@ impl Structure
     currentStructure
   }
 
-  /// Ищет структуру по имени с учётом области видимости блока условия `? { }`.
+  /// Ищет структуру по области видимости: сначала свои дети, потом ВВЕРХ по родителям.
   ///
-  /// Обычный `getStructureByName` смотрит строго на один уровень вниз, поэтому
-  /// блок условия не видел бы структуру, объявленную ВЫШЕ него. Но блок условия -
-  /// это тот же самый код, просто с отступом, поэтому объёмлющая структура для
-  /// него часть области видимости.
+  /// Возвращает первое найденное совпадение — ближайшее к текущей структуре.
+  /// Используется для:
+  ///   - простого имени без ссылки (`=` и чтение): `argc`, `counter = counter + 1`;
+  ///   - первого сегмента ссылки `a.b` — корень ссылки ищется по области,
+  ///     а вот всё остальное (`b` внутри `a`) ищется вниз через `getStructureByLink`.
   ///
-  /// Ищем сначала здесь, потом у родителя - но только для блока условия и только
-  /// на один уровень. Дальше не идём: иначе блок внутри функции начал бы видеть
-  /// переменные внешней структуры, а это уже другая (и неверная) область видимости.
-  pub fn getStructureInScope(&self, name: &str) -> Option< Arc<RwLock<Self>> >
+  /// Отличие от `getStructureByLink`: этот метод поднимается к корню, а тот — нет.
+  /// Отличие от `:=`: вызывающий код сам решает, какой из двух путей использовать
+  /// (см. `linearStructure`), поэтому логика оператора здесь не зашита.
+  pub fn getStructureByScope(&self, name: &str) -> Option< Arc<RwLock<Self>> >
   {
-    if let Some(structureLink) = self.getStructureByName(name) {
-      return Some(structureLink);
-    }
+    // Сначала ищем среди своих дочерних структур — они ближе всего.
+    let ownChildren: Arc<RwLock< Option<Vec< Arc<RwLock<Self>> >> >> =
+      self.structures.clone();
 
-    if self.isConditionBlock
+    if let Some(children) = ownChildren.read().unwrap().as_deref()
     {
-      if let Some(parentLink) = &self.parent
+      for childStructureLink in children
       {
-        return parentLink.read().unwrap().getStructureByName(name);
+        let isMatch: bool = {
+          let child: RwLockReadGuard<Self> = childStructureLink.read().unwrap();
+          child.name.as_deref() == Some(name)
+        };
+        if isMatch {
+          return Some(childStructureLink.clone());
+        }
+        //
       }
     }
 
-    None
+    // Не нашли у себя — поднимаемся к родителю и пробуем там.
+    // Это и есть «искать наверх до корня».
+    match &self.parent
+    {
+      Some(parentLink) => parentLink.read().unwrap().getStructureByScope(name),
+      None => None
+    }
   }
 
   /// Добавляет новую вложенную структуру в текущую структуру;
@@ -361,7 +369,7 @@ impl Structure
       {
         if let Some(markerName) = rightPartValue.getData().toString()
         {
-          if let Some(moduleLink) = self.getStructureByName(&markerName)
+          if let Some(moduleLink) = self.getStructureByScope(&markerName)
           {
             if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
             { // Если это модуль.
@@ -503,7 +511,7 @@ impl Structure
 
     if let Some(structureName) = value[index].getData().toString() 
     {
-      if let Some(structureLink) = self.getStructureInScope(&structureName) 
+      if let Some(structureLink) = self.getStructureByScope(&structureName) 
       {
         let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
         // Если это просто обращение к имени структуры.
@@ -602,7 +610,7 @@ impl Structure
                   link.insert(0, lineTokens[0].getData().toString().unwrap_or_default());
 
                   // То мы сначала проверяем что такая структура есть во внутреннем пространстве.
-                  if currentStructure.getStructureByName(
+                  if currentStructure.getStructureByLink(
                     &lineTokens[0].getData().toString().unwrap_or_default()
                   ).is_some()
                   {
@@ -635,7 +643,7 @@ impl Structure
                     // Если это слово, то это либо ссылка т.к. там много значений в ней;
                     // Либо это структура с одиночным вложением и мы можем его забрать сейчас.
 
-                    if let Some(childStructureLink) = currentStructure.getStructureByName(
+                    if let Some(childStructureLink) = currentStructure.getStructureByLink(
                       &lineTokens[0].getData().toString().unwrap_or_default()
                     )
                     { // Пробуем проверить что там 1 линия вложена в структуре;
@@ -689,7 +697,7 @@ impl Structure
             let structure: RwLockReadGuard<Self> = currentStructureLink.read().unwrap();
             let hasLines: bool = 
             {
-              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureInScope(&link[0]);
+              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureByScope(&link[0]);
               if let Some(childStructureLink) = childStructureLink
               {
                 if let Some(lines) = &childStructureLink.read().unwrap().lines {
@@ -705,14 +713,14 @@ impl Structure
             };
 
             if hasLines {
-              structure.getStructureInScope(&link[0])
+              structure.getStructureByScope(&link[0])
             } else {
               // По области видимости: из блока `? { }` видна и структура выше блока.
-              self.getStructureInScope(&link[0])
+              self.getStructureByScope(&link[0])
             }
             //
           } else {
-            self.getStructureInScope(&link[0])
+            self.getStructureByScope(&link[0])
           };
         // Далее мы работаем с полученной ссылкой пространства.
         link.remove(0);
@@ -1242,7 +1250,7 @@ impl Structure
             // Запускает метод; но он может быть либо обычный, либо из ссылки.
             let structureName:String = value[i].getData().toString().unwrap_or_default();
             let mut runBasicMethod: bool = true;
-            if let Some(structureLink) = self.getStructureByName(&structureName)
+            if let Some(structureLink) = self.getStructureByScope(&structureName)
             { // Мы должны проверить, что структура имеет только одно вложение.
               let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
               if let Some(lines) = &structure.lines
