@@ -35,7 +35,7 @@ fn creationInFunctionStaysLocal() -> ()
     }
     check()
     "#,
-    limit, value "10"
+    "limit", value "10"
   );
 }
 
@@ -51,7 +51,7 @@ fn creationInConditionBlockStaysLocal() -> ()
       b~ := 20
     }
     "#,
-    b, value "10"
+    "b", value "10"
   );
 }
 
@@ -65,7 +65,7 @@ fn typeBeforeCreationOperator() -> ()
     r#"
     a: U8 := 300
     "#,
-    a,
+    "a",
     type TokenType::UInt,
     stype StructureType::U8,
     value "255"
@@ -81,7 +81,7 @@ fn unionBeforeCreationOperator() -> ()
     t~: 10 | 20 := 10
     t = 20
     "#,
-    t, value "20"
+    "t", value "20"
   );
 }
 
@@ -102,7 +102,7 @@ fn assignFromFunctionReachesOuter() -> ()
     tick()
     tick()
     "#,
-    counter, value "2"
+    "counter", value "2"
   );
 }
 
@@ -118,7 +118,7 @@ fn assignFromConditionBlockReachesOuter() -> ()
       a = 20
     }
     "#,
-    a, value "20"
+    "a", value "20"
   );
 }
 
@@ -136,7 +136,7 @@ fn readFromFunctionReachesOuter() -> ()
     }
     peek()
     "#,
-    got, value "77"
+    "got", value "77"
   );
 }
 
@@ -152,7 +152,7 @@ fn argcIsVisibleFromFunction() -> ()
     }
     grab()
     "#,
-    got, value "0"
+    "got", value "0"
   );
 }
 
@@ -169,7 +169,7 @@ fn finalWithoutValueTakesFirstValue() -> ()
     c
     c = 5
     "#,
-    c,
+    "c",
     type TokenType::UInt,
     stype StructureType::U8, // Тип выведен из первого значения - 5 влезает в U8.
     value "5"
@@ -186,7 +186,7 @@ fn variableWithoutValueIsAllowed() -> ()
     v~
     v~ = 7
     "#,
-    v, value "7"
+    "v", value "7"
   );
 }
 
@@ -305,7 +305,7 @@ fn functionCreatingLocalStructureDoesNotDeadlock() -> ()
     }
     f()
     "#,
-    outer, value "1"
+    "outer", value "1"
   );
 }
 
@@ -324,7 +324,7 @@ fn functionCreationWithOuterReadDoesNotDeadlock() -> ()
     }
     f()
     "#,
-    got, value "5"
+    "got", value "5"
   );
 }
 

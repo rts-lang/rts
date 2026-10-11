@@ -75,28 +75,28 @@ fn block() -> ()
 
 // =================================================================================================
 
-/// `a = import(...)` получает `Module` без имени у временной структуры.
+/// `m = import(...)` из `/tmp`: есть `m.a`; примитивы на `main` на месте.
 #[test]
 fn importModule() -> ()
 {
-  let path: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/release/native/include/simple/a.rt");
-  let code: String = format!("a = import(\"{path}\")\n");
+  let path: std::path::PathBuf = std::env::temp_dir().join("importModule.rt");
+  std::fs::write(&path, "a = 10\n").unwrap();
+  let pathStr: String = path.to_string_lossy().replace('\\', "/");
+  let code: String = format!("m = import(\"{pathStr}\")\n");
   let main: Arc<RwLock<Structure>> = runCode(&code);
-  let a: Arc<RwLock<Structure>> = main.read().unwrap()
-    .getStructureByScope("a")
-    .expect("a");
 
-  let stype: String = a.read().unwrap().dataType.to_string();
-  assert_eq!(stype, "Module");
+  checkStructure!(main, "m.a", value "10");
 
-  let children: Vec<Arc<RwLock<Structure>>> =
-    a.read().unwrap().structures.read().unwrap().clone().unwrap_or_default();
-  let names: Vec<String> = children.iter()
-    .filter_map(|s| s.read().unwrap().name.clone())
-    .collect();
-  assert!(names.iter().any(|n| n == "hello"));
-  assert!(names.iter().any(|n| n == "value"));
-  assert!(!names.iter().any(|n| n == "import"));
+  let _ = std::fs::remove_file(&path);
+
+  for name in MethodsPrimitives
+  {
+    checkStructure!(main, *name, stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  }
+  for (name, dataType) in TypesPrimitives
+  {
+    checkStructure!(main, *name, stype dataType.clone(), mut StructureMut::Constant, lines 0);
+  }
 }
 
 // =================================================================================================
