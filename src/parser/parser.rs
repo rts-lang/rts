@@ -390,14 +390,14 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       {
         if let Some(markerName) = value.getData().toString()
         {
-          let moduleLink: Option< Arc<RwLock<Structure>> > =
+          if let Ok(moduleId) = markerName.parse::<usize>()
           {
-            let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
-            parent.getStructureByScope(&markerName)
-          };
-          if let Some(moduleLink) = moduleLink
-          {
-            if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
+            let moduleLink: Option< Arc<RwLock<Structure>> > =
+            {
+              let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+              parent.getModuleById(moduleId)
+            };
+            if let Some(moduleLink) = moduleLink
             { // Если это модуль.
               
               let moduleGuard: RwLockReadGuard<Structure> = moduleLink.read().unwrap();

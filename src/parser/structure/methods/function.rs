@@ -343,7 +343,7 @@ impl Function
   /// когда до него дойдёт исполнение.
   ///
   /// Файл читается, токенизируется и выполняется как отдельная изолированная структура;
-  /// Он клонирует поведение `MainStructure` - но не создает новую.
+  /// Он клонирует поведение main структуры - но не создает новую.
   /// Это также полезно, чтобы не дублировать `структуры-примитивы`.
   /// 
   /// 
@@ -411,20 +411,22 @@ impl Function
       // Токенизируем содержимое файла как отдельную независимую программу.
       let moduleLines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
 
-      // Уникальное имя для временной подструктуры в текущей области видимости
-      // (нужно, чтобы найти её обратно после возврата из expressionWith).
-      let tempIndex: usize =
+      // Уникальный id для временной подструктуры в текущей области видимости -
+      // нужно, чтобы найти её обратно.
+      let moduleId: usize =
       {
         let structuresLink: RwLockReadGuard<Option<
           Vec< Arc<RwLock<Structure>> >
         >> = structure.structures.read().unwrap();
         structuresLink.as_ref().map(|v| v.len()).unwrap_or(0)
       };
-      let tempName: String = format!("import{}", tempIndex);
 
-      // Модуль — изолированная структура: свой lineIndex, свои подструктуры,
-      // parent: None (как у MainStructure), чтобы импортированный файл не
-      // видел структуры вызывающей стороны.
+      // Модуль — изолированная структура по аналогии main структуры,
+      // чтобы импортированный файл не видел структуры вызывающей стороны.
+      //
+      // Имя не нужно: lookup идёт по `StructureType::Module(id)`;
+      // Это правильнее т.к. поиск по имени структуры может выйти за `self`,
+      // а `id` не позволяет это сделать.
       //
       // Пока модуль загружается, исполняется код его файла:
       // структуры модуля запомнят его путь при создании.
@@ -434,25 +436,23 @@ impl Function
       let moduleLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
         None,
         StructureMut::Constant,
-        StructureType::Custom(String::from("Module")),
+        StructureType::Module(moduleId),
         Some(moduleLines),
         None
       )));
 
       // Выполняем верхний уровень файла прямо сейчас — это и есть
       // динамический импорт: объявления файла (структуры)
-      // пушатся в moduleLink.structures по мере исполнения его строк,
-      // так же, как это происходит для main.rt через parseLines().
+      // пушатся в `moduleLink.structures` по мере исполнения его строк,
+      // так же, как это происходит при обычном запуске кода.
       readLines(moduleLink.clone());
       *_sourcePath.write().unwrap() = previousSourcePath;
 
       structure.pushStructure(moduleLink);
 
-      // Возвращаем ссылку на модуль — structureOp() ниже по стеку
-      // распознает StructureType::Custom("Module") и перенесёт
-      // (dataType, lines, structures) в левую часть присваивания.
+      // Link несёт id модуля — его найдут через `getModuleById`.
       value[i].setDataType(TokenType::Link);
-      value[i].setData(tempName);
+      value[i].setData(moduleId.to_string());
     } else {
       value[i].setDataType(TokenType::None);
     }

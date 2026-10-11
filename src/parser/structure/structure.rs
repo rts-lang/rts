@@ -281,6 +281,32 @@ impl Structure
     }
   }
 
+  /// Ищет модуль по `id` из `StructureType::Module(id)`.
+  ///
+  /// Для этого нужен `import()`: временная структура без имени, где `TokenType::Link` несёт `id`.
+  /// 
+  /// Это правильнее т.к. ищет только внутри `self` структуры.
+  pub fn getModuleById(&self, id: usize) -> Option< Arc<RwLock<Self>> >
+  {
+    let ownChildren: Arc<RwLock< Option<Vec< Arc<RwLock<Self>> >> >> =
+      self.structures.clone();
+
+    if let Some(children) = ownChildren.read().unwrap().as_deref()
+    {
+      for childStructureLink in children
+      {
+        let isMatch: bool = {
+          let child: RwLockReadGuard<Self> = childStructureLink.read().unwrap();
+          matches!(child.dataType, StructureType::Module(moduleId) if moduleId == id)
+        };
+        if isMatch {
+          return Some(childStructureLink.clone());
+        }
+      }
+    }
+    None
+  }
+
   /// Добавляет новую вложенную структуру в текущую структуру;
   /// 
   /// Нет &mut self - что хорошо.
@@ -362,11 +388,11 @@ impl Structure
       // напрямую в левую часть присваивания.
       if *rightPartValue.getDataType() == TokenType::Link
       {
-        if let Some(markerName) = rightPartValue.getData().toString()
+        if let Some(value) = rightPartValue.getData().toString()
         {
-          if let Some(moduleLink) = self.getStructureByScope(&markerName)
+          if let Ok(moduleId) = value.parse::<usize>()
           {
-            if moduleLink.read().unwrap().dataType == StructureType::Custom(String::from("Module"))
+            if let Some(moduleLink) = self.getModuleById(moduleId)
             { // Если это модуль.
               
               let moduleGuard: RwLockReadGuard<Self> = moduleLink.read().unwrap();
