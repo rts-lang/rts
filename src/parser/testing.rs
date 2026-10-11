@@ -65,6 +65,8 @@ fn tokenOf(main: &Arc<RwLock<Structure>>, name: &str) -> (TokenType, String)
   (*token.getDataType(), token.getData().toString().unwrap_or_default())
 }
 
+// =================================================================================================
+
 // Грани возвращают `Err(текст)`, а не паникуют: `checkStructure!` паникует сам, а `tryCheckStructure!` отдаёт
 // `Result`, поэтому ошибку сверки можно проверить без паники и без вывода в `--nocapture`.
 
@@ -104,7 +106,7 @@ pub(super) fn checkUtype(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// ``value` - значение структуры.
+/// `value` - значение структуры.
 pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &str) -> Result<(), String>
 {
   let (_, data): (TokenType, String) = tokenOf(main, name);
@@ -115,7 +117,33 @@ pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// Печатает все грани структуры: type, stype, utype, value.
+/// `mut` - уровень изменения структуры.
+pub(super) fn checkMut(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &StructureMut) -> Result<(), String>
+{
+  let structure: Arc<RwLock<Structure>> = getStructure(main, name);
+  let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  let mutable: StructureMut = structureLock.mutable.clone();
+  if mutable == *expected { return Ok(()); }
+  Err(format!(
+    "check mut in `{}` for '{}': expected '{}', got '{}'",
+    code, name, expected.to_string(), mutable.to_string()
+  ))
+}
+
+/// `lines` - сколько строк внутри структуры.
+pub(super) fn checkLines(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: usize) -> Result<(), String>
+{
+  let structure: Arc<RwLock<Structure>> = getStructure(main, name);
+  let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  let lines: usize = structureLock.lines.as_ref().map(|l| l.len()).unwrap_or(0);
+  if lines == expected { return Ok(()); }
+  Err(format!(
+    "check lines in `{}` for '{}': expected '{}', got '{}'",
+    code, name, expected, lines
+  ))
+}
+
+/// Печатает все грани структуры: `type`, `stype`, `utype`, `value`.
 ///
 /// Для отладки кейсов без assert.
 /// 
@@ -124,8 +152,10 @@ pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
 pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &str) -> ()
 {
   let (tokenType, data): (TokenType, String) = tokenOf(main, name);
+  
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
   let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  
   let stype: String = structureLock.dataType.to_string();
   let utype: String = structureLock.utype().to_string();
   println!(
@@ -171,7 +201,7 @@ pub(super) use checkStructure;
 macro_rules! tryCheckStructure
 {
   // Имя структуры - идентификатор: `tryCheckStructure!("a = 10", a, value "10")`
-  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
     let main = $crate::parser::parser::runCode($code);
     (|| -> Result<(), String>
@@ -188,12 +218,18 @@ macro_rules! tryCheckStructure
       $(
         $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v)?;
       )?
+      $(
+        $crate::parser::testing::checkMut(&main, stringify!($name), $code, &$m)?;
+      )?
+      $(
+        $crate::parser::testing::checkLines(&main, stringify!($name), $code, $l)?;
+      )?
       Ok(())
     })()
   }};
 
   // Имя структуры - путь строкой: `tryChecktryCheckStructure!("a = 10", "a.b", value "10")`
-  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
     let main = $crate::parser::parser::runCode($code);
     (|| -> Result<(), String>
@@ -209,6 +245,12 @@ macro_rules! tryCheckStructure
       )?
       $(
         $crate::parser::testing::checkValue(&main, $name, $code, &$v)?;
+      )?
+      $(
+        $crate::parser::testing::checkMut(&main, $name, $code, &$m)?;
+      )?
+      $(
+        $crate::parser::testing::checkLines(&main, $name, $code, $l)?;
       )?
       Ok(())
     })()
@@ -236,7 +278,7 @@ pub(super) use tryCheckStructure;
 macro_rules! showStructure
 {
   // Имя структуры - идентификатор: `showStructure!("a = 10", a, value "11")`
-  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
     let main = $crate::parser::parser::runCode($code);
     $crate::parser::testing::printStructure(&main, stringify!($name), $code);
@@ -256,10 +298,18 @@ macro_rules! showStructure
       if let Err(message) = $crate::parser::testing::checkValue(&main, stringify!($name), $code, &$v)
       { println!("  ≠ {}", message); }
     )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkMut(&main, stringify!($name), $code, &$m)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkLines(&main, stringify!($name), $code, $l)
+      { println!("  ≠ {}", message); }
+    )?
   }};
 
   // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b", value "11")`
-  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
+  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
     let main = $crate::parser::parser::runCode($code);
     $crate::parser::testing::printStructure(&main, $name, $code);
@@ -277,6 +327,14 @@ macro_rules! showStructure
     )?
     $(
       if let Err(message) = $crate::parser::testing::checkValue(&main, $name, $code, &$v)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkMut(&main, $name, $code, &$m)
+      { println!("  ≠ {}", message); }
+    )?
+    $(
+      if let Err(message) = $crate::parser::testing::checkLines(&main, $name, $code, $l)
       { println!("  ≠ {}", message); }
     )?
   }};

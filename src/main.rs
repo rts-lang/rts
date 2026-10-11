@@ -18,7 +18,7 @@ use std::{
 };
 use std::sync::atomic::Ordering;
 use crate::logger::logger::{log, logExit};
-use crate::parser::parser::{runCode, runCodeBytes};
+use crate::parser::parser::runCodeBytes;
 
 // todo удалить mods
 mod tokenizer;
@@ -149,3 +149,5 @@ fn main() -> io::Result<()>
   // Возвращаем код завершения
   logExit(_exitCode.load(Ordering::Relaxed));
 }
+
+// =================================================================================================
