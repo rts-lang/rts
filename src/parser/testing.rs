@@ -65,6 +65,8 @@ fn tokenOf(main: &Arc<RwLock<Structure>>, name: &str) -> (TokenType, String)
   (*token.getDataType(), token.getData().toString().unwrap_or_default())
 }
 
+// =================================================================================================
+
 // Грани возвращают `Err(текст)`, а не паникуют: `checkStructure!` паникует сам, а `tryCheckStructure!` отдаёт
 // `Result`, поэтому ошибку сверки можно проверить без паники и без вывода в `--nocapture`.
 
@@ -104,7 +106,7 @@ pub(super) fn checkUtype(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// ``value` - значение структуры.
+/// `value` - значение структуры.
 pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &str) -> Result<(), String>
 {
   let (_, data): (TokenType, String) = tokenOf(main, name);
@@ -115,7 +117,7 @@ pub(super) fn checkValue(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// ``mut` - уровень изменения структуры.
+/// `mut` - уровень изменения структуры.
 pub(super) fn checkMut(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: &StructureMut) -> Result<(), String>
 {
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
@@ -128,7 +130,7 @@ pub(super) fn checkMut(main: &Arc<RwLock<Structure>>, name: &str, code: &str, ex
   ))
 }
 
-/// ``lines` - сколько строк внутри структуры; у встроенной их нет.
+/// `lines` - сколько строк внутри структуры.
 pub(super) fn checkLines(main: &Arc<RwLock<Structure>>, name: &str, code: &str, expected: usize) -> Result<(), String>
 {
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
@@ -141,7 +143,7 @@ pub(super) fn checkLines(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// Печатает все грани структуры: type, stype, utype, value.
+/// Печатает все грани структуры: `type`, `stype`, `utype`, `value`.
 ///
 /// Для отладки кейсов без assert.
 /// 
@@ -150,8 +152,10 @@ pub(super) fn checkLines(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
 pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &str) -> ()
 {
   let (tokenType, data): (TokenType, String) = tokenOf(main, name);
+  
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
   let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
+  
   let stype: String = structureLock.dataType.to_string();
   let utype: String = structureLock.utype().to_string();
   println!(
