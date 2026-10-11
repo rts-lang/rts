@@ -74,3 +74,29 @@ fn block() -> ()
 }
 
 // =================================================================================================
+
+/// `m = import(...)` из `/tmp`: есть `m.a`; примитивы на `main` на месте.
+#[test]
+fn importModule() -> ()
+{
+  let path: std::path::PathBuf = std::env::temp_dir().join("importModule.rt");
+  std::fs::write(&path, "a = 10\n").unwrap();
+  let pathStr: String = path.to_string_lossy().replace('\\', "/");
+  let code: String = format!("m = import(\"{pathStr}\")\n");
+  let main: Arc<RwLock<Structure>> = runCode(&code);
+
+  checkStructure!(main, "m.a", value "10");
+
+  let _ = std::fs::remove_file(&path);
+
+  for name in MethodsPrimitives
+  {
+    checkStructure!(main, *name, stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  }
+  for (name, dataType) in TypesPrimitives
+  {
+    checkStructure!(main, *name, stype dataType.clone(), mut StructureMut::Constant, lines 0);
+  }
+}
+
+// =================================================================================================

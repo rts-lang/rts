@@ -53,7 +53,7 @@ fn primitive() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   checkStructure!(
@@ -66,7 +66,7 @@ fn primitive() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   // None - это не True, поэтому блок не запускается (#39)
@@ -80,7 +80,7 @@ fn primitive() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   // Число - тоже не True
@@ -94,7 +94,7 @@ fn primitive() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 }
 
@@ -116,7 +116,7 @@ fn constant() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   checkStructure!(
@@ -130,7 +130,7 @@ fn constant() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   checkStructure!(
@@ -144,7 +144,7 @@ fn constant() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 }
 
@@ -169,7 +169,7 @@ fn chain() -> ()
       b = 3
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   // Первый False, второй True - первый пропускаем
@@ -186,7 +186,7 @@ fn chain() -> ()
       b = 3
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   // None - не True, идём дальше; тут True на втором блоке
@@ -203,7 +203,7 @@ fn chain() -> ()
       b = 3
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   // Все условия ложные - доходим до else
@@ -220,7 +220,7 @@ fn chain() -> ()
       b = 3
     }
     "#,
-    b, value "3"
+    "b", value "3"
   );
 }
 
@@ -255,7 +255,7 @@ fn expressionInCondition() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   // Арифметика считается раньше сравнения: 5 + 1 > 5
@@ -270,7 +270,7 @@ fn expressionInCondition() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   checkStructure!(
@@ -284,7 +284,7 @@ fn expressionInCondition() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   // Арифметика в обеих частях сравнения
@@ -299,7 +299,7 @@ fn expressionInCondition() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 }
 
@@ -321,7 +321,7 @@ fn emptiness() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   checkStructure!(
@@ -335,7 +335,7 @@ fn emptiness() -> ()
       b = 2
     }
     "#,
-    b, value "1"
+    "b", value "1"
   );
 
   // n = 5, а None - это не 5, значит условие ложно
@@ -350,7 +350,7 @@ fn emptiness() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 
   // 0 - это не пустота
@@ -364,7 +364,7 @@ fn emptiness() -> ()
       b = 2
     }
     "#,
-    b, value "2"
+    "b", value "2"
   );
 }
 
@@ -389,7 +389,7 @@ fn blockAssignReachesOuter() -> ()
       a = 20
     }
     "#,
-    a, value "20"
+    "a", value "20"
   );
 }
 
@@ -404,7 +404,7 @@ fn blockCreationStaysLocal() -> ()
       b~ := 20
     }
     "#,
-    b, value "10"
+    "b", value "10"
   );
 }
 
@@ -423,7 +423,7 @@ fn creationAndAssignmentSideBySide() -> ()
       x~ := 100
     }
     "#,
-    x, value "1"
+    "x", value "1"
   );
 
   // `=` - присваивание вверх, внешний `y` поменян.
@@ -434,7 +434,7 @@ fn creationAndAssignmentSideBySide() -> ()
       y~ = 200
     }
     "#,
-    y, value "200"
+    "y", value "200"
   );
 }
 

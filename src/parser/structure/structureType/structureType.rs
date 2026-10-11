@@ -24,6 +24,7 @@ pub enum PrimitiveKind
 {
   /// Число: UInt, Int, UFloat, Float.
   Number,
+  
   /// Строка: String, RawString.
   Text
 }
@@ -63,6 +64,12 @@ pub enum StructureType
   
   /// Позволяет создавать пользовательские типы.
   Custom(String),
+
+  /// Модуль из `import(...)`; id — ключ lookup без имени структуры.
+  /// 
+  /// Это правильно т.к. поиск по имени может уйти за структуру, а id
+  /// позволяет остаться только в `self` scope.
+  Module(usize),
 
   /// Объединение типов: `a: U8 | String = ...` (issue #59).
   ///
@@ -151,6 +158,9 @@ impl ToString for StructureType
       // Примитив печатается так же, как записывается.
       Self::Primitive(PrimitiveKind::Number, value) => value.clone(),
       Self::Primitive(PrimitiveKind::Text, value) => format!("\"{}\"", value),
+
+      // Module.
+      Self::Module(_) => String::from("Module"),
 
       // Custom.
       Self::Custom(value) => value.clone()

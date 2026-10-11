@@ -12,25 +12,25 @@ fn floatDotZeros() -> ()
 {
   checkStructure!(
     "a = .",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
     "a = .0",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
     "a = 0.",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
     "a = 0.0",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0"
   );
@@ -42,19 +42,19 @@ fn floatDotLeading() -> ()
 {
   checkStructure!(
     "a = .1",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0.1"
   );
   checkStructure!(
     "a = .5",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0.5"
   );
   checkStructure!(
     "a = .25",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0.25"
   );
@@ -66,13 +66,13 @@ fn floatDotTrailing() -> ()
 {
   checkStructure!(
     "a = 3.",
-    a,
+    "a",
     type TokenType::UFloat,
     value "3"
   );
   checkStructure!(
     "a = 201.",
-    a,
+    "a",
     type TokenType::UFloat,
     value "201"
   );
@@ -84,43 +84,43 @@ fn floatDotExpressions() -> ()
 {
   checkStructure!(
     "a = .5 + .5",
-    a,
+    "a",
     type TokenType::UFloat,
     value "1"
   );
   checkStructure!(
     "a = 1. + .5",
-    a,
+    "a",
     type TokenType::UFloat,
     value "1.5"
   );
   checkStructure!(
     "a = 3. + 2.",
-    a,
+    "a",
     type TokenType::UFloat,
     value "5"
   );
   checkStructure!(
     "a = .5 - .25",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0.25"
   );
   checkStructure!(
     "a = 10.5 - 10.0",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0.5"
   );
   checkStructure!(
     "a = . + .5",
-    a,
+    "a",
     type TokenType::UFloat,
     value "0.5"
   );
   checkStructure!(
     "a = 1 / .5",
-    a,
+    "a",
     type TokenType::UFloat,
     value "2"
   );

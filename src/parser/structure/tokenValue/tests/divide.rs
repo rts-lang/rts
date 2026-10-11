@@ -12,31 +12,31 @@ fn divideInteger() -> ()
 {
   checkStructure!(
     "a = 10 / 4",
-    a,
+    "a",
     type TokenType::UInt,
     value "2"
   );
   checkStructure!(
     "a = 10 / 5",
-    a,
+    "a",
     type TokenType::UInt,
     value "2"
   );
   checkStructure!(
     "a = -7 / 2",
-    a,
+    "a",
     type TokenType::Int,
     value "-3"
   );
   checkStructure!(
     "a = 7 / -2",
-    a,
+    "a",
     type TokenType::Int,
     value "-3"
   );
   checkStructure!(
     "a = -7 / -2",
-    a,
+    "a",
     type TokenType::Int,
     value "3"
   );
@@ -48,25 +48,25 @@ fn divideFloat() -> ()
 {
   checkStructure!(
     "a = 10 / 4.0",
-    a,
+    "a",
     type TokenType::UFloat,
     value "2.5"
   );
   checkStructure!(
     "a = 10 / 0.5",
-    a,
+    "a",
     type TokenType::UFloat,
     value "20"
   );
   checkStructure!(
     "a = 1 / 0.1",
-    a,
+    "a",
     type TokenType::UFloat,
     value "10"
   );
   checkStructure!(
     "a = -7.5 / 2",
-    a,
+    "a",
     type TokenType::Float,
     value "-3.75"
   );
@@ -78,25 +78,25 @@ fn divideChainsAndPrecedence() -> ()
 {
   checkStructure!(
     "a = 100 / 10 / 2",
-    a,
+    "a",
     type TokenType::UInt,
     value "5"
   );
   checkStructure!(
     "a = 10 - 6 / 2",
-    a,
+    "a",
     type TokenType::UInt,
     value "7"
   );
   checkStructure!(
     "a = 10 + 6 / 2",
-    a,
+    "a",
     type TokenType::UInt,
     value "13"
   );
   checkStructure!(
     "a = 20 - 8 / 4 - 1",
-    a,
+    "a",
     type TokenType::UInt,
     value "17"
   );
@@ -108,7 +108,7 @@ fn divideAdjacentMinus() -> ()
 {
   checkStructure!(
     "a = 10 -6 / 2",
-    a,
+    "a",
     type TokenType::UInt,
     value "7"
   );

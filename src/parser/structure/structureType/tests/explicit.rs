@@ -113,21 +113,21 @@ fn castInteger() -> ()
 {
   checkStructure!(
     "a: U8 = 300",
-    a,
+    "a",
     type TokenType::UInt,
     stype StructureType::U8,
     value "255"
   );
   checkStructure!(
     "b: U8 = -10",
-    b,
+    "b",
     type TokenType::Int,
     stype StructureType::U8,
     value "0"
   );
   checkStructure!(
     "c: I8 = -300",
-    c,
+    "c",
     type TokenType::Int,
     stype StructureType::I8,
     value "-128"
@@ -136,21 +136,21 @@ fn castInteger() -> ()
   //
   checkStructure!(
     "d: U64 = 18446744073709551616",
-    d,
+    "d",
     type TokenType::UInt,
     stype StructureType::U64,
     value "18446744073709551615"
   );
   checkStructure!(
     "e: Usize = 18446744073709551616",
-    e,
+    "e",
     type TokenType::UInt,
     stype StructureType::Usize,
     value "18446744073709551615"
   );
   checkStructure!(
     "f: Isize = -9223372036854775809",
-    f,
+    "f",
     type TokenType::Int,
     stype StructureType::Isize,
     value "-9223372036854775808"
@@ -163,35 +163,35 @@ fn castBigNumbers() -> ()
 {
   checkStructure!(
     "g: U8 = 44444444444444444444444444444444444444444444",
-    g,
+    "g",
     type TokenType::UInt,
     stype StructureType::U8,
     value "255"
   );
   checkStructure!(
     "h: I8 = 44444444444444444444444444444444444444444444",
-    h,
+    "h",
     type TokenType::UInt,
     stype StructureType::I8,
     value "127"
   );
   checkStructure!(
     "i: I64 = -44444444444444444444444444444444444444444444",
-    i,
+    "i",
     type TokenType::Int,
     stype StructureType::I64,
     value "-9223372036854775808"
   );
   checkStructure!(
     "j: Usize = 44444444444444444444444444444444444444444444",
-    j,
+    "j",
     type TokenType::UInt,
     stype StructureType::Usize,
     value "18446744073709551615"
   );
   checkStructure!(
     "k: Isize = -44444444444444444444444444444444444444444444",
-    k,
+    "k",
     type TokenType::Int,
     stype StructureType::Isize,
     value "-9223372036854775808"
@@ -206,21 +206,21 @@ fn castFloats() -> ()
   // а `l: F32 =` приводит уже обрубленное значение к f32.
   checkStructure!(
     "l: F32 = 44444444444444444444444444444444444444444444",
-    l,
+    "l",
     type TokenType::UInt,
     stype StructureType::F32,
     value &(usize::MAX as f32).to_string()
   );
   checkStructure!(
     "m: F32 = -1.7976931348623157e309",
-    m,
+    "m",
     type TokenType::Float,
     stype StructureType::F32,
     value "-340282350000000000000000000000000000000"
   );
   checkStructure!(
     "n: U8 = 1.7976931348623157e309",
-    n,
+    "n",
     type TokenType::UFloat,
     stype StructureType::U8,
     value "255"
@@ -234,56 +234,56 @@ fn castFloatToInteger() -> ()
 {
   checkStructure!(
     "q: I8 = 5.4",
-    q,
+    "q",
     type TokenType::UFloat,
     stype StructureType::I8,
     value "5"
   );
   checkStructure!(
     "r: I8 = 5.5",
-    r,
+    "r",
     type TokenType::UFloat,
     stype StructureType::I8,
     value "6")
   ;
   checkStructure!(
     "s: U8 = -10.0",
-    s,
+    "s",
     type TokenType::Float,
     stype StructureType::U8,
     value "0"
   );
   checkStructure!(
     "t: U8 = -5.5",
-    t,
+    "t",
     type TokenType::Float,
     stype StructureType::U8,
     value "0"
   );
   checkStructure!(
     "u: I8 = -5.5",
-    u,
+    "u",
     type TokenType::Float,
     stype StructureType::I8,
     value "-6"
   );
   checkStructure!(
     "v: I8 = -5.4",
-    v,
+    "v",
     type TokenType::Float,
     stype StructureType::I8,
     value "-5"
   );
   checkStructure!(
     "w: I8 = -200.5",
-    w,
+    "w",
     type TokenType::Float,
     stype StructureType::I8,
     value "-128"
   );
   checkStructure!(
     "x: I64 = -1000000.7",
-    x,
+    "x",
     type TokenType::Float,
     stype StructureType::I64,
     value "-1000001"
