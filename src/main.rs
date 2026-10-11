@@ -18,8 +18,7 @@ use std::{
 };
 use std::sync::atomic::Ordering;
 use crate::logger::logger::{log, logExit};
-use crate::parser::parser::parseLines;
-use crate::tokenizer::tokenizer::readTokensSimple;
+use crate::parser::parser::{runCode, runCodeBytes};
 
 // todo удалить mods
 mod tokenizer;
@@ -143,7 +142,7 @@ fn main() -> io::Result<()>
   }
 
   // Начинаем чтение кода
-  parseLines( readTokensSimple(&mut buffer) );
+  runCodeBytes(&mut buffer);
 
   // ** Для дополнительных тестов можно использовать hyperfine/perf
 

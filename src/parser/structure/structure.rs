@@ -1197,9 +1197,14 @@ impl Structure
                 if let Some(mut tokenTokens) = line.tokens.clone() // todo Может быть не 0.
                 { // Если получилось то оставляем его.
                   self.expression(&mut tokenTokens)
-                } else { Token::newEmpty(TokenType::None) } // Если не получилось, то просто None.
+                } else
+                { // Если не получилось, то просто None.
+                  Token::newEmpty(TokenType::None)
+                }
                 //
-              } else { Token::newEmpty(TokenType::None) }
+              } else {
+                Token::newEmpty(TokenType::None)
+              }
             };
             // Меняем отрицание.
             let tokenData: String = value[i+1].getData().toString().unwrap_or_default();
@@ -1232,11 +1237,19 @@ impl Structure
                 if let Some(mut tokenTokens) = line.tokens.clone() // todo Может быть не 0.
                 { // Если получилось, то оставляем его.
                   self.expression(&mut tokenTokens)
-                } else { Token::newEmpty(TokenType::None) } // Если не получилось, то просто None.
+                } else
+                { // Если не получилось, то просто None.
+                  Token::newEmpty(TokenType::None)
+                }
                 //
-              } else { Token::newEmpty(TokenType::None) } // Линий не было.
+              } else
+              { // Линий не было.
+                Token::newEmpty(TokenType::None)
+              }
               //
-            } else { Token::newEmpty(TokenType::None) }
+            } else {
+              Token::newEmpty(TokenType::None)
+            }
         }
         _ =>
         { // Это либо метод, либо просто слово-структура.

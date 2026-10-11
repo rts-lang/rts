@@ -1,4 +1,4 @@
-use std::sync::{Arc, LazyLock, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::sync::atomic::Ordering;
 use crate::{_argc, _argv, _exit};
 use crate::parser::bytes::Bytes;
@@ -10,6 +10,7 @@ use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{TokenType};
 use crate::tokenizer::tools::splitByType::splitByType;
 use crate::parser::structure::structureType::StructureType;
+use crate::tokenizer::tokenizer::readTokensSimple;
 // =================================================================================================
 
 // Предоставляет механизмы для парсинга токенов,
@@ -1047,95 +1048,159 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
 
 // =================================================================================================
 
-/// Основная структура; В неё вкладываются остальные;
-/// 
-/// В эту структуру будут переданы стартовые параметры;
-/// 
-/// Неизменяемая; Действует во время всей жизни программы;
-pub static MainStructure: LazyLock< Arc<RwLock<Structure>> > =
-  LazyLock::new(|| {
+/// Создает основную структуру программы.
+pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc<RwLock<Structure>>
+{
+  // -----------------------------------------------------------------------------------------------
+
+  // Основная структура; В неё вкладываются остальные;
+  //
+  // В эту структуру будут переданы стартовые параметры;
+  //
+  // Неизменяемая; Действует во время всей жизни программы.
+  let mainStructureLink: Arc<RwLock<Structure>> =
     Arc::new(RwLock::new(Structure::new(
       Some(String::from("main")),
       StructureMut::Constant,
       StructureType::Method,
       None,
       None
+    )));
+  let mut mainStructure: RwLockWriteGuard<Structure> = mainStructureLink.write().unwrap();
+
+  // Присваиваем линии от Tokenizer; Это то что будет запущено как основная часть.
+  mainStructure.lines = Some(tokenizerLinesLinks);
+
+  // -----------------------------------------------------------------------------------------------
+  // argc
+
+  mainStructure.pushStructure(
+    Arc::new(RwLock::new(Structure::new(
+      Some(String::from("argc")),
+      StructureMut::Constant, // Неизменяемая.
+      StructureType::Usize, // Не может быть меньше 0.
+      // В линии структуры.
+      Some(vec![
+        Arc::new(RwLock::new(Line
+        { // добавляем линию с 1 токеном.
+          tokens: Some(vec![
+            Token::new(
+              TokenType::UInt,
+              Bytes::new(_argc.get().copied().unwrap_or(0).to_string())
+            )
+          ]),
+          lines: None
+        }))
+      ]),
+      Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
     )))
-  });
+  );
+
+  // -----------------------------------------------------------------------------------------------
+  // argv
+  
+  let mut argv: Vec< Arc<RwLock<Line>> > = Vec::new();
+  for arg in _argv.get().map(|values| values.as_slice()).unwrap_or(&[])
+  {
+    argv.push(
+      Arc::new(RwLock::new( // Добавляем линию с 1 токеном.
+        Line
+        {
+          tokens: Some(vec![
+            Token::new(
+              TokenType::String,
+              Bytes::new( String::from(arg) )
+            )
+          ]),
+          lines: None
+        }
+      ))
+    );
+  }
+  mainStructure.pushStructure(
+    Arc::new(RwLock::new(Structure::new(
+      Some(String::from("argv")),
+      StructureMut::Constant, // Неизменяемая.
+      StructureType::List, // Список.
+      Some(argv), // В линии структуры добавляем все argv линии.
+      Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
+    )))
+  );
+  
+  // -----------------------------------------------------------------------------------------------
+  // Примитивы (базовые структуры языка).
+  
+  let builtins: &[( &str, StructureType )] = &[
+    //
+    ("U8", StructureType::U8),
+    ("U16", StructureType::U16),
+    ("U32", StructureType::U32),
+    ("U64", StructureType::U64),
+    //
+    ("I8", StructureType::I8),
+    ("I16", StructureType::I16),
+    ("I32", StructureType::I32),
+    ("I64", StructureType::I64),
+    //
+    ("F32", StructureType::F32),
+    ("F64", StructureType::F64),
+    //
+    ("Usize", StructureType::Usize),
+    ("Isize", StructureType::Isize),
+    
+    //
+    ("Pointer", StructureType::Pointer),
+    
+    //
+    ("String", StructureType::String),
+    ("RawString", StructureType::RawString),
+    
+    //
+    ("CString", StructureType::Pointer)
+  ];
+
+  for (name, dataType) in builtins
+  {
+    mainStructure.pushStructure(
+      Arc::new(RwLock::new(Structure::new(
+        Some(String::from(*name)),
+        StructureMut::Constant, // Неизменяемая.
+        dataType.clone(),
+        None, // Без значения — просто маркер.
+        Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
+      )))
+    );
+  }
+  // -----------------------------------------------------------------------------------------------
+  
+  drop(mainStructure);
+  mainStructureLink
+}
 
 // =================================================================================================
 
 /// Это основная функция для парсинга строк;
 /// 
 /// Она разделена на подготовительную часть, и часть запуска readLine().
-pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> ()
-{ // Начинается подготовка к запуску.
-  { // Присваиваем в главную структуру.
-    let mut main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
+pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc<RwLock<Structure>>
+{ 
+  // Подготовка к запуску.
+  let mainStructureLink: Arc<RwLock<Structure>> = createMainStructure(tokenizerLinesLinks);
 
-    // Присваиваем линии от Tokenizer.
-    main.lines = Some(tokenizerLinesLinks);
-
-    // argc
-    main.pushStructure(
-      Arc::new(RwLock::new(Structure::new(
-        Some(String::from("argc")),
-        StructureMut::Constant, // Неизменяемая.
-        StructureType::Usize, // Не может быть меньше 0.
-        // В линии структуры.
-        Some(vec![
-          Arc::new(RwLock::new(Line
-          { // добавляем линию с 1 токеном.
-            tokens: Some(vec![
-              Token::new(
-                TokenType::UInt,
-                Bytes::new(_argc.get().unwrap().to_string())
-              )
-            ]),
-            lines: None
-          }))
-        ]),
-        Some( MainStructure.clone() ) // Ссылаемся на родителя.
-      )))
-    );
-
-    // argv
-    let mut argv: Vec< Arc<RwLock<Line>> > = Vec::new();
-    for a in _argv.get().unwrap()
-    {
-      argv.push(
-        Arc::new(RwLock::new( // Добавляем линию с 1 токеном.
-          Line
-          {
-            tokens: Some(vec![
-              Token::new(
-                TokenType::String,
-                Bytes::new( String::from(a) )
-              )
-            ]),
-            lines: None
-          }
-        ))
-      );
-    }
-    main.pushStructure(
-      Arc::new(RwLock::new(Structure::new(
-        Some(String::from("argv")),
-        StructureMut::Constant, // Неизменяемая.
-        StructureType::List, // Список.
-        Some(argv), // В линии структуры добавляем все argv линии.
-        Some( MainStructure.clone() ) // ссылаемся на родителя.
-      )))
-    );
-  }
-
-  // Подготовка закончена, читаем линии.
+  // Подготовка закончена, читаем линии;
+  //
   // Передаём ссылку на структуру и запускаем.
-  readLines(MainStructure.clone());
+  readLines(mainStructureLink.clone());
+  
+  //
+  mainStructureLink
 }
-/// Эта функция занимается чтением блоков по ссылке на них
+
+// =================================================================================================
+
+/// Эта функция занимается чтением блоков по ссылке на них.
 /// 
-/// todo: исправить переполнение стека
+/// todo: исправить переполнение стека.
 pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
 { // Получаем сколько линий вложено в структуру,
   // а также индекс чтения строк (у каждой структуры он свой, чтобы не путать чтение)
@@ -1229,6 +1294,21 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   if isFfi {
     scopeStack::exitFfiBlock();
   }
+}
+
+// =================================================================================================
+
+/// Запускает код и возвращает основную структуру.
+pub fn runCode(code: &str) -> Arc<RwLock<Structure>>
+{
+  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+  runCodeBytes(&mut buffer)
+}
+
+/// Запускает код и возвращает основную структуру.
+pub fn runCodeBytes(buffer: &mut Vec<u8>) -> Arc<RwLock<Structure>>
+{
+  parseLines( readTokensSimple(buffer) )
 }
 
 // =================================================================================================

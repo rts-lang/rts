@@ -599,13 +599,13 @@ impl Structure
       { // По результату структуры, определяем пустой он или нет.
         if let Some(result) = &structureLink.read().unwrap().result
         { // Результат не пустой, значит оставляем его.
-          value[i].setData    ( result.getData() );
-          value[i].setDataType( *result.getDataType() );
+          value[i].setData(result.getData());
+          value[i].setDataType(*result.getDataType());
         } else
         { // Если результата структуры не было,
           // значит это была действительно процедура.
           value[i].setData(None);
-          value[i].setDataType( TokenType::None );
+          value[i].setDataType(TokenType::None);
         }
       }
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
