@@ -5,6 +5,7 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::structure::{Structure, StructureMut};
+use crate::parser::structure::primitives::{isPrimitiveName, MethodsPrimitives, TypesPrimitives};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{TokenType};
@@ -313,7 +314,10 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
         //
       }
     }
-  } else
+  } else if isPrimitiveName(&structureName) {
+    // Зарезервированное имя — новую структуру не создаём.
+  } 
+  else
   { // Если мы не нашли структуру, то создаём новую
     // и работаем с правой частью выражения.
 
@@ -863,6 +867,11 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           //
         };
         
+        // Имя структуры-примитива занято — параллельную структуру не создаём.
+        if isPrimitiveName(&newStructureName) {
+          return true;
+        }
+
         // Создаём новую структуру.
         let mut newStructure: Structure =
           Structure::new(
@@ -1128,44 +1137,34 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
   );
   
   // -----------------------------------------------------------------------------------------------
-  // Примитивы (базовые структуры языка).
-  
-  let builtins: &[( &str, StructureType )] = &[
-    //
-    ("U8", StructureType::U8),
-    ("U16", StructureType::U16),
-    ("U32", StructureType::U32),
-    ("U64", StructureType::U64),
-    //
-    ("I8", StructureType::I8),
-    ("I16", StructureType::I16),
-    ("I32", StructureType::I32),
-    ("I64", StructureType::I64),
-    //
-    ("F32", StructureType::F32),
-    ("F64", StructureType::F64),
-    //
-    ("Usize", StructureType::Usize),
-    ("Isize", StructureType::Isize),
-    
-    //
-    ("Pointer", StructureType::Pointer),
-    
-    //
-    ("String", StructureType::String),
-    ("RawString", StructureType::RawString),
-    
-    //
-    ("CString", StructureType::Pointer)
-  ];
+  // Примитивы и методы — из реестра `builtins`.
+  //
+  // `lines = None` принципиально: в `expressionWith` структура считается
+  // «методом по ссылке» только если у неё ровно одна линия с одним токеном.
+  // Без линий этого не происходит, и встроенный метод всегда выигрывает.
+  // Обратная сторона: такой структуре нельзя дать значение — ровно то, что нужно,
+  // имя метода не должно быть переприсваиваемым.
 
-  for (name, dataType) in builtins
+  for (name, dataType) in TypesPrimitives
   {
     mainStructure.pushStructure(
       Arc::new(RwLock::new(Structure::new(
         Some(String::from(*name)),
         StructureMut::Constant, // Неизменяемая.
         dataType.clone(),
+        None, // Без значения — просто маркер.
+        Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
+      )))
+    );
+  }
+
+  for name in MethodsPrimitives
+  {
+    mainStructure.pushStructure(
+      Arc::new(RwLock::new(Structure::new(
+        Some(String::from(*name)),
+        StructureMut::Constant, // Неизменяемая.
+        StructureType::Method,
         None, // Без значения — просто маркер.
         Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
       )))
@@ -1182,7 +1181,7 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
 /// Это основная функция для парсинга строк;
 /// 
 /// Она разделена на подготовительную часть, и часть запуска readLine().
-pub fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc<RwLock<Structure>>
+fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc<RwLock<Structure>>
 { 
   // Подготовка к запуску.
   let mainStructureLink: Arc<RwLock<Structure>> = createMainStructure(tokenizerLinesLinks);
