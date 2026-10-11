@@ -1012,7 +1012,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           { // Создаём новую временную структуру условного блока.
             let structure: Arc<RwLock<Structure>> =
               Arc::new(RwLock::new(Structure::new(
-                Some(String::from("if-elif")),
+                None,
                 StructureMut::Constant,
                 StructureType::Method, // todo может быть что-то другое ?
                 condition.lines.clone(),
@@ -1030,7 +1030,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
         { // Создаём новую временную структуру условного блока.
           let structure: Arc<RwLock<Structure>> =
             Arc::new(RwLock::new(Structure::new(
-              Some(String::from("else")),
+              None,
               StructureMut::Constant,
               StructureType::Method, // todo может быть что-то другое ?
               condition.lines.clone(),
@@ -1068,7 +1068,7 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
   // Неизменяемая; Действует во время всей жизни программы.
   let mainStructureLink: Arc<RwLock<Structure>> =
     Arc::new(RwLock::new(Structure::new(
-      Some(String::from("main")),
+      None,
       StructureMut::Constant,
       StructureType::Method,
       None,
