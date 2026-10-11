@@ -1,4 +1,3 @@
-use crate::parser::parser::readLines;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
 use crate::tokenizer::tokenizer::readTokensSimple;
@@ -19,26 +18,6 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 // todo rewrite desc
 
 // =================================================================================================
-
-/// Выполняет код в отдельной структуре, как модуль в `include`, и возвращает её.
-///
-/// `RTS::run` не подходит: он пишет в общую `MainStructure`, и константа `a` из одного
-/// теста остаётся в другом.
-/// 
-/// todo rewrite desc
-pub(super) fn runCode(code: &str) -> Arc<RwLock<Structure>>
-{
-  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  let main: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
-    Some(String::from("main")),
-    StructureMut::Constant,
-    StructureType::Method,
-    Some(readTokensSimple(&mut buffer)),
-    None
-  )));
-  readLines(main.clone());
-  main
-}
 
 /// Считает выражение из токенов и возвращает токен-результат.
 ///
@@ -194,7 +173,7 @@ macro_rules! tryCheckStructure
   // Имя структуры - идентификатор: `tryCheckStructure!("a = 10", a, value "10")`
   ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
-    let main = $crate::parser::testing::runCode($code);
+    let main = $crate::parser::parser::runCode($code);
     (|| -> Result<(), String>
     {
       $(
@@ -216,7 +195,7 @@ macro_rules! tryCheckStructure
   // Имя структуры - путь строкой: `tryChecktryCheckStructure!("a = 10", "a.b", value "10")`
   ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
-    let main = $crate::parser::testing::runCode($code);
+    let main = $crate::parser::parser::runCode($code);
     (|| -> Result<(), String>
     {
       $(
@@ -259,7 +238,7 @@ macro_rules! showStructure
   // Имя структуры - идентификатор: `showStructure!("a = 10", a, value "11")`
   ($code:expr, $name:ident $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
-    let main = $crate::parser::testing::runCode($code);
+    let main = $crate::parser::parser::runCode($code);
     $crate::parser::testing::printStructure(&main, stringify!($name), $code);
     $(
       if let Err(message) = $crate::parser::testing::checkType(&main, stringify!($name), $code, &$t)
@@ -282,7 +261,7 @@ macro_rules! showStructure
   // Имя структуры - путь строкой: `showStructure!("a = 10", "a.b", value "11")`
   ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(,)?) =>
   {{
-    let main = $crate::parser::testing::runCode($code);
+    let main = $crate::parser::parser::runCode($code);
     $crate::parser::testing::printStructure(&main, $name, $code);
     $(
       if let Err(message) = $crate::parser::testing::checkType(&main, $name, $code, &$t)

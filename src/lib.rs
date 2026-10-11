@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::bytes::Bytes;
 #[cfg(not(feature = "analyzer"))]
-use crate::parser::parser::{parseLines, MainStructure};
+use crate::parser::parser::{createMainStructure, readLines};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::structure::structure::{Structure, StructureMut};
 #[cfg(not(feature = "analyzer"))]
@@ -33,25 +33,26 @@ mod analyzer;
 
 // =================================================================================================
 
-/// Основная структура-прокладка для создания оболочки между RTS-lib и другим проектом;
+/// Основная структура-прокладка для создания оболочки
+/// между RTS-lib и другим проектом.
 #[cfg(not(feature = "analyzer"))]
 pub struct RTS 
 {
-  namespace: String
+  /// Структура namespace: живёт в RTS, а в основную структуру
+  /// вкладывается заново при каждом запуске, потому что основная у запуска своя.
+  namespace: Arc<RwLock<Structure>>
 }
 
 #[cfg(not(feature = "analyzer"))]
 impl RTS 
 {
-  /// Создаёт namespace структуру и RTS оболочку
+  /// Создаёт namespace структуру и RTS оболочку.
   pub fn new(name: String) -> Self 
   {
-    // 
-    {
-      let main: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
-      main.pushStructure(
-        Arc::new(RwLock::new(Structure::new(
-          Some(name.clone()),
+    Self {
+      namespace: Arc::new(RwLock::new(
+        Structure::new(
+          Some(name),
           StructureMut::Constant,
           StructureType::List,
           // В линии структуры
@@ -64,32 +65,22 @@ impl RTS
               }
             ))
           ]),
-          Some( MainStructure.clone() ) // Ссылаемся на родителя
-        )))
-      );
-    }
-    
-    //
-    Self {
-      namespace: name
+          None // Родитель появится при запуске: это основная структура запуска.
+        )
+      ))
     }
   }
   
-  /// Добавляет структуру в namespace структуру
+  /// Добавляет структуру в namespace структуру.
   pub fn newStructure(
     &self, 
     structureName: String, 
     structureMut: StructureMut, 
     structureType: StructureType, 
     structureTokens: Vec<Token>
-  ) 
+  )
   {
-    //
-    let namespaceStructureLink: Arc<RwLock<Structure>> = {
-      let mainStructure: RwLockWriteGuard<Structure> = MainStructure.write().unwrap();
-      mainStructure.getStructureByScope(self.namespace.as_str()).unwrap()
-    };
-    let namespaceStructure: RwLockWriteGuard<Structure> = namespaceStructureLink.write().unwrap();
+    let namespaceStructure: RwLockWriteGuard<Structure> = self.namespace.write().unwrap();
     namespaceStructure.pushStructure(
       Arc::new(RwLock::new(Structure::new(
         Some(structureName),
@@ -105,19 +96,27 @@ impl RTS
             }
           ))
         ]),
-        Some( namespaceStructureLink.clone() ) // Ссылаемся на родителя
+        Some( self.namespace.clone() ) // Ссылаемся на родителя.
       )))
     );
   }
 
-  /// Запускает код
-  pub fn run(&self, script: &str) 
+  /// Запускает код.
+  /// 
+  /// Основная структура у каждого запуска своя, namespace вкладывается в неё перед чтением.
+  pub fn run(&self, code: &str)
   {
-    let mut buffer: Vec<u8> = script.as_bytes().to_vec();
-    parseLines( readTokensSimple(&mut buffer) );
+    let mut buffer: Vec<u8> = code.as_bytes().to_vec();
+    let main: Arc<RwLock<Structure>> = createMainStructure( readTokensSimple(&mut buffer) );
+    {
+      self.namespace.write().unwrap().parent = Some( main.clone() );
+      main.read().unwrap().pushStructure( self.namespace.clone() );
+    }
+    readLines(main);
   }
   
-  pub fn getNative(method: extern "C" fn(args: &[Token])) -> Bytes 
+  /// todo desc
+  pub fn getNative(method: extern "C" fn(args: &[Token])) -> Bytes
   {
     let ptr: *const () = method as *const ();
     let rawBytes: Vec<u8> = (ptr as usize).to_le_bytes().to_vec();
@@ -125,3 +124,5 @@ impl RTS
     Bytes::new(rawBytes)
   }
 }
+
+// =================================================================================================
