@@ -108,7 +108,7 @@ pub struct Structure
   /// Запоминается при создании из `_sourcePath`.
   pub sourcePath: Option< Arc<String> >,
 
-  /// todo Комментарий + возможно не нужно т.к. можно лучше
+  /// Используется только для условных блоков и `go`.
   pub lineIndex: usize
 }
 
@@ -136,6 +136,41 @@ impl Structure
       parent,
       isFfiBlock: false,
       sourcePath: _sourcePath.read().unwrap().clone(),
+      lineIndex: 0
+    }
+  }
+
+  /// Глубокое клонирование для изоляции вызова метода.
+  ///
+  /// Клонирует: name, mutable, dataType, unionTypes, parameters, result, isFfiBlock, sourcePath.
+  /// Глубоко: lines (через Line::deepClone) и structures (рекурсивно deepClone).
+  /// Не клонирует: parent (Arc::clone — ссылка на оригинал, для scope поиска вверх).
+  /// Сбрасывает: lineIndex = 0 (копия начинает с первой строки).
+  pub fn deepClone(&self) -> Self
+  {
+    Self
+    {
+      name: self.name.clone(),
+      mutable: self.mutable.clone(),
+      dataType: self.dataType.clone(),
+      unionTypes: self.unionTypes.clone(),
+      lines: self.lines.as_ref().map(|lines|
+        lines.iter()
+          .map(|lineLink| Arc::new(RwLock::new(lineLink.read().unwrap().deepClone())))
+          .collect()
+      ),
+      parameters: self.parameters.clone(),
+      result: self.result.clone(),
+      structures: Arc::new(RwLock::new(
+        self.structures.read().unwrap().as_ref().map(|children|
+          children.iter()
+            .map(|childLink| Arc::new(RwLock::new(childLink.read().unwrap().deepClone())))
+            .collect()
+        )
+      )),
+      parent: self.parent.clone(),
+      isFfiBlock: self.isFfiBlock,
+      sourcePath: self.sourcePath.clone(),
       lineIndex: 0
     }
   }
