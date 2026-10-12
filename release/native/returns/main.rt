@@ -69,9 +69,9 @@ println("\n2. =====")
   size_t, uint64_t, указатели. Для знаковых, узких (8/16/32 бит) и float
   результатов указывайте тип слева.
 
-c1 = lib.retUsize()
-c2 = lib.retU64()
-c3 = libc.strnlen("hello world")
+c1 := lib.retUsize()
+c2 := lib.retU64()
+c3 := libc.strnlen("hello world")
 println(f"infer retUsize {c1} {stype(c1)}") # 123456789 U32
 println(f"infer retU64   {c2} {stype(c2)}") # 18446744073709551615 U64
 println(f"infer strnlen  {c3} {stype(c3)}") # 11 U8
@@ -87,7 +87,7 @@ println(f"args mulF64 {d2} {stype(d2)}") # 6 F64
 println("")
 e1: Usize = lib.retUsize() + 1
 e2: I32   = lib.retI32() + 1
-e3        = libc.strnlen("abc") + 1
+e3 := libc.strnlen("abc") + 1
 println(f"expr {e1} {e2} {e3}") # 123456790 -1999999999 4
 
 # Тип слева применяется ко всем FFI-вызовам верхнего уровня выражения
@@ -105,7 +105,7 @@ println(f"argvar {t2}") # 1
 println("")
 r1~ : I32 = 0
 r1 = lib.retI32()
-r2~~ = 0
+r2~~ := 0
 r2 = lib.retUsize()
 println(f"assign variable {r1} {stype(r1)}") # -2000000000 I32
 println(f"assign dynamic  {r2} {stype(r2)}") # 123456789 U32
@@ -133,7 +133,7 @@ println("")
 {
   inner: Pointer = importNative("./libreturns.so")
   f1: I32 = inner.retI32()
-  f2 = inner.retUsize()
+  f2 := inner.retUsize()
   println(f"ffi block {f1} {f2}") # -2000000000 123456789
 }
 
@@ -143,7 +143,7 @@ lenOf(s: String) {
   libc: Pointer = importNative("libc.so.6")
   = libc.strnlen(s)
 }
-w1 = lenOf("hello")
+w1 := lenOf("hello")
 println(f"func {w1} {stype(w1)}") # 5 U8
 w2: Usize = lenOf("hello world")
 println(f"func typed {w2} {stype(w2)}") # 11 Usize

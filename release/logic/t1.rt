@@ -44,15 +44,15 @@ print(f"{d} | {type(d)} | {stype(d)}\n")
 # Без аннотации, вывод из значения.
 println("")
 
-e = True
+e := True
 print(f"{e} | {type(e)} | {stype(e)}\n")
 # True | True | True
 
-f = False
+f := False
 print(f"{f} | {type(f)} | {stype(f)}\n")
 # False | False | False
 
-g = None
+g := None
 print(f"{g} | {type(g)} | {stype(g)}\n")
 #  | None | None
 

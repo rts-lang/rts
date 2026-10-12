@@ -12,10 +12,10 @@
         d.rt
 ##
 
-a = import("./lib/a.rt")  # b: hello / b: done  (a.rt подключил свой b.rt)
+a := import("./lib/a.rt")  # b: hello / b: done  (a.rt подключил свой b.rt)
 a.hello()                 # a: hello / a: done
 a.load()                  # a: load / d: hello / d: done / c: hello / c: done
                           # (import внутри функции модуля, путь от a.rt)
 
-c = import("./lib/deep/c.rt")  # d: hello / d: done
+c := import("./lib/deep/c.rt")  # d: hello / d: done
 c.hello()                      # c: hello / c: done

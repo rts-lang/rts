@@ -8,6 +8,6 @@
 ##
 
 a { 10 }
-b = a.0
+b := a.0
 println("after")
 println(b)
