@@ -769,6 +769,16 @@ impl Token
     //
     let dataType: &TokenType = self.getDataType();
     
+    // Строки: без этого значение без аннотации (`a := "text"`) получало None,
+    // а токен очищался. Поля `pointer` и `length` тоже зависят от этого типа.
+    // Идёт до чтения данных: у пустой строки `""` данных нет, но это всё равно String.
+    match dataType
+    {
+      TokenType::String => return StructureType::String,
+      TokenType::RawString => return StructureType::RawString,
+      _ => {}
+    }
+
     // Получаем строку из данных токена.
     let data: String = if let Some(string) = 
       self.getData().toString() { string }
@@ -851,8 +861,8 @@ impl Token
           Err(_) => StructureType::None
         }
       }
-      // Для остальных типов - возвращаем Custom.
-      // todo Сейчас могут попасть лишние т.к. они не объявлены выше
+      // Для остальных типов - None, и токен очищается.
+      // todo Сейчас могут попасть лишние т.к. они не объявлены выше.
       _ => StructureType::None,
     };
 
@@ -864,8 +874,8 @@ impl Token
   }
 
   /// Вычисляет StructureType на основе токена;
-  /// Но делает это упрощенно по имени токена - 
-  /// т.е. когда мы явно знаем уже тип в строке.
+  /// 
+  /// Но делает это упрощенно по имени токена - т.е. когда мы явно знаем уже тип в строке.
   pub fn getStructureTypeSimple(&self) -> StructureType
   {
     let data: String = self.to_string();

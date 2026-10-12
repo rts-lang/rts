@@ -290,4 +290,57 @@ fn castFloatToInteger() -> ()
   );
 }
 
+/// Явный тип строки не меняет токен, только тип структуры.
+///
+/// CString = Pointer (алиас).
+#[test]
+fn castStrings() -> ()
+{
+  // Строка.
+  checkStructure!(
+    r#"a: String = "text""#,
+    "a",
+    type TokenType::String,
+    stype StructureType::String,
+    value "text"
+  );
+  checkStructure!(
+    r#"b: CString = "text""#,
+    "b",
+    type TokenType::String,
+    stype StructureType::Pointer,
+    value "text"
+  );
+  checkStructure!(
+    r#"c: RawString = "text""#,
+    "c",
+    type TokenType::String,
+    stype StructureType::RawString,
+    value "text"
+  );
+
+  // Сырая строка.
+  checkStructure!(
+    "d: String = `raw`",
+    "d",
+    type TokenType::RawString,
+    stype StructureType::String,
+    value "raw"
+  );
+  checkStructure!(
+    "e: CString = `raw`",
+    "e",
+    type TokenType::RawString,
+    stype StructureType::Pointer,
+    value "raw"
+  );
+  checkStructure!(
+    "f: RawString = `raw`",
+    "f",
+    type TokenType::RawString,
+    stype StructureType::RawString,
+    value "raw"
+  );
+}
+
 // =================================================================================================

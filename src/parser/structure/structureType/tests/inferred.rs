@@ -270,3 +270,72 @@ fn autoFloatSaturation() -> ()
 }
 
 // =================================================================================================
+
+/// Строка получает String, сырая строка - RawString.
+///
+/// CString не выводится: у него нет токена, только явный тип.
+#[test]
+fn autoString() -> ()
+{
+  checkStructure!(
+    r#"a := "text""#,
+    "a",
+    type TokenType::String,
+    stype StructureType::String,
+    value "text"
+  );
+  checkStructure!(
+    "b := `raw`",
+    "b",
+    type TokenType::RawString,
+    stype StructureType::RawString,
+    value "raw"
+  );
+
+  // Пустая строка.
+  checkStructure!(
+    r#"c := """#,
+    "c",
+    type TokenType::String,
+    stype StructureType::String,
+    value ""
+  );
+
+  // Dynamic.
+  checkStructure!(
+    r#"d~~ := "text""#,
+    "d",
+    stype StructureType::String,
+    value "text"
+  );
+}
+
+/// Форматированная строка после подстановки получает тот же тип, что и обычная.
+#[test]
+fn autoFormattedString() -> ()
+{
+  checkStructure!(
+    r#"a := f"x{1}""#,
+    "a",
+    type TokenType::String,
+    stype StructureType::String,
+    value "x1"
+  );
+  checkStructure!(
+    "b := f`x{1}`",
+    "b",
+    type TokenType::RawString,
+    stype StructureType::RawString,
+    value "x1"
+  );
+}
+
+/// У строки без аннотации есть поля pointer и length, как у `a: String`.
+#[test]
+fn autoStringFields() -> ()
+{
+  checkStructure!(r#"a := "text""#, "a.length", value "4");
+  checkStructure!(r#"a := "text""#, "a.pointer", stype StructureType::Pointer);
+}
+
+// =================================================================================================
