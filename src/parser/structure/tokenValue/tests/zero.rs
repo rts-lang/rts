@@ -16,25 +16,25 @@ fn divideByZeroInteger() -> ()
 {
   // UInt / UInt.
   checkStructure!(
-    "a = 10 / 0",
+    "a := 10 / 0",
     "a",
     type TokenType::UInt,
     value "10"
   );
   checkStructure!(
-    "a = 0 / 0",
+    "a := 0 / 0",
     "a",
     type TokenType::UInt,
     value "0"
   );
   checkStructure!(
-    "a = 255 / 0",
+    "a := 255 / 0",
     "a",
     type TokenType::UInt,
     value "255"
   );
   checkStructure!(
-    "a = 18446744073709551615 / 0",
+    "a := 18446744073709551615 / 0",
     "a",
     type TokenType::UInt,
     stype StructureType::U64,
@@ -43,13 +43,13 @@ fn divideByZeroInteger() -> ()
 
   // Int / UInt.
   checkStructure!(
-    "a = -10 / 0",
+    "a := -10 / 0",
     "a",
     type TokenType::Int,
     value "-10"
   );
   checkStructure!(
-    "a = -9223372036854775808 / 0",
+    "a := -9223372036854775808 / 0",
     "a",
     type TokenType::Int,
     stype StructureType::I64,
@@ -58,13 +58,13 @@ fn divideByZeroInteger() -> ()
 
   // Нулевой делитель со знаком.
   checkStructure!(
-    "a = 10 / -0",
+    "a := 10 / -0",
     "a",
     type TokenType::UInt,
     value "10"
   );
   checkStructure!(
-    "a = -10 / -0",
+    "a := -10 / -0",
     "a",
     type TokenType::Int,
     value "-10"
@@ -73,10 +73,10 @@ fn divideByZeroInteger() -> ()
   // Константы.
   checkStructure!(
     r#"
-      x = 10
-      n = -10
-      z = 0
-      a = x / z
+      x := 10
+      n := -10
+      z := 0
+      a := x / z
     "#,
     "a",
     type TokenType::UInt,
@@ -84,9 +84,9 @@ fn divideByZeroInteger() -> ()
   );
   checkStructure!(
     r#"
-      x = 10
-      z = 0
-      a = x / 0
+      x := 10
+      z := 0
+      a := x / 0
     "#,
     "a",
     type TokenType::UInt,
@@ -94,9 +94,9 @@ fn divideByZeroInteger() -> ()
   );
   checkStructure!(
     r#"
-      x = 10
-      z = 0
-      a = 10 / z
+      x := 10
+      z := 0
+      a := 10 / z
     "#,
     "a",
     type TokenType::UInt,
@@ -104,9 +104,9 @@ fn divideByZeroInteger() -> ()
   );
   checkStructure!(
     r#"
-      n = -10
-      z = 0
-      a = n / z
+      n := -10
+      z := 0
+      a := n / z
     "#,
     "a",
     type TokenType::Int,
@@ -114,8 +114,8 @@ fn divideByZeroInteger() -> ()
   );
   checkStructure!(
     r#"
-      z = 0
-      a = z / z
+      z := 0
+      a := z / z
     "#,
     "a",
     type TokenType::UInt,
@@ -128,19 +128,19 @@ fn divideByZeroInteger() -> ()
 fn divideByZeroFloat() -> ()
 {
   checkStructure!(
-    "a = 10.5 / 0.0",
+    "a := 10.5 / 0.0",
     "a",
     type TokenType::UFloat,
     value "10.5"
   );
   checkStructure!(
-    "a = 0.0 / 0.0",
+    "a := 0.0 / 0.0",
     "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
-    "a = -10.5 / 0.0",
+    "a := -10.5 / 0.0",
     "a",
     type TokenType::Float,
     value "-10.5"
@@ -148,13 +148,13 @@ fn divideByZeroFloat() -> ()
   
   // UFloat / Float (отрицательный ноль тоже ноль).
   checkStructure!(
-    "a = 10.5 / -0.0",
+    "a := 10.5 / -0.0",
     "a",
     type TokenType::UFloat,
     value "10.5"
   );
   checkStructure!(
-    "a = -10.5 / -0.0",
+    "a := -10.5 / -0.0",
     "a",
     type TokenType::Float,
     value "-10.5"
@@ -163,9 +163,9 @@ fn divideByZeroFloat() -> ()
   // Константы.
   checkStructure!(
     r#"
-      x = 10.5
-      z = 0.0
-      a = x / z
+      x := 10.5
+      z := 0.0
+      a := x / z
     "#,
     "a",
     type TokenType::UFloat,
@@ -173,8 +173,8 @@ fn divideByZeroFloat() -> ()
   );
   checkStructure!(
     r#"
-      x = 10.5
-      a = x / 0.0
+      x := 10.5
+      a := x / 0.0
     "#,
     "a",
     type TokenType::UFloat,
@@ -182,9 +182,9 @@ fn divideByZeroFloat() -> ()
   );
   checkStructure!(
     r#"
-      n = -10.5
-      z = 0.0
-      a = n / z
+      n := -10.5
+      z := 0.0
+      a := n / z
     "#,
     "a",
     type TokenType::Float,
@@ -198,31 +198,31 @@ fn divideByZeroMixed() -> ()
 {
   // Целое / дробный ноль.
   checkStructure!(
-    "a = 10 / 0.0",
+    "a := 10 / 0.0",
     "a",
     type TokenType::UFloat,
     value "10"
   );
   checkStructure!(
-    "a = 0 / 0.0",
+    "a := 0 / 0.0",
     "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
-    "a = -10 / 0.0",
+    "a := -10 / 0.0",
     "a",
     type TokenType::Float,
     value "-10"
   );
   checkStructure!(
-    "a = 10 / -0.0",
+    "a := 10 / -0.0",
     "a",
     type TokenType::Float,
     value "10"
   );
   checkStructure!(
-    "a = -10 / -0.0",
+    "a := -10 / -0.0",
     "a",
     type TokenType::Float,
     value "-10"
@@ -230,25 +230,25 @@ fn divideByZeroMixed() -> ()
 
   // Дробное / целый ноль.
   checkStructure!(
-    "a = 10.5 / 0",
+    "a := 10.5 / 0",
     "a",
     type TokenType::UFloat,
     value "10.5"
   );
   checkStructure!(
-    "a = -10.5 / 0",
+    "a := -10.5 / 0",
     "a",
     type TokenType::Float,
     value "-10.5"
   );
   checkStructure!(
-    "a = 10.5 / -0",
+    "a := 10.5 / -0",
     "a",
     type TokenType::UFloat,
     value "10.5"
   );
   checkStructure!(
-    "a = -10.5 / -0",
+    "a := -10.5 / -0",
     "a",
     type TokenType::Float,
     value "-10.5"
@@ -263,7 +263,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zA: U8 = 0
-      a = 10 / zA
+      a := 10 / zA
     "#,
     "a",
     type TokenType::UInt,
@@ -272,7 +272,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xA: U8 = 10
-      a = xA / 0
+      a := xA / 0
     "#,
     "a",
     type TokenType::UInt,
@@ -282,7 +282,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zB: U16 = 0
-      a = 10 / zB
+      a := 10 / zB
     "#,
     "a",
     type TokenType::UInt,
@@ -291,7 +291,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xB: U16 = 10
-      a = xB / 0
+      a := xB / 0
     "#,
     "a",
     type TokenType::UInt,
@@ -301,7 +301,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zC: U32 = 0
-      a = 10 / zC
+      a := 10 / zC
     "#,
     "a",
     type TokenType::UInt,
@@ -310,7 +310,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xC: U32 = 10
-      a = xC / 0
+      a := xC / 0
     "#,
     "a",
     type TokenType::UInt,
@@ -320,7 +320,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zD: U64 = 0
-      a = 10 / zD
+      a := 10 / zD
     "#,
     "a",
     type TokenType::UInt,
@@ -329,7 +329,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xD: U64 = 10
-      a = xD / 0
+      a := xD / 0
     "#,
     "a",
     type TokenType::UInt,
@@ -339,7 +339,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zE: Usize = 0
-      a = 10 / zE
+      a := 10 / zE
     "#,
     "a",
     type TokenType::UInt,
@@ -348,7 +348,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xE: Usize = 10
-      a = xE / 0
+      a := xE / 0
     "#,
     "a",
     type TokenType::UInt,
@@ -359,7 +359,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zF: I8 = 0
-      a = -10 / zF
+      a := -10 / zF
     "#,
     "a",
     type TokenType::Int,
@@ -368,7 +368,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xF: I8 = -10
-      a = xF / 0
+      a := xF / 0
     "#,
     "a",
     type TokenType::Int,
@@ -378,7 +378,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zG: I16 = 0
-      a = -10 / zG
+      a := -10 / zG
     "#,
     "a",
     type TokenType::Int,
@@ -387,7 +387,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xG: I16 = -10
-      a = xG / 0
+      a := xG / 0
     "#,
     "a",
     type TokenType::Int,
@@ -397,7 +397,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zH: I32 = 0
-      a = -10 / zH
+      a := -10 / zH
     "#,
     "a",
     type TokenType::Int,
@@ -406,7 +406,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xH: I32 = -10
-      a = xH / 0
+      a := xH / 0
     "#,
     "a",
     type TokenType::Int,
@@ -416,7 +416,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zI: I64 = 0
-      a = -10 / zI
+      a := -10 / zI
     "#,
     "a",
     type TokenType::Int,
@@ -425,7 +425,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xI: I64 = -10
-      a = xI / 0
+      a := xI / 0
     "#,
     "a",
     type TokenType::Int,
@@ -435,7 +435,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zJ: Isize = 0
-      a = -10 / zJ
+      a := -10 / zJ
     "#,
     "a",
     type TokenType::Int,
@@ -444,7 +444,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xJ: Isize = -10
-      a = xJ / 0
+      a := xJ / 0
     "#,
     "a",
     type TokenType::Int,
@@ -455,7 +455,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zK: F32 = 0.0
-      a = 10.5 / zK
+      a := 10.5 / zK
     "#,
     "a",
     type TokenType::UFloat,
@@ -464,7 +464,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xK: F32 = 10.5
-      a = xK / 0.0
+      a := xK / 0.0
     "#,
     "a",
     type TokenType::UFloat,
@@ -473,7 +473,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       yK: F32 = 0.0
-      a = -10.5 / yK
+      a := -10.5 / yK
     "#,
     "a",
     type TokenType::Float,
@@ -484,7 +484,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       zL: F64 = 0.0
-      a = 10.5 / zL
+      a := 10.5 / zL
     "#,
     "a",
     type TokenType::UFloat,
@@ -493,7 +493,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       xL: F64 = 10.5
-      a = xL / 0.0
+      a := xL / 0.0
     "#,
     "a",
     type TokenType::UFloat,
@@ -502,7 +502,7 @@ fn divideByZeroAbi() -> ()
   checkStructure!(
     r#"
       yL: F64 = 0.0
-      a = -10.5 / yL
+      a := -10.5 / yL
     "#,
     "a",
     type TokenType::Float,
@@ -516,23 +516,23 @@ fn divideByZeroOther() -> ()
 {
   // Char и String.
   checkStructure!(
-    "a = 'a' / 0",
+    "a := 'a' / 0",
     "a",
     type TokenType::Char
   );
   checkStructure!(
-    "a = \"abc\" / 0",
+    "a := \"abc\" / 0",
     "a",
     type TokenType::String
   );
   checkStructure!(
-    "a = 10 / 'a'",
+    "a := 10 / 'a'",
     "a",
     type TokenType::UInt,
     value "10"
   );
   checkStructure!(
-    "a = True / False",
+    "a := True / False",
     "a",
     type TokenType::UInt,
     value "1"
@@ -540,19 +540,19 @@ fn divideByZeroOther() -> ()
 
   // Цепочки: каждый шаг слева направо.
   checkStructure!(
-    "a = 100 / 0 / 2",
+    "a := 100 / 0 / 2",
     "a",
     type TokenType::UInt,
     value "50"
   );
   checkStructure!(
-    "a = 100 / 5 / 0",
+    "a := 100 / 5 / 0",
     "a",
     type TokenType::UInt,
     value "20"
   );
   checkStructure!(
-    "a = 100 / 0 / 0",
+    "a := 100 / 0 / 0",
     "a",
     type TokenType::UInt,
     value "100"
@@ -560,25 +560,25 @@ fn divideByZeroOther() -> ()
 
   // Приоритет: деление раньше + и -.
   checkStructure!(
-    "a = 10 - 6 / 0",
+    "a := 10 - 6 / 0",
     "a",
     type TokenType::UInt,
     value "4"
   );
   checkStructure!(
-    "a = 10 + 6 / 0",
+    "a := 10 + 6 / 0",
     "a",
     type TokenType::UInt,
     value "16"
   );
   checkStructure!(
-    "a = 1 / 0 + 2 / 0",
+    "a := 1 / 0 + 2 / 0",
     "a",
     type TokenType::UInt,
     value "3"
   );
   checkStructure!(
-    "a = -1 - 1 / 0",
+    "a := -1 - 1 / 0",
     "a",
     type TokenType::Int,
     value "-2"

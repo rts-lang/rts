@@ -173,7 +173,7 @@ impl TokenType
       Self::Equals | Self::Modulo | Self::Exponent |
       Self::GreaterThan | Self::LessThan |
       Self::GreaterThanOrEquals | Self::LessThanOrEquals | Self::NotEquals |
-      Self::Colon | Self::Creation | Self::Pointer | Self::Tilde | Self::DoubleTilde |
+      Self::Colon | Self::Creation | Self::Pointer |
       Self::Dot | Self::Comma |
       Self::Joint | Self::Disjoint | Self::Inclusion | Self::Exclusion
     )

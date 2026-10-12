@@ -300,7 +300,7 @@ fn functionCreatingLocalStructureDoesNotDeadlock() -> ()
     r#"
     outer~ := 0
     f() {
-      a = 1
+      a := 1
       outer = a
     }
     f()
@@ -325,6 +325,80 @@ fn functionCreationWithOuterReadDoesNotDeadlock() -> ()
     f()
     "#,
     "got", value "5"
+  );
+}
+
+// =================================================================================================
+// `:= None` — явная очистка структуры (#62).
+//
+// Только литерал `None` справа от `:=` удаляет структуру из текущей области.
+// Любое выражение (`:= method()`, `:= b`) — даже если оно в рантайме вернуло
+// `None` — создаёт/перезаписывает структуру со значением `None` (#71).
+// `= None` не удаляет: `=` записывает `None` как значение.
+//
+// Примитивы (`type`, `String`, ...) никогда не удаляются — защита через
+// `isPrimitiveName` в `linearStructure` и safety-net внутри `removeStructure`.
+
+/// `:= None` удаляет локальную структуру: последующее обращение паникует
+/// с "Structure 'a' was not created" — то, что выдаёт `getStructure`.
+#[test]
+#[should_panic(expected = "Structure 'a' was not created")]
+fn creationNoneLiteralRemovesStructure() -> ()
+{
+  checkStructure!(
+    r#"
+    a~ := 5
+    a := None
+    "#,
+    "a", value "5"
+  );
+}
+
+/// `:= method()`, где `method` вернул `None`, НЕ удаляет структуру —
+/// она остаётся существовать со значением `None` (#71: `None` как значение).
+///
+/// Это разделение намерений: программист написал `None` явно — хочет убрать.
+/// Программа вернула `None` — структура остаётся, просто со значением `None`.
+#[test]
+fn creationWithNoneReturningMethodKeepsStructure() -> ()
+{
+  // `maybe()` всегда возвращает `None`: правая часть — выражение (вызов),
+  // значит, идём по обычному пути создания, и `a` остаётся со значением `None`.
+  checkStructure!(
+    r#"
+    maybe() { = None }
+    a~ := maybe()
+    "#,
+    "a", value ""
+  );
+}
+
+/// `= None` записывает `None` как значение, структура остаётся жива.
+/// Это симметрично с `:= None` (который удаляет): `=` управляет значением,
+/// `:=` управляет существованием.
+#[test]
+fn assignNoneKeepsStructureWithNoneValue() -> ()
+{
+  checkStructure!(
+    r#"
+    a~ := "text"
+    a = None
+    "#,
+    "a", value ""
+  );
+}
+
+/// `:= None` на примитиве (`type`) не удаляет его — защита через
+/// `isPrimitiveName` в `linearStructure` и `removeStructure`. После `:= None`
+/// примитив остаётся на месте: `type` всё ещё `Method`.
+#[test]
+fn creationNoneOnPrimitiveIsIgnored() -> ()
+{
+  checkStructure!(
+    r#"
+    type := None
+    "#,
+    "type", stype StructureType::Method, mut StructureMut::Constant, lines 0
   );
 }
 

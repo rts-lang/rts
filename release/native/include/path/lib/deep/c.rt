@@ -1,5 +1,5 @@
 
-d = import("./d.rt")
+d := import("./d.rt")
 d.hello()
 
 hello() {

@@ -14,7 +14,7 @@
 libc: Pointer = importNative("libc.so.6")
 
 # randUInt: число из rand() приводится к диапазону обычной арифметикой
-a = libc.rand()
+a := libc.rand()
 print(f"{type(a)}\n")  # UInt
 
 # sleep: 1 ms

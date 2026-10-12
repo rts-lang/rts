@@ -267,6 +267,31 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   //
   let isCreation: bool = operatorType == TokenType::Creation;
 
+  // `:= None`— это явная очистка структуры из текущей области;
+  // Это `примитив`, а не выражение.
+  //
+  // 
+  // Не путать с `:= method()`, где `method` уже вернул `None`: 
+  // в этом случае структура создаётся со значением `None` для хранения.
+  //
+  //
+  // Различаем по токенам, а не по вычисленному значению:
+  // - `a := None` => правая часть = `[Token(None)]` (один литерал) => Удалить.
+  //
+  // - `a := b` => правая часть = `[ident(b)]` (выражение) => Создать/перезаписать.
+  //
+  // - `a := method()` => правая часть = `[method, (, )]` => Создать/перезаписать.
+  //
+  // - `a = None` => оператор `=`, не `:=` => Записать `None` как значение.
+  //
+  //
+  // Это разделение намерений между явным со стороны программиста и 
+  // работой состояний внутри программы.
+  let isCreationNoneLiteral: bool =
+    isCreation &&
+    rightValue.as_ref()
+      .map(|tokens| tokens.len() == 1 && *tokens[0].getDataType() == TokenType::None)
+      .unwrap_or(false);
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
     let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
@@ -278,6 +303,26 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       parent.getStructureByScope(&structureName)
     }
   };
+
+  // `:= None`: удаляем найденную локальную структуру.
+  //
+  //
+  // Если структуры нет — ничего не делаем (нечего удалять).
+  //
+  // Если структура — примитив, то `removeStructure` внутри себя откажется её удалять, 
+  // базовая часть языка останется на месте.
+  //
+  // Это safety-net: даже если проверка `isPrimitiveName` выше пропустит
+  // имя, `removeStructure` всё равно проверит по списку примитивов.
+  if isCreationNoneLiteral
+  {
+    if let Some(structureLink) = structureLink
+    {
+      parentLink.read().unwrap()
+        .removeStructure(structureLink);
+    }
+    return true;
+  }
 
   if let Some(structureLink) = structureLink
   { // Если мы нашли структуру, то значит работаем уже с существующей структурой.
@@ -316,9 +361,24 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     }
   } else if isPrimitiveName(&structureName) {
     // Зарезервированное имя — новую структуру не создаём.
+  } else if !isCreation && structureType == StructureType::None && rightValue.is_some()
+  { // `=` без существующей структуры и без объявления типа (`:`) — скип.
+    //
+    // Это случай именно `a = X` (есть правая часть, но не `:=`): нет структуры =>
+    // нечего менять => пропускаем. Создание — это `:=`.
+    //
+    // Но forward-declaration `a` (без правой части, без `:`, без `~`) — это
+    // объявление структуры, которая ждёт первого `=`. Её мы создаём как Final,
+    // поэтому условие `rightValue.is_some()` обязательно: иначе `a` без значения
+    // пропустилось бы, и потом `a = X` не нашло бы её.
+    //
+    // `a: U8 = 300` — это объявление с типом, оно создаёт структуру через
+    // `structureType != None` ниже. Сюда не попадает.
+    //
+    // Получается если нет структуры => нечего менять => пропускаем.
   } else
-  { // Если мы не нашли структуру, то создаём новую
-    // и работаем с правой частью выражения.
+  { // `:=` без существующей структуры, либо `=` с явным типом (`:`),
+    // либо forward-declaration `a` без значения — создаём новую.
 
     // Объединение типов: сам набор вариантов объявления;
     //
@@ -499,7 +559,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     parentLink.write().unwrap()
       .pushStructure(newStructureLink);
   }
-  
+
   //
   true
 }

@@ -48,7 +48,7 @@ println(False = 0)  # False
 println("====")
 
 # Константы.
-h = -3
+h := -3
 
 # сейчас: -3
 println(h = -3)  # True

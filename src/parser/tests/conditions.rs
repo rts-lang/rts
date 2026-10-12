@@ -45,7 +45,7 @@ fn primitive() -> ()
 {
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? True {
       b = 1
     }
@@ -58,7 +58,7 @@ fn primitive() -> ()
 
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? False {
       b = 1
     }
@@ -72,7 +72,7 @@ fn primitive() -> ()
   // None - это не True, поэтому блок не запускается (#39)
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? None {
       b = 1
     }
@@ -86,7 +86,7 @@ fn primitive() -> ()
   // Число - тоже не True
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? 1 {
       b = 1
     }
@@ -107,8 +107,8 @@ fn constant() -> ()
 {
   checkStructure!(
     r#"
-    a = True
-    b~~ = None
+    a := True
+    b~~
     ? a {
       b = 1
     }
@@ -121,8 +121,8 @@ fn constant() -> ()
 
   checkStructure!(
     r#"
-    a = False
-    b~~ = None
+    a := False
+    b~~
     ? a {
       b = 1
     }
@@ -135,8 +135,8 @@ fn constant() -> ()
 
   checkStructure!(
     r#"
-    a = None
-    b~~ = None
+    a
+    b~~
     ? a {
       b = 1
     }
@@ -158,7 +158,7 @@ fn chain() -> ()
   // Первый блок True - цепочка на нём и останавливается
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? True {
       b = 1
     }
@@ -175,7 +175,7 @@ fn chain() -> ()
   // Первый False, второй True - первый пропускаем
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? False {
       b = 1
     }
@@ -192,7 +192,7 @@ fn chain() -> ()
   // None - не True, идём дальше; тут True на втором блоке
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? None {
       b = 1
     }
@@ -209,7 +209,7 @@ fn chain() -> ()
   // Все условия ложные - доходим до else
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? False {
       b = 1
     }
@@ -246,8 +246,8 @@ fn expressionInCondition() -> ()
   // n = 5 - это одновременно присваивание и проверка
   checkStructure!(
     r#"
-    n = 5
-    b~~ = None
+    n := 5
+    b~~
     ? n = 5 {
       b = 1
     }
@@ -261,8 +261,8 @@ fn expressionInCondition() -> ()
   // Арифметика считается раньше сравнения: 5 + 1 > 5
   checkStructure!(
     r#"
-    n = 5
-    b~~ = None
+    n := 5
+    b~~
     ? n + 1 > 5 {
       b = 1
     }
@@ -275,8 +275,8 @@ fn expressionInCondition() -> ()
 
   checkStructure!(
     r#"
-    n = 5
-    b~~ = None
+    n := 5
+    b~~
     ? n < 3 {
       b = 1
     }
@@ -290,8 +290,8 @@ fn expressionInCondition() -> ()
   // Арифметика в обеих частях сравнения
   checkStructure!(
     r#"
-    n = 5
-    b~~ = None
+    n := 5
+    b~~
     ? 10 / 2 = n {
       b = 1
     }
@@ -312,8 +312,8 @@ fn emptiness() -> ()
 {
   checkStructure!(
     r#"
-    e = None
-    b~~ = None
+    e
+    b~~
     ? e = None {
       b = 1
     }
@@ -326,8 +326,8 @@ fn emptiness() -> ()
 
   checkStructure!(
     r#"
-    n = 5
-    b~~ = None
+    n := 5
+    b~~
     ? n != None {
       b = 1
     }
@@ -341,8 +341,8 @@ fn emptiness() -> ()
   // n = 5, а None - это не 5, значит условие ложно
   checkStructure!(
     r#"
-    n = 5
-    b~~ = None
+    n := 5
+    b~~
     ? n = None {
       b = 1
     }
@@ -356,7 +356,7 @@ fn emptiness() -> ()
   // 0 - это не пустота
   checkStructure!(
     r#"
-    b~~ = None
+    b~~
     ? 0 = None {
       b = 1
     }

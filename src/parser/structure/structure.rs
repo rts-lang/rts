@@ -4,6 +4,7 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope, FfiExpect};
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::{Parameters};
+use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structureType::{StructureType};
 use crate::parser::structure::tokenValue::calculate::{calculate, normalizeToken};
 use crate::tokenizer::tokenizer::readTokensSimple;
@@ -159,7 +160,7 @@ impl Structure
 
   // ===============================================================================================
   
-  /// todo desc
+  /// todo desc, какая-то вспомогательная тема.
   pub fn parseLink(linkName: &str) -> Vec<String> 
   {
     linkName
@@ -307,6 +308,8 @@ impl Structure
     None
   }
 
+  // ===============================================================================================
+  
   /// Добавляет новую вложенную структуру в текущую структуру;
   /// 
   /// Нет &mut self - что хорошо.
@@ -321,6 +324,47 @@ impl Structure
     } else 
     { // Если не было ещё структур, то создаём новый вектор.
       *children = Some(vec![structureLink]);
+    }
+  }
+
+  /// Удаляет вложенную структуру из текущей структуры (по ссылке `Arc`).
+  /// 
+  /// Если справа стоит примитив `None`, мы не вычисляем выражение и 
+  /// не записываем значение, а просто убираем структуру из `parent.structures`. 
+  /// 
+  /// Rust сам дропнет память, когда внешних `Arc`-ссылок не останется — 
+  /// а если кто-то ещё держит `Arc` (например, FFI-scope), 
+  /// структура проживёт до конца держателя.
+  ///
+  /// Структура-примитив никогда не удаляется — её имя проверяется через
+  /// `isPrimitiveName`. Это safety-net: даже если кто-то вызовет
+  /// `removeStructure` напрямую, базовая часть языка останется на месте.
+  ///
+  /// Возвращает `true`, если структура была найдена и удалена.
+  pub fn removeStructure(&self, target: Arc<RwLock<Self>>) -> bool
+  {
+    // Защита примитивов: даже прямой вызов `removeStructure` не должен
+    // иметь возможности удалить базовую структуру языка.
+    let isPrimitive: bool =
+    {
+      let targetGuard: RwLockReadGuard<Self> = target.read().unwrap();
+      targetGuard.name.as_deref().map(isPrimitiveName).unwrap_or(false)
+    };
+    if isPrimitive {
+      return false;
+    }
+
+    //
+    let mut children: RwLockWriteGuard<Option< Vec< Arc<RwLock<Self>> > >> =
+      self.structures.write().unwrap();
+
+    if let Some(childrenVec) = children.as_mut()
+    {
+      let before: usize = childrenVec.len();
+      childrenVec.retain(|s| !Arc::ptr_eq(s, &target));
+      childrenVec.len() < before
+    } else {
+      false
     }
   }
 

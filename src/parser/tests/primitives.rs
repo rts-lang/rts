@@ -46,7 +46,7 @@ fn methods() -> ()
 fn overwrite() -> ()
 {
   checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
-  checkStructure!("type = 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
   checkStructure!("type~ := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
   checkStructure!("type~~ := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
 }
@@ -58,7 +58,7 @@ fn overwrite() -> ()
 fn block() -> ()
 {
   // 1. Проверка маркера.
-  checkStructure!("a = 5\ntype { a }\n", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  checkStructure!("a := 5\ntype { a }\n", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
 
   // 2. Проверка параллельной структуры с тем же именем.
   let main: Arc<RwLock<Structure>> = runCode("a = 5\ntype { a }\n");
@@ -80,9 +80,9 @@ fn block() -> ()
 fn importModule() -> ()
 {
   let path: std::path::PathBuf = std::env::temp_dir().join("importModule.rt");
-  std::fs::write(&path, "a = 10\n").unwrap();
+  std::fs::write(&path, "a := 10\n").unwrap();
   let pathStr: String = path.to_string_lossy().replace('\\', "/");
-  let code: String = format!("m = import(\"{pathStr}\")\n");
+  let code: String = format!("m := import(\"{pathStr}\")\n");
   let main: Arc<RwLock<Structure>> = runCode(&code);
 
   checkStructure!(main, "m.a", value "10");
