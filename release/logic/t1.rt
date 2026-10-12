@@ -52,7 +52,7 @@ f := False
 print(f"{f} | {type(f)} | {stype(f)}\n")
 # False | False | False
 
-g := None
+g
 print(f"{g} | {type(g)} | {stype(g)}\n")
 #  | None | None
 

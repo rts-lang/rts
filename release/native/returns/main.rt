@@ -86,7 +86,7 @@ println(f"args mulF64 {d2} {stype(d2)}") # 6 F64
 # ---- Результат внутри выражения
 println("")
 e1: Usize = lib.retUsize() + 1
-e2: I32   = lib.retI32() + 1
+e2: I32 = lib.retI32() + 1
 e3 := libc.strnlen("abc") + 1
 println(f"expr {e1} {e2} {e3}") # 123456790 -1999999999 4
 
