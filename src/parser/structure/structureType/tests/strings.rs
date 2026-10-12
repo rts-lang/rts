@@ -1,8 +1,7 @@
 use crate::parser::parser::runCode;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
-use crate::parser::testing::{buildLib, checkStructure};
-use std::path::PathBuf;
+use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -42,7 +41,7 @@ fn types() -> ()
 
 // =================================================================================================
 
-/// Строка уходит в нативную функцию (release/native/strings): и целиком, и по полям.
+/// Строка уходит в нативную функцию: и целиком, и по полям.
 ///
 /// `lib.print(str.pointer, str.length)` — ручная распаковка полей.
 /// `lib.print(str)` — целиком, chillffi сам раскладывает String на ptr+len.
@@ -52,26 +51,42 @@ fn types() -> ()
 #[test]
 fn native() -> ()
 {
-  let lib: String = buildLib("release/native/strings/print.c", "libstringsPrint.so");
-  let path: PathBuf = std::env::temp_dir().join("stringsMain.rt");
-  std::fs::write(&path, format!(
-    r#"printc(str: String) {{
-  lib: Pointer = importNative("{lib}")
-  lib.print(str.pointer, str.length)
-  lib.print(str)
-}}
+  let libPath: String = buildLibrary!(
+    r#"
+    #include <stdio.h>
+    #include <stdint.h>
+    #include <stddef.h>
 
-printc("Hello from RTS 222!")
-done := True"#
-  )).unwrap();
-  let pathStr: String = path.to_string_lossy().replace('\\', "/");
-  let main: Arc<RwLock<Structure>> = runCode(&format!("m := import(\"{pathStr}\")\n"));
+    uint8_t* print(const uint8_t* data, size_t length) {
+      fwrite(data, 1, length, stdout);
+      fflush(stdout);
+      return NULL;
+    }
+    "#,
+    "libprint.so"
+  );
+
+  let path: String = writeCodeFile!(
+    r#"
+    printc(str: String) {
+      lib: Pointer = importNative("{libPath}")
+      lib.print(str.pointer, str.length)
+      lib.print(str)
+    }
+
+    printc("Hello from RTS 222!")
+    done := True
+    "#,
+    "stringsMain.rt"
+  );
+
+  let main: Arc<RwLock<Structure>> = runCode(&format!("m := import(\"{path}\")\n"));
 
   checkStructure!(main, "m.printc", stype StructureType::Method);
   checkStructure!(main, "m.done", value "True");
 
-  let _ = std::fs::remove_file(&path);
-  let _ = std::fs::remove_file(&lib);
+  let _ = std::fs::remove_file(std::env::temp_dir().join("stringsMain.rt"));
+  let _ = std::fs::remove_file(std::env::temp_dir().join("libprint.so"));
 }
 
 // =================================================================================================

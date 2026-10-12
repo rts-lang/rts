@@ -43,28 +43,6 @@ pub(super) fn expressionOf(code: &str) -> Token
   main.expression(&mut tokens)
 }
 
-/// Собирает C-файл в динамическую библиотеку в `/tmp` и возвращает путь к ней.
-///
-/// `source` — путь от корня проекта (`release/native/strings/print.c`), `name` — имя `.so`.
-/// Для тестов нативного кода: путь подставляется в `importNative`.
-pub(super) fn buildLib(source: &str, name: &str) -> String
-{
-  let sourcePath: String = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), source);
-  let libPath: std::path::PathBuf = std::env::temp_dir().join(name);
-  let result: std::process::Output = std::process::Command::new("cc")
-    .args(["-shared", "-fPIC", "-o"])
-    .arg(&libPath)
-    .arg(&sourcePath)
-    .output()
-    .unwrap_or_else(|error| panic!("Build of `{}`: cc was not started: {}", source, error));
-  assert!(
-    result.status.success(),
-    "Build of `{}` failed: {}",
-    source, String::from_utf8_lossy(&result.stderr)
-  );
-  libPath.to_string_lossy().replace('\\', "/")
-}
-
 /// Возвращает структуру по `name` из выполненного кода; если её нет - паника.
 ///
 /// `"a"` — по области видимости; `"a.b"` — строго вниз по пути.
@@ -384,6 +362,63 @@ macro_rules! checkExpression
 }
 
 pub(super) use checkExpression;
+
+// =================================================================================================
+
+/// Записывает код в файл в `/tmp` и возвращает путь к нему.
+///
+/// Принимает сырой литерал `r#"..."#` или строку — любой код (RTS, C и т.д.).
+///
+///     let path: String = writeCodeFile!(r#"a := 10"#, "my.rt");
+///     let main: Arc<RwLock<Structure>> = runCode(&format!("m := import(\"{path}\")\n"));
+macro_rules! writeCodeFile
+{
+  ($code:expr, $name:expr) =>
+  {{
+    let path: std::path::PathBuf = std::env::temp_dir().join($name);
+    std::fs::write(&path, $code)
+      .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
+    path.to_string_lossy().replace('\\', "/")
+  }};
+}
+
+pub(super) use writeCodeFile;
+
+// =================================================================================================
+
+/// Собирает C-код в динамическую библиотеку `.so` в `/tmp` и возвращает путь к ней.
+///
+/// Принимает сырой литерал `r#"..."#` с C-кодом и имя `.so`.
+/// Временный `.c` файл получает имя из `<name>` с заменой `.so` на `.c`.
+///
+///     let libPath: String = buildLibrary!(r#"int add(int a, int b) { return a + b; }"#, "libadd.so");
+///     // дальше: `lib: Pointer = importNative("{libPath}")` в RTS-коде.
+macro_rules! buildLibrary
+{
+  ($code:expr, $name:expr) =>
+  {{
+    let sourceName: String = $name.replace(".so", ".c");
+    let sourcePath: std::path::PathBuf = std::env::temp_dir().join(&sourceName);
+    std::fs::write(&sourcePath, $code)
+      .unwrap_or_else(|error| panic!("Write of `{}`: {}", sourcePath.display(), error));
+    let libPath: std::path::PathBuf = std::env::temp_dir().join($name);
+    let result: std::process::Output = std::process::Command::new("cc")
+      .args(["-shared", "-fPIC", "-o"])
+      .arg(&libPath)
+      .arg(&sourcePath)
+      .output()
+      .unwrap_or_else(|error| panic!("Build of `{}`: cc was not started: {}", $name, error));
+    let _ = std::fs::remove_file(&sourcePath);
+    assert!(
+      result.status.success(),
+      "Build of `{}` failed: {}",
+      $name, String::from_utf8_lossy(&result.stderr)
+    );
+    libPath.to_string_lossy().replace('\\', "/")
+  }};
+}
+
+pub(super) use buildLibrary;
 
 // =================================================================================================
 
