@@ -43,6 +43,28 @@ pub(super) fn expressionOf(code: &str) -> Token
   main.expression(&mut tokens)
 }
 
+/// Собирает C-файл в динамическую библиотеку в `/tmp` и возвращает путь к ней.
+///
+/// `source` — путь от корня проекта (`release/native/strings/print.c`), `name` — имя `.so`.
+/// Для тестов нативного кода: путь подставляется в `importNative`.
+pub(super) fn buildLib(source: &str, name: &str) -> String
+{
+  let sourcePath: String = format!("{}/{}", env!("CARGO_MANIFEST_DIR"), source);
+  let libPath: std::path::PathBuf = std::env::temp_dir().join(name);
+  let result: std::process::Output = std::process::Command::new("cc")
+    .args(["-shared", "-fPIC", "-o"])
+    .arg(&libPath)
+    .arg(&sourcePath)
+    .output()
+    .unwrap_or_else(|error| panic!("Build of `{}`: cc was not started: {}", source, error));
+  assert!(
+    result.status.success(),
+    "Build of `{}` failed: {}",
+    source, String::from_utf8_lossy(&result.stderr)
+  );
+  libPath.to_string_lossy().replace('\\', "/")
+}
+
 /// Возвращает структуру по `name` из выполненного кода; если её нет - паника.
 ///
 /// `"a"` — по области видимости; `"a.b"` — строго вниз по пути.
