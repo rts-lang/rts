@@ -5,7 +5,7 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::primitives::{isPrimitiveName, MethodsPrimitives, TypesPrimitives};
+use crate::parser::structure::primitives::{isPrimitiveName, ArgsPrimitives, MethodsPrimitives, TypesPrimitives};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::{TokenType};
@@ -1140,17 +1140,18 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
   mainStructure.lines = Some(tokenizerLinesLinks);
 
   // -----------------------------------------------------------------------------------------------
-  // argc
+  // Параметры запуска (`argc`, `argv`).
+  //
+  // Значения приходят от запуска, поэтому у них, в отличие от остальных примитивов, есть линии.
 
-  mainStructure.pushStructure(
-    Arc::new(RwLock::new(Structure::new(
-      Some(String::from("argc")),
-      StructureMut::Constant, // Неизменяемая.
-      StructureType::Usize, // Не может быть меньше 0.
-      // В линии структуры.
-      Some(vec![
+  for (name, dataType) in ArgsPrimitives
+  {
+    let lines: Vec< Arc<RwLock<Line>> > = match *name
+    {
+      // Одна линия с одним токеном - сколько аргументов.
+      "argc" => vec![
         Arc::new(RwLock::new(Line
-        { // добавляем линию с 1 токеном.
+        {
           tokens: Some(vec![
             Token::new(
               TokenType::UInt,
@@ -1159,20 +1160,12 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
           ]),
           lines: None
         }))
-      ]),
-      Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
-    )))
-  );
+      ],
 
-  // -----------------------------------------------------------------------------------------------
-  // argv
-  
-  let mut argv: Vec< Arc<RwLock<Line>> > = Vec::new();
-  for arg in _argv.get().map(|values| values.as_slice()).unwrap_or(&[])
-  {
-    argv.push(
-      Arc::new(RwLock::new( // Добавляем линию с 1 токеном.
-        Line
+      // По линии на каждый аргумент.
+      "argv" => _argv.get().map(|values| values.as_slice()).unwrap_or(&[])
+        .iter()
+        .map(|arg: &String| Arc::new(RwLock::new(Line
         {
           tokens: Some(vec![
             Token::new(
@@ -1181,20 +1174,23 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
             )
           ]),
           lines: None
-        }
-      ))
+        })))
+        .collect(),
+
+      _ => Vec::new()
+    };
+
+    mainStructure.pushStructure(
+      Arc::new(RwLock::new(Structure::new(
+        Some(String::from(*name)),
+        StructureMut::Constant, // Неизменяемая.
+        dataType.clone(),
+        Some(lines),
+        Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
+      )))
     );
   }
-  mainStructure.pushStructure(
-    Arc::new(RwLock::new(Structure::new(
-      Some(String::from("argv")),
-      StructureMut::Constant, // Неизменяемая.
-      StructureType::List, // Список.
-      Some(argv), // В линии структуры добавляем все argv линии.
-      Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
-    )))
-  );
-  
+
   // -----------------------------------------------------------------------------------------------
   // Примитивы (базовые структуры языка).
 

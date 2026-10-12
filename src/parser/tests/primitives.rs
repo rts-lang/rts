@@ -1,5 +1,5 @@
 use crate::parser::parser::runCode;
-use crate::parser::structure::primitives::{MethodsPrimitives, TypesPrimitives};
+use crate::parser::structure::primitives::{ArgsPrimitives, MethodsPrimitives, TypesPrimitives};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
 use crate::parser::testing::checkStructure;
@@ -31,6 +31,30 @@ fn structures() -> ()
 
 // =================================================================================================
 
+/// Проверяет структуры `параметры запуска`: у них есть значения (линии).
+///
+/// В тестах аргументов нет: `argc` равен 0, а у `argv` нет ни одной линии.
+#[test]
+fn args() -> ()
+{
+  for (name, dataType) in ArgsPrimitives
+  {
+    checkStructure!("", *name, stype dataType.clone(), mut StructureMut::Constant);
+  }
+  checkStructure!("", "argc", value "0", lines 1);
+  checkStructure!("", "argv", lines 0);
+
+  // Перезаписать их нельзя.
+  checkStructure!("argc := 5", "argc", value "0", mut StructureMut::Constant);
+  checkStructure!("argc = 5", "argc", value "0", mut StructureMut::Constant);
+
+  // И удалить через `:= None` тоже.
+  checkStructure!("argc := None", "argc", value "0", mut StructureMut::Constant);
+  checkStructure!("argv := None", "argv", stype StructureType::List, mut StructureMut::Constant);
+}
+
+// =================================================================================================
+
 /// Проверяет все структуры `примитивы-методы`.
 #[test]
 fn methods() -> ()
@@ -46,7 +70,7 @@ fn methods() -> ()
 fn overwrite() -> ()
 {
   checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
-  checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0); // todo Дубликат строка?
   checkStructure!("type~ := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
   checkStructure!("type~~ := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
 }
