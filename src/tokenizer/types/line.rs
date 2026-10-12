@@ -9,7 +9,7 @@ pub struct Line
   /// Список вложенных токенов
   pub tokens: Option< Vec<Token> >,
   /// Вложенные линии
-  pub lines: Option< Vec< Arc<RwLock<Self>> > >,
+  pub lines: Option< Vec< Arc<RwLock<Self>> > >
 }
 impl Line 
 {
@@ -19,6 +19,23 @@ impl Line
     {
       tokens: None,
       lines: None
+    }
+  }
+
+  /// Глубокое клонирование: tokens клонируются через `Token::deepClone`,
+  /// nested lines — рекурсивно.
+  pub fn deepClone(&self) -> Self
+  {
+    Self
+    {
+      tokens: self.tokens.as_ref().map(|tokens|
+        tokens.iter().map(|t| t.deepClone()).collect()
+      ),
+      lines: self.lines.as_ref().map(|lines|
+        lines.iter()
+          .map(|lineLink| Arc::new(RwLock::new(lineLink.read().unwrap().deepClone())))
+          .collect()
+      )
     }
   }
 }

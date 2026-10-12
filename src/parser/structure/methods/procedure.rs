@@ -206,12 +206,24 @@ impl Structure
             // 3. Запускаем исполнение тела функции.
             // Пока оно исполняется, "текущий файл" — тот, где функция написана
             // (нужно для import() внутри функции из импортированного файла).
+            //
+            // Глубоко клонируем структуру метода — изоляция вызова: локальные
+            // переменные и изменения body не протекают в оригинал и не видны
+            // следующему вызову. Параметры уже выставлены в оригинале выше,
+            // клонирование переносит их в копию. parent остаётся ссылкой на
+            // оригинал (нужно для scope поиска вверх).
             let calledSourcePath: Option<Arc<String>> =
               calledStructureLink.read().unwrap().sourcePath.clone();
             let previousSourcePath: Option<Arc<String>> = _sourcePath.read().unwrap().clone();
             *_sourcePath.write().unwrap() = calledSourcePath;
-            readLines(calledStructureLink);
+            let calledClone: Arc<RwLock<Structure>> =
+              Arc::new(RwLock::new(calledStructureLink.read().unwrap().deepClone()));
+            readLines(calledClone.clone());
             *_sourcePath.write().unwrap() = previousSourcePath;
+            // Переносим result из clone в оригинал, чтобы caller (function.rs)
+            // мог прочитать его через getStructureByScope.
+            let clonedResult: Option<Token> = calledClone.read().unwrap().result.clone();
+            calledStructureLink.write().unwrap().result = clonedResult;
           }
         }
         // -----------------------------------------------------------------------------------------

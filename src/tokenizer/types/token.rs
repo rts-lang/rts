@@ -71,6 +71,26 @@ impl Token
     }
   }
 
+  /// Глубокое клонирование: `data` и `dataType` по значению,
+  /// nested lines — рекурсивно.
+  pub fn deepClone(&self) -> Self
+  {
+    Self
+    {
+      data: self.data.clone(),
+      dataType: self.dataType.clone(),
+      lines: self.lines.as_ref().map(|lines|
+        lines.iter()
+          .map(|lineLink| Arc::new(RwLock::new(lineLink.read().unwrap().deepClone())))
+          .collect()
+      ),
+      #[cfg(feature = "analyzer")]
+      start: self.start,
+      #[cfg(feature = "analyzer")]
+      end: self.end
+    }
+  }
+
   /// convert data.
   /// 
   /// todo: фиг его знает что это за ерунда,
