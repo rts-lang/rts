@@ -267,6 +267,32 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   //
   let isCreation: bool = operatorType == TokenType::Creation;
 
+  // `:= None`— это явная очистка структуры из текущей области;
+  // Это `примитив`, а не выражение.
+  //
+  // 
+  // Не путать с `:= method()`, где `method` уже вернул `None`: 
+  // в этом случае структура создаётся со значением `None` для хранения.
+  //
+  //
+  // Различаем по токенам, а не по вычисленному значению:
+  // - `a := None` => правая часть = `[Token(None)]` (один литерал) => Удалить.
+  //
+  // - `a := b` => правая часть = `[ident(b)]` (выражение) => Создать/перезаписать.
+  //
+  // - `a := method()` => правая часть = `[method, (, )]` => Создать/перезаписать.
+  //
+  // - `a = None` => оператор `=`, не `:=` => Записать `None` как значение.
+  //
+  //
+  // Это разделение намерений между явным со стороны программиста и 
+  // работой состояний внутри программы.
+  let isCreationNoneLiteral: bool =
+    isCreation &&
+    rightValue.as_ref()
+      .map(|tokens| tokens.len() == 1 && *tokens[0].getDataType() == TokenType::None)
+      .unwrap_or(false);
+
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
     let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
@@ -278,6 +304,26 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
       parent.getStructureByScope(&structureName)
     }
   };
+
+  // `:= None`: удаляем найденную локальную структуру.
+  //
+  //
+  // Если структуры нет — ничего не делаем (нечего удалять).
+  //
+  // Если структура — примитив, то `removeStructure` внутри себя откажется её удалять, 
+  // базовая часть языка останется на месте.
+  //
+  // Это safety-net: даже если проверка `isPrimitiveName` выше пропустит
+  // имя, `removeStructure` всё равно проверит по списку примитивов.
+  if isCreationNoneLiteral
+  {
+    if let Some(structureLink) = structureLink
+    {
+      parentLink.read().unwrap()
+        .removeStructure(structureLink);
+    }
+    return true;
+  }
 
   if let Some(structureLink) = structureLink
   { // Если мы нашли структуру, то значит работаем уже с существующей структурой.
