@@ -13,6 +13,9 @@ use crate::parser::structure::structureType::StructureType;
 /// Типы-примитивы.
 pub const TypesPrimitives: &[(&str, StructureType)] = &[
   //
+  ("Any", StructureType::Any),
+  ("None", StructureType::None),
+  //
   ("U8", StructureType::U8),
   ("U16", StructureType::U16),
   ("U32", StructureType::U32),
@@ -34,7 +37,17 @@ pub const TypesPrimitives: &[(&str, StructureType)] = &[
   ("String", StructureType::String),
   ("RawString", StructureType::RawString),
   //
-  ("CString", StructureType::Pointer),
+  ("CString", StructureType::Pointer)
+];
+
+/// Параметры запуска.
+///
+/// В отличие от остальных у них есть линии (значения), и приходят они от запуска:
+/// `argc` - сколько аргументов, `argv` - список самих аргументов.
+pub const ArgsPrimitives: &[(&str, StructureType)] = &[
+  //
+  ("argc", StructureType::Usize),
+  ("argv", StructureType::List)
 ];
 
 /// Методы-примитивы.
@@ -54,6 +67,7 @@ pub const MethodsPrimitives: &[&str] = &[
 pub fn isPrimitiveName(name: &str) -> bool
 {
   TypesPrimitives.iter().any(|(n, _)| *n == name) ||
+  ArgsPrimitives.iter().any(|(n, _)| *n == name) ||
   MethodsPrimitives.iter().any(|n| *n == name)
 }
 
