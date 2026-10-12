@@ -285,14 +285,20 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   // - `a = None` => оператор `=`, не `:=` => Записать `None` как значение.
   //
   //
+  // Исключение: `a~~ := None` и `a~ := None` — это СОЗДАНИЕ со значением `None`,
+  // не удаление. Mut-маркер (`~`/`~~`) означает «я явно создаю mutable структуру
+  // со значением None», а не «удаляю». Удаление работает только без mut-маркера:
+  // `a := None` (без `~`, без `~~`, где `a` станет `Constant`).
+  //
+  //
   // Это разделение намерений между явным со стороны программиста и 
   // работой состояний внутри программы.
   let isCreationNoneLiteral: bool =
     isCreation &&
+    structureMutability == StructureMut::Constant &&
     rightValue.as_ref()
       .map(|tokens| tokens.len() == 1 && *tokens[0].getDataType() == TokenType::None)
       .unwrap_or(false);
-
   let structureLink: Option< Arc<RwLock<Structure>> > =
   {
     let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
@@ -362,9 +368,27 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     }
   } else if isPrimitiveName(&structureName) {
     // Зарезервированное имя — новую структуру не создаём.
+  } else if !isCreation && structureType == StructureType::None && rightValue.is_some()
+  { // `=` без существующей структуры и без объявления типа (`:`) — скип.
+    //
+    // Это случай именно `a = X` (есть правая часть, но не `:=`): нет структуры →
+    // нечего менять → пропускаем. Создание — это `:=`.
+    //
+    // Но forward-declaration `a` (без правой части, без `:`, без `~`) — это
+    // объявление структуры, которая ждёт первого `=`. Её мы создаём как Final,
+    // поэтому условие `rightValue.is_some()` обязательно: иначе `a` без значения
+    // скипнулась бы, и потом `a = X` не нашло бы её.
+    //
+    // `a: U8 = 300` — это объявление с типом, оно создаёт структуру через
+    // `structureType != None` ниже. Сюда не попадает.
+    //
+    // Это согласовано с семантикой RTS: «нет структуры → нечего менять →
+    // пропускаем». Раньше `=` при ненахождении создавал новую структуру
+    // всегда, но это смешивало две задачи — поиск и создание. Сейчас создание
+    // через `:=`, а `=` только меняет существующее или создаёт при явном типе.
   } else
-  { // Если мы не нашли структуру, то создаём новую
-    // и работаем с правой частью выражения.
+  { // `:=` без существующей структуры, либо `=` с явным типом (`:`),
+    // либо forward-declaration `a` без значения — создаём новую.
 
     // Объединение типов: сам набор вариантов объявления;
     //
@@ -545,7 +569,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
     parentLink.write().unwrap()
       .pushStructure(newStructureLink);
   }
-  
+
   //
   true
 }

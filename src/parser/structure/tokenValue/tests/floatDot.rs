@@ -11,25 +11,25 @@ use crate::tokenizer::types::tokenType::TokenType;
 fn floatDotZeros() -> ()
 {
   checkStructure!(
-    "a = .",
+    "a := .",
     "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
-    "a = .0",
+    "a := .0",
     "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
-    "a = 0.",
+    "a := 0.",
     "a",
     type TokenType::UFloat,
     value "0"
   );
   checkStructure!(
-    "a = 0.0",
+    "a := 0.0",
     "a",
     type TokenType::UFloat,
     value "0"
@@ -41,19 +41,19 @@ fn floatDotZeros() -> ()
 fn floatDotLeading() -> ()
 {
   checkStructure!(
-    "a = .1",
+    "a := .1",
     "a",
     type TokenType::UFloat,
     value "0.1"
   );
   checkStructure!(
-    "a = .5",
+    "a := .5",
     "a",
     type TokenType::UFloat,
     value "0.5"
   );
   checkStructure!(
-    "a = .25",
+    "a := .25",
     "a",
     type TokenType::UFloat,
     value "0.25"
@@ -65,13 +65,13 @@ fn floatDotLeading() -> ()
 fn floatDotTrailing() -> ()
 {
   checkStructure!(
-    "a = 3.",
+    "a := 3.",
     "a",
     type TokenType::UFloat,
     value "3"
   );
   checkStructure!(
-    "a = 201.",
+    "a := 201.",
     "a",
     type TokenType::UFloat,
     value "201"
@@ -83,43 +83,43 @@ fn floatDotTrailing() -> ()
 fn floatDotExpressions() -> ()
 {
   checkStructure!(
-    "a = .5 + .5",
+    "a := .5 + .5",
     "a",
     type TokenType::UFloat,
     value "1"
   );
   checkStructure!(
-    "a = 1. + .5",
+    "a := 1. + .5",
     "a",
     type TokenType::UFloat,
     value "1.5"
   );
   checkStructure!(
-    "a = 3. + 2.",
+    "a := 3. + 2.",
     "a",
     type TokenType::UFloat,
     value "5"
   );
   checkStructure!(
-    "a = .5 - .25",
+    "a := .5 - .25",
     "a",
     type TokenType::UFloat,
     value "0.25"
   );
   checkStructure!(
-    "a = 10.5 - 10.0",
+    "a := 10.5 - 10.0",
     "a",
     type TokenType::UFloat,
     value "0.5"
   );
   checkStructure!(
-    "a = . + .5",
+    "a := . + .5",
     "a",
     type TokenType::UFloat,
     value "0.5"
   );
   checkStructure!(
-    "a = 1 / .5",
+    "a := 1 / .5",
     "a",
     type TokenType::UFloat,
     value "2"

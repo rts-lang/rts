@@ -300,7 +300,7 @@ fn functionCreatingLocalStructureDoesNotDeadlock() -> ()
     r#"
     outer~ := 0
     f() {
-      a = 1
+      a := 1
       outer = a
     }
     f()
