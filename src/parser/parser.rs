@@ -144,40 +144,73 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
     return false // Если в линии нет токенов, то мы её не читаем.
   }
 
-  // Возвращаем успешно или не успешно мы нашли.
-  if *lineTokens[0].getDataType() == TokenType::Equals
-  { // Если нашли TokenType::Equals, значит это return, сразу удаляем его,
-    // Чтобы он нам не мешался потом.
-    lineTokens.remove(0);
+  // Что это: return (`:=`) или результат блока (`=`)?
+  let firstType: TokenType = *lineTokens[0].getDataType();
+  let isReturn: bool = firstType == TokenType::Equals || firstType == TokenType::Creation;
+  if !isReturn {
+    return false
+  }
 
-    // Редактируемый родитель, поскольку мы собираемся присвоить значение его result.
-    let newResultData: Token =
-    { // Используем expression, чтобы получить результат выражения.
-      let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-      structure.expression(&mut lineTokens)
-    };
+  // Удаляем первый токен (`=` или `:=`), чтобы он не мешался.
+  lineTokens.remove(0);
 
-    let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
+  // Редактируемый родитель, поскольку мы собираемся присвоить значение его `result`.
+  let newResultData: Token =
+  { // Используем `expression`, чтобы получить результат выражения.
+    let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+    structure.expression(&mut lineTokens)
+  };
 
-    // Структура ожидает какой-то тип в результате,
-    // либо это может быть TokenType:None. Но мы просто будем менять data.
-
-    if structure.result.is_some()
-    { // Вариант, в котором результат ожидает возвращение определённого типа данных.
-      if let Some(structureResult) = &mut structure.result
-      { // Присваиваем новую data результату.
-        structureResult.setData( newResultData.getData() );
+  // Куда писать `result`:
+  //
+  // - `:=` => Возврат результата только именной структуры.
+  //           Поднимаемся через `parent` до первого `name.is_some()`.
+  //
+  // - `=` => Пишем в текущую `structureLink` - т.е. текущую структуру.
+  let targetLink: Arc<RwLock<Structure>> = if firstType == TokenType::Creation
+  {
+    let mut current: Arc<RwLock<Structure>> = structureLink.clone();
+    loop
+    {
+      let hasName: bool = current.read().unwrap().name.is_some();
+      if hasName {
+        break
       }
-    } else
-    { // Вариант, в котором тип результата был не указан.
-      // Используем expression, чтобы получить результат выражения.
-      // Присваиваем новый результат.
-      structure.result = Some( newResultData );
+      let parent: Option<Arc<RwLock<Structure>>> = current.read().unwrap().parent.clone();
+      if let Some(parent) = parent {
+        current = parent;
+      } else
+      { // Дошли до верха (main, noname) — `:=` игнорируется.
+        return false 
+      }
     }
+    current
+  } else {
+    structureLink.clone()
+  };
 
-    // Всё успешно, это был результат.
-    true
-  } else { false } // Это был не результат, идём дальше.
+  let mut structure: RwLockWriteGuard<Structure> = targetLink.write().unwrap();
+
+  // Структура ожидает какой-то тип в результате,
+  // либо это может быть `TokenType:None`. Но мы просто будем менять `data`.
+
+  if structure.result.is_some()
+  { // Вариант, в котором результат ожидает возвращение определённого типа данных.
+    if let Some(structureResult) = &mut structure.result
+    { // Присваиваем новую data результату.
+      structureResult.setData( newResultData.getData() );
+    }
+  } else
+  { // Вариант, в котором тип результата был не указан.
+    //
+    // Используем `expression`, чтобы получить результат выражения.
+    //
+    // Присваиваем новый результат.
+    structure.result = Some(newResultData);
+  }
+
+  // Всё успешно, это был результат.
+  true
 }
 
 // =================================================================================================
@@ -1323,6 +1356,14 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
         // Линия-оператор: результат никому не нужен (`lib.print(x)`).
         structureLink.read().unwrap()
           .expressionWith(tokens, &bridge::FfiExpect::Discard);
+      }
+    }
+    else
+    { // `searchStructure` обработал структуру (например `?`-блок).
+      // Если после этого у метода появился `result` — внутри блока был `:=`,
+      // который поднялся до этого метода. Прерываем чтение.
+      if structureLink.read().unwrap().result.is_some() {
+        break
       }
     }
 
