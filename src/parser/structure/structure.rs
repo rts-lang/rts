@@ -141,11 +141,15 @@ impl Structure
   }
 
   /// Глубокое клонирование для изоляции вызова метода.
+  /// 
   ///
   /// Клонирует: name, mutable, dataType, unionTypes, parameters, result, isFfiBlock, sourcePath.
+  /// 
   /// Глубоко: lines (через Line::deepClone) и structures (рекурсивно deepClone).
+  /// 
   /// Не клонирует: parent (Arc::clone — ссылка на оригинал, для scope поиска вверх).
-  /// Сбрасывает: lineIndex = 0 (копия начинает с первой строки).
+  /// 
+  /// Сбрасывает: lineIndex = 0 (копия начинает с первой строки) и result.
   pub fn deepClone(&self) -> Self
   {
     Self
@@ -160,7 +164,7 @@ impl Structure
           .collect()
       ),
       parameters: self.parameters.clone(),
-      result: self.result.clone(),
+      result: None,
       structures: Arc::new(RwLock::new(
         self.structures.read().unwrap().as_ref().map(|children|
           children.iter()
