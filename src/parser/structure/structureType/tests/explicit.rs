@@ -5,7 +5,7 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Это тесты на приведение к StructureType (левое выражение) - выражения справа.
+// Это тесты на приведение к `StructureType` (левое выражение) - выражения справа.
 // 
 // Лимиты StructureType уже включены сюда.
 
@@ -228,7 +228,8 @@ fn castFloats() -> ()
 }
 
 /// Float в целый явный тип: округляется и зажимается;
-/// знак сохраняется для знаковых типов, беззнаковые дают 0.
+/// 
+/// Знак сохраняется для знаковых типов, беззнаковые дают 0.
 #[test]
 fn castFloatToInteger() -> ()
 {
@@ -287,6 +288,61 @@ fn castFloatToInteger() -> ()
     type TokenType::Float,
     stype StructureType::I64,
     value "-1000001"
+  );
+}
+
+// =================================================================================================
+
+/// Явный тип строки не меняет токен, только тип структуры.
+///
+/// `CString` = `Pointer` (алиас).
+#[test]
+fn castStrings() -> ()
+{
+  // Строка.
+  checkStructure!(
+    r#"a: String = "text""#,
+    "a",
+    type TokenType::String,
+    stype StructureType::String,
+    value "text"
+  );
+  checkStructure!(
+    r#"b: CString = "text""#,
+    "b",
+    type TokenType::String,
+    stype StructureType::Pointer,
+    value "text"
+  );
+  checkStructure!(
+    r#"c: RawString = "text""#,
+    "c",
+    type TokenType::String,
+    stype StructureType::RawString,
+    value "text"
+  );
+
+  // Сырая строка.
+  checkStructure!(
+    "d: String = `raw`",
+    "d",
+    type TokenType::RawString,
+    stype StructureType::String,
+    value "raw"
+  );
+  checkStructure!(
+    "e: CString = `raw`",
+    "e",
+    type TokenType::RawString,
+    stype StructureType::Pointer,
+    value "raw"
+  );
+  checkStructure!(
+    "f: RawString = `raw`",
+    "f",
+    type TokenType::RawString,
+    stype StructureType::RawString,
+    value "raw"
   );
 }
 
