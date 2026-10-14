@@ -216,7 +216,7 @@ fn searchReturn(line: &RwLockReadGuard<Line>, structureLink: Arc<RwLock<Structur
 // =================================================================================================
 
 /// Читает линейную запись.
-fn linearStructure(lineTokens: &[Token], lineLines: &Option< Vec< Arc<RwLock<Line>> > >, parentLink: Arc<RwLock<Structure>>) -> bool
+fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> bool
 {
   // Получаем тип операции.
   let operatorType: TokenType = lineTokens.iter().find_map(|token| {
@@ -467,27 +467,8 @@ fn linearStructure(lineTokens: &[Token], lineLines: &Option< Vec< Arc<RwLock<Lin
       // todo rewrite desc, должно быть по смыслу работы.
       let mut value: Token =
       {
-        let rv: &mut Vec<Token> = &mut rightValue.unwrap();
-
-        // Проверяем: есть ли `?` в правой части (`a := ? True { = 20 }`).
-        let hasQuestion: bool = rv.iter().any(|t| *t.getDataType() == TokenType::Question);
-        if hasQuestion
-        {
-          // `?`-блок как выражение. Находим `?`.
-          let qPos: usize = rv.iter().position(|t| *t.getDataType() == TokenType::Question).unwrap();
-          // Условие — все токены после `?`.
-          let mut conditionTokens: Vec<Token> = rv[qPos + 1..].to_vec();
-          // Body блока — lineLines (вложенные линии текущей линии).
-          match executeConditionBlock(&mut conditionTokens, lineLines, &parentLink)
-          {
-            Some(token) => token,
-            None => Token::newEmpty(TokenType::None)
-          }
-        } else
-        {
-          // Обычное выражение.
-          parentLink.read().unwrap().expressionWith(rv, &expect)
-        }
+        let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
+        parent.expressionWith(&mut rightValue.unwrap(), &expect)
       };
 
       // Динамический import(): правая часть выражения — не скаляр, а целая
@@ -651,7 +632,89 @@ fn executeConditionBlock(
   readLines(blockStructure.clone());
   // Возвращаем result блока, если есть; иначе None-токен.
   let result: Option<Token> = blockStructure.read().unwrap().result.clone();
-  Some(result.unwrap_or_else(|| Token::newEmpty(TokenType::None)))
+  Some(result.unwrap_or_else(|| Token::newEmpty(TokenType::Any)))
+}
+
+/// Читает условный блок (`if`/`elif`/`else`) как statement.
+///
+/// Ищет все `?`-блоки ниже от текущей линии, выполняет первый с True.
+/// Сдвигает `lineIndex` на количество пройденных блоков.
+fn executeConditionStatement(
+  lineIndex: *mut usize,
+  parentLink: &Arc<RwLock<Structure>>
+) -> bool
+{
+  let mut conditions: Vec< Arc<RwLock<Line>> > = Vec::new();
+  let mut saveNewLineIndex: usize = 0;
+  { // Ищем все условные вложения ниже.
+    let lines: Option< Vec< Arc<RwLock<Line>> > > =
+      parentLink.read().unwrap().lines.clone();
+    if let Some(lines) = &lines
+    {
+      let linesLength: usize = lines.len();
+      let mut i: usize = unsafe{ *lineIndex };
+      while i < linesLength
+      {
+        let lineBottomLink: Arc<RwLock<Line>> = lines[i].clone();
+        {
+          let bottomLine: RwLockReadGuard<Line> = lineBottomLink.read().unwrap();
+          if let Some(tokens) = &bottomLine.tokens
+          {
+            if *tokens[0].getDataType() != TokenType::Question {
+              break;
+            }
+          } else {
+            break
+          }
+        }
+        conditions.push(lineBottomLink);
+        i += 1;
+      }
+      saveNewLineIndex = conditions.len() - 1;
+    }
+  }
+  // Читаем условия и выполняем.
+  let mut conditionTruth: bool = false;
+  for conditionLink in &mut conditions
+  {
+    let condition: RwLockReadGuard<Line> = conditionLink.read().unwrap();
+    if let Some(tokens) = &condition.tokens
+    {
+      if tokens.len() > 1
+      { // if/elif условие.
+        let mut conditionTokens: Vec<Token> = tokens.clone();
+        conditionTokens.remove(0);
+        drop(condition);
+        let result: Option<Token> = executeConditionBlock(
+          &mut conditionTokens,
+          &conditionLink.read().unwrap().lines,
+          parentLink
+        );
+        if result.is_some()
+        {
+          conditionTruth = true;
+          break;
+        }
+      } else
+      if !conditionTruth
+      { // else блок.
+        let blockLines = conditionLink.read().unwrap().lines.clone();
+        drop(condition);
+        let blockStructure: Arc<RwLock<Structure>> =
+          Arc::new(RwLock::new(Structure::new(
+            None,
+            StructureMut::Constant,
+            StructureType::Method,
+            blockLines,
+            Some(parentLink.clone())
+          )));
+        readLines(blockStructure);
+        break;
+      }
+    }
+  }
+  unsafe{ *lineIndex += saveNewLineIndex }
+  true
 }
 
 // =================================================================================================
@@ -896,6 +959,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           .pushStructure(newStructureLink.clone());
 
         // Для метода (с круглыми скобками) body ждёт вызова — не выполняем.
+        //
         // Для именованного блока (без скобок) body выполняется прямо сейчас,
         // под удерживаемым FFI scope. readLines сам пушнет scope, потому
         // что isFfiBlock=true, так что здесь enterFfiBlock НЕ нужен.
@@ -913,13 +977,39 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
   if *firstTokenType == TokenType::Word
   { // Если мы видим TokenType::Word в начале строки, 
     // это значит, что это либо структура, либо линейная запись.
+    //
     // Если в токенах есть оператор (`:=` или `=`) — это линейная запись,
     // даже если есть вложенные линии (например `a := ? True { = 20 }`).
     let hasOperator: bool = lineTokens.iter()
       .any(|t| isMathOperator(*t.getDataType()));
     if hasOperator
-    { // Линейная запись с оператором — идём в linearStructure.
-      return linearStructure(lineTokens, &lineLines, parentLink);
+    { // Линейная запись с оператором.
+      //
+      // Если в правой части есть `?` — это block-as-expression.
+      //
+      // Выполняем блок, заменяем `?` + условие на результат.
+      let hasQuestion: bool = lineTokens.iter()
+        .any(|t| *t.getDataType() == TokenType::Question);
+      if hasQuestion
+      {
+        let mut tokens: Vec<Token> = lineTokens.to_vec();
+        if let Some(qPos) = tokens.iter().position(|t| *t.getDataType() == TokenType::Question)
+        {
+          if qPos + 1 < tokens.len()
+          {
+            let mut conditionTokens: Vec<Token> = tokens[qPos + 1..].to_vec();
+            let result: Token = match executeConditionBlock(&mut conditionTokens, &lineLines, &parentLink)
+            {
+              Some(token) => token,
+              None => Token::newEmpty(TokenType::Any)
+            };
+            tokens.truncate(qPos);
+            tokens.push(result);
+          }
+        }
+        return linearStructure(&tokens, parentLink);
+      }
+      return linearStructure(lineTokens, parentLink);
     }
     if let Some(lineLines) = lineLines
     {
@@ -1063,7 +1153,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
 
         // Запоминаем, была ли это форма МЕТОДА (с круглыми скобками) или
         // просто именованного блока. Для метода body ждёт вызова `name()`,
-        // для именованного блока body выполняется СРАЗУ — иначе его никто
+        // для именованного блока body выполняется сразу — иначе его никто
         // никогда не выполнит (никто не пишет `name` без скобок для вызова).
         let isMethodForm: bool = parameters.is_some();
 
@@ -1092,105 +1182,40 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
       }
     } else
     { // Это линейная запись.
-      return linearStructure(lineTokens, &lineLines, parentLink);
+      //
+      // Если в правой части есть `?` — это block-as-expression.
+      //
+      // Выполняем блок, заменяем `?` + условие на результат.
+      let hasQuestion: bool = lineTokens.iter()
+        .any(|t| *t.getDataType() == TokenType::Question);
+      if hasQuestion
+      {
+        let mut tokens: Vec<Token> = lineTokens.to_vec();
+        if let Some(qPos) = tokens.iter().position(|t| *t.getDataType() == TokenType::Question)
+        {
+          if qPos + 1 < tokens.len()
+          {
+            let mut conditionTokens: Vec<Token> = tokens[qPos + 1..].to_vec();
+            let result: Token = match executeConditionBlock(&mut conditionTokens, &lineLines, &parentLink)
+            {
+              Some(token) => token,
+              None => Token::newEmpty(TokenType::Any)
+            };
+            tokens.truncate(qPos);
+            tokens.push(result);
+          }
+        }
+        return linearStructure(&tokens, parentLink);
+      }
+      return linearStructure(lineTokens, parentLink);
     }
   } else
   // В том случае, если это не структура и не линейная запись, 
-  // мы видим TokenType::Question в начале строки и есть вложения у этой линии, 
+  // мы видим `TokenType::Question` в начале строки и есть вложения у этой линии, 
   // то это условное вложение.
   if *firstTokenType == TokenType::Question && !lineLines.is_none()
-  { // Условное вложение запускает код внутри себя, в том случае если её условное выражение = true;
-    // если условное выражение = false, то условное вложение не запускается, 
-    // но может продолжить запускать блоки ниже, если такие там есть.
-    // в этом моменте мы точно уверены что нашли первое условное вложение.
-    let mut conditions: Vec< Arc<RwLock<Line>> > = Vec::new();
-    let mut saveNewLineIndex: usize = 0; // Сдвиг вниз на сколько условных блоков мы увидели.
-    { // Теперь мы ищем все условные вложения ниже.
-      let lines: Option< Vec< Arc<RwLock<Line>> > > =
-        parentLink.read().unwrap() // Родительская структура.
-          .lines.clone(); // Родительские линии.
-      if let Some(lines) = &lines
-      {
-        let linesLength: usize = lines.len(); // Количество линий родительской структуры.
-        { // Смотрим линии внизу
-          let mut i: usize = unsafe{ *lineIndex };
-          while i < linesLength
-          { // Если line index < lines length, то читаем вниз линии,
-            // и если там первый токен не имеет TokenType::Question,
-            // или количество токенов == 0, то только в этом случае break;
-            // это будет означать, что мы нашли все возможные условные блоки.
-            let lineBottomLink: Arc<RwLock<Line>> = lines[i].clone(); // Ссылка на нижнюю линию.
-            { // Берём нижнюю линию на чтение.
-              let bottomLine: RwLockReadGuard<Line> = lineBottomLink.read().unwrap();
-              if let Some(tokens) = &bottomLine.tokens
-              { // Выходим если линия пустая.
-                if *tokens[0].getDataType() != TokenType::Question
-                { // Выходим если в начале линии нет TokenType::Question.
-                  break;
-                }
-              } else { break }
-            }
-            // Если мы не вышли, значит это условный блок - значит мы его добавляем.
-            conditions.push(lineBottomLink);
-            i += 1;
-          }
-        }
-        
-        // В данном месте мы точно уверенны, что conditions.len() > 1 из-за первого блока.
-        saveNewLineIndex = conditions.len()-1;
-      }
-    }
-    // После нахождения всех возможных условных блоков,
-    // начинаем читать их условия и выполнять.
-    let mut conditionTruth: bool = false; // Харанее создаём true/false ячейку.
-    for conditionLink in &mut conditions
-    { // Итак, мы читаем ссылки на условия в цикле;
-      // после чего мы берём само условие на чтение.
-      let condition: RwLockReadGuard<Line> = conditionLink.read().unwrap();
-      if let Some(tokens) = &condition.tokens
-      {
-        if tokens.len() > 1
-        { // Если условие больше чем просто один токен TokenType::Question,
-          // то значит там обычное if/elif условие.
-          let mut conditionTokens: Vec<Token> = tokens.clone();
-          // Удаляем TokenType::Question токен.
-          conditionTokens.remove(0);
-          drop(condition);
-          // Выполняем блок через общий метод.
-          let result: Option<Token> = executeConditionBlock(&mut conditionTokens, &conditionLink.read().unwrap().lines, &parentLink);
-          if result.is_some()
-          { // Условие было True — блок выполнился.
-            conditionTruth = true;
-            break; // end
-          }
-          // Условие False — идём к следующему elif/else.
-        }
-        // В случае если в токенах условия просто TokenType::Question,
-        // значит это else блок.
-        else if !conditionTruth
-        { // else блок — выполняем body без условия.
-          let blockLines = conditionLink.read().unwrap().lines.clone();
-          drop(condition);
-          // else-блок: условие всегда True.
-          let blockStructure: Arc<RwLock<Structure>> =
-            Arc::new(RwLock::new(Structure::new(
-              None,
-              StructureMut::Constant,
-              StructureType::Method,
-              blockLines,
-              Some(parentLink.clone())
-            )));
-          readLines(blockStructure);
-          break; // end.
-        }
-        //
-      }
-      //
-    }
-
-    // И только после прочтения всех блоков - мы можем сдвигать указатель ниже.
-    unsafe{ *lineIndex += saveNewLineIndex }
-    return true;
+  {
+    return executeConditionStatement(lineIndex, &parentLink);
   }
   //
   false
