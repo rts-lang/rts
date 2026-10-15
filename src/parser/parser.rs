@@ -228,7 +228,7 @@ fn searchReturn(
 // =================================================================================================
 
 /// Читает линейную запись.
-fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> bool
+fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isBlockValue: bool) -> bool
 {
   // Получаем тип операции.
   let operatorType: TokenType = lineTokens.iter().find_map(|token| {
@@ -332,8 +332,11 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>) -> 
   //
   // Это разделение намерений между явным со стороны программиста и 
   // работой состояний внутри программы.
+  //
+  // Если правая часть пришла из блока-выражения `a := ? False { = 1 }`, то `None` — это
+  // результат блока, а не литерал из кода: структуру `a` нужно создать, а не удалить.
   let isCreationNoneLiteral: bool =
-    isCreation &&
+    isCreation && !isBlockValue &&
     rightValue.as_ref()
       .map(|tokens| tokens.len() == 1 && *tokens[0].getDataType() == TokenType::None)
       .unwrap_or(false);
@@ -664,7 +667,7 @@ fn collectConditionBranches(
 
 /// Выполняет тело ветки во временной структуре и возвращает её `result`;
 /// 
-/// Если `result` нет — пустой `Any`-токен.
+/// Если `result` нет — пустой `None`-токен.
 fn executeConditionBody(
   body: Option< Vec< Arc<RwLock<Line>> > >,
   parentLink: &Arc<RwLock<Structure>>
@@ -680,7 +683,7 @@ fn executeConditionBody(
     )));
   readLines(blockStructure.clone());
   let result: Option<Token> = blockStructure.read().unwrap().result.clone();
-  result.unwrap_or_else(|| Token::newEmpty(TokenType::Any))
+  result.unwrap_or_else(|| Token::newEmpty(TokenType::None))
 }
 
 /// Единая логика `if`/`elif`/`else`: и для условного блока-statement, и для блока-выражения.
@@ -688,7 +691,7 @@ fn executeConditionBody(
 /// Ветки проверяются по порядку: блок запускается только по `True`;
 /// `False` и `None` (пустота, #39) — идём к следующей ветке.
 ///
-/// Возвращает `result` выполненной ветки (пустой `Any`-токен, если `result` нет),
+/// Возвращает `result` выполненной ветки (пустой `None`-токен, если `result` нет),
 /// либо `None`, если ни одна ветка не подошла.
 fn executeConditionChain(
   branches: Vec<ConditionBranch>,
@@ -766,7 +769,7 @@ fn replaceConditionExpression(
   branches.extend(collectConditionBranches(parentLink, lineIndex));
 
   let result: Token = executeConditionChain(branches, parentLink)
-    .unwrap_or_else(|| Token::newEmpty(TokenType::Any));
+    .unwrap_or_else(|| Token::newEmpty(TokenType::None));
   let mut replaced: Vec<Token> = tokens[..questionIndex].to_vec();
   replaced.push(result);
   Some(replaced)
@@ -783,8 +786,8 @@ fn linearLine(
 {
   match replaceConditionExpression(lineTokens, lineLines, &parentLink, lineIndex)
   {
-    Some(tokens) => linearStructure(&tokens, parentLink),
-    None => linearStructure(lineTokens, parentLink)
+    Some(tokens) => linearStructure(&tokens, parentLink, true),
+    None => linearStructure(lineTokens, parentLink, false)
   }
 }
 
