@@ -1,4 +1,3 @@
-use crate::tokenizer::read::primitives::skipWhitespaceBytes;
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -32,13 +31,9 @@ pub const operators: &[(&str, TokenType)] = &[
   ("+=", TokenType::PlusEquals),
   ("--", TokenType::UnaryMinus),
   ("-=", TokenType::MinusEquals),
-  ("**", TokenType::UnaryMultiply),
   ("*=", TokenType::MultiplyEquals),
-  ("//", TokenType::UnaryDivide),
   ("/=", TokenType::DivideEquals),
-  ("%%", TokenType::UnaryModulo),
   ("%=", TokenType::ModuloEquals),
-  ("^^", TokenType::UnaryExponent),
   ("^=", TokenType::ExponentEquals),
 
   // Логические
@@ -83,16 +78,18 @@ pub fn getOperator(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Tok
 
     let patternLength: usize = pattern.len();
     
-    // Пропуск пустот;
-    // Ожидает только знаки.
+    // Второй знак пары берётся только вплотную к первому.
+    //
+    // Пробелы в RTS стираются, но между двумя знаками они значимы: `!=` - один оператор,
+    // `! =` - два; `a - -b` - бинарный минус и унарный, а не `--`.
+    // Отдельный токен для пробела не нужен: два раздельных оператора и есть информация о нём.
     if patternLength == 2
     {
-      let mut scanIndex: usize = *index + 1;
-      skipWhitespaceBytes(buffer, &mut scanIndex, bufferLength, b" \t\n");
-      if scanIndex < bufferLength && isSingleChar(buffer[scanIndex])
+      let nextIndex: usize = *index + 1;
+      if nextIndex < bufferLength && isSingleChar(buffer[nextIndex])
       {
-        byte2 = buffer[scanIndex];
-        endIndex = scanIndex + 1;
+        byte2 = buffer[nextIndex];
+        endIndex = nextIndex + 1;
       }
     }
 
@@ -184,7 +181,6 @@ mod tests
       /* todo Может плохо работать с #85, нужен контроль
       ("++x", TokenType::UnaryPlus, 2),
       ("-=abc", TokenType::MinusEquals, 2),
-      ("**123", TokenType::UnaryMultiply, 2),
       */
       ("!=   ", TokenType::NotEquals, 2),
       ("->7", TokenType::Pointer, 2),
