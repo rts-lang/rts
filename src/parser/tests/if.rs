@@ -180,6 +180,19 @@ fn elseFirstEndsChain() -> ()
   );
 }
 
+/// Блок без условия - это обычный `else` - а они всегда выполняются.
+#[test]
+fn elseWithoutIf() -> ()
+{
+  checkStructure!(
+    r#"
+    b~: U8 = 0
+    ? { b = 1 }
+    "#,
+    "b", value "1"
+  );
+}
+
 /// Строка без `?` разрывает цепочку: `?` после неё — новая цепочка, а не `elif`.
 #[test]
 fn lineBreaksChain() -> ()

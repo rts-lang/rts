@@ -749,6 +749,7 @@ fn executeConditionStatement(
 /// Выполняет цепочку: первая ветка — `?` из этих токенов и `bodyLines`
 /// (вложения текущей линии), остальные (`elif`/`else`) — линии `?` ниже.
 /// Возвращает токены, в которых `?` + условие заменены результатом цепочки.
+/// `?` без условия — это else: блок выполняется безусловно.
 ///
 /// Возвращает `None`, если блока-выражения нет — тогда это обычные токены.
 fn replaceConditionExpression(
@@ -759,14 +760,17 @@ fn replaceConditionExpression(
 ) -> Option< Vec<Token> >
 {
   let questionIndex: usize = tokens.iter().position(|t| *t.getDataType() == TokenType::Question)?;
-  if questionIndex + 1 >= tokens.len() { return None } // Нет условия.
+  // Если после `?` нет условия, то это else: блок выполняется безусловно `a := ? { = 1 }`.
+  let hasCondition: bool = questionIndex + 1 < tokens.len();
 
-  let mut branches: Vec<ConditionBranch> = vec![ConditionBranch
-  {
-    condition: Some(tokens[questionIndex + 1..].to_vec()),
+  let mut branches: Vec<ConditionBranch> = vec![ConditionBranch {
+    condition: if hasCondition { Some(tokens[questionIndex + 1..].to_vec()) } else { None },
     body: bodyLines.clone()
   }];
-  branches.extend(collectConditionBranches(parentLink, lineIndex));
+  // Если первый блок уже else, то цепочка закончена: `?` ниже начинает новую.
+  if hasCondition {
+    branches.extend(collectConditionBranches(parentLink, lineIndex));
+  }
 
   let result: Token = executeConditionChain(branches, parentLink)
     .unwrap_or_else(|| Token::newEmpty(TokenType::None));
