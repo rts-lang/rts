@@ -49,6 +49,7 @@ fn types() -> ()
 #[test]
 fn native() -> ()
 {
+  // todo libPath тут пишет что unused, но по факту он юзается ниже в макросе.
   let libPath: String = buildLibrary!(
     r#"
     #include <stdio.h>
