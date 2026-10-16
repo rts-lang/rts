@@ -32,13 +32,9 @@ const fn isMathOperator(dataType: TokenType) -> bool
     TokenType::PlusEquals     | // +=
     TokenType::UnaryMinus     | // --
     TokenType::MinusEquals    | // -=
-    TokenType::UnaryMultiply  | // **
     TokenType::MultiplyEquals | // *=
-    TokenType::UnaryDivide    | // //
     TokenType::DivideEquals   | // /=
-    TokenType::UnaryModulo    | // %%
     TokenType::ModuloEquals   | // %=
-    TokenType::UnaryExponent  | // ^^
     TokenType::ExponentEquals   // ^=
     */
   )

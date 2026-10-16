@@ -68,23 +68,15 @@ pub enum TokenType
   /// -=
   MinusEquals,
 
-  /// **
-  UnaryMultiply,
   /// *=
   MultiplyEquals,
 
-  /// //
-  UnaryDivide,
   /// /=
   DivideEquals,
 
-  /// %%
-  UnaryModulo,
   /// %=
   ModuloEquals,
 
-  /// ^^
-  UnaryExponent,
   /// ^=
   ExponentEquals,
 
@@ -220,16 +212,12 @@ impl ToString for TokenType
       Self::UnaryMinus     => String::from("--"),
       Self::MinusEquals    => String::from("-="),
 
-      Self::UnaryMultiply  => String::from("**"),
       Self::MultiplyEquals => String::from("*="),
 
-      Self::UnaryDivide    => String::from("//"),
       Self::DivideEquals   => String::from("/="),
 
-      Self::UnaryModulo    => String::from("%%"),
       Self::ModuloEquals   => String::from("%="),
 
-      Self::UnaryExponent  => String::from("^^"),
       Self::ExponentEquals => String::from("^="),
 
       // single logical
