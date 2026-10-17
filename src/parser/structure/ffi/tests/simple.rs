@@ -22,8 +22,7 @@ fn simple() -> ()
       (void)data;
       return length;
     }
-    "#,
-    "libstrlen.so"
+    "#
   );
 
   let path: String = writeCodeFile!(
@@ -36,8 +35,7 @@ fn simple() -> ()
 
       length: Usize = strlen("Hello from RTS 222!"; 19)
       "#
-    ),
-    "simpleFfi.rt"
+    )
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);

@@ -55,8 +55,7 @@ fn native() -> ()
       (void)data;
       return length;
     }
-    "#,
-    "libstrlen.so"
+    "#
   );
 
   let path: String = writeCodeFile!(
@@ -66,12 +65,11 @@ fn native() -> ()
         library: Pointer = importNative("{libraryPath}")
         := library.strlen(string.pointer; string.length) + library.strlen(string)
       }}
-      
+
       string: String = "Hello from RTS 222!"
       result: Usize = strlen(string)
       "#
-    ),
-    "stringFfi.rt"
+    )
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
