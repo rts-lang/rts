@@ -19,7 +19,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 pub(super) fn expressionOf(code: &str) -> Token
 {
   let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
+  let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
   
   let mut tokens: Vec<Token> = lines.first()
     .unwrap_or_else(|| panic!("Expression `{}` has no lines", code))
@@ -386,7 +386,7 @@ pub(super) use writeCodeFile;
 /// Временный `.c` файл получает имя из `<name>` с заменой `.so` на `.c`.
 ///
 ///     let libPath: String = buildLibrary!(r#"int add(int a, int b) { return a + b; }"#, "libadd.so");
-///     // дальше: `lib: Pointer = importNative("{libPath}")` в RTS-коде.
+///     // дальше подставить путь: format!(r#"… importNative("{libPath}") …"#)
 macro_rules! buildLibrary
 {
   ($code:expr, $name:expr) =>
