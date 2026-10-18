@@ -26,16 +26,14 @@ fn simple() -> ()
   );
 
   let path: String = writeCodeFile!(
-    format!(
-      r#"
-      strlen(pointer: Pointer; length: Usize) {{
-        library: Pointer = importNative("{libraryPath}")
-        := library.strlen(pointer; length)
-      }}
+    r#"
+    strlen(pointer: Pointer; length: Usize) {{
+      library: Pointer = importNative("{libraryPath}")
+      := library.strlen(pointer; length)
+    }}
 
-      length: Usize = strlen("Hello from RTS 222!"; 19)
-      "#
-    )
+    length: Usize = strlen("Hello from RTS 222!"; 19)
+    "#
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);

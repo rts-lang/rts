@@ -370,10 +370,9 @@ pub(super) static LibraryCounter: AtomicUsize = AtomicUsize::new(0);
 /// Для тестов с `import()`, где несколько `.rt` файлов лежат в одной папке.
 ///
 ///     let dir: String = createDirectory!();
-///     let aPath: String = writeCodeFile!(&dir, r#"hello() { = 42 }"#);
-///     let mainPath: String = writeCodeFile!(&dir, format!(
-///       r#"a := import("{}")"#, relativePath!(&aPath)
-///     ));
+///     let aPath: String = writeCodeFile!(&dir, r#"hello() {{ = 42 }}"#);
+///     let aRel: String = relativePath!(&aPath);
+///     let mainPath: String = writeCodeFile!(&dir, r#"a := import("{aRel}")"#);
 macro_rules! createDirectory
 {
   () =>
@@ -436,12 +435,36 @@ pub(super) fn relativePathFrom(absolute: &str, dir: Option<&str>) -> String
 /// - `writeCodeFile!(code)` — в `/tmp/{id}.rt`
 /// - `writeCodeFile!(dir, code)` — в `{dir}/{id}.rt` (несколько файлов в одной папке для `import`)
 ///
-/// В RTS-код для `import` подставлять `relativePath!(&path)`, не absolute.
+/// Литерал проходит через `format!`: `{libraryPath}` / `{rel}` подставляются из scope.
+/// Уже готовая `String` пишется как есть (без повторного `format!`).
 ///
 ///     let path: String = writeCodeFile!(r#"a := 10"#);
+///     let path: String = writeCodeFile!(r#"lib = importNative("{libraryPath}")"#);
 ///     let aPath: String = writeCodeFile!(&dir, r#"hello() { = 42 }"#);
 macro_rules! writeCodeFile
 {
+  // Литерал — format! (подстановка `{name}` из окружающего scope).
+  ($code:literal) =>
+  {{
+    let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let path: std::path::PathBuf = std::env::temp_dir().join(format!("{id}.rt"));
+    let content: String = format!($code);
+    std::fs::write(&path, &content)
+      .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
+    path.to_string_lossy().replace('\\', "/")
+  }};
+
+  ($dir:expr, $code:literal) =>
+  {{
+    let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let path: std::path::PathBuf = std::path::PathBuf::from($dir).join(format!("{id}.rt"));
+    let content: String = format!($code);
+    std::fs::write(&path, &content)
+      .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
+    path.to_string_lossy().replace('\\', "/")
+  }};
+
+  // Уже собранная строка (например, результат внешнего `format!`).
   ($code:expr) =>
   {{
     let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);

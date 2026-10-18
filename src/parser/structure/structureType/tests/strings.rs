@@ -59,17 +59,15 @@ fn native() -> ()
   );
 
   let path: String = writeCodeFile!(
-    format!(
-      r#"
-      strlen(string: String) {{
-        library: Pointer = importNative("{libraryPath}")
-        := library.strlen(string.pointer; string.length) + library.strlen(string)
-      }}
+    r#"
+    strlen(string: String) {{
+      library: Pointer = importNative("{libraryPath}")
+      := library.strlen(string.pointer; string.length) + library.strlen(string)
+    }}
 
-      string: String = "Hello from RTS 222!"
-      result: Usize = strlen(string)
-      "#
-    )
+    string: String = "Hello from RTS 222!"
+    result: Usize = strlen(string)
+    "#
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
