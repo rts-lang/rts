@@ -1,20 +1,25 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
-use crate::parser::testing::{checkStructure, createDirectory, relativePath, writeCodeFile};
+use crate::parser::testing::{checkStructure, createDirectory, relativePath, showStructure, writeCodeFile};
+use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
-// Тесты на `import()`: путь считается от файла, в котором он написан.
+// Тесты на `import()`; Путь считается от файла, в котором он написан.
 
 // =================================================================================================
 
-/// `import("./N.rt")` — простой импорт одного файла.
+/// Простой импорт одного файла.
 #[test]
 fn simple() -> ()
 {
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let directory: String = createDirectory!();
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let testPath: String = writeCodeFile!(
     &directory,
     r#"
@@ -26,6 +31,8 @@ fn simple() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let testRel: String = relativePath!(&testPath);
   let mainPath: String = writeCodeFile!(
     &directory,
@@ -34,29 +41,35 @@ fn simple() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let main: Arc<RwLock<Structure>> = runCodeFile(&mainPath);
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   checkStructure!(main, "a.hello", stype StructureType::Method);
   checkStructure!(main, "a.value", stype StructureType::Usize, value "4");
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let _ = std::fs::remove_file(&testPath);
   let _ = std::fs::remove_file(&mainPath);
   let _ = std::fs::remove_dir(&directory);
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 }
 
 // =================================================================================================
 
-/// Вложенный `import()`; Путь считается от файла, где он написан, а не от main.
-///
-/// todo: `bHello := b.hello()` возвращает пустую строку вместо `"b: hello"`.
-///  В `:=` return при вызове метода на модуле — модуль имеет `name = None`,
-///  и `:=` не находит именную структуру для записи result.
+/// Дерево импортов по `relative` путям;
+/// 
+/// Для проверки создаются ручные папки и используются `absolute` пути
+/// и далее подгоняются под реальные `relative`.
 #[test]
-#[ignore]
 fn nested() -> ()
 {
-  let directory: String = createDirectory!();
-
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   // Структура:
   //   dir/
   //     main         — Импортирует `lib/a` и `lib/deep/c`
@@ -66,12 +79,21 @@ fn nested() -> ()
   //       deep/
   //         c        — Импортирует `d`, вызывает `d.hello()`
   //         d        — `hello() { := "d: hello" }`
-
+  
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
+  // Создание директорий.
+  
+  let directory: String = createDirectory!();
+  
   let libraryDirectory: String = format!("{directory}/lib");
-  let deepDirectory: String = format!("{libraryDirectory}/deep");
   std::fs::create_dir_all(&libraryDirectory).unwrap();
+  
+  let deepDirectory: String = format!("{libraryDirectory}/deep");
   std::fs::create_dir_all(&deepDirectory).unwrap();
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let bPath: String = writeCodeFile!(
     &libraryDirectory,
     r#"
@@ -81,6 +103,8 @@ fn nested() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let dPath: String = writeCodeFile!(
     &deepDirectory,
     r#"
@@ -90,6 +114,8 @@ fn nested() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let dRel: String = relativePath!(&dPath);
   let cPath: String = writeCodeFile!(
     &deepDirectory,
@@ -103,6 +129,8 @@ fn nested() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let bRel: String = relativePath!(&bPath);
   let cRelDeep: String = relativePath!(&cPath, "deep");
   let aPath: String = writeCodeFile!(
@@ -122,6 +150,8 @@ fn nested() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let aRel: String = relativePath!(&aPath, "lib");
   let cRel: String = relativePath!(&cPath, "lib/deep");
   let mainPath: String = writeCodeFile!(
@@ -132,16 +162,32 @@ fn nested() -> ()
     "#
   );
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let main: Arc<RwLock<Structure>> = runCodeFile(&mainPath);
 
-  // `a.rt` импортировал `b.rt`.
-  checkStructure!(main, "a.bHello", value "b: hello");
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
+  // `a.rt` импортировал `b.rt`; значение метода модуля вернулось в `bHello`.
+  showStructure!(main, "a.bHello", stype);
+  checkStructure!(
+    main, "a.bHello",
+    type TokenType::String, stype StructureType::String, value "b: hello"
+  );
   checkStructure!(main, "a.hello", stype StructureType::Method);
 
-  // `c.rt` импортировал `d.rt`.
-  checkStructure!(main, "c.dHello", value "d: hello");
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
+  // `c.rt` импортировал `d.rt`; то же для вложенного на уровень глубже.
+  showStructure!(main, "c.dHello", stype);
+  checkStructure!(
+    main, "c.dHello",
+    type TokenType::String, stype StructureType::String, value "d: hello"
+  );
   checkStructure!(main, "c.hello", stype StructureType::Method);
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
   let _ = std::fs::remove_file(&bPath);
   let _ = std::fs::remove_file(&aPath);
   let _ = std::fs::remove_file(&dPath);
@@ -150,6 +196,8 @@ fn nested() -> ()
   let _ = std::fs::remove_dir(&deepDirectory);
   let _ = std::fs::remove_dir(&libraryDirectory);
   let _ = std::fs::remove_dir(&directory);
+  
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 }
 
 // =================================================================================================

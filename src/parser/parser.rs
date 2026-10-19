@@ -1513,10 +1513,15 @@ pub fn runCodeFile(path: &str) -> Arc<RwLock<Structure>>
   let absolutePath: String = std::fs::canonicalize(path)
     .unwrap_or_else(|error| panic!("runCodeFile: canonicalize `{path}`: {error}"))
     .to_string_lossy().replace('\\', "/");
-  let previousPath: Option<Arc<String>> = crate::_sourcePath.read().unwrap().clone();
-  *crate::_sourcePath.write().unwrap() = Some(Arc::new(absolutePath));
+  let previousPath: Option<Arc<String>> =
+    crate::_sourcePath.with(|sourcePath| sourcePath.borrow().clone());
+  crate::_sourcePath.with(|sourcePath|
+    *sourcePath.borrow_mut() = Some(Arc::new(absolutePath))
+  );
   let result: Arc<RwLock<Structure>> = runCodeBytes(&mut buffer);
-  *crate::_sourcePath.write().unwrap() = previousPath;
+  crate::_sourcePath.with(|sourcePath|
+    *sourcePath.borrow_mut() = previousPath
+  );
   result
 }
 

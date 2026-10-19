@@ -385,12 +385,16 @@ impl Function
       let importPath: String =
         if !std::path::Path::new(&importPath).is_absolute()
         {
-          let currentFile: String = if let Some(sourcePath) = _sourcePath.read().unwrap().as_ref() {
-            sourcePath.as_str().to_string()
-          } else 
-          { // Код запущенного файла.
-            _filePath.get().unwrap().clone()
-          };
+          let currentFile: String = _sourcePath.with(|sourcePath|
+          {
+            if let Some(sourcePath) = sourcePath.borrow().as_ref()
+            {
+              sourcePath.as_str().to_string()
+            } else
+            { // Код запущенного файла.
+              _filePath.get().unwrap().clone()
+            }
+          });
           std::path::Path::new(&currentFile)
             .parent()
             .map(|dir| dir.join(&importPath).components().collect::<std::path::PathBuf>())
@@ -430,8 +434,11 @@ impl Function
       //
       // Пока модуль загружается, исполняется код его файла:
       // структуры модуля запомнят его путь при создании.
-      let previousSourcePath: Option<Arc<String>> = _sourcePath.read().unwrap().clone();
-      *_sourcePath.write().unwrap() = Some(Arc::new(importPath));
+      let previousSourcePath: Option<Arc<String>> =
+        _sourcePath.with(|sourcePath| sourcePath.borrow().clone());
+      _sourcePath.with(|sourcePath|
+        *sourcePath.borrow_mut() = Some(Arc::new(importPath))
+      );
 
       let moduleLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
         None,
@@ -446,7 +453,9 @@ impl Function
       // пушатся в `moduleLink.structures` по мере исполнения его строк,
       // так же, как это происходит при обычном запуске кода.
       readLines(moduleLink.clone());
-      *_sourcePath.write().unwrap() = previousSourcePath;
+      _sourcePath.with(|sourcePath|
+        *sourcePath.borrow_mut() = previousSourcePath
+      );
 
       structure.pushStructure(moduleLink);
 

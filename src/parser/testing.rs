@@ -146,25 +146,69 @@ pub(super) fn checkLines(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
   ))
 }
 
-/// Печатает все грани структуры: `type`, `stype`, `utype`, `value`.
+/// Печатает ровно запрошенные грани структуры по пути: `type`, `stype`, `utype`, `value`, `mut`, `lines`.
 ///
-/// Для отладки кейсов без assert.
-/// 
+/// Для отладки кейсов без assert: не паникует. У метода и модуля токена нет —
+/// `type`/`value` печатаются как `<none>`. Грани различаются между собой:
+/// `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
+/// `utype` - полный объявленный тип (`utype(a)`).
+///
 /// В `cargo test` вывод виден только с `-- --nocapture`
 /// (или `RUST_TEST_NOCAPTURE=1`).
-pub(super) fn printStructure(main: &Arc<RwLock<Structure>>, name: &str, code: &str) -> ()
+pub(super) fn printStructureFacets(
+  main: &Arc<RwLock<Structure>>,
+  name: &str,
+  facets: &[&str]
+) -> ()
 {
-  let (tokenType, data): (TokenType, String) = tokenOf(main, name);
-  
+  for facet in facets
+  {
+    match *facet
+    {
+      "type" | "stype" | "utype" | "value" | "mut" | "lines" => (),
+      _ => panic!("showStructure: unknown facet '{}' for '{}'", facet, name)
+    }
+  }
+
   let structure: Arc<RwLock<Structure>> = getStructure(main, name);
   let structureLock: RwLockReadGuard<Structure> = structure.read().unwrap();
-  
-  let stype: String = structureLock.dataType.to_string();
-  let utype: String = structureLock.utype().to_string();
-  println!(
-    "show `{}` for '{}' | type={}, stype={}, utype={}, value={}",
-    code, name, tokenType.to_string(), stype, utype, data
-  );
+
+  // Токен читается без паники: у методов и модулей его может не быть.
+  let token: Option<(TokenType, String)> = structureLock.lines.as_ref()
+    .and_then(|lines| lines.first())
+    .and_then(|line| line.read().unwrap().tokens.clone())
+    .and_then(|tokens| tokens.first().map(|token|
+      (*token.getDataType(), token.getData().toString().unwrap_or_default())
+    ));
+
+  let mut parts: Vec<String> = Vec::new();
+
+  for facet in facets
+  {
+    match *facet
+    {
+      "type" => parts.push(match &token
+      {
+        Some((tokenType, _)) => format!("type={}", tokenType.to_string()),
+        None => String::from("type=<none>")
+      }),
+      "stype" => parts.push(format!("stype={}", structureLock.dataType.to_string())),
+      "utype" => parts.push(format!("utype={}", structureLock.utype().to_string())),
+      "value" => parts.push(match &token
+      {
+        Some((_, data)) => format!("value={}", data),
+        None => String::from("value=<none>")
+      }),
+      "mut" => parts.push(format!("mut={}", structureLock.mutable.to_string())),
+      "lines" => parts.push(format!(
+        "lines={}",
+        structureLock.lines.as_ref().map(|lines| lines.len()).unwrap_or(0)
+      )),
+      _ => () // Проверено выше.
+    }
+  }
+
+  println!("show for '{}' | {}", name, parts.join(", "));
 }
 
 // =================================================================================================
@@ -269,50 +313,40 @@ pub(super) use tryCheckStructure;
 
 // =================================================================================================
 
-/// Отладка без assert: выполняет код и печатает type, stype, value структуры.
+/// Отладка без assert: печатает содержимое структуры по пути, не паникует.
 ///
-/// Принимает те же грани, что и `checkStructure!`: чтобы переключиться между показом и
-/// проверкой, достаточно поменять имя макроса. Печатает ВСЕ грани, а для указанных
-/// ещё и расхождение с ожиданием (`≠`). Не паникует.
+/// Все поля руками писать не нужно — макрос сам выводит то, что внутри,
+/// по пути от выполненной структуры. По выводу записываются правильные
+/// ожидания в `checkStructure!`:
+///
+///     showStructure!(main, "a.bHello", stype);
+///     // show for 'a.bHello' | stype=String
+///
+/// Печатается ровно запрошенное; грани различаются между собой:
+///
+///     showStructure!(main, "a", type, stype, utype, value);
+///     // show for 'a' | type=UInt, stype=U8, utype=U8, value=10
+///
+/// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
+/// `utype` - полный объявленный тип (`utype(a)`), `value` - значение (`{a}`),
+/// `mut` - уровень изменения, `lines` - сколько строк внутри.
+/// У метода и модуля токена нет — `type`/`value` печатаются как `<none>`.
+/// Грань хотя бы одна: ровно перечисленное, «все сразу» без перечисления - нет.
 ///
 /// Вывод в консоль:
 ///
 ///     cargo test -- --nocapture --test-threads=1
 ///     cargo test testName -- --nocapture
-///
-///     showStructure!("a := 1e308 + 1e308", "a", type TokenType::UFloat);
-///     // show `a = 1e308 + 1e308` for 'a' | type=UFloat, stype=F64, value=1.7976931348623157e308
 macro_rules! showStructure
 {
-  // `showStructure!("a := 10", "a", value "11")` — имя структуры строкой (путь: `"a.b"`).
-  ($code:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  // `showStructure!(main, "a.bHello", stype)` — выполненная структура, путь
+  // и грани без ожиданий.
+  ($main:expr, $name:expr $(, $facet:ident)+ $(,)?) =>
   {{
-    let main = $crate::parser::parser::runCode($code);
-    $crate::parser::testing::printStructure(&main, $name, $code);
-    $(
-      if let Err(message) = $crate::parser::testing::checkType(&main, $name, $code, &$t)
-      { println!("  ≠ {}", message); }
-    )?
-    $(
-      if let Err(message) = $crate::parser::testing::checkStype(&main, $name, $code, &$s)
-      { println!("  ≠ {}", message); }
-    )?
-    $(
-      if let Err(message) = $crate::parser::testing::checkUtype(&main, $name, $code, &$u)
-      { println!("  ≠ {}", message); }
-    )?
-    $(
-      if let Err(message) = $crate::parser::testing::checkValue(&main, $name, $code, &$v)
-      { println!("  ≠ {}", message); }
-    )?
-    $(
-      if let Err(message) = $crate::parser::testing::checkMut(&main, $name, $code, &$m)
-      { println!("  ≠ {}", message); }
-    )?
-    $(
-      if let Err(message) = $crate::parser::testing::checkLines(&main, $name, $code, $l)
-      { println!("  ≠ {}", message); }
-    )?
+    let main = &$main;
+    $crate::parser::testing::printStructureFacets(
+      main, $name, &[$(stringify!($facet)),*]
+    );
   }};
 }
 
@@ -379,7 +413,7 @@ macro_rules! createDirectory
   {{
     let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-    let directoryPath: std::path::PathBuf = std::env::temp_dir().join(format!("rtsDir{id}"));
+    let directoryPath: std::path::PathBuf = std::env::temp_dir().join(format!("rtsDir-{id}"));
 
     std::fs::create_dir_all(&directoryPath)
       .unwrap_or_else(|error| panic!("Create dir `{}`: {}", directoryPath.display(), error));
@@ -447,7 +481,7 @@ macro_rules! writeCodeFile
   ($code:literal) =>
   {{
     let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let path: std::path::PathBuf = std::env::temp_dir().join(format!("{id}.rt"));
+    let path: std::path::PathBuf = std::env::temp_dir().join(format!("-{id}.rt"));
     let content: String = format!($code);
     std::fs::write(&path, &content)
       .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
@@ -457,7 +491,7 @@ macro_rules! writeCodeFile
   ($dir:expr, $code:literal) =>
   {{
     let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let path: std::path::PathBuf = std::path::PathBuf::from($dir).join(format!("{id}.rt"));
+    let path: std::path::PathBuf = std::path::PathBuf::from($dir).join(format!("-{id}.rt"));
     let content: String = format!($code);
     std::fs::write(&path, &content)
       .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
@@ -468,7 +502,7 @@ macro_rules! writeCodeFile
   ($code:expr) =>
   {{
     let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let path: std::path::PathBuf = std::env::temp_dir().join(format!("{id}.rt"));
+    let path: std::path::PathBuf = std::env::temp_dir().join(format!("-{id}.rt"));
     std::fs::write(&path, $code)
       .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
     path.to_string_lossy().replace('\\', "/")
@@ -477,7 +511,7 @@ macro_rules! writeCodeFile
   ($dir:expr, $code:expr) =>
   {{
     let id: usize = $crate::parser::testing::FileCounter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let path: std::path::PathBuf = std::path::PathBuf::from($dir).join(format!("{id}.rt"));
+    let path: std::path::PathBuf = std::path::PathBuf::from($dir).join(format!("-{id}.rt"));
     std::fs::write(&path, $code)
       .unwrap_or_else(|error| panic!("Write of `{}`: {}", path.display(), error));
     path.to_string_lossy().replace('\\', "/")
@@ -629,11 +663,24 @@ mod tests
     assert!(tryCheckStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::U8, value "10").is_ok());
   }
 
-  /// `showStructure!` не паникует и печатает грани (смотреть с `-- --nocapture`).
+  /// `showStructure!` не паникует и печатает ровно запрошенные грани
+  /// (смотреть с `-- --nocapture`).
   #[test]
   fn showStructure() -> ()
   {
-    showStructure!("a := 10", "a");
+    let main: Arc<RwLock<Structure>> = runCode("a := 10");
+    showStructure!(main, "a", stype);
+    showStructure!(main, "a", type, stype, value);
+    showStructure!(main, "a", mut, lines,);
+  }
+
+  /// Путь через точку и метод без токена: не паникует, печатает `type=<none>`.
+  #[test]
+  fn showStructureDottedAndValueless() -> ()
+  {
+    let main: Arc<RwLock<Structure>> = runCode("f(n: UInt) {\n  = n\n}\nf(1)\n");
+    showStructure!(main, "f.n", value);
+    showStructure!(main, "f", stype, type);
   }
 
   // ===============================================================================================

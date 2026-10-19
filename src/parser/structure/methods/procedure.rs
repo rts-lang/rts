@@ -132,7 +132,7 @@ impl Structure
         _ => 
         { // Если не найдено совпадений среди стандартных процедур,
           // значит это нестандартный метод.
-          if let Some(calledStructureLink) = self.getStructureByScope(structureName) 
+          if let Some(calledStructureLink) = self.getStructureByScope(structureName)
           {
             // 1. Вычисляем значения переданных аргументов в контексте вызывающей стороны;
             // Они здесь точно есть, но в Some мы оборачиваем чтобы не делать clone ниже при take.
@@ -214,12 +214,17 @@ impl Structure
             // оригинал (нужно для scope поиска вверх).
             let calledSourcePath: Option<Arc<String>> =
               calledStructureLink.read().unwrap().sourcePath.clone();
-            let previousSourcePath: Option<Arc<String>> = _sourcePath.read().unwrap().clone();
-            *_sourcePath.write().unwrap() = calledSourcePath;
+            let previousSourcePath: Option<Arc<String>> =
+              _sourcePath.with(|sourcePath| sourcePath.borrow().clone());
+            _sourcePath.with(|sourcePath|
+              *sourcePath.borrow_mut() = calledSourcePath
+            );
             let calledClone: Arc<RwLock<Structure>> =
               Arc::new(RwLock::new(calledStructureLink.read().unwrap().deepClone()));
             readLines(calledClone.clone());
-            *_sourcePath.write().unwrap() = previousSourcePath;
+            _sourcePath.with(|sourcePath|
+              *sourcePath.borrow_mut() = previousSourcePath
+            );
             // Переносим result из clone в оригинал, чтобы caller (function.rs)
             // мог прочитать его через getStructureByScope.
             let clonedResult: Option<Token> = calledClone.read().unwrap().result.clone();
