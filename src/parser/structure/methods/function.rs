@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::tokenizer::types::token::{Token};
 use crate::tokenizer::types::tokenType::TokenType;
@@ -6,6 +6,7 @@ use crate::{_filePath, _sourcePath};
 use crate::parser::parser::readLines;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::primitives::numberPrimitiveType;
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::parser::structure::ffi::scopeStack;
@@ -470,81 +471,36 @@ impl Function
 
   // ===============================================================================================
 
-  /// Создает структуру из токена.
-  /// 
-  /// todo !!! Этот метод нельзя трогать пока не будет он переделан под приведение типа просто.
-  ///  Логика такая: параметры методов сами делают приведение при указании типа.
-  ///  Но если нужно ручное приведение типа - то делаем через этот метод.
-  /// 
-  /// todo Нужно чтобы оно использовалось только в параметрах запроса, 
-  ///   а после этого было уничтожено из-за конца структуры или конца вызова.
-  fn usize(
-    structure: &Structure, 
-    parameters: &Parameters, 
-    value: &mut [Token], 
-    i: usize
-  )  -> ()
+  /// Приводит значение к границам StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)`.
+  ///
+  /// Это метод-помощник: берёт токен и возвращает токен, структуру не создаёт.
+  /// Границы те же, что при объявлении `a: U8 = ...`: считает их [`Structure::normalizeToken`],
+  /// поэтому всё что больше - зажимается в рамки типа, а не число даёт базовое значение.
+  ///
+  /// Результат остаётся токеном и работает в выражении: `c := U8(a) + b`.
+  /// Тип данных дальше не несёт - его хранит структура: `x: U8 = a`.
+  fn cast(
+    structure: &Structure,
+    parameters: &Parameters,
+    value: &mut [Token],
+    i: usize,
+    structureType: StructureType
+  ) -> ()
   {
     match parameters.getExpression(structure, 0)
     {
-      None => value[i].setDataType(TokenType::None),
-      Some(p0) =>
+      None =>
+      { // Нет аргумента - нет значения.
+        value[i].setDataType(TokenType::None);
+        value[i].setData(None);
+      }
+      Some(mut token) =>
       {
-        let mut tempStructure: Structure = Structure::new(
-          None,
-          StructureMut::Constant, // todo Модификаторы еще, но тут сложно т.к. ~~ не напишешь просто так;
-                                  //  либо можно сделать MutUsize.
-          StructureType::Usize,
-          Some(vec![Arc::new(RwLock::new(Line {
-            tokens: Some(vec![p0]),
-            lines: None
-          }))]),
-          None
-        );
-    
-        // Нормализуем
-        if let Some(lines) = &mut tempStructure.lines 
-        {
-          if let Some(line) = lines.get_mut(0) 
-          {
-            let mut lineLink: RwLockWriteGuard<Line> = line.write().unwrap();
-            if let Some(tokens) = &mut lineLink.tokens 
-            {
-              if let Some(token) = tokens.get_mut(0) {
-                Structure::normalizeToken(token, StructureType::Usize);
-              }
-            }
-            //
-          }
-        }
-    
-        // Добавляем в structures.
-        let tempStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(tempStructure));
-        structure.pushStructure(tempStructureLink.clone());
-        
-        // Находим индекс этой структуры в structures.
-        //
-        // todo Не уверен что это лучший вариант
-        let index: usize =
-          structure.structures.read().unwrap()
-            .as_ref()
-            .expect("structures should be Some after pushStructure") // todo TokenType::None
-            .iter()
-            .position(|s| Arc::ptr_eq(s, &tempStructureLink))
-            .expect("newly added structure not found"); // todo TokenType::None
-        
-        // Возвращаем Link с "#temp{index}".
-        //
-        // todo В теории правильно вернуть нормальную ссылку - потому что в expression
-        //  могут быть еще действия дальше и такой Link токен не сработает сейчас.
-        value[i].setDataType(TokenType::Link);
-        value[i].setData(format!("#{}", index));
-        println!("    Structure index: {}", value[i].getData().toString().unwrap());
-        
-        //
+        Structure::normalizeToken(&mut token, structureType);
+        value[i].setDataType(*token.getDataType());
+        value[i].setData(token.getData());
       }
     }
-    //
   }
 
   // ===============================================================================================
@@ -582,6 +538,13 @@ impl Structure
       // Эти методы ожидают аргументов.
       'basicMethods:
       { // Это позволит выйти, если мы ожидаем не стандартные варианты.
+        // Методы приведения к StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)`.
+        if let Some(structureType) = numberPrimitiveType(&structureName)
+        {
+          Function::cast(self, &parameters, value, i, structureType);
+          return;
+        }
+        //
         match structureName.as_str()
         { // Проверяем на сходство стандартных функций.
 
@@ -595,7 +558,6 @@ impl Structure
           "len" => Function::len(self, &parameters, value, i),
           "importNative" => Function::importNative(self, &parameters, value, i),
           "import" => Function::import(self, &parameters, value, i),
-          "Usize" => Function::usize(self, &parameters, value, i),
           _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод.
         }
         return;
