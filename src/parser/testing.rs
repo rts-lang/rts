@@ -593,7 +593,7 @@ mod tests
     checkStructure!("f(n: UInt) {\n  = n\n}\nf(1)\n", "f.n", value "1");
   }
 
-  /// Только `type` - как в `types1.rt` (`println(type(10+10))`).
+  /// Только `type`.
   #[test]
   fn typeOnly() -> ()
   {
