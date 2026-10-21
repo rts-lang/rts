@@ -27,7 +27,7 @@
 
   Patterns (*, ?) are expanded by us, quote them or not:
     bun run release "native/*"
-    bun run release native/types/*.rt
+    bun run release native/test/*.rt
 
   API (import without running the CLI — gated by import.meta.main):
     import { ensureRts, ensureNative, ensureWasm } from "../../build.ts";

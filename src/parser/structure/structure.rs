@@ -1,6 +1,5 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::_sourcePath;
-use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope, FfiExpect};
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::{Parameters};
@@ -135,7 +134,7 @@ impl Structure
       structures: Arc::new(RwLock::new(None)),
       parent,
       isFfiBlock: false,
-      sourcePath: _sourcePath.read().unwrap().clone(),
+      sourcePath: _sourcePath.with(|sourcePath| sourcePath.borrow().clone()),
       lineIndex: 0
     }
   }
@@ -659,350 +658,22 @@ impl Structure
               );
               value[index].setDataType( TokenType::Link ); // todo: Речь не о Link, а об Array?
             }
-            _ => { setNone(value, index); } // В структуре не было вложений.
+            _ =>
+            { // В структуре не было вложений.
+              setNone(value, index);
+            }
           }
         }
         //
-      } else { setNone(value, index); } // Не нашли структуру.
-    } else { setNone(value, index); } // Ошибка имени структуры.
+      } else
+      { // Не нашли структуру.
+        setNone(value, index);
+      }
+    } else
+    { // Ошибка имени структуры.
+      setNone(value, index); 
+    }
     //
-  }
-
-  // ===============================================================================================
-
-  /// Получает значение из ссылки на структуру;
-  /// 
-  /// Ссылка на структуру может состоять как из struct name, так и просто из цифр.
-  pub fn linkExpression(
-    &self, // Текущая структура - текущее пространство.
-    currentStructureLink: Option< Arc<RwLock<Self>> >, // Структура предыдущего уровня ссылки.
-    link: &mut Vec<String>, // Осталось читать.
-    parameters: Option< Vec<Token> >
-  ) -> Token
-  { // Обработка динамического выражение.
-    if link[0].starts_with('[')
-    { // Получаем динамическое выражение между [].
-      link[0] = format!("{{{}}}", &link[0][1..link[0].len()-1]);
-      // Получаем новую строку значения из обработки выражения.
-      link[0] = self.formatQuote(link[0].clone());
-    }
-    // Обработка пути.
-    match link[0].parse::<usize>()
-    { // Проверяем тип.
-      Ok(lineNumber) => 
-      { // Если мы нашли цифру в ссылке, значит это номер на линию в структуре.
-        // Номер ссылается только на пространство currentStructureLink.
-        link.remove(0);
-
-        if let Some(ref currentStructureLock) = currentStructureLink 
-        { // Это структура, которая была передана предыдущем уровнем ссылки.
-          // Только в ней мы можем найти нужную линию.
-          let currentStructure: RwLockReadGuard<Self> = currentStructureLock.read().unwrap(); // todo: это можно вынести в временный блок.
-
-          if let Some(lines) = &currentStructure.lines
-          {
-            if let Some(line) = lines.get(lineNumber)                                         // Для получения линии и выхода из read().unwrap().
-            { // Тогда просто берём такую линию по её номеру.
-              let mut lineTokens: Vec<Token> =
-              {
-                line.read().unwrap()
-                  .tokens.clone().unwrap_or_default() // todo плохо
-              };
-
-              if !lineTokens.is_empty()
-              { // Проверяем количество токенов, чтобы понять, можем ли мы вычислить что-то.
-                
-                // В линии есть хотя бы 1 токен.
-                if !link.is_empty()
-                { // Если дальше есть продолжение ссылки.
-                  link.insert(0, lineTokens[0].getData().toString().unwrap_or_default());
-
-                  // То мы сначала проверяем что такая структура есть во внутреннем пространстве.
-                  if currentStructure.getStructureByLink(
-                    &lineTokens[0].getData().toString().unwrap_or_default()
-                  ).is_some()
-                  {
-                    drop(currentStructure);
-                    return currentStructureLock.read().unwrap()
-                      .linkExpression(None, link, parameters);
-                  }
-                  // А если такой ссылки там не было, то значит она в self.
-                  drop(currentStructure);
-                  return self.linkExpression(currentStructureLink, link, parameters);
-                } else
-                if parameters.is_some()
-                { // Если это был просто запуск метода, то запускаем его.
-                  drop(currentStructure);
-
-                  let mut parametersToken: Token = Token::newNesting( Vec::new() ); // todo: add parameters.
-                  parametersToken.setDataType( TokenType::CircleBracketBegin );
-
-                  let mut expressionTokens: Vec<Token> = vec![
-                    Token::new( TokenType::Word, lineTokens[0].getData() ),
-                    parametersToken
-                  ];
-
-                  return currentStructureLock.read().unwrap()
-                    .expression(&mut expressionTokens);
-                } else
-                { // если дальше нет продолжения ссылки.
-                  if *lineTokens[0].getDataType() == TokenType::Word
-                  {
-                    // Если это слово, то это либо ссылка т.к. там много значений в ней;
-                    // Либо это структура с одиночным вложением и мы можем его забрать сейчас.
-
-                    if let Some(childStructureLink) = currentStructure.getStructureByLink(
-                      &lineTokens[0].getData().toString().unwrap_or_default()
-                    )
-                    { // Пробуем проверить что там 1 линия вложена в структуре;
-                      // После чего сможем посчитать её значение.
-                      let childStructure: RwLockReadGuard<Self> = childStructureLink.read().unwrap();
-                      if lines.len() == 1
-                      {
-                        if let Some(lines) = &childStructure.lines
-                        {
-                          if let Some(line) = lines.first()
-                          { // По сути это просто 0 линия через expression.
-                            let mut lineTokens: Vec<Token> =
-                              line.read().unwrap()
-                                .tokens.clone().unwrap_or_default(); // todo плохо
-                            drop(childStructure);
-                            return self.expression(&mut lineTokens);
-                            //
-                          }
-                        }
-                        //
-                      }
-                    }
-                    // Если ничего не получилось, значит оставляем ссылку.
-                    drop(currentStructure);
-                    return Token::new( TokenType::Link, lineTokens[0].getData() );
-                  } else 
-                  { // Если это не слово, то смотрим на результат expression.
-                    return self.expression(&mut lineTokens);
-                  }
-                  //
-                }
-              } else 
-              { // В линии нет токенов, нам нечего вычислять.
-                return Token::newEmpty( TokenType::None );
-              }
-            }
-            //
-          }
-        }
-        //
-      }
-      Err(_) => 
-      { // Если мы не нашли цифры в ссылке, значит это просто struct name;
-        // Они работают в пространстве первого self, но могут и внутри себя,
-        // поэтому блок далее определяет ссылку на необходимую структуру;
-        //
-        // Это голова ссылки (`a` в `a.b`) или голое имя: ищется ВВЕРХ по области видимости.
-        // Вниз идёт только остаток пути после неё.
-        let structureLink: Option< Arc<RwLock<Self>> > =
-          if let Some(currentStructureLink) = currentStructureLink
-          { // Если нет в локальном окружении, то просто берём из self.
-            
-            // Если есть в локальном окружении.
-            let structure: RwLockReadGuard<Self> = currentStructureLink.read().unwrap();
-            let hasLines: bool = 
-            {
-              let childStructureLink: Option< Arc<RwLock<Self>> > = structure.getStructureByScope(&link[0]);
-              if let Some(childStructureLink) = childStructureLink
-              {
-                if let Some(lines) = &childStructureLink.read().unwrap().lines {
-                  !lines.is_empty()
-                } else {
-                  false
-                }
-                //
-              } else {
-                false
-              }
-              //
-            };
-
-            if hasLines {
-              structure.getStructureByScope(&link[0])
-            } else {
-              // По области видимости: из блока `? { }` видна и структура выше блока.
-              self.getStructureByScope(&link[0])
-            }
-            //
-          } else {
-            self.getStructureByScope(&link[0])
-          };
-        // Далее мы работаем с полученной ссылкой пространства.
-        link.remove(0);
-        if let Some(structureLink) = structureLink
-        { // Это структура которую мы нашли по имени в self пространстве.
-
-          // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-          // Обработка нативной библиотеки.
-          // Проверяем: остались ли ещё сегменты пути (имя метода).
-          if !link.is_empty() 
-          {
-            // Читаем структуру, которая представляет загруженную библиотеку.
-            let structureGuard: RwLockReadGuard<Self> = structureLink.read().unwrap();
-
-            // Если структура имеет тип Pointer — это динамическая библиотека.
-            if structureGuard.dataType == StructureType::Pointer
-            {
-              // Далее извлекаем указатель на библиотеку, сохранённый в lines[0].tokens[0].
-              // Библиотека там лежит как токен типа String с путём к файлу библиотеки.
-
-              // Из токена извлекаем сырые байты (путь к библиотеке).
-              let bytes: Bytes = {
-
-                // Получаем вектор линий структуры (в нашем случае lines[0] хранит токен).
-                let linesVec: &Vec< Arc<RwLock<Line>> > = match &structureGuard.lines {
-                  Some(v) => v,
-                  None => return Token::newEmpty(TokenType::None)
-                };
-                // Берём первую линию (индекс 0).
-                let lineLock: &Arc<RwLock<Line>> = match linesVec.first() {
-                  Some(l) => l,
-                  None => return Token::newEmpty(TokenType::None)
-                };
-                // Читаем линию, чтобы получить её токены.
-                let line: RwLockReadGuard<Line> = lineLock.read().unwrap();
-                // Токены линии — здесь должен быть один токен типа String.
-                let tokensVec: &[Token] = match &line.tokens {
-                  Some(t) => t,
-                  None => return Token::newEmpty(TokenType::None)
-                };
-                // Берём первый (и единственный) токен.
-                let nativeToken: &Token = match tokensVec.first() {
-                  Some(t) => t,
-                  None => return Token::newEmpty(TokenType::None)
-                };
-                // Убеждаемся, что токен действительно типа String.
-                if *nativeToken.getDataType() != TokenType::String {
-                  return Token::newEmpty(TokenType::None);
-                }
-                
-                nativeToken.getData()
-              };
-              drop(structureGuard);
-              let raw: &[u8] = match bytes.getAll() {
-                Some(r) => r,
-                None => return Token::newEmpty(TokenType::None)
-              };
-
-              // Преобразуем байты в строку (путь).
-              let libraryPath: &str = match std::str::from_utf8(raw) {
-                Ok(s) => s,
-                Err(_) => return Token::newEmpty(TokenType::None)
-              };
-              
-              // Формируем токен Nesting: одна линия с двумя токенами-строками.
-              return Token::newNesting(vec![
-                Arc::new(RwLock::new(Line {
-                  tokens: Some(vec![
-                    // Путь к lib, например: "./libprint.so".
-                    Token::new(TokenType::String, libraryPath),
-                    // Имя метода, который вызывают; например: "method" в lib.method(...).
-                    Token::new(TokenType::String, link[0].clone()) // todo Но кстати оно больше не надо будет? зачем тогда .clone.
-                  ]),
-                  lines: None
-                }))
-              ]);
-              //
-            }
-          }
-          
-          // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-          // todo desc
-          if link.is_empty()
-          { // Закончилась ли ссылка?
-            
-            // Если это конец, то берём последнюю структуру и работаем с ней.
-            let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
-            if let Some(lines) = &structure.lines
-            {
-              if lines.len() == 1
-              { // Если это просто одиночное значение, то просто выдаём его
-                // По сути это просто 0 линия через expression.
-                //
-                // todo Требуется уточнение: сюда попадают две разные структуры,
-                //  у обеих lines.len() == 1, а ветка рассчитана только на первую.
-                //
-                //  a.rt:
-                //    c = 10                                        # 1. значение
-                //    f(name: String) { println(f"Hi, {name}") }    # 2. функция из одной строки
-                //
-                //  main.rt:
-                //    a.c          — 10. Ради этого ветка и написана:
-                //                   у конца ссылки берём значение.
-                //    a.f("World") — тоже сюда, parameters = Some(["World"]),
-                //                   но ветка их не читает. Тело считается через self.expression()
-                //                   в scope вызывающего: name берётся из main.rt, а не из аргумента.
-                //
-                //  Запуск метода (Some(parameters) → structure.parent.expression) есть
-                //  только в ветке false ниже, то есть для тел из 2+ строк.
-                //
-                //  Чтобы различать чтение и вызов, parameters должен быть None там, где
-                //  скобок нет. Сейчас expressionWith передаёт Some(vec![]) и для `a.c + 1`,
-                //  поэтому простая проверка на Some здесь сломает чтение значений.
-                //
-
-                let mut lineTokens: Vec<Token> =
-                {
-                  lines[0].read().unwrap()
-                    .tokens.clone().unwrap_or_default() // todo плохо.
-                };
-                drop(structure);
-                return self.expression(&mut lineTokens);
-              }
-              else if let Some(parameters) = parameters
-              { // Здесь могут быть параметры функции или Some(vec![]) для процедуры;
-                // В ином случае, это просто ссылка.
-                
-                // Если это был просто запуск метода, то запускаем его.
-                let mut parametersToken: Token = Token::newNesting(
-                  vec![
-                    Arc::new(RwLock::new(Line
-                    {
-                      tokens: Some(parameters),
-                      lines: None
-                    }))
-                  ]
-                );
-                parametersToken.setDataType( TokenType::CircleBracketBegin );
-
-                let mut expressionTokens: Vec<Token> = vec![
-                  Token::new( TokenType::Word, structure.name.clone().unwrap_or_default() ), // todo плохо.
-                  parametersToken
-                ];
-
-                if let Some(structureParent) = structure.parent.clone()
-                {
-                  drop(structure);
-                  return structureParent.read().unwrap()
-                    .expression(&mut expressionTokens);
-                }
-
-                return Token::newEmpty(TokenType::None);
-              } else
-              { // Если это просто ссылка, то оставляем её.
-                return Token::new( TokenType::Link, structure.name.clone().unwrap_or_default() ); // todo плохо.
-              }
-              //
-            }
-            
-          // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-          } else
-          { // Если нет, значит продолжаем её чтение.
-            return self.linkExpression(Some(structureLink), link, parameters);
-          }
-          // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-        }
-        //
-      }
-    }
-    // если всё было плохо, то просто используем пустой результат.
-    Token::newEmpty(TokenType::None)
   }
 
   // ===============================================================================================
@@ -1011,7 +682,7 @@ impl Structure
   /// 
   /// В основном всё сводится к получению токенов в {} через Token::readTokens(),
   /// после чего результат проходит через expression и мы получаем обычную строку на выходе.
-  fn formatQuote(&self, tokenData: String) -> String 
+  pub(super) fn formatQuote(&self, tokenData: String) -> String 
   {
     let mut result: String = String::new(); // Cтрока которая будет получена в конце.
     let mut expressionBuffer: String = String::new(); // Буфер для выражения между {}.
@@ -1198,15 +869,24 @@ impl Structure
           // Если следом реальные скобки вызова — вычисляем настоящие аргументы 
           // (а не пустой список), чтобы их можно было прокинуть как в FFI-путь ниже, 
           // так и в обычный nested-вызов через structure.parent (см. import()).
+          //
+          // Без скобок это чтение, а не вызов: `parameters` = `None`.
+          // `linkExpression` по этому различает чтение значения и запуск метода:
+          // если отдать `Some(vec![])` и для чтения (`a.c + 1`), конец ссылки
+          // примет чтение за вызов.
           let hasCallParens: bool =
             i+1 < valueLength && *value[i+1].getDataType() == TokenType::CircleBracketBegin;
-          let realParameters: Vec<Token> = if hasCallParens
+          let callParameters: Option< Vec<Token> > = if hasCallParens
           {
             let bracketLines: Vec< Arc<RwLock<Line>> > = value[i+1].lines.clone().unwrap_or_default();
-            Parameters::new(Some(bracketLines)).getAllExpressions(self).unwrap_or_default()
-          } else { Vec::new() };
+            Some(
+              Parameters::new(Some(bracketLines))
+                .getAllExpressions(self)
+                .unwrap_or_default()
+            )
+          } else { None };
 
-          let linkResult: Token = self.linkExpression(None, &mut link, Some(realParameters));
+          let linkResult: Token = self.linkExpression(None, &mut link, callParameters);
             //parameters.getAll()); todo? хз что это, имелось ввиду не для ffi.
           
           // Проверяем, не является ли результат вызовом динамической библиотеки.

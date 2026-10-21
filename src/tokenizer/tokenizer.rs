@@ -714,9 +714,17 @@ mod tests
 
   // ===============================================================================================
   
-  /// todo desc
+  /// Вложенные скобки не ломают подсчёт линий.
+  ///
+  /// Выражение в скобках читается рекурсивно и прячется внутрь токена-скобки
+  /// (`Token.lines`), поэтому `println(type(x))` - одна линия, а не три.
+  ///
+  /// Проверяется главное: сколько линий остаётся **после** закрывающей скобки.
+  /// Закрывающая `)` съедается сама в ветке close (`readTokens`), поэтому
+  /// пропускать её повторно нельзя - иначе остаток файла прочитается `внутри`
+  /// незакрытой скобки и все следующие линии пропадут из верхнего уровня.
   #[test]
-  fn nestedParensAndTypes1() -> ()
+  fn nestedParens() -> ()
   {
     let cases: &[(&str, usize)] = &[
       ("println(x)\n", 1),
@@ -726,17 +734,12 @@ mod tests
       ("a\nprintln(type(10+10))\n", 2),
       ("a~~: U8 = 10\nprintln(type(10+10))\nprintln(type(a))\n", 3),
     ];
-    for (src, expected) in cases {
+    for (src, expected) in cases 
+    {
       let mut buffer: Vec<u8> = src.as_bytes().to_vec();
       let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
       assert_eq!(lines.len(), *expected, "src={:?} got {}", src, lines.len());
     }
-
-    let mut buffer: Vec<u8> = 
-      include_str!("../../release/native/types/types1.rt").as_bytes().to_vec();
-    let lines: Vec< Arc<RwLock<Line>> > = readTokensSimple(&mut buffer);
-    //println!("types1 lines={}", lines.len());
-    assert!(lines.len() >= 8, "types1 expected >= 8 lines, got {}", lines.len());
   }
 
   // ===============================================================================================
@@ -754,9 +757,12 @@ mod tests
     let mut buffer: Vec<u8> = text.as_bytes().to_vec();
     let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
     let guard: RwLockReadGuard<Line> = lines[0].read().unwrap();
-    if let Some(inner) =
-      guard.lines.as_ref() { inner.len() }
-      else { 0 }
+    if let Some(inner) = guard.lines.as_ref() {
+      inner.len()
+    } else {
+      0
+    }
+    //
   }
 
   /// Комментарий - это запись, а не часть структуры: линия из одного комментария
@@ -797,9 +803,12 @@ mod tests
     let mut buffer: Vec<u8> = b"10 # c\n20\n".to_vec();
     let lines: Vec<Arc<RwLock<Line>>> = readTokensSimple(&mut buffer);
     let guard: RwLockReadGuard<Line> = lines[0].read().unwrap();
-    let tokens: usize = if let Some(tokens) =
-      guard.tokens.as_ref() { tokens.len() }
-      else { 0 };
+    let tokens: usize = 
+      if let Some(tokens) = guard.tokens.as_ref() {
+        tokens.len()
+      } else {
+        0
+      };
     
     #[cfg(not(feature = "analyzer"))]
     assert_eq!(tokens, 1, "Only 10");

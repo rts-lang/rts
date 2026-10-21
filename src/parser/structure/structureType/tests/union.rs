@@ -265,3 +265,77 @@ fn primitiveAbiType() -> ()
 }
 
 // =================================================================================================
+
+/// Dynamic `~~` + union: тип меняется свободно, объединение не ограничивает (#22).
+#[test]
+fn unionDynamic() -> ()
+{
+  checkStructure!(
+    r#"
+    j~~: U8 | String = 10
+    "#,
+    "j", type TokenType::UInt, stype StructureType::U8, value "10"
+  );
+  checkStructure!(
+    r#"
+    j~~: U8 | String = 10
+    j = 1.5
+    "#,
+    "j", type TokenType::UFloat, stype StructureType::F32, value "1.5"
+  );
+  checkStructure!(
+    r#"
+    j~~: U8 | String = 10
+    j = 99999
+    "#,
+    "j", type TokenType::UInt, stype StructureType::U32, value "99999"
+  );
+}
+
+/// Variable `~` + примитивы в union: набор остаётся и ограничивает.
+#[test]
+fn unionVariablePrimitives() -> ()
+{
+  checkStructure!(
+    r#"
+    t~: 10 | 20 = 10
+    t = 20
+    "#,
+    "t", type TokenType::UInt, stype number("20"), value "20"
+  );
+  checkStructure!(
+    r#"
+    t~: 10 | 20 = 10
+    t = 30
+    "#,
+    "t", stype StructureType::None, value ""
+  );
+  checkStructure!(
+    r#"
+    t~: 10 | 20 = 10
+    t = 10
+    "#,
+    "t", type TokenType::UInt, stype number("10"), value "10"
+  );
+}
+
+/// Variable `~` + строковый примитив в union: переприсваивание.
+#[test]
+fn unionVariableStringPrimitive() -> ()
+{
+  checkStructure!(
+    r#"
+    v~: String | "text" = "text"
+    "#,
+    "v", type TokenType::String, stype text("text"), value "text"
+  );
+  checkStructure!(
+    r#"
+    v~: String | "text" = "text"
+    v = "other"
+    "#,
+    "v", type TokenType::String, stype StructureType::String, value "other"
+  );
+}
+
+// =================================================================================================

@@ -1,4 +1,4 @@
-use crate::parser::parser::runCode;
+use crate::parser::parser::{runCode, runCodeFile};
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
@@ -39,53 +39,45 @@ fn types() -> ()
 
 // =================================================================================================
 
-/// Строка уходит в нативную функцию: и целиком, и по полям.
+/// Строка уходит в native: и целиком, и через поля.
 ///
-/// `lib.print(str.pointer, str.length)` — ручная распаковка полей.
-/// `lib.print(str)` — целиком, chillffi сам раскладывает String на ptr+len.
-///
-/// C печатает прямо в stdout, поэтому тут проверяется, что оба вызова прошли
-/// и код дошёл до конца — через `done := True` после `printc`.
+/// `lib.strlen(str.pointer, str.length)` — ручная распаковка полей.
+/// `lib.strlen(str)` — целиком, `chillffi` сам раскладывает String на ptr+len.
 #[test]
 fn native() -> ()
 {
-  // todo libPath тут пишет что unused, но по факту он юзается ниже в макросе.
-  let libPath: String = buildLibrary!(
+  let libraryPath: String = buildLibrary!(
     r#"
-    #include <stdio.h>
     #include <stdint.h>
     #include <stddef.h>
 
-    uint8_t* print(const uint8_t* data, size_t length) {
-      fwrite(data, 1, length, stdout);
-      fflush(stdout);
-      return NULL;
+    size_t strlen(const uint8_t* data, size_t length) {
+      (void)data;
+      return length;
     }
-    "#,
-    "libprint.so"
+    "#
   );
 
   let path: String = writeCodeFile!(
     r#"
-    printc(str: String) {
-      lib: Pointer = importNative("{libPath}")
-      lib.print(str.pointer, str.length)
-      lib.print(str)
-    }
+    strlen(string: String) {{
+      library: Pointer = importNative("{libraryPath}")
+      := library.strlen(string.pointer; string.length) + library.strlen(string)
+    }}
 
-    printc("Hello from RTS 222!")
-    done := True
-    "#,
-    "stringsMain.rt"
+    string: String = "Hello from RTS 222!"
+    result: Usize = strlen(string)
+    "#
   );
 
-  let main: Arc<RwLock<Structure>> = runCode(&format!("m := import(\"{path}\")\n"));
+  let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "m.printc", stype StructureType::Method);
-  checkStructure!(main, "m.done", value "True");
+  checkStructure!(main, "strlen", stype StructureType::Method);
+  checkStructure!(main, "string", stype StructureType::String, value "Hello from RTS 222!");
+  checkStructure!(main, "result", stype StructureType::Usize, value "38");
 
-  let _ = std::fs::remove_file(std::env::temp_dir().join("stringsMain.rt"));
-  let _ = std::fs::remove_file(std::env::temp_dir().join("libprint.so"));
+  let _ = std::fs::remove_file(&path);
+  let _ = std::fs::remove_file(&libraryPath);
 }
 
 // =================================================================================================

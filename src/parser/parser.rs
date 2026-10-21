@@ -1498,4 +1498,31 @@ pub fn runCodeBytes(buffer: &mut Vec<u8>) -> Arc<RwLock<Structure>>
   parseLines( readTokensSimple(buffer) )
 }
 
+/// Запускает `.rt` файл и возвращает основную структуру.
+///
+/// В отличие от обёртки `runCode("m := import(\"…\")")` не опирается на
+/// `import` — файл читается и выполняется напрямую, как entry в CLI.
+pub fn runCodeFile(path: &str) -> Arc<RwLock<Structure>>
+{
+  assert!(
+    path.ends_with(".rt"),
+    "runCodeFile: expected a `.rt` file, got `{path}`"
+  );
+  let mut buffer: Vec<u8> = std::fs::read(path)
+    .unwrap_or_else(|error| panic!("runCodeFile: read `{path}`: {error}"));
+  let absolutePath: String = std::fs::canonicalize(path)
+    .unwrap_or_else(|error| panic!("runCodeFile: canonicalize `{path}`: {error}"))
+    .to_string_lossy().replace('\\', "/");
+  let previousPath: Option<Arc<String>> =
+    crate::_sourcePath.with(|sourcePath| sourcePath.borrow().clone());
+  crate::_sourcePath.with(|sourcePath|
+    *sourcePath.borrow_mut() = Some(Arc::new(absolutePath))
+  );
+  let result: Arc<RwLock<Structure>> = runCodeBytes(&mut buffer);
+  crate::_sourcePath.with(|sourcePath|
+    *sourcePath.borrow_mut() = previousPath
+  );
+  result
+}
+
 // =================================================================================================

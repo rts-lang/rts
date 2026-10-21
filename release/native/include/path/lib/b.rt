@@ -1,5 +1,0 @@
-
-hello() {
-  println("b: hello")
-  println("b: done")
-}
