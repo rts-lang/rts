@@ -1,6 +1,10 @@
+use crate::parser::parser::runCode;
+use crate::parser::structure::primitives::TypesPrimitives;
+use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::StructureType;
 use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
+use std::sync::{Arc, RwLock};
 // =================================================================================================
 
 // Тесты на методы приведения к StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)` (Function::cast).
@@ -239,6 +243,64 @@ fn castInArgument() -> ()
     "#,
     "r", value "255"
   );
+}
+
+// =================================================================================================
+// Все примитивы.
+
+/// Примитив без приведения к границам: значение проходит как есть.
+///
+/// Приведения для таких типов пока нет, поэтому каст ничего не меняет.
+#[test]
+fn castPointer() -> ()
+{
+  checkStructure!( "a := Pointer(5)", "a", value "5" );
+  checkStructure!( "a := CString(7)", "a", value "7" );
+  checkStructure!( "a := Any(5)", "a", value "5" );
+}
+
+/// `String` и `RawString`: значение становится строкой этого типа.
+#[test]
+fn castToString() -> ()
+{
+  checkStructure!(
+    "a := String(5)", "a",
+    type TokenType::String,
+    stype StructureType::String,
+    value "5"
+  );
+  checkStructure!(
+    "a := RawString(5)", "a",
+    type TokenType::RawString,
+    stype StructureType::RawString,
+    value "5"
+  );
+}
+
+/// `None` - это отсутствие значения, а не значение.
+#[test]
+fn castToNone() -> ()
+{
+  checkStructure!( "a := None(5)", "a", type TokenType::None, value "" );
+}
+
+/// todo desc
+#[test]
+fn everyPrimitiveIsCast() -> ()
+{
+  for (name, _) in TypesPrimitives
+  {
+    let code: String = format!("a := {name}(5)");
+    let main: Arc<RwLock<Structure>> = runCode(&code);
+
+    if *name == "None"
+    { // `None` - это отсутствие значения.
+      checkStructure!(main, "a", type TokenType::None, value "");
+    } else
+    {
+      checkStructure!(main, "a", value "5");
+    }
+  }
 }
 
 // =================================================================================================

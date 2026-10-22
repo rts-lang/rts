@@ -62,24 +62,6 @@ pub const MethodsPrimitives: &[&str] = &[
   "import", "importNative",
 ];
 
-/// StructureType числового примитива по имени: `U8`, `I16`, `F32`, `Usize` и так далее.
-///
-/// Вызов такого имени как метода (`U8(a)`) приводит значение к границам этого типа.
-/// Имена берутся из [`TypesPrimitives`], не числовые (`String`, `Pointer`) здесь не нужны.
-pub fn numberPrimitiveType(name: &str) -> Option<StructureType>
-{
-  let structureType: StructureType = TypesPrimitives.iter()
-    .find(|(n, _)| *n == name)
-    .map(|(_, structureType)| structureType.clone())?;
-  match structureType
-  {
-    StructureType::U8 | StructureType::U16 | StructureType::U32 | StructureType::U64 | StructureType::Usize |
-    StructureType::I8 | StructureType::I16 | StructureType::I32 | StructureType::I64 | StructureType::Isize |
-    StructureType::F32 | StructureType::F64 => Some(structureType),
-    _ => None
-  }
-}
-
 /// Имя занято структурой-примитивом.
 #[inline]
 pub fn isPrimitiveName(name: &str) -> bool

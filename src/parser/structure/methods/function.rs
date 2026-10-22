@@ -1,15 +1,15 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard};
-use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::tokenizer::types::token::{Token};
-use crate::tokenizer::types::tokenType::TokenType;
-use crate::{_filePath, _sourcePath};
 use crate::parser::parser::readLines;
-use crate::parser::structure::methods::parameters::{Parameters};
+use crate::parser::structure::ffi::scopeStack;
+use crate::parser::structure::methods::parameters::Parameters;
+use crate::parser::structure::primitives::TypesPrimitives;
+use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::StructureType;
-use crate::parser::structure::primitives::numberPrimitiveType;
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
-use crate::parser::structure::ffi::scopeStack;
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
+use crate::{_filePath, _sourcePath};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
 
 /// Это набор базовых функций.
@@ -78,14 +78,24 @@ impl Function
               value[i].setData(structure.dataType.to_string());
             } else
             {
-              value[i].setDataType(TokenType::String);
-              if token.isPrimitive()
-              { // Это примитивное значение.
-                value[i].setData(token.getData());
-              } else 
-              { // Это то, чего нет как типа данных.
-                value[i].setDataType(TokenType::None);
-                value[i].setData(None);
+              // Структуры с таким именем нет - значит это значение.
+              // Отвечаем его типом: так же, как тип структуры, в которую оно попало бы:
+              // `5` -> U8, `"text"` -> String.
+              let mut tokenCopy: Token = token.clone();
+              let structureType: StructureType = StructureType::naturalType(&mut tokenCopy);
+
+              match structureType
+              {
+                StructureType::None =>
+                { // Типа данных нет - такого значения не бывает.
+                  value[i].setDataType(TokenType::None);
+                  value[i].setData(None);
+                }
+                _ =>
+                {
+                  value[i].setDataType(TokenType::String);
+                  value[i].setData(structureType.to_string());
+                }
               }
               //
             }
@@ -479,6 +489,10 @@ impl Function
   ///
   /// Результат остаётся токеном и работает в выражении: `c := U8(a) + b`.
   /// Тип данных дальше не несёт - его хранит структура: `x: U8 = a`.
+  ///
+  /// Тип приведения - любой примитив из [`TypesPrimitives`]: числовые зажимаются
+  /// по своим границам, строки становятся строками, `None` - это отсутствие
+  /// значения, а `Any` и `Pointer` ничего не меняют - приведения для них пока нет.
   fn cast(
     structure: &Structure,
     parameters: &Parameters,
@@ -496,9 +510,24 @@ impl Function
       }
       Some(mut token) =>
       {
-        Structure::normalizeToken(&mut token, structureType);
-        value[i].setDataType(*token.getDataType());
-        value[i].setData(token.getData());
+        if structureType == StructureType::None
+        { // `None` - это отсутствие значения, а не значение.
+          value[i].setDataType(TokenType::None);
+          value[i].setData(None);
+        } else
+        if structureType == StructureType::String || structureType == StructureType::RawString
+        { // Значение становится строкой: `String(5)` - это "5".
+          value[i].setDataType(
+            if structureType == StructureType::String
+            { TokenType::String } else { TokenType::RawString }
+          );
+          value[i].setData( token.getData().toString().unwrap_or_default() );
+        } else
+        { // Остальные примитивы приводятся по своим границам.
+          Structure::normalizeToken(&mut token, structureType);
+          value[i].setDataType(*token.getDataType());
+          value[i].setData(token.getData());
+        }
       }
     }
   }
@@ -539,9 +568,13 @@ impl Structure
       'basicMethods:
       { // Это позволит выйти, если мы ожидаем не стандартные варианты.
         // Методы приведения к StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)`.
-        if let Some(structureType) = numberPrimitiveType(&structureName)
+        //
+        // Типы берутся из [`TypesPrimitives`] - реестра примитивов языка,
+        // поэтому привести значение можно к любому примитивному типу.
+        if let Some((_, structureType)) =
+          TypesPrimitives.iter().find(|(name, _)| *name == structureName)
         {
-          Function::cast(self, &parameters, value, i, structureType);
+          Function::cast(self, &parameters, value, i, structureType.clone());
           return;
         }
         //
@@ -558,7 +591,7 @@ impl Structure
           "len" => Function::len(self, &parameters, value, i),
           "importNative" => Function::importNative(self, &parameters, value, i),
           "import" => Function::import(self, &parameters, value, i),
-          _ => { break 'basicMethods; } // Выходим, ожидается нестандартный метод.
+          _ => break 'basicMethods // Выходим, ожидается нестандартный метод.
         }
         return;
       }
@@ -586,56 +619,16 @@ impl Structure
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     } else
     // ---------------------------------------------------------------------------------------------
-    { // Вариант в котором тип токена может быть типом данных => это cast в другой тип.
-      match *value[i].getDataType()
+    { // Тип токена известен, а его текст - нет.
+      //
+      // Имя примитива тут не узнать - но оно и не нужно: `None` - это не имя,
+      // а само значение, и примитив по нему один.
+      if *value[i].getDataType() == TokenType::None
       {
-        TokenType::UInt =>
-        { // Получаем значение выражения в типе.
-          // todo: Float, UFloat
-          if let Some(parameter0) = parameters.getExpression(self,0)
-          {
-            value[i].setDataType( TokenType::UInt );
-            value[i].setData( parameter0.getData().toString().unwrap_or_default() );
-          }
-        }
-        TokenType::Int =>
-        { // Получаем значение выражения в типе.
-          if let Some(parameter0) = parameters.getExpression(self,0)
-          {
-            value[i].setDataType( TokenType::Int );
-            value[i].setData( parameter0.getData().toString().unwrap_or_default() );
-            //
-          }
-          //
-        }
-        TokenType::String =>
-        { // Получаем значение выражение в типе String.
-          // todo: подумать над formatted типами
-          if let Some(parameter0) = parameters.getExpression(self,0)
-          {
-            value[i].setDataType( TokenType::String  );
-            value[i].setData( parameter0.getData().toString().unwrap_or_default() );
-            //
-          }
-          //
-        }
-        TokenType::Char =>
-        { // Получаем значение выражения в типе Char.
-          // todo: проверить работу
-          if let Some(parameter0) = parameters.getExpression(self,0)
-          {
-            value[i].setDataType( TokenType::Char );
-            value[i].setData(
-              (parameter0.getData().toString().unwrap_or_default()
-                .parse::<u8>().unwrap() as char
-              ).to_string()
-            );
-            //
-          }
-          //
-        }
-        _ => {} // todo: Возможно custom варианты преобразований из custom ?
+        Function::cast(self, &parameters, value, i, StructureType::None);
+        return;
       }
+      //
     }
     // ---------------------------------------------------------------------------------------------
   }
