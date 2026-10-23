@@ -1,6 +1,6 @@
 use crate::parser::structure::link::tests::{checkEmpty, checkToken, childStructure, emptyMain, lineOf, linkOf, linkOfLine, linkOfRootLine};
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
@@ -54,13 +54,13 @@ fn lineLinkContinuation() -> ()
   let main: Arc<RwLock<Structure>> = emptyMain();
   let a: Arc<RwLock<Structure>> = childStructure(
     "a",
-    StructureType::None,
+    StructureType::Primitive(PrimitiveType::None),
     vec![lineOf(vec![Token::new(TokenType::Word, "b")])],
     &main
   );
   childStructure(
     "b",
-    StructureType::U8,
+    StructureType::Primitive(PrimitiveType::U8),
     vec![lineOf(vec![Token::new(TokenType::UInt, "5")])],
     &a
   );

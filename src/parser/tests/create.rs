@@ -1,5 +1,5 @@
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
@@ -68,7 +68,7 @@ fn typeBeforeCreationOperator() -> ()
     "#,
     "a",
     type TokenType::UInt,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "255"
   );
 }
@@ -172,7 +172,7 @@ fn finalWithoutValueTakesFirstValue() -> ()
     "#,
     "c",
     type TokenType::UInt,
-    stype StructureType::U8, // Тип выведен из первого значения - 5 влезает в U8.
+    stype StructureType::Primitive(PrimitiveType::U8), // Тип выведен из первого значения - 5 влезает в U8.
     value "5"
   );
 }
@@ -205,7 +205,7 @@ fn linkSearchesOnlyDownward() -> ()
   let root: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("root")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     None,
     None
   )));
@@ -213,7 +213,7 @@ fn linkSearchesOnlyDownward() -> ()
   let leaf: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("leaf")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     None,
     Some(root.clone())
   )));
@@ -241,7 +241,7 @@ fn linkFindsNestedStructure() -> ()
   let root: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("root")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     None,
     None
   )));
@@ -249,7 +249,7 @@ fn linkFindsNestedStructure() -> ()
   let a: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("a")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     None,
     Some(root.clone())
   )));
@@ -257,7 +257,7 @@ fn linkFindsNestedStructure() -> ()
   let b: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("b")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     None,
     Some(a.clone())
   )));
@@ -439,7 +439,7 @@ fn creationNoneOnPrimitiveIsIgnored() -> ()
     r#"
     type := None
     "#,
-    "type", stype StructureType::Method, mut StructureMut::Constant, lines 0
+    "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0
   );
 }
 

@@ -3,7 +3,7 @@ use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::primitives::TypesPrimitives;
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -86,7 +86,7 @@ impl Function
 
               match structureType
               {
-                StructureType::None =>
+                StructureType::Primitive(PrimitiveType::None) =>
                 { // Типа данных нет - такого значения не бывает.
                   value[i].setDataType(TokenType::None);
                   value[i].setData(None);
@@ -510,15 +510,15 @@ impl Function
       }
       Some(mut token) =>
       {
-        if structureType == StructureType::None
+        if structureType == StructureType::Primitive(PrimitiveType::None)
         { // `None` - это отсутствие значения, а не значение.
           value[i].setDataType(TokenType::None);
           value[i].setData(None);
         } else
-        if structureType == StructureType::String || structureType == StructureType::RawString
+        if structureType == StructureType::Primitive(PrimitiveType::String) || structureType == StructureType::Primitive(PrimitiveType::RawString)
         { // Значение становится строкой: `String(5)` - это "5".
           value[i].setDataType(
-            if structureType == StructureType::String
+            if structureType == StructureType::Primitive(PrimitiveType::String)
             { TokenType::String } else { TokenType::RawString }
           );
           value[i].setData( token.getData().toString().unwrap_or_default() );
@@ -574,7 +574,7 @@ impl Structure
         if let Some((_, structureType)) =
           TypesPrimitives.iter().find(|(name, _)| *name == structureName)
         {
-          Function::cast(self, &parameters, value, i, structureType.clone());
+          Function::cast(self, &parameters, value, i, StructureType::Primitive(structureType.clone()));
           return;
         }
         //
@@ -625,7 +625,7 @@ impl Structure
       // а само значение, и примитив по нему один.
       if *value[i].getDataType() == TokenType::None
       {
-        Function::cast(self, &parameters, value, i, StructureType::None);
+        Function::cast(self, &parameters, value, i, StructureType::Primitive(PrimitiveType::None));
         return;
       }
       //

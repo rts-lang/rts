@@ -3,7 +3,7 @@ use crate::{_exit, _exitCode, _sourcePath};
 use crate::parser::parser::{readLines, searchStructure};
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 #[cfg(not(target_family = "wasm"))]
 use std::io;
@@ -178,7 +178,7 @@ impl Structure
                     // ABI-композит String: .pointer/.length;
                     // Считаем ДО перемещения токена в lines ниже.
                     let stringFields: Option<[Arc<RwLock<Self>>; 2]> = 
-                      if calledStructureStructure.dataType == StructureType::String {
+                      if calledStructureStructure.dataType == StructureType::Primitive(PrimitiveType::String) {
                         bridge::stringFields(&token)
                       } else { None };
                     

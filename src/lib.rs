@@ -15,7 +15,7 @@ use crate::parser::parser::{createMainStructure, readLines};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::structure::structure::{Structure, StructureMut};
 #[cfg(not(feature = "analyzer"))]
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 #[cfg(not(feature = "analyzer"))]
 use crate::tokenizer::tokenizer::readTokensSimple;
 #[cfg(not(feature = "analyzer"))]
@@ -54,7 +54,7 @@ impl RTS
         Structure::new(
           Some(name),
           StructureMut::Constant,
-          StructureType::List,
+          StructureType::Primitive(PrimitiveType::List),
           // В линии структуры
           Some(vec![
             Arc::new(RwLock::new(

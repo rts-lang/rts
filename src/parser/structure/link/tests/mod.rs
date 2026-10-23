@@ -4,7 +4,7 @@ mod native;
 // =================================================================================================
 use crate::parser::parser::runCode;
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -109,7 +109,7 @@ pub(super) fn pointerStructure(name: &str, path: &str, parent: &Arc<RwLock<Struc
   Arc::new(RwLock::new(Structure::new(
     Some(String::from(name)),
     StructureMut::Constant,
-    StructureType::Pointer,
+    StructureType::Primitive(PrimitiveType::Pointer),
     Some(vec![Arc::new(RwLock::new(Line {
       tokens: Some(vec![Token::new(TokenType::String, path)]),
       lines: None
@@ -157,7 +157,7 @@ pub(super) fn emptyMain() -> Arc<RwLock<Structure>>
   Arc::new(RwLock::new(Structure::new(
     Some(String::from("main")),
     StructureMut::Constant,
-    StructureType::None,
+    StructureType::Primitive(PrimitiveType::None),
     None,
     None
   )))

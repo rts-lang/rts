@@ -1,4 +1,4 @@
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::PrimitiveType;
 // =================================================================================================
 
 // Реестр структур-примитивов.
@@ -11,43 +11,49 @@ use crate::parser::structure::structureType::StructureType;
 // =================================================================================================
 
 /// Типы-примитивы.
-pub const TypesPrimitives: &[(&str, StructureType)] = &[
+pub const TypesPrimitives: &[(&str, PrimitiveType)] = &[
   //
-  ("Any", StructureType::Any),
-  ("None", StructureType::None),
+  ("Any", PrimitiveType::Any),
+  ("None", PrimitiveType::None),
   //
-  ("U8", StructureType::U8),
-  ("U16", StructureType::U16),
-  ("U32", StructureType::U32),
-  ("U64", StructureType::U64),
   //
-  ("I8", StructureType::I8),
-  ("I16", StructureType::I16),
-  ("I32", StructureType::I32),
-  ("I64", StructureType::I64),
+  ("True", PrimitiveType::True),
+  ("False", PrimitiveType::False),
   //
-  ("F32", StructureType::F32),
-  ("F64", StructureType::F64),
+  ("U8", PrimitiveType::U8),
+  ("U16", PrimitiveType::U16),
+  ("U32", PrimitiveType::U32),
+  ("U64", PrimitiveType::U64),
   //
-  ("Usize", StructureType::Usize),
-  ("Isize", StructureType::Isize),
+  ("I8", PrimitiveType::I8),
+  ("I16", PrimitiveType::I16),
+  ("I32", PrimitiveType::I32),
+  ("I64", PrimitiveType::I64),
   //
-  ("Pointer", StructureType::Pointer),
+  ("F32", PrimitiveType::F32),
+  ("F64", PrimitiveType::F64),
   //
-  ("String", StructureType::String),
-  ("RawString", StructureType::RawString),
+  ("Usize", PrimitiveType::Usize),
+  ("Isize", PrimitiveType::Isize),
   //
-  ("CString", StructureType::Pointer)
+  ("Pointer", PrimitiveType::Pointer),
+  //
+  ("String", PrimitiveType::String),
+  ("CString", PrimitiveType::CString),
+  ("RawString", PrimitiveType::RawString),
+  // todo Под вопросом.
+  ("Method", PrimitiveType::Method),
+  ("List", PrimitiveType::List)
 ];
 
 /// Параметры запуска.
 ///
 /// В отличие от остальных у них есть линии (значения), и приходят они от запуска:
 /// `argc` - сколько аргументов, `argv` - список самих аргументов.
-pub const ArgsPrimitives: &[(&str, StructureType)] = &[
+pub const ArgsPrimitives: &[(&str, PrimitiveType)] = &[
   //
-  ("argc", StructureType::Usize),
-  ("argv", StructureType::List)
+  ("argc", PrimitiveType::Usize),
+  ("argv", PrimitiveType::List)
 ];
 
 /// Методы-примитивы.

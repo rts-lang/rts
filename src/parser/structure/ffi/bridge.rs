@@ -5,26 +5,30 @@ use chillffi::ffi::library::{CallBuilder, Library};
 use chillffi::ffi::scope::Scope;
 use std::sync::{Arc, RwLock};
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Мост Token -> ABI StructureType::String.
+/// Мост Token -> ABI StructureType::Primitive(PrimitiveType::String).
 ///
 /// StructureType не-custom типы — хардкод примитивов,
 /// т.к. ABI chillffi сильно ограничен. String — единственный ABI-примитив,
 /// у которого есть заранее подготовленные поля (.pointer .length), поэтому
 /// только для него нужен явный мост из токена в 2 поля.
-/// CString = Pointer (алиас) и RawString — обычные скаляры, моста не требуют:
-/// данные и длина/NUL берутся прямо из токена в момент FFI-вызова (tokenToFfiArg).
+/// 
+/// CString - алиас от Pointer только для FFI (см. abiType) - и RawString — обычные
+/// скаляры, моста не требуют: данные и длина/NUL берутся прямо из токена
+/// в момент FFI-вызова (tokenToFfiArg).
 ///
 /// Работает аддитивно: не трогает `.lines` структуры (там остаётся исходный
 /// токен, поэтому голое имя `str` в `lib.print(str)` по-прежнему резолвится
 /// в TokenType::String через обычный linkExpression() и идет в
 /// FfiArgValue::String ниже — chillffi сам разложит его на pointer+len).
 /// Вызывать после того, как `.lines` структуры уже выставлены.
+/// 
+/// todo rewrite desc
 pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
 {
   match token.getDataType()
@@ -38,7 +42,7 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
   let pointerField: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some("pointer".to_string()),
     StructureMut::Constant,
-    StructureType::Pointer,
+    StructureType::Primitive(PrimitiveType::Pointer),
     Some(vec![Arc::new(RwLock::new(Line
     {
       tokens: Some(vec![token.clone()]),
@@ -50,7 +54,7 @@ pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
   let lengthField: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some("length".to_string()),
     StructureMut::Constant,
-    StructureType::Usize,
+    StructureType::Primitive(PrimitiveType::Usize),
     Some(vec![Arc::new(RwLock::new(Line
     {
       tokens: Some(vec![Token::new(TokenType::UInt, length.to_string())]),
@@ -225,7 +229,10 @@ fn callWithResult<'a, 'g>(builder: CallBuilder<'a, 'g>, expect: &FfiExpect) -> R
 
   // Тип слева не указан или "любой" — ABI-вызов идёт как usize (внутренний
   // регистр-read, не итоговый stype() — тот выводится из значения ниже).
-  let expectType: &StructureType = match expect
+  //
+  // Тип ожидания приводится к ABI-форме: `CString` - это алиас от `Pointer`,
+  // поэтому адрес читается так же, как у `Pointer`.
+  let expectType: StructureType = match expect
   {
     FfiExpect::Discard =>
     { // Результат не нужен — идём по fire-and-forget ветке.
@@ -234,35 +241,35 @@ fn callWithResult<'a, 'g>(builder: CallBuilder<'a, 'g>, expect: &FfiExpect) -> R
     }
     // todo Infer читает Usize: у узких (8/16/32 бит), знаковых и float результатов старшие биты/регистр не те,
     // для них тип слева обязателен. Не проверено на x86-32 (build.sh 32): там Usize это 32 бита
-    FfiExpect::Infer => &StructureType::Usize,
-    FfiExpect::Typed(structureType) => match structureType
+    FfiExpect::Infer => StructureType::Primitive(PrimitiveType::Usize),
+    FfiExpect::Typed(structureType) => match structureType.abiType()
     {
-      StructureType::None | StructureType::Any => &StructureType::Usize,
+      StructureType::Primitive(PrimitiveType::None) | StructureType::Primitive(PrimitiveType::Any) => StructureType::Primitive(PrimitiveType::Usize),
       // Адрес читаем как число; он живёт только пока жив FFI scope (см. chillffi Value::Pointer).
       // todo Вне [ffi] блока scope временный — полученный адрес после вызова использовать нельзя
-      StructureType::Pointer => &StructureType::Usize,
+      StructureType::Primitive(PrimitiveType::Pointer) => StructureType::Primitive(PrimitiveType::Usize),
       other => other
     }
   };
 
   match expectType
   {
-    StructureType::U8    => Ok(unsignedToken(builder.result::<u8   >().map_err(error)? as u64)),
-    StructureType::U16   => Ok(unsignedToken(builder.result::<u16  >().map_err(error)? as u64)),
-    StructureType::U32   => Ok(unsignedToken(builder.result::<u32  >().map_err(error)? as u64)),
-    StructureType::U64   => Ok(unsignedToken(builder.result::<u64 >().map_err(error)?)),
-    StructureType::Usize => Ok(unsignedToken(builder.result::<usize>().map_err(error)? as u64)),
-    StructureType::I8    => Ok(signedToken(builder.result::<i8   >().map_err(error)? as i64)),
-    StructureType::I16   => Ok(signedToken(builder.result::<i16  >().map_err(error)? as i64)),
-    StructureType::I32   => Ok(signedToken(builder.result::<i32  >().map_err(error)? as i64)),
-    StructureType::I64   => Ok(signedToken(builder.result::<i64  >().map_err(error)?)),
-    StructureType::Isize => Ok(signedToken(builder.result::<isize>().map_err(error)? as i64)),
-    StructureType::F32 =>
+    StructureType::Primitive(PrimitiveType::U8)    => Ok(unsignedToken(builder.result::<u8   >().map_err(error)? as u64)),
+    StructureType::Primitive(PrimitiveType::U16)   => Ok(unsignedToken(builder.result::<u16  >().map_err(error)? as u64)),
+    StructureType::Primitive(PrimitiveType::U32)   => Ok(unsignedToken(builder.result::<u32  >().map_err(error)? as u64)),
+    StructureType::Primitive(PrimitiveType::U64)   => Ok(unsignedToken(builder.result::<u64 >().map_err(error)?)),
+    StructureType::Primitive(PrimitiveType::Usize) => Ok(unsignedToken(builder.result::<usize>().map_err(error)? as u64)),
+    StructureType::Primitive(PrimitiveType::I8)    => Ok(signedToken(builder.result::<i8   >().map_err(error)? as i64)),
+    StructureType::Primitive(PrimitiveType::I16)   => Ok(signedToken(builder.result::<i16  >().map_err(error)? as i64)),
+    StructureType::Primitive(PrimitiveType::I32)   => Ok(signedToken(builder.result::<i32  >().map_err(error)? as i64)),
+    StructureType::Primitive(PrimitiveType::I64)   => Ok(signedToken(builder.result::<i64  >().map_err(error)?)),
+    StructureType::Primitive(PrimitiveType::Isize) => Ok(signedToken(builder.result::<isize>().map_err(error)? as i64)),
+    StructureType::Primitive(PrimitiveType::F32) =>
     {
       let value: f32 = builder.result::<f32>().map_err(error)?;
       Ok(floatToken(value.to_string(), value.is_sign_negative()))
     }
-    StructureType::F64 =>
+    StructureType::Primitive(PrimitiveType::F64) =>
     {
       let value: f64 = builder.result::<f64>().map_err(error)?;
       Ok(floatToken(value.to_string(), value.is_sign_negative()))
@@ -342,7 +349,7 @@ pub fn callExternal(
 mod tests
 {
   use crate::parser::structure::ffi::bridge::{callExternal, FfiExpect, FfiArgValue, tokenToFfiArg, unsignedToken, signedToken};
-  use crate::parser::structure::structureType::StructureType;
+  use crate::parser::structure::structureType::{PrimitiveType, StructureType};
   use crate::tokenizer::types::token::Token;
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
@@ -412,7 +419,7 @@ mod tests
       LibcPath, 
       "strnlen", 
       vec![Token::new(TokenType::String, "hello world")], 
-      FfiExpect::Typed(StructureType::Usize)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::Usize))
     ).unwrap();
     assert!(dataOf(&result) == (TokenType::UInt, String::from("11")));
   }
@@ -429,7 +436,7 @@ mod tests
       FfiExpect::Infer
     ).unwrap();
     assert!(dataOf(&result) == (TokenType::UInt, String::from("11")));
-    assert!(result.clone().getStructureType() == StructureType::U8); // Как у примитива `a = 11`.
+    assert!(result.clone().getStructureType() == StructureType::Primitive(PrimitiveType::U8)); // Как у примитива `a = 11`.
   }
 
   /// Знаковые результаты: `>= 0` это UInt, `< 0` это Int (как у примитивов).
@@ -440,7 +447,7 @@ mod tests
       LibcPath, 
       "abs", 
       vec![Token::new(TokenType::Int, "-5")], 
-      FfiExpect::Typed(StructureType::I32)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::I32))
     ).unwrap();
     assert!(dataOf(&positive) == (TokenType::UInt, String::from("5")));
 
@@ -448,7 +455,7 @@ mod tests
       LibcPath, 
       "close", 
       vec![Token::new(TokenType::UInt, "999")], 
-      FfiExpect::Typed(StructureType::I32)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::I32))
     ).unwrap();
     assert!(dataOf(&negative) == (TokenType::Int, String::from("-1")));
   }
@@ -461,7 +468,7 @@ mod tests
       LibcPath, 
       "toupper", 
       vec![Token::new(TokenType::UInt, "97")], 
-      FfiExpect::Typed(StructureType::U8)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::U8))
     ).unwrap();
     assert!(dataOf(&small) == (TokenType::UInt, String::from("65")));
 
@@ -469,7 +476,7 @@ mod tests
       LibcPath, 
       "labs", 
       vec![Token::new(TokenType::Int, "-7")], 
-      FfiExpect::Typed(StructureType::I64)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::I64))
     ).unwrap();
     assert!(dataOf(&wide) == (TokenType::UInt, String::from("7")));
   }
@@ -482,7 +489,7 @@ mod tests
       LibmPath, 
       "sqrt", 
       vec![Token::new(TokenType::UFloat, "16.0")], 
-      FfiExpect::Typed(StructureType::F64)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::F64))
     ).unwrap();
     assert!(dataOf(&positive) == (TokenType::UFloat, String::from("4.0")));
 
@@ -490,7 +497,7 @@ mod tests
       LibmPath, 
       "floor", 
       vec![Token::new(TokenType::Float, "-2.5")], 
-      FfiExpect::Typed(StructureType::F64)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::F64))
     ).unwrap();
     assert!(dataOf(&negative) == (TokenType::Float, String::from("-3.0")));
   }
@@ -516,7 +523,7 @@ mod tests
       LibcPath, 
       "getpid", 
       vec![], 
-      FfiExpect::Typed(StructureType::I32)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::I32))
     ).unwrap();
     // chillffi исполняет вызовы в worker-процессе, поэтому pid не равен pid текущего процесса
     assert!(dataOf(&result).1.parse::<i32>().unwrap() > 0);
@@ -530,7 +537,7 @@ mod tests
       LibcPath, 
       "abs", 
       vec![Token::new(TokenType::Int, "-1")], 
-      FfiExpect::Typed(StructureType::String)
+      FfiExpect::Typed(StructureType::Primitive(PrimitiveType::String))
     ).is_err());
     
     assert!(call(

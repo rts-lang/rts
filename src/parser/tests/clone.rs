@@ -1,5 +1,6 @@
 use crate::parser::parser::runCode;
 use crate::parser::structure::structure::Structure;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::tokenizer::types::token::Token;
@@ -168,7 +169,7 @@ fn deepCloneIsolates() -> ()
   let original: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("f")),
     crate::parser::structure::structure::StructureMut::Variable,
-    crate::parser::structure::structureType::StructureType::Method,
+    crate::parser::structure::structureType::StructureType::Primitive(PrimitiveType::Method),
     None,
     None
   )));
@@ -176,7 +177,7 @@ fn deepCloneIsolates() -> ()
   let child = Arc::new(RwLock::new(Structure::new(
     Some(String::from("inner")),
     crate::parser::structure::structure::StructureMut::Constant,
-    crate::parser::structure::structureType::StructureType::U8,
+    crate::parser::structure::structureType::StructureType::Primitive(PrimitiveType::U8),
     None,
     None
   )));
@@ -190,7 +191,7 @@ fn deepCloneIsolates() -> ()
     .as_mut().unwrap().push(Arc::new(RwLock::new(Structure::new(
       Some(String::from("new_child")),
       crate::parser::structure::structure::StructureMut::Constant,
-      crate::parser::structure::structureType::StructureType::U8,
+      crate::parser::structure::structureType::StructureType::Primitive(PrimitiveType::U8),
       None,
       None
     ))));

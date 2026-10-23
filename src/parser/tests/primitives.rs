@@ -1,7 +1,7 @@
 use crate::parser::parser::runCode;
 use crate::parser::structure::primitives::{ArgsPrimitives, MethodsPrimitives, TypesPrimitives};
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
@@ -25,7 +25,7 @@ fn structures() -> ()
 {
   for (name, dataType) in TypesPrimitives
   {
-    checkStructure!("", *name, stype dataType.clone(), mut StructureMut::Constant, lines 0);
+    checkStructure!("", *name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
   }
 }
 
@@ -39,7 +39,7 @@ fn args() -> ()
 {
   for (name, dataType) in ArgsPrimitives
   {
-    checkStructure!("", *name, stype dataType.clone(), mut StructureMut::Constant);
+    checkStructure!("", *name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant);
   }
   checkStructure!("", "argc", value "0", lines 1);
   checkStructure!("", "argv", lines 0);
@@ -50,7 +50,7 @@ fn args() -> ()
 
   // И удалить через `:= None` тоже.
   checkStructure!("argc := None", "argc", value "0", mut StructureMut::Constant);
-  checkStructure!("argv := None", "argv", stype StructureType::List, mut StructureMut::Constant);
+  checkStructure!("argv := None", "argv", stype StructureType::Primitive(PrimitiveType::List), mut StructureMut::Constant);
 }
 
 // =================================================================================================
@@ -61,7 +61,7 @@ fn methods() -> ()
 {
   for name in MethodsPrimitives
   {
-    checkStructure!("", *name, stype StructureType::Method, mut StructureMut::Constant, lines 0);
+    checkStructure!("", *name, stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
   }
 }
 
@@ -69,10 +69,10 @@ fn methods() -> ()
 #[test]
 fn overwrite() -> ()
 {
-  checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
-  checkStructure!("type := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0); // todo Дубликат строка?
-  checkStructure!("type~ := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
-  checkStructure!("type~~ := 5", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  checkStructure!("type := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
+  checkStructure!("type := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0); // todo Дубликат строка?
+  checkStructure!("type~ := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
+  checkStructure!("type~~ := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
 }
 
 // =================================================================================================
@@ -82,7 +82,7 @@ fn overwrite() -> ()
 fn block() -> ()
 {
   // 1. Проверка маркера.
-  checkStructure!("a := 5\ntype { a }\n", "type", stype StructureType::Method, mut StructureMut::Constant, lines 0);
+  checkStructure!("a := 5\ntype { a }\n", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
 
   // 2. Проверка параллельной структуры с тем же именем.
   let main: Arc<RwLock<Structure>> = runCode("a = 5\ntype { a }\n");
@@ -115,11 +115,11 @@ fn importModule() -> ()
 
   for name in MethodsPrimitives
   {
-    checkStructure!(main, *name, stype StructureType::Method, mut StructureMut::Constant, lines 0);
+    checkStructure!(main, *name, stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
   }
   for (name, dataType) in TypesPrimitives
   {
-    checkStructure!(main, *name, stype dataType.clone(), mut StructureMut::Constant, lines 0);
+    checkStructure!(main, *name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
   }
 }
 

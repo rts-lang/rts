@@ -4,6 +4,8 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 use serde::{Deserialize, Serialize};
 use std::num::IntErrorKind;
+use serde::de::IntoDeserializer;
+use serde::de::value::{Error, StrDeserializer};
 // =================================================================================================
 
 // Идея простая - т.к. мы имеем хранение в токенах, то это абстрактные данные;
@@ -31,13 +33,12 @@ pub enum PrimitiveKind
 
 // =================================================================================================
 
-/// Тип данных структуры.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum StructureType
+/// Примитивные типы языка.
+#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum PrimitiveType
 {
   None,
-  Any,
-  Link,
+  Any, // todo У неё нет использований, их надо потому будет добавить.
 
   /// Логический примитив
   True,
@@ -51,19 +52,48 @@ pub enum StructureType
   
   /// Указатель (raw).
   Pointer,
-  /// ABI-композит: 2 поля (.pointer .length), см. Structure::stringFields в ffi/bridge.rs.
+  /// ABI-композит: 2 поля `.pointer` и `.length`.
   String,
-  // CString = Pointer, алиас на уровне getStructureTypeSimple().
+  /// Алиас от `Pointer`
+  CString,
   /// Байты без длины/NUL в самом StructureType — длина берётся из токена при FFI-вызове.
+  /// todo rewrite desc.
   RawString,
 
   // todo Требует удаление для FFI-ABI?
+  //  Это кстати может называться ещё `Block`, но не знаю точно пока что.
+  //  Но это не мешает по идее FFI, а штука в целом нужная для RTS.
+  //  Сама она не учавствует в FFI.
   Method,
   // todo Требует удаление для FFI-ABI?
   List, // todo List<Type>
-  
+
   /// Позволяет создавать пользовательские типы.
-  Custom(String),
+  Custom(String)
+}
+
+impl PrimitiveType
+{
+  pub fn fromName(name: &str) -> Option<Self>
+  {
+    let deserializer: StrDeserializer<Error> = name.into_deserializer();
+    Self::deserialize(deserializer).ok()
+  }
+
+  pub fn isPrimitive(name: &str) -> bool
+  {
+    Self::fromName(name).is_some()
+  }
+}
+
+// =================================================================================================
+
+/// Тип данных структуры.
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
+pub enum StructureType
+{
+  /// Примитивный тип.
+  Primitive(PrimitiveType),
 
   /// Модуль из `import(...)`; id — ключ lookup без имени структуры.
   /// 
@@ -85,10 +115,10 @@ pub enum StructureType
   ///
   /// Пустой список вариантов равносилен `None`.
   ///
-  /// Вариантом может быть и примитив (`Primitive`): `a: 10 | 20`, `a: "text" | U8`.
+  /// Вариантом может быть и примитив-значение (`Value`): `a: 10 | 20`, `a: "text" | U8`.
   Union(Vec<Self>),
-
-  /// Примитив как граница типизации: `a: 10 | 20 = 10`.
+  
+  /// Примитив-значение как граница типизации: `a: 10 | 20 = 10`.
   ///
   /// Это ограничение значения: допустимо только точное совпадение,
   /// без приведения и без зажима. При матче примитив сам становится
@@ -98,7 +128,7 @@ pub enum StructureType
   ///
   /// Живёт только в type-секции (слева от `=`): справа `|` - это логическое ИЛИ.
   /// Отдельный примитив `a: 10` оборачивается в `Union` из одного варианта.
-  Primitive(PrimitiveKind, String)
+  PrimitiveValue(PrimitiveKind, String)
 }
 
 // =================================================================================================
@@ -112,41 +142,45 @@ impl ToString for StructureType
   {
     match self
     { //
-      Self::None => String::from("None"),
-      Self::Any => String::from("Any"),
-      Self::Link => String::from("Link"),
-      Self::True => String::from("True"),
-      Self::False => String::from("False"),
+      Self::Primitive(PrimitiveType::None) => String::from("None"),
+      Self::Primitive(PrimitiveType::Any) => String::from("Any"),
+      Self::Primitive(PrimitiveType::True) => String::from("True"),
+      Self::Primitive(PrimitiveType::False) => String::from("False"),
 
       // Беззнаковые.
-      Self::U8 => String::from("U8"),
-      Self::U16 => String::from("U16"),
-      Self::U32 => String::from("U32"),
-      Self::U64 => String::from("U64"),
+      Self::Primitive(PrimitiveType::U8) => String::from("U8"),
+      Self::Primitive(PrimitiveType::U16) => String::from("U16"),
+      Self::Primitive(PrimitiveType::U32) => String::from("U32"),
+      Self::Primitive(PrimitiveType::U64) => String::from("U64"),
       // U128 нет т.к. это не FFI совместимый тип данных.
-      Self::Usize => String::from("Usize"),
+      Self::Primitive(PrimitiveType::Usize) => String::from("Usize"),
 
       // Знаковые.
-      Self::I8 => String::from("I8"),
-      Self::I16 => String::from("I16"),
-      Self::I32 => String::from("I32"),
-      Self::I64 => String::from("I64"),
+      Self::Primitive(PrimitiveType::I8) => String::from("I8"),
+      Self::Primitive(PrimitiveType::I16) => String::from("I16"),
+      Self::Primitive(PrimitiveType::I32) => String::from("I32"),
+      Self::Primitive(PrimitiveType::I64) => String::from("I64"),
       // I128 нет т.к. это не FFI совместимый тип данных.
-      Self::Isize => String::from("Isize"),
+      Self::Primitive(PrimitiveType::Isize) => String::from("Isize"),
 
       // Плавающие.
       // F16 нет т.к. это не FFI совместимый тип данных.
-      Self::F32 => String::from("F32"),
-      Self::F64 => String::from("F64"),
+      Self::Primitive(PrimitiveType::F32) => String::from("F32"),
+      Self::Primitive(PrimitiveType::F64) => String::from("F64"),
 
       // Указатель.
-      Self::Pointer => String::from("Pointer"),
-      Self::RawString => String::from("RawString"),
-      Self::String => String::from("String"),
+      Self::Primitive(PrimitiveType::Pointer) => String::from("Pointer"),
+      // Алиас от `Pointer`, но для FFI - отдельный примитив (см. `abiType`).
+      Self::Primitive(PrimitiveType::CString) => String::from("CString"),
+      Self::Primitive(PrimitiveType::RawString) => String::from("RawString"),
+      Self::Primitive(PrimitiveType::String) => String::from("String"),
 
       // Служебные.
-      Self::Method => String::from("Method"),
-      Self::List => String::from("List"),
+      Self::Primitive(PrimitiveType::Method) => String::from("Method"),
+      Self::Primitive(PrimitiveType::List) => String::from("List"),
+
+      // Custom.
+      Self::Primitive(PrimitiveType::Custom(value)) => value.clone(),
 
       // Объединение типов (issue #59) — печатается так же, как записывается.
       Self::Union(variants) => variants
@@ -156,14 +190,11 @@ impl ToString for StructureType
         .join(" | "),
 
       // Примитив печатается так же, как записывается.
-      Self::Primitive(PrimitiveKind::Number, value) => value.clone(),
-      Self::Primitive(PrimitiveKind::Text, value) => format!("\"{}\"", value),
+      Self::PrimitiveValue(PrimitiveKind::Number, value) => value.clone(),
+      Self::PrimitiveValue(PrimitiveKind::Text, value) => format!("\"{}\"", value),
 
       // Module.
-      Self::Module(_) => String::from("Module"),
-
-      // Custom.
-      Self::Custom(value) => value.clone()
+      Self::Module(_) => String::from("Module")
     }
   }
 }
@@ -175,14 +206,16 @@ impl StructureType
   /// ABI / storage тип: примитив сводится к natural-форме значения.
   ///
   /// `Primitive(Text, _)` → `String`; `Primitive(Number, v)` → наименьший числовой
-  /// ABI-тип для `v`; всё остальное — как есть. Нужен там, где `dataType`
-  /// участвует в FFI, string-полях и `normalizeToken`, а не в `stype`.
+  /// ABI-тип для `v`; `Primitive(CString)` → `Pointer` (алиас); всё остальное — как есть.
+  /// Нужен там, где `dataType` участвует в FFI, string-полях и `normalizeToken`, а не в `stype`.
   pub fn abiType(&self) -> Self
   {
     match self
     {
-      Self::Primitive(PrimitiveKind::Text, _) => Self::String,
-      Self::Primitive(PrimitiveKind::Number, value) =>
+      Self::PrimitiveValue(PrimitiveKind::Text, _) => Self::Primitive(PrimitiveType::String),
+      // `CString` - алиас от `Pointer`: в ABI-форме это указатель.
+      Self::Primitive(PrimitiveType::CString) => Self::Primitive(PrimitiveType::Pointer),
+      Self::PrimitiveValue(PrimitiveKind::Number, value) =>
       {
         // Те же правила, что naturalType для числового токена: через временный UInt/Int.
         let tokenType: TokenType = 
@@ -211,18 +244,17 @@ impl StructureType
   {
     match token.getDataType()
     {
-      TokenType::None => Self::None,
-      TokenType::Any => Self::Any,
-      TokenType::Link => Self::Link,
-      TokenType::True => Self::True,
-      TokenType::False => Self::False,
-      TokenType::String => Self::String,
-      TokenType::RawString => Self::RawString,
+      TokenType::None => Self::Primitive(PrimitiveType::None),
+      TokenType::Any => Self::Primitive(PrimitiveType::Any),
+      TokenType::True => Self::Primitive(PrimitiveType::True),
+      TokenType::False => Self::Primitive(PrimitiveType::False),
+      TokenType::String => Self::Primitive(PrimitiveType::String),
+      TokenType::RawString => Self::Primitive(PrimitiveType::RawString),
       // Числа: ширину и насыщение считает сам getStructureType.
       TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
         token.getStructureType(),
       // Неизвестное — трактуем как отсутствие значения.
-      _ => Self::None
+      _ => Self::Primitive(PrimitiveType::None)
     }
   }
 }
@@ -236,16 +268,16 @@ impl Structure
   {
     match structureType 
     {
-      StructureType::U8    => Some(( 0,                 u8::MAX    as u64 )),
-      StructureType::U16   => Some(( 0,                 u16::MAX   as u64 )),
-      StructureType::U32   => Some(( 0,                 u32::MAX   as u64 )),
-      StructureType::U64   => Some(( 0,                 u64::MAX          )),
-      StructureType::Usize => Some(( 0,                 usize::MAX as u64 )),
-      StructureType::I8    => Some(( i8::MIN    as i64, i8::MAX    as u64 )),
-      StructureType::I16   => Some(( i16::MIN   as i64, i16::MAX   as u64 )),
-      StructureType::I32   => Some(( i32::MIN   as i64, i32::MAX   as u64 )),
-      StructureType::I64   => Some(( i64::MIN,          i64::MAX   as u64 )),
-      StructureType::Isize => Some(( isize::MIN as i64, isize::MAX as u64 )),
+      StructureType::Primitive(PrimitiveType::U8)    => Some(( 0,                 u8::MAX    as u64 )),
+      StructureType::Primitive(PrimitiveType::U16)   => Some(( 0,                 u16::MAX   as u64 )),
+      StructureType::Primitive(PrimitiveType::U32)   => Some(( 0,                 u32::MAX   as u64 )),
+      StructureType::Primitive(PrimitiveType::U64)   => Some(( 0,                 u64::MAX          )),
+      StructureType::Primitive(PrimitiveType::Usize) => Some(( 0,                 usize::MAX as u64 )),
+      StructureType::Primitive(PrimitiveType::I8)    => Some(( i8::MIN    as i64, i8::MAX    as u64 )),
+      StructureType::Primitive(PrimitiveType::I16)   => Some(( i16::MIN   as i64, i16::MAX   as u64 )),
+      StructureType::Primitive(PrimitiveType::I32)   => Some(( i32::MIN   as i64, i32::MAX   as u64 )),
+      StructureType::Primitive(PrimitiveType::I64)   => Some(( i64::MIN,          i64::MAX   as u64 )),
+      StructureType::Primitive(PrimitiveType::Isize) => Some(( isize::MIN as i64, isize::MAX as u64 )),
       _ => None
     }
   }
@@ -272,9 +304,9 @@ impl Structure
     // Обработка типов
     match structureType 
     {
-      StructureType::U8 | StructureType::U16 | StructureType::U32 | StructureType::U64 | StructureType::Usize |
-      StructureType::I8 | StructureType::I16 | StructureType::I32 | StructureType::I64 | StructureType::Isize |
-      StructureType::F32 | StructureType::F64 => 
+      StructureType::Primitive(PrimitiveType::U8) | StructureType::Primitive(PrimitiveType::U16) | StructureType::Primitive(PrimitiveType::U32) | StructureType::Primitive(PrimitiveType::U64) | StructureType::Primitive(PrimitiveType::Usize) |
+      StructureType::Primitive(PrimitiveType::I8) | StructureType::Primitive(PrimitiveType::I16) | StructureType::Primitive(PrimitiveType::I32) | StructureType::Primitive(PrimitiveType::I64) | StructureType::Primitive(PrimitiveType::Isize) |
+      StructureType::Primitive(PrimitiveType::F32) | StructureType::Primitive(PrimitiveType::F64) => 
       {
         match dataType
         {
@@ -293,12 +325,12 @@ impl Structure
               Some(value) => match structureType 
               {
                 // Для float берём величину числа напрямую, без сжатия в u64.
-                StructureType::F32 => {
+                StructureType::Primitive(PrimitiveType::F32) => {
                   let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64)
                     .clamp(f32::MIN as f64, f32::MAX as f64);
                   token.setData( Bytes::from((floatValue as f32).to_string()) );
                 }
-                StructureType::F64 => {
+                StructureType::Primitive(PrimitiveType::F64) => {
                   let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64);
                   token.setData( Bytes::from(floatValue.to_string()) );
                 }
@@ -324,12 +356,12 @@ impl Structure
               Some(value) => match structureType 
               {
                 // Для float берём величину числа напрямую, без сжатия в i64.
-                StructureType::F32 => {
+                StructureType::Primitive(PrimitiveType::F32) => {
                   let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64)
                     .clamp(f32::MIN as f64, f32::MAX as f64);
                   token.setData( Bytes::from((floatValue as f32).to_string()) );
                 }
-                StructureType::F64 => {
+                StructureType::Primitive(PrimitiveType::F64) => {
                   let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64);
                   token.setData( Bytes::from(floatValue.to_string()) );
                 }
@@ -358,11 +390,11 @@ impl Structure
               }
               match structureType 
               {
-                StructureType::F32 => {
+                StructureType::Primitive(PrimitiveType::F32) => {
                   value = value.clamp(f32::MIN as f64, f32::MAX as f64);
                   token.setData( Bytes::from((value as f32).to_string()) );
                 }
-                StructureType::F64 => {
+                StructureType::Primitive(PrimitiveType::F64) => {
                   value = value.clamp(f64::MIN, f64::MAX);
                   token.setData( Bytes::from(value.to_string()) );
                 }
@@ -419,22 +451,22 @@ impl Token
     match structureType
     {
       // Целочисленные типы.
-      StructureType::U8 | StructureType::U16 | StructureType::U32 | StructureType::U64 |
-      StructureType::Usize | StructureType::I8 | StructureType::I16 | StructureType::I32 |
-      StructureType::I64 | StructureType::Isize => {
+      StructureType::Primitive(PrimitiveType::U8) | StructureType::Primitive(PrimitiveType::U16) | StructureType::Primitive(PrimitiveType::U32) | StructureType::Primitive(PrimitiveType::U64) |
+      StructureType::Primitive(PrimitiveType::Usize) | StructureType::Primitive(PrimitiveType::I8) | StructureType::Primitive(PrimitiveType::I16) | StructureType::Primitive(PrimitiveType::I32) |
+      StructureType::Primitive(PrimitiveType::I64) | StructureType::Primitive(PrimitiveType::Isize) => {
         self.setDataType(TokenType::UInt);
         self.setData("0");
       }
       // Числа с плавающей точкой.
-      StructureType::F32 | StructureType::F64 => {
+      StructureType::Primitive(PrimitiveType::F32) | StructureType::Primitive(PrimitiveType::F64) => {
         self.setDataType(TokenType::Float);
         self.setData("0.0");
       }
-      StructureType::True => {
+      StructureType::Primitive(PrimitiveType::True) => {
         self.setDataType(TokenType::True);
         self.setData("True");
       }
-      StructureType::False => {
+      StructureType::Primitive(PrimitiveType::False) => {
         self.setDataType(TokenType::False);
         self.setData("False");
       }
@@ -464,7 +496,7 @@ impl Token
   {
     let result = |selfToken: &mut Self, structureType: StructureType| -> StructureType
     {
-      if structureType == StructureType::None {
+      if structureType == StructureType::Primitive(PrimitiveType::None) {
         selfToken.setData(None);
       }
       structureType
@@ -478,15 +510,17 @@ impl Token
     // Идёт до чтения данных: у пустой строки `""` данных нет, но это всё равно String.
     match dataType
     {
-      TokenType::String => return StructureType::String,
-      TokenType::RawString => return StructureType::RawString,
+      TokenType::String => return StructureType::Primitive(PrimitiveType::String),
+      TokenType::RawString => return StructureType::Primitive(PrimitiveType::RawString),
       _ => {}
     }
 
     // Получаем строку из данных токена.
-    let data: String = if let Some(string) = 
-      self.getData().toString() { string }
-      else { return result(self, StructureType::None) };
+    let data: String = if let Some(string) = self.getData().toString() {
+      string
+    } else {
+      return result(self, StructureType::Primitive(PrimitiveType::None))
+    };
 
     // Токены UInt, Int, UFloat, Float бесконечны, а ABI типы структур ограничены;
     // Если число вышло за самый крайний ABI тип, то это константное поведение (#71):
@@ -496,62 +530,64 @@ impl Token
 
     let structureType: StructureType = match dataType 
     {
-      TokenType::None => StructureType::None,
-      TokenType::Any => StructureType::Any,
-      TokenType::Link => StructureType::Link,
+      TokenType::None => StructureType::Primitive(PrimitiveType::None),
+      TokenType::Any => StructureType::Primitive(PrimitiveType::Any),
+      // Ссылка - не значение, а указатель на структуру: своего типа у неё нет,
+      // но данные сохраняются - ссылка должна остаться ссылкой.
+      TokenType::Link => return StructureType::Primitive(PrimitiveType::None),
       //
       TokenType::UInt => 
       {
         match data.parse::<u64>() 
         {
-          Ok(value) if value <= u8::MAX  as u64 => StructureType::U8,
-          Ok(value) if value <= u16::MAX as u64 => StructureType::U16,
-          Ok(value) if value <= u32::MAX as u64 => StructureType::U32,
-          Ok(_) => StructureType::U64,
+          Ok(value) if value <= u8::MAX  as u64 => StructureType::Primitive(PrimitiveType::U8),
+          Ok(value) if value <= u16::MAX as u64 => StructureType::Primitive(PrimitiveType::U16),
+          Ok(value) if value <= u32::MAX as u64 => StructureType::Primitive(PrimitiveType::U32),
+          Ok(_) => StructureType::Primitive(PrimitiveType::U64),
           // Больше U64: вид ошибки говорит, что это переполнение числа.
           Err(error) if *error.kind() == IntErrorKind::PosOverflow => 
           {
             newData = Some( u64::MAX.to_string() );
-            StructureType::U64
+            StructureType::Primitive(PrimitiveType::U64)
           }
           // Что-то непонятное.
-          Err(_) => StructureType::None
+          Err(_) => StructureType::Primitive(PrimitiveType::None)
         }
       }
       TokenType::Int => 
       {
         match data.parse::<i64>() 
         {
-          Ok(value) if value >= i8::MIN  as i64 && value <= i8::MAX  as i64 => StructureType::I8,
-          Ok(value) if value >= i16::MIN as i64 && value <= i16::MAX as i64 => StructureType::I16,
-          Ok(value) if value >= i32::MIN as i64 && value <= i32::MAX as i64 => StructureType::I32,
-          Ok(_) => StructureType::I64,
+          Ok(value) if value >= i8::MIN  as i64 && value <= i8::MAX  as i64 => StructureType::Primitive(PrimitiveType::I8),
+          Ok(value) if value >= i16::MIN as i64 && value <= i16::MAX as i64 => StructureType::Primitive(PrimitiveType::I16),
+          Ok(value) if value >= i32::MIN as i64 && value <= i32::MAX as i64 => StructureType::Primitive(PrimitiveType::I32),
+          Ok(_) => StructureType::Primitive(PrimitiveType::I64),
           // Меньше или больше I64: вид ошибки говорит, что это переполнение числа.
           Err(error) => match error.kind() 
           {
             IntErrorKind::NegOverflow => 
             {
               newData = Some( i64::MIN.to_string() );
-              StructureType::I64
+              StructureType::Primitive(PrimitiveType::I64)
             }
             IntErrorKind::PosOverflow => 
             {
               newData = Some( i64::MAX.to_string() );
-              StructureType::I64
+              StructureType::Primitive(PrimitiveType::I64)
             }
             // Что-то непонятное.
-            _ => StructureType::None
+            _ => StructureType::Primitive(PrimitiveType::None)
           }
         }
       }
-      TokenType::True => StructureType::True,
-      TokenType::False => StructureType::False,
+      TokenType::True => StructureType::Primitive(PrimitiveType::True),
+      TokenType::False => StructureType::Primitive(PrimitiveType::False),
       TokenType::UFloat | TokenType::Float => 
       {
         match data.parse::<f64>() 
         {
-          Ok(value) if value.is_nan() => StructureType::None,
-          Ok(value) if value >= f32::MIN as f64 && value <= f32::MAX as f64 => StructureType::F32,
+          Ok(value) if value.is_nan() => StructureType::Primitive(PrimitiveType::None),
+          Ok(value) if value >= f32::MIN as f64 && value <= f32::MAX as f64 => StructureType::Primitive(PrimitiveType::F32),
           Ok(value) => 
           { // Самый крайний тип; inf становится границей F64.
             if value.is_infinite() 
@@ -559,15 +595,16 @@ impl Token
               let border: f64 = if value.is_sign_negative() { f64::MIN } else { f64::MAX };
               newData = Some( format!("{:e}", border) );
             }
-            StructureType::F64
+            StructureType::Primitive(PrimitiveType::F64)
           }
           // Что-то непонятное.
-          Err(_) => StructureType::None
+          Err(_) => StructureType::Primitive(PrimitiveType::None)
         }
       }
       // Для остальных типов - None, и токен очищается.
+      //
       // todo Сейчас могут попасть лишние т.к. они не объявлены выше.
-      _ => StructureType::None,
+      _ => StructureType::Primitive(PrimitiveType::None),
     };
 
     if let Some(newData) = newData {
@@ -577,55 +614,25 @@ impl Token
     //
   }
 
-  /// Вычисляет StructureType на основе токена;
+  /// Вычисляет `StructureType` на основе токена;
   /// 
   /// Но делает это упрощенно по имени токена - т.е. когда мы явно знаем уже тип в строке.
   pub fn getStructureTypeSimple(&self) -> StructureType
   {
-    let data: String = self.to_string();
-    match data.as_str()
-    {
-      //
-      "None" => StructureType::None,
-      "Any" => StructureType::Any,
-      "Link" => StructureType::Link,
-      "True" => StructureType::True,
-      "False" => StructureType::False,
-
-      // Беззнаковые
-      "U8" => StructureType::U8,
-      "U16" => StructureType::U16,
-      "U32" => StructureType::U32,
-      "U64" => StructureType::U64,
-      "Usize" => StructureType::Usize,
-
-      // Знаковые
-      "I8" => StructureType::I8,
-      "I16" => StructureType::I16,
-      "I32" => StructureType::I32,
-      "I64" => StructureType::I64,
-      "Isize" => StructureType::Isize,
-
-      // Плавающие
-      "F32" => StructureType::F32,
-      "F64" => StructureType::F64,
-
-      // Указатель
-      "Pointer" => StructureType::Pointer,
-      "CString" => StructureType::Pointer, // CString = Pointer (алиас).
-      "RawString" => StructureType::RawString,
-      "String" => StructureType::String,
-
-      // Служебные
-      // todo Под вопросом
-      "Method" => StructureType::Method,
-      "List" => StructureType::List,
-
-      // Всё остальное — кастомное
-      _ => StructureType::Custom(data)
+    let tokenData: String = self.to_string();
+    let structureTypeName: &str = tokenData.as_str();
+    
+    if PrimitiveType::isPrimitive(structureTypeName) {
+      StructureType::Primitive(
+        PrimitiveType::fromName(structureTypeName).unwrap() // Здесь точно есть т.к. проверено `is`.
+      )
+    } else
+    { // Всё остальное — `custom`.
+      StructureType::Primitive(PrimitiveType::Custom(tokenData))
     }
     //
   }
 }
 
 // =================================================================================================
+
