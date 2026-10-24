@@ -1,5 +1,5 @@
 use crate::parser::parser::runCode;
-use crate::parser::structure::primitives::{ArgsPrimitives, MethodsPrimitives, TypesPrimitives};
+use crate::parser::structure::primitives::{ArgsPrimitives, MethodsPrimitives};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
@@ -23,9 +23,9 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 #[test]
 fn structures() -> ()
 {
-  for (name, dataType) in TypesPrimitives
+  for (name, dataType) in PrimitiveType::iter()
   {
-    checkStructure!("", *name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
+    checkStructure!("", name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
   }
 }
 
@@ -117,9 +117,9 @@ fn importModule() -> ()
   {
     checkStructure!(main, *name, stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
   }
-  for (name, dataType) in TypesPrimitives
+  for (name, dataType) in PrimitiveType::iter()
   {
-    checkStructure!(main, *name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
+    checkStructure!(main, name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
   }
 }
 

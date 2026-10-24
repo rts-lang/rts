@@ -1,7 +1,6 @@
 use crate::parser::parser::readLines;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
-use crate::parser::structure::primitives::TypesPrimitives;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::tokenizer::readTokensSimple;
@@ -490,9 +489,11 @@ impl Function
   /// Результат остаётся токеном и работает в выражении: `c := U8(a) + b`.
   /// Тип данных дальше не несёт - его хранит структура: `x: U8 = a`.
   ///
-  /// Тип приведения - любой примитив из [`TypesPrimitives`]: числовые зажимаются
+  /// Тип приведения - любой примитив из [`PrimitiveType`]: числовые зажимаются
   /// по своим границам, строки становятся строками, `None` - это отсутствие
   /// значения, а `Any` и `Pointer` ничего не меняют - приведения для них пока нет.
+  /// 
+  /// todo rewrite desc.
   fn cast(
     structure: &Structure,
     parameters: &Parameters,
@@ -569,10 +570,9 @@ impl Structure
       { // Это позволит выйти, если мы ожидаем не стандартные варианты.
         // Методы приведения к StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)`.
         //
-        // Типы берутся из [`TypesPrimitives`] - реестра примитивов языка,
+        // Типы берутся из `PrimitiveType` - реестра примитивов языка,
         // поэтому привести значение можно к любому примитивному типу.
-        if let Some((_, structureType)) =
-          TypesPrimitives.iter().find(|(name, _)| *name == structureName)
+        if let Some(structureType) = PrimitiveType::fromName(structureName.as_str())
         {
           Function::cast(self, &parameters, value, i, StructureType::Primitive(structureType.clone()));
           return;

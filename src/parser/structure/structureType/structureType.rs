@@ -4,8 +4,6 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 use serde::{Deserialize, Serialize};
 use std::num::IntErrorKind;
-use serde::de::IntoDeserializer;
-use serde::de::value::{Error, StrDeserializer};
 // =================================================================================================
 
 // Идея простая - т.к. мы имеем хранение в токенах, то это абстрактные данные;
@@ -33,10 +31,94 @@ pub enum PrimitiveKind
 
 // =================================================================================================
 
-/// Примитивные типы языка.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
-pub enum PrimitiveType
+macro_rules! defineEnum
 {
+  (
+    $($(#[$varAttr:meta])* $variant:ident $(($field:ty))?),* $(,)?
+  ) =>
+  {
+    /// Список структур-примитивов.
+    /// 
+    /// Он также включает в себя `Custom` - хвост для пользовательских типов;
+    /// Хотя фактически они не примитивы - но они должны быть логически здесь;
+    /// Поэтому из списков имен `Custom` исключен на этапе раскрытия макроса.
+    #[repr(u8)]
+    #[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+    pub enum PrimitiveType
+    {
+      $(
+        $(#[$varAttr])*
+        $variant $(($field))?,
+      )*
+    }
+
+    impl PrimitiveType
+    {
+      /// Имена примитивов в порядке объявления (без `Custom`).
+      const Names: &'static [&'static str] =
+        defineEnum!(@names []; $($variant $(($field))?,)*);
+
+      /// Пары `имя -> значение` для примитивов (без `Custom`).
+      const Entries: &'static [(&'static str, PrimitiveType)] =
+        defineEnum!(@entries []; $($variant $(($field))?,)*);
+
+      /// Имя примитива по индексу в `Names`.
+      pub fn fromIndex(i: usize) -> Option<&'static str>
+      {
+        Self::Names.get(i).copied()
+      }
+
+      /// Примитив по имени; `Custom` и неизвестные имена -> `None`.
+      pub fn fromName(name: &str) -> Option<Self>
+      {
+        Self::Entries.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone())
+      }
+
+      /// Является ли строка именем примитива (не `Custom`).
+      pub fn isPrimitive(name: &str) -> bool
+      {
+        Self::Names.contains(&name)
+      }
+
+      /// Перебор примитивов: `(имя, значение)`.
+      pub fn iter() -> impl Iterator<Item = (&'static str, Self)>
+      {
+        Self::Entries.iter().cloned()
+      }
+    }
+  };
+
+  (@names [$($acc:tt)*];) =>
+  {
+    &[$($acc)*]
+  };
+  (@names [$($acc:tt)*]; $v:ident, $($rest:tt)*) =>
+  {
+    defineEnum!(@names [$($acc)* stringify!($v),]; $($rest)*)
+  };
+  (@names [$($acc:tt)*]; $v:ident ($t:ty), $($rest:tt)*) =>
+  {
+    defineEnum!(@names [$($acc)*]; $($rest)*)
+  };
+
+  (@entries [$($acc:tt)*];) =>
+  {
+    &[$($acc)*]
+  };
+  (@entries [$($acc:tt)*]; $v:ident, $($rest:tt)*) =>
+  {
+    defineEnum!(@entries
+      [$($acc)* (stringify!($v), PrimitiveType::$v),];
+      $($rest)*
+    )
+  };
+  (@entries [$($acc:tt)*]; $v:ident ($t:ty), $($rest:tt)*) =>
+  {
+    defineEnum!(@entries [$($acc)*]; $($rest)*)
+  };
+}
+
+defineEnum!(
   None,
   Any, // todo У неё нет использований, их надо потому будет добавить.
 
@@ -49,7 +131,7 @@ pub enum PrimitiveType
   I8, I16, I32, I64,
   F32, F64,
   Usize, Isize,
-  
+
   /// Указатель (raw).
   Pointer,
   /// ABI-композит: 2 поля `.pointer` и `.length`.
@@ -61,30 +143,17 @@ pub enum PrimitiveType
   RawString,
 
   // todo Требует удаление для FFI-ABI?
-  //  Это кстати может называться ещё `Block`, но не знаю точно пока что.
-  //  Но это не мешает по идее FFI, а штука в целом нужная для RTS.
-  //  Сама она не учавствует в FFI.
+  // Это кстати может называться ещё `Block`, но не знаю точно пока что.
+  // Но это не мешает по идее FFI, а штука в целом нужная для RTS.
+  // Сама она не учавствует в FFI.
   Method,
   // todo Требует удаление для FFI-ABI?
-  List, // todo List<Type>
+  // todo List<Type>
+  List,
 
   /// Позволяет создавать пользовательские типы.
   Custom(String)
-}
-
-impl PrimitiveType
-{
-  pub fn fromName(name: &str) -> Option<Self>
-  {
-    let deserializer: StrDeserializer<Error> = name.into_deserializer();
-    Self::deserialize(deserializer).ok()
-  }
-
-  pub fn isPrimitive(name: &str) -> bool
-  {
-    Self::fromName(name).is_some()
-  }
-}
+);
 
 // =================================================================================================
 
@@ -95,12 +164,18 @@ pub enum StructureType
   /// Примитивный тип.
   Primitive(PrimitiveType),
 
-  /// Модуль из `import(...)`; id — ключ lookup без имени структуры.
-  /// 
-  /// Это правильно т.к. поиск по имени может уйти за структуру, а id
-  /// позволяет остаться только в `self` scope.
-  Module(usize),
-
+  /// Примитив-значение как граница типизации: `a: 10 | 20 = 10`.
+  ///
+  /// Это ограничение значения: допустимо только точное совпадение,
+  /// без приведения и без зажима. При матче примитив сам становится
+  /// `dataType` структуры (`stype` → `10` / `"text"`), а не natural ABI-тип.
+  /// Для ABI (FFI, string fields) см. `abiType()`: Text → String, Number → natural.
+  /// Значение вне примитивов - `None` (#71).
+  ///
+  /// Живёт только в type-секции (слева от `=`): справа `|` - это логическое ИЛИ.
+  /// Отдельный примитив `a: 10` оборачивается в `Union` из одного варианта.
+  PrimitiveValue(PrimitiveKind, String),
+  
   /// Объединение типов: `a: U8 | String = ...` (issue #59).
   ///
   /// Это НЕ аналог TypeScript: здесь хранится не "пересечение", а список
@@ -118,17 +193,11 @@ pub enum StructureType
   /// Вариантом может быть и примитив-значение (`Value`): `a: 10 | 20`, `a: "text" | U8`.
   Union(Vec<Self>),
   
-  /// Примитив-значение как граница типизации: `a: 10 | 20 = 10`.
+  /// Модуль из `import(...)`; id — ключ lookup без имени структуры.
   ///
-  /// Это ограничение значения: допустимо только точное совпадение,
-  /// без приведения и без зажима. При матче примитив сам становится
-  /// `dataType` структуры (`stype` → `10` / `"text"`), а не natural ABI-тип.
-  /// Для ABI (FFI, string fields) см. `abiType()`: Text → String, Number → natural.
-  /// Значение вне примитивов - `None` (#71).
-  ///
-  /// Живёт только в type-секции (слева от `=`): справа `|` - это логическое ИЛИ.
-  /// Отдельный примитив `a: 10` оборачивается в `Union` из одного варианта.
-  PrimitiveValue(PrimitiveKind, String)
+  /// Это правильно т.к. поиск по имени может уйти за структуру, а id
+  /// позволяет остаться только в `self` scope.
+  Module(usize)
 }
 
 // =================================================================================================

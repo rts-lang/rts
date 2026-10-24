@@ -1,5 +1,4 @@
 use crate::parser::parser::runCode;
-use crate::parser::structure::primitives::TypesPrimitives;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
@@ -288,16 +287,15 @@ fn castToNone() -> ()
 #[test]
 fn everyPrimitiveIsCast() -> ()
 {
-  for (name, _) in TypesPrimitives
+  for (name, _) in PrimitiveType::iter()
   {
     let code: String = format!("a := {name}(5)");
     let main: Arc<RwLock<Structure>> = runCode(&code);
 
-    if *name == "None"
+    if name == "None"
     { // `None` - это отсутствие значения.
       checkStructure!(main, "a", type TokenType::None, value "");
-    } else
-    {
+    } else {
       checkStructure!(main, "a", value "5");
     }
   }

@@ -1,6 +1,6 @@
 use crate::parser::parser::runCode;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::structure::structureType::PrimitiveType;
 use crate::parser::testing::checkStructure;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::tokenizer::types::token::Token;

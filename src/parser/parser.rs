@@ -5,7 +5,7 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::primitives::{isPrimitiveName, ArgsPrimitives, MethodsPrimitives, TypesPrimitives};
+use crate::parser::structure::primitives::{isPrimitiveName, ArgsPrimitives, MethodsPrimitives};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -1327,11 +1327,11 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
   // -----------------------------------------------------------------------------------------------
   // Примитивы (базовые структуры языка).
 
-  for (name, dataType) in TypesPrimitives
+  for (name, dataType) in PrimitiveType::iter()
   {
     mainStructure.pushStructure(
       Arc::new(RwLock::new(Structure::new(
-        Some(String::from(*name)),
+        Some(String::from(name)),
         StructureMut::Constant, // Неизменяемая.
         StructureType::Primitive(dataType.clone()),
         None, // Без значения — просто маркер.
