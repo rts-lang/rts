@@ -13,11 +13,13 @@ use std::ops::DerefMut;
 use std::sync::atomic::Ordering;
 #[cfg(not(target_family = "wasm"))]
 use crate::logger::logger::formatPrint;
-use crate::parser::structure::methods::parameters::{Parameters};
+use crate::parser::structure::methods::parameters::Parameters;
 use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
-/// Это набор базовых процедур.
+/// Это набор `процедур-примитивов`, а также работа пользовательских процедур.
+///
+/// `Процедура` - это разновидность `метода`, которая не возвращает значение.
 struct Procedure;
 
 impl Procedure

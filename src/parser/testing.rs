@@ -254,7 +254,7 @@ macro_rules! tryCheckStructure
   ($code:literal, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
     let main: ::std::sync::Arc<::std::sync::RwLock<$crate::parser::structure::structure::Structure>> =
-      $crate::parser::parser::runCode($code);
+      $crate::parser::testing::runCode!($code);
     (|| -> Result<(), String>
     {
       $(
@@ -310,6 +310,31 @@ macro_rules! tryCheckStructure
 
 #[allow(unused_imports)]
 pub(super) use tryCheckStructure;
+
+// =================================================================================================
+
+/// Выполняет код и возвращает основную структуру `main`.
+///
+/// Код с переносами - сырым литералом `r#"..."#`, без `\n` внутри строки:
+///
+///     let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+///       a = 5
+///       type { a }
+///     "#);
+///
+/// Код без переносов - обычной строкой:
+///
+///     let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
+macro_rules! runCode
+{
+  ($code:expr) =>
+  {{
+    let mut buffer: Vec<u8> = $code.as_bytes().to_vec();
+    $crate::parser::parser::runCodeBytes(&mut buffer)
+  }};
+}
+
+pub(super) use runCode;
 
 // =================================================================================================
 
@@ -567,7 +592,6 @@ pub(super) use buildLibrary;
 #[cfg(test)]
 mod tests
 {
-  use crate::parser::parser::runCode;
   use crate::parser::structure::structure::Structure;
   use crate::parser::structure::structureType::{PrimitiveType, StructureType};
   use crate::tokenizer::types::tokenType::TokenType;
@@ -578,10 +602,10 @@ mod tests
   #[test]
   fn mainSource() -> ()
   {
-    let main: Arc<RwLock<Structure>> = runCode("a := 10");
-    checkStructure!(main, "a", stype StructureType::Primitive(PrimitiveType::U8), value "10");
+    let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
+    checkStructure!(mainLink, "a", stype StructureType::Primitive(PrimitiveType::U8), value "10");
     assert_eq!(
-      tryCheckStructure!(main, "a", value "11").unwrap_err(),
+      tryCheckStructure!(mainLink, "a", value "11").unwrap_err(),
       "check value in `` for 'a': expected '11', got '10'"
     );
   }
@@ -668,19 +692,24 @@ mod tests
   #[test]
   fn showStructure() -> ()
   {
-    let main: Arc<RwLock<Structure>> = runCode("a := 10");
-    showStructure!(main, "a", stype);
-    showStructure!(main, "a", type, stype, value);
-    showStructure!(main, "a", mut, lines,);
+    let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
+    showStructure!(mainLink, "a", stype);
+    showStructure!(mainLink, "a", type, stype, value);
+    showStructure!(mainLink, "a", mut, lines,);
   }
 
   /// Путь через точку и метод без токена: не паникует, печатает `type=<none>`.
   #[test]
   fn showStructureDottedAndValueless() -> ()
   {
-    let main: Arc<RwLock<Structure>> = runCode("f(n: UInt) {\n  = n\n}\nf(1)\n");
-    showStructure!(main, "f.n", value);
-    showStructure!(main, "f", stype, type);
+    let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+      f(n: UInt) {
+        = n
+      }
+      f(1)
+    "#);
+    showStructure!(mainLink, "f.n", value);
+    showStructure!(mainLink, "f", stype, type);
   }
 
   // ===============================================================================================

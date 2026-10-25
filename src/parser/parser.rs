@@ -1488,13 +1488,6 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
 // =================================================================================================
 
 /// Запускает код и возвращает основную структуру.
-pub fn runCode(code: &str) -> Arc<RwLock<Structure>>
-{
-  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  runCodeBytes(&mut buffer)
-}
-
-/// Запускает код и возвращает основную структуру.
 pub fn runCodeBytes(buffer: &mut Vec<u8>) -> Arc<RwLock<Structure>>
 {
   parseLines( readTokensSimple(buffer) )
@@ -1502,7 +1495,7 @@ pub fn runCodeBytes(buffer: &mut Vec<u8>) -> Arc<RwLock<Structure>>
 
 /// Запускает `.rt` файл и возвращает основную структуру.
 ///
-/// В отличие от обёртки `runCode("m := import(\"…\")")` не опирается на
+/// В отличие от обёртки `runCode!(r#"m := import("…")"#)` не опирается на
 /// `import` — файл читается и выполняется напрямую, как entry в CLI.
 pub fn runCodeFile(path: &str) -> Arc<RwLock<Structure>>
 {

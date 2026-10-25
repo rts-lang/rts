@@ -2,9 +2,9 @@ mod lines;
 mod names;
 mod native;
 // =================================================================================================
-use crate::parser::parser::runCode;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::testing::runCode;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -24,7 +24,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 /// `parameters` - `None` - это чтение значения, `Some` - это вызов метода.
 pub(super) fn linkOf(code: &str, link: &str, parameters: Option< Vec<Token> >) -> Token
 {
-  let main: Arc<RwLock<Structure>> = runCode(code);
+  let main: Arc<RwLock<Structure>> = runCode!(code);
   let mut segments: Vec<String> = Structure::parseLink(link);
   let result: Token = main.read().unwrap().linkExpression(None, &mut segments, parameters);
   result
@@ -36,7 +36,7 @@ pub(super) fn linkOf(code: &str, link: &str, parameters: Option< Vec<Token> >) -
 /// а из указанной структуры: её собственные имена видны, но не имена уровнем выше.
 pub(super) fn linkOfIn(code: &str, name: &str, link: &str, parameters: Option< Vec<Token> >) -> Token
 {
-  let main: Arc<RwLock<Structure>> = runCode(code);
+  let main: Arc<RwLock<Structure>> = runCode!(code);
   let structure: Arc<RwLock<Structure>> =
     main.read().unwrap().getStructureByScope(name)
       .unwrap_or_else(|| panic!("Structure '{}' was not created", name));
@@ -53,7 +53,7 @@ pub(super) fn linkOfIn(code: &str, name: &str, link: &str, parameters: Option< V
 /// поэтому структура-источник тут обязательна.
 pub(super) fn linkOfLine(code: &str, name: &str, line: usize, parameters: Option< Vec<Token> >) -> Token
 {
-  let main: Arc<RwLock<Structure>> = runCode(code);
+  let main: Arc<RwLock<Structure>> = runCode!(code);
   let structure: Arc<RwLock<Structure>> =
     main.read().unwrap().getStructureByScope(name)
       .unwrap_or_else(|| panic!("Structure '{}' was not created", name));
@@ -69,7 +69,7 @@ pub(super) fn linkOfLine(code: &str, name: &str, line: usize, parameters: Option
 /// Корневая структура - это `main`: в ней лежат и примитивы, и структуры файла.
 pub(super) fn linkOfRootLine(code: &str, line: usize, parameters: Option< Vec<Token> >) -> Token
 {
-  let main: Arc<RwLock<Structure>> = runCode(code);
+  let main: Arc<RwLock<Structure>> = runCode!(code);
   let mainForCall: Arc<RwLock<Structure>> = main.clone();
   let mut segments: Vec<String> = vec![line.to_string()];
   let mainGuard: RwLockReadGuard<Structure> = main.read().unwrap();

@@ -1,8 +1,8 @@
-use crate::parser::parser::runCode;
 use crate::parser::structure::primitives::{ArgsPrimitives, MethodsPrimitives};
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
+use crate::parser::testing::runCode;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
 
@@ -25,7 +25,12 @@ fn structures() -> ()
 {
   for (name, dataType) in PrimitiveType::iter()
   {
-    checkStructure!("", name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
+    checkStructure!(
+      "", name,
+      stype StructureType::Primitive(dataType.clone()),
+      mut StructureMut::Constant,
+      lines 0
+    );
   }
 }
 
@@ -33,24 +38,44 @@ fn structures() -> ()
 
 /// Проверяет структуры `параметры запуска`: у них есть значения (линии).
 ///
-/// В тестах аргументов нет: `argc` равен 0, а у `argv` нет ни одной линии.
+/// В тестах аргументов нет: `argc` равен `0`, а у `argv` нет ни одной линии.
 #[test]
 fn args() -> ()
 {
-  for (name, dataType) in ArgsPrimitives
+  for (name, dataType) in ArgsPrimitives 
   {
-    checkStructure!("", *name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant);
+    checkStructure!(
+      "", *name,
+      stype StructureType::Primitive(dataType.clone()),
+      mut StructureMut::Constant
+    );
   }
   checkStructure!("", "argc", value "0", lines 1);
   checkStructure!("", "argv", lines 0);
 
   // Перезаписать их нельзя.
-  checkStructure!("argc := 5", "argc", value "0", mut StructureMut::Constant);
-  checkStructure!("argc = 5", "argc", value "0", mut StructureMut::Constant);
+  checkStructure!(
+    "argc := 5", "argc",
+    value "0",
+    mut StructureMut::Constant
+  );
+  checkStructure!(
+    "argc = 5", "argc",
+    value "0",
+    mut StructureMut::Constant
+  );
 
   // И удалить через `:= None` тоже.
-  checkStructure!("argc := None", "argc", value "0", mut StructureMut::Constant);
-  checkStructure!("argv := None", "argv", stype StructureType::Primitive(PrimitiveType::List), mut StructureMut::Constant);
+  checkStructure!(
+    "argc := None", "argc",
+    value "0",
+    mut StructureMut::Constant
+  );
+  checkStructure!(
+    "argv := None", "argv",
+    stype StructureType::Primitive(PrimitiveType::List),
+    mut StructureMut::Constant
+  );
 }
 
 // =================================================================================================
@@ -61,18 +86,43 @@ fn methods() -> ()
 {
   for name in MethodsPrimitives
   {
-    checkStructure!("", *name, stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
+    checkStructure!(
+      "", *name, 
+      stype StructureType::Primitive(PrimitiveType::Method),
+      mut StructureMut::Constant,
+      lines 0
+    );
   }
 }
 
-/// Попытка перезаписать примитив.
+/// Попытка перезаписать `примитив`.
 #[test]
 fn overwrite() -> ()
 {
-  checkStructure!("type := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
-  checkStructure!("type := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0); // todo Дубликат строка?
-  checkStructure!("type~ := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
-  checkStructure!("type~~ := 5", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
+  checkStructure!(
+    "type := 5", "type",
+    stype StructureType::Primitive(PrimitiveType::Method),
+    mut StructureMut::Constant,
+    lines 0
+  );
+  checkStructure!(
+    "type := 5", "type",
+    stype StructureType::Primitive(PrimitiveType::Method),
+    mut StructureMut::Constant,
+    lines 0
+  ); // todo Дубликат строка?
+  checkStructure!
+  ("type~ := 5", "type",
+    stype StructureType::Primitive(PrimitiveType::Method),
+    mut StructureMut::Constant,
+    lines 0
+  );
+  checkStructure!(
+    "type~~ := 5", "type",
+    stype StructureType::Primitive(PrimitiveType::Method),
+    mut StructureMut::Constant,
+    lines 0
+  );
 }
 
 // =================================================================================================
@@ -82,13 +132,25 @@ fn overwrite() -> ()
 fn block() -> ()
 {
   // 1. Проверка маркера.
-  checkStructure!("a := 5\ntype { a }\n", "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
+  checkStructure!(
+    r#"
+    a := 5
+    type { a }
+    "#,
+    "type",
+    stype StructureType::Primitive(PrimitiveType::Method),
+    mut StructureMut::Constant,
+    lines 0
+  );
 
   // 2. Проверка параллельной структуры с тем же именем.
-  let main: Arc<RwLock<Structure>> = runCode("a = 5\ntype { a }\n");
-  let guard: RwLockReadGuard<_> = main.read().unwrap();
+  let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+    a = 5
+    type { a }
+  "#);
+  let main: RwLockReadGuard<_> = mainLink.read().unwrap();
   let children: Vec<Arc<RwLock<Structure>>> =
-    guard.structures.read().unwrap().clone().unwrap_or_default();
+    main.structures.read().unwrap().clone().unwrap_or_default();
 
   let typeCount: usize = children.iter()
     .filter(|s| s.read().unwrap().name.as_deref() == Some("type"))
@@ -105,21 +167,31 @@ fn importModule() -> ()
 {
   let path: std::path::PathBuf = std::env::temp_dir().join("importModule.rt");
   std::fs::write(&path, "a := 10\n").unwrap();
-  let pathStr: String = path.to_string_lossy().replace('\\', "/");
-  let code: String = format!("m := import(\"{pathStr}\")\n");
-  let main: Arc<RwLock<Structure>> = runCode(&code);
+  let pathString: String = path.to_string_lossy().replace('\\', "/");
+  let code: String = format!("m := import(\"{pathString}\")\n");
+  let mainLink: Arc<RwLock<Structure>> = runCode!(&code);
 
-  checkStructure!(main, "m.a", value "10");
+  checkStructure!(mainLink, "m.a", value "10");
 
   let _ = std::fs::remove_file(&path);
 
   for name in MethodsPrimitives
   {
-    checkStructure!(main, *name, stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0);
+    checkStructure!(
+      mainLink, *name,
+      stype StructureType::Primitive(PrimitiveType::Method),
+      mut StructureMut::Constant,
+      lines 0
+    );
   }
   for (name, dataType) in PrimitiveType::iter()
   {
-    checkStructure!(main, name, stype StructureType::Primitive(dataType.clone()), mut StructureMut::Constant, lines 0);
+    checkStructure!(
+      mainLink, name,
+      stype StructureType::Primitive(dataType.clone()),
+      mut StructureMut::Constant,
+      lines 0
+    );
   }
 }
 

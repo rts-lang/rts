@@ -1,52 +1,52 @@
-use crate::parser::parser::runCode;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
+use crate::parser::testing::runCode;
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
-// Тесты на методы приведения к StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)` (Function::cast).
+// Тесты на методы приведения к `StructureType`.
 //
-// Метод берёт токен и возвращает токен: значение режется под границы типа, структура не создаётся.
+// Метод берёт токен и возвращает новый токен в границах `StructureType`;
 // Границы те же, что при объявлении `a: U8 = ...`, их считает `Structure::normalizeToken`.
 //
-// Структура `a := U8(300)` получает тип обычным путём: по токену, а не по методу.
+// Структура `a := U8(300)` получает тип обычным путём: из готового токена, а не от метода.
 
 // =================================================================================================
 // Беззнаковые.
 
-/// `U8`: всё что больше — граница типа, отрицательное — 0.
+/// `U8`: всё что больше — граница типа, отрицательное — `0`.
 #[test]
-fn castU8() -> ()
+fn u8() -> ()
 {
-  checkStructure!( "a := U8(300)", "a", value "255" );
-  checkStructure!( "a := U8(10)", "a", value "10" );
-  checkStructure!( "a := U8(-10)", "a", value "0" );
+  checkStructure!("a := U8(300)", "a", value "255");
+  checkStructure!("a := U8(10)", "a", value "10");
+  checkStructure!("a := U8(-10)", "a", value "0");
 }
 
 #[test]
-fn castU16() -> ()
+fn u16() -> ()
 {
-  checkStructure!( "a := U16(70000)", "a", value "65535" );
+  checkStructure!("a := U16(70000)", "a", value "65535");
 }
 
 #[test]
-fn castU32() -> ()
+fn u32() -> ()
 {
-  checkStructure!( "a := U32(5000000000)", "a", value "4294967295" );
+  checkStructure!("a := U32(5000000000)", "a", value "4294967295");
 }
 
 #[test]
-fn castU64() -> ()
+fn u64() -> ()
 {
-  checkStructure!( "a := U64(99999999999999999999)", "a", value "18446744073709551615" );
+  checkStructure!("a := U64(99999999999999999999)", "a", value "18446744073709551615");
 }
 
 #[test]
-fn castUsize() -> ()
+fn usize() -> ()
 {
-  checkStructure!( "a := Usize(99999999999999999999)", "a", value "18446744073709551615" );
+  checkStructure!("a := Usize(99999999999999999999)", "a", value "18446744073709551615");
 }
 
 // =================================================================================================
@@ -54,58 +54,58 @@ fn castUsize() -> ()
 
 /// `I8`: границы с обеих сторон.
 #[test]
-fn castI8() -> ()
+fn i8() -> ()
 {
-  checkStructure!( "a := I8(300)", "a", value "127" );
-  checkStructure!( "a := I8(-300)", "a", value "-128" );
-  checkStructure!( "a := I8(-5)", "a", value "-5" );
+  checkStructure!("a := I8(300)", "a", value "127");
+  checkStructure!("a := I8(-300)", "a", value "-128");
+  checkStructure!("a := I8(-5)", "a", value "-5");
 }
 
 #[test]
-fn castI16() -> ()
+fn i16() -> ()
 {
-  checkStructure!( "a := I16(40000)", "a", value "32767" );
+  checkStructure!("a := I16(40000)", "a", value "32767");
 }
 
 #[test]
-fn castI32() -> ()
+fn i32() -> ()
 {
-  checkStructure!( "a := I32(3000000000)", "a", value "2147483647" );
+  checkStructure!("a := I32(3000000000)", "a", value "2147483647");
 }
 
 #[test]
-fn castI64() -> ()
+fn i64() -> ()
 {
-  checkStructure!( "a := I64(99999999999999999999)", "a", value "9223372036854775807" );
+  checkStructure!("a := I64(99999999999999999999)", "a", value "9223372036854775807");
 }
 
 #[test]
-fn castIsize() -> ()
+fn isize() -> ()
 {
-  checkStructure!( "a := Isize(-99999999999999999999)", "a", value "-9223372036854775808" );
+  checkStructure!("a := Isize(-99999999999999999999)", "a", value "-9223372036854775808");
 }
 
 // =================================================================================================
 // Плавающие.
 
 #[test]
-fn castF32() -> ()
+fn f32() -> ()
 {
-  checkStructure!( "a := F32(1.5)", "a", value "1.5" );
+  checkStructure!("a := F32(1.5)", "a", value "1.5");
 }
 
 #[test]
-fn castF64() -> ()
+fn f64() -> ()
 {
-  checkStructure!( "a := F64(3)", "a", value "3" );
+  checkStructure!("a := F64(3)", "a", value "3");
 }
 
 /// Дробное в целый тип округляется, как при объявлении.
 #[test]
-fn castFloatToInteger() -> ()
+fn floatToInteger() -> ()
 {
-  checkStructure!( "a := U8(1.9)", "a", value "2" );
-  checkStructure!( "x: U8 = 1.9", "x", value "2" );
+  checkStructure!("a := U8(1.9)", "a", value "2");
+  checkStructure!("x: U8 = 1.9", "x", value "2");
 }
 
 // =================================================================================================
@@ -113,10 +113,10 @@ fn castFloatToInteger() -> ()
 
 /// То, что числом не является, даёт базовое значение типа, как `a: U8 = "test"`.
 #[test]
-fn castNotNumber() -> ()
+fn notNumber() -> ()
 {
-  checkStructure!( r#"a := U8("test")"#, "a", value "0" );
-  checkStructure!( r#"x: U8 = "test""#, "x", value "0" );
+  checkStructure!(r#"a := U8("test")"#, "a", value "0");
+  checkStructure!(r#"x: U8 = "test""#, "x", value "0");
 }
 
 // =================================================================================================
@@ -126,14 +126,14 @@ fn castNotNumber() -> ()
 #[test]
 fn sameAsDeclaration() -> ()
 {
-  checkStructure!( "x: U8 = 300", "x", value "255" );
-  checkStructure!( "a := U8(300)", "a", value "255" );
+  checkStructure!("x: U8 = 300", "x", value "255");
+  checkStructure!("a := U8(300)", "a", value "255");
 
-  checkStructure!( "x: I8 = -300", "x", value "-128" );
-  checkStructure!( "a := I8(-300)", "a", value "-128" );
+  checkStructure!("x: I8 = -300", "x", value "-128");
+  checkStructure!("a := I8(-300)", "a", value "-128");
 
-  checkStructure!( "x: U8 = -10", "x", value "0" );
-  checkStructure!( "a := U8(-10)", "a", value "0" );
+  checkStructure!("x: U8 = -10", "x", value "0");
+  checkStructure!("a := U8(-10)", "a", value "0");
 }
 
 // =================================================================================================
@@ -174,7 +174,7 @@ fn usizeIsToken() -> ()
 
 /// Аргумент — выражение: именованная структура подставляется своим значением.
 #[test]
-fn castOfStructure() -> ()
+fn structureAsArgument() -> ()
 {
   checkStructure!(
     r#"
@@ -187,17 +187,19 @@ fn castOfStructure() -> ()
 
 /// Методы вкладываются: каждый режет значение под свой тип.
 #[test]
-fn castNested() -> ()
+fn nested() -> ()
 {
-  checkStructure!( "a := U8(U16(70000))", "a", value "255" );
-  checkStructure!( "a := U16(U8(300))", "a", value "255" );
+  checkStructure!("a := U8(U16(70000))", "a", value "255");
+  checkStructure!("a := U16(U8(300))", "a", value "255");
 }
 
 /// В выражении метод режет только свой операнд, и сумма считается уже с ним.
 ///
-/// `U8(a)` — 255, `255 + 10` — 265, а `c` получает тип по токену: U16.
+/// - `U8(a)` — `255`;
+/// - `255 + 10` — `265`;
+/// - а `c` получает тип по токену: `U16`.
 #[test]
-fn castInExpression() -> ()
+fn inExpression() -> ()
 {
   checkStructure!(
     r#"
@@ -231,7 +233,7 @@ fn noCastInExpression() -> ()
 
 /// Метод стоит в аргументе вызова: параметр получает уже срезанное значение.
 #[test]
-fn castInArgument() -> ()
+fn methodArgument() -> ()
 {
   checkStructure!(
     r#"
@@ -251,16 +253,16 @@ fn castInArgument() -> ()
 ///
 /// Приведения для таких типов пока нет, поэтому каст ничего не меняет.
 #[test]
-fn castPointer() -> ()
+fn pointer() -> ()
 {
-  checkStructure!( "a := Pointer(5)", "a", value "5" );
-  checkStructure!( "a := CString(7)", "a", value "7" );
-  checkStructure!( "a := Any(5)", "a", value "5" );
+  checkStructure!("a := Pointer(5)", "a", value "5");
+  checkStructure!("a := CString(7)", "a", value "7");
+  checkStructure!("a := Any(5)", "a", value "5");
 }
 
 /// `String` и `RawString`: значение становится строкой этого типа.
 #[test]
-fn castToString() -> ()
+fn toString() -> ()
 {
   checkStructure!(
     "a := String(5)", "a",
@@ -276,11 +278,11 @@ fn castToString() -> ()
   );
 }
 
-/// `None` - это отсутствие значения, а не значение.
+/// Здесь `None` - это отсутствие значения, а не значение.
 #[test]
-fn castToNone() -> ()
+fn toNone() -> ()
 {
-  checkStructure!( "a := None(5)", "a", type TokenType::None, value "" );
+  checkStructure!("a := None(5)", "a", type TokenType::None, value "");
 }
 
 /// todo desc
@@ -290,7 +292,7 @@ fn everyPrimitiveIsCast() -> ()
   for (name, _) in PrimitiveType::iter()
   {
     let code: String = format!("a := {name}(5)");
-    let main: Arc<RwLock<Structure>> = runCode(&code);
+    let main: Arc<RwLock<Structure>> = runCode!(&code);
 
     if name == "None"
     { // `None` - это отсутствие значения.
