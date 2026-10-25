@@ -1,4 +1,4 @@
-use crate::parser::structure::structureType::{PrimitiveKind, PrimitiveType, StructureType};
+use crate::parser::structure::structureType::{PrimitiveValueKind, PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -14,13 +14,13 @@ use crate::tokenizer::types::tokenType::TokenType;
 /// Числовой примитив как вариант типизации.
 fn number(data: &str) -> StructureType
 {
-  StructureType::PrimitiveValue(PrimitiveKind::Number, String::from(data))
+  StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
 }
 
 /// Строковый примитив как вариант типизации.
 fn text(data: &str) -> StructureType
 {
-  StructureType::PrimitiveValue(PrimitiveKind::Text, String::from(data))
+  StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
 }
 
 // =================================================================================================

@@ -7,26 +7,38 @@ use std::num::IntErrorKind;
 // =================================================================================================
 
 // Идея простая - т.к. мы имеем хранение в токенах, то это абстрактные данные;
-// Поэтому физические вещи стоит хранить привязывать к Structure;
-// Внутри это все еще токены, но через StructureType - мы контролируем их.
+// Вообще сам по себе токен бесконечен;
+//
+// Когда из `токенов` -> `линии` -> `блоки` цепочки появляется `Structure`, то он
+// привязан к FFI уже, поэтому требует определенные физические типы;
+//
+// Внутри это все еще токены, но через `StructureType` - мы контролируем их.
+//
 //
 // Поэтому нам следует "нормализовать" - т.е. привести к нужной форме 
-// токены при хранении в структуре. На что указывает StructureType - 
-// что вообще мы должны хранить и в каком виде в Structure.
-//
-// Это позволит TokenType -> StructureType на уровне типов.
+// токены при хранении в `Structure`;
+// 
+// `StructureType` как раз указывает - как мы должны хранить токены и в каком виде.
 
 // =================================================================================================
 
-/// Вид примитива, допустимого как граница типизации (`a: 10 | "text"`).
+/// Вид примитива-значения.
+/// 
+/// Они также могут контактировать при перечислении через `|` уже в [`StructureType::Union`].
+/// 
+/// Для FFI их значения преобразовываются отдельно т.к. не являются типами-примитивами.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
-pub enum PrimitiveKind
+pub enum PrimitiveValueKind
 {
-  /// Число: UInt, Int, UFloat, Float.
+  /// Число;
+  /// 
+  /// `a: 10 = 10`.
   Number,
   
-  /// Строка: String, RawString.
-  Text
+  /// Строка;
+  /// 
+  /// `a: "text" = "text"`.
+  String
 }
 
 // =================================================================================================
@@ -61,12 +73,6 @@ macro_rules! defineEnum
       /// Пары `имя -> значение` для примитивов (без `Custom`).
       const Entries: &'static [(&'static str, PrimitiveType)] =
         defineEnum!(@entries []; $($variant $(($field))?,)*);
-
-      /// Имя примитива по индексу в `Names`.
-      pub fn fromIndex(i: usize) -> Option<&'static str>
-      {
-        Self::Names.get(i).copied()
-      }
 
       /// Примитив по имени; `Custom` и неизвестные имена -> `None`.
       pub fn fromName(name: &str) -> Option<Self>
@@ -120,11 +126,9 @@ macro_rules! defineEnum
 
 defineEnum!(
   None,
-  Any, // todo У неё нет использований, их надо потому будет добавить.
-
-  /// Логический примитив
+  Any, // todo У неё нет использований, их надо потом будет добавить.
+  
   True,
-  /// Логический примитив
   False,
 
   U8, U16, U32, U64,
@@ -136,19 +140,19 @@ defineEnum!(
   Pointer,
   /// ABI-композит: 2 поля `.pointer` и `.length`.
   String,
-  /// Алиас от `Pointer`
+  /// Алиас от `Pointer`.
   CString,
   /// Байты без длины/NUL в самом StructureType — длина берётся из токена при FFI-вызове.
   /// todo rewrite desc.
   RawString,
 
   // todo Требует удаление для FFI-ABI?
-  // Это кстати может называться ещё `Block`, но не знаю точно пока что.
-  // Но это не мешает по идее FFI, а штука в целом нужная для RTS.
-  // Сама она не учавствует в FFI.
+  //  Это кстати может называться ещё `Block`, но не знаю точно пока что.
+  //  Но это не мешает по идее FFI, а штука в целом нужная для RTS.
+  //  Сама она не учавствует в FFI.
   Method,
   // todo Требует удаление для FFI-ABI?
-  // todo List<Type>
+  //  Идея была сделать List<Type> но это под вопросом.
   List,
 
   /// Позволяет создавать пользовательские типы.
@@ -161,41 +165,36 @@ defineEnum!(
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub enum StructureType
 {
-  /// Примитивный тип.
+  /// Примитивные и пользовательские типы.
+  /// 
+  /// Формально пользовательские типы это не примитив, но они должны находиться в этой группе.
   Primitive(PrimitiveType),
 
-  /// Примитив-значение как граница типизации: `a: 10 | 20 = 10`.
+  /// Примитив-значение как граница типизации: `a: 10 = 10`.
   ///
-  /// Это ограничение значения: допустимо только точное совпадение,
-  /// без приведения и без зажима. При матче примитив сам становится
-  /// `dataType` структуры (`stype` → `10` / `"text"`), а не natural ABI-тип.
-  /// Для ABI (FFI, string fields) см. `abiType()`: Text → String, Number → natural.
-  /// Значение вне примитивов - `None` (#71).
-  ///
-  /// Живёт только в type-секции (слева от `=`): справа `|` - это логическое ИЛИ.
-  /// Отдельный примитив `a: 10` оборачивается в `Union` из одного варианта.
-  PrimitiveValue(PrimitiveKind, String),
+  /// Это ограничение значения - допустимо только точное совпадение.
+  PrimitiveValue(PrimitiveValueKind, String),
   
-  /// Объединение типов: `a: U8 | String = ...` (issue #59).
+  /// Объединение типов: `a: U8 | String = ...`.
   ///
-  /// Это НЕ аналог TypeScript: здесь хранится не "пересечение", а список
-  /// допустимых вариантов, и в структуре единовременно лежит РОВНО один из них.
+  /// Хранится не "пересечение", а список допустимых вариантов,
+  /// и в структуре единовременно лежит ровно один из них.
   ///
-  /// Семантика:
-  /// - при присваивании выбирается тот вариант, в который значение
+  /// **Семантика**:
+  /// - При присваивании выбирается тот вариант, в который значение
   ///   помещается как есть, либо в который оно приводится;
-  /// - если ни один вариант не подходит и привести нельзя — `None` (#71/#59);
-  /// - при полной мутабельности `~~` тип может меняться, поэтому объединение
-  ///   можно указать, но оно ничего не ограничивает (см. issue #22).
+  /// - Если ни один вариант не подходит и привести нельзя — `None`;
+  /// - При полной мутабельности `~~` тип может меняться, поэтому объединение
+  ///   можно указать, но оно ничего не ограничивает.
   ///
   /// Пустой список вариантов равносилен `None`.
   ///
-  /// Вариантом может быть и примитив-значение (`Value`): `a: 10 | 20`, `a: "text" | U8`.
+  /// Вариантом может быть и [`StructureType::PrimitiveValue`]: `a: 10 | 20`, `a: "text" | U8`.
   Union(Vec<Self>),
   
-  /// Модуль из `import(...)`; id — ключ lookup без имени структуры.
+  /// Модуль из `import(...)`; `id` — ключ lookup без имени структуры.
   ///
-  /// Это правильно т.к. поиск по имени может уйти за структуру, а id
+  /// Это правильно т.к. поиск по имени может уйти за структуру, а `id`
   /// позволяет остаться только в `self` scope.
   Module(usize)
 }
@@ -213,6 +212,8 @@ impl ToString for StructureType
     { //
       Self::Primitive(PrimitiveType::None) => String::from("None"),
       Self::Primitive(PrimitiveType::Any) => String::from("Any"),
+      
+      //
       Self::Primitive(PrimitiveType::True) => String::from("True"),
       Self::Primitive(PrimitiveType::False) => String::from("False"),
 
@@ -244,23 +245,23 @@ impl ToString for StructureType
       Self::Primitive(PrimitiveType::RawString) => String::from("RawString"),
       Self::Primitive(PrimitiveType::String) => String::from("String"),
 
-      // Служебные.
+      //
       Self::Primitive(PrimitiveType::Method) => String::from("Method"),
       Self::Primitive(PrimitiveType::List) => String::from("List"),
 
-      // Custom.
+      // Пользовательский тип.
       Self::Primitive(PrimitiveType::Custom(value)) => value.clone(),
 
-      // Объединение типов (issue #59) — печатается так же, как записывается.
+      // Объединение типов.
       Self::Union(variants) => variants
         .iter()
         .map(|variant: &Self| variant.to_string())
         .collect::<Vec<String>>()
         .join(" | "),
 
-      // Примитив печатается так же, как записывается.
-      Self::PrimitiveValue(PrimitiveKind::Number, value) => value.clone(),
-      Self::PrimitiveValue(PrimitiveKind::Text, value) => format!("\"{}\"", value),
+      // Примитив-значение.
+      Self::PrimitiveValue(PrimitiveValueKind::Number, value) => value.clone(),
+      Self::PrimitiveValue(PrimitiveValueKind::String, value) => format!("\"{}\"", value),
 
       // Module.
       Self::Module(_) => String::from("Module")
@@ -274,17 +275,19 @@ impl StructureType
 {
   /// ABI / storage тип: примитив сводится к natural-форме значения.
   ///
-  /// `Primitive(Text, _)` → `String`; `Primitive(Number, v)` → наименьший числовой
+  /// `Primitive(String, _)` → `String`; `Primitive(Number, v)` → наименьший числовой
   /// ABI-тип для `v`; `Primitive(CString)` → `Pointer` (алиас); всё остальное — как есть.
   /// Нужен там, где `dataType` участвует в FFI, string-полях и `normalizeToken`, а не в `stype`.
   pub fn abiType(&self) -> Self
   {
     match self
     {
-      Self::PrimitiveValue(PrimitiveKind::Text, _) => Self::Primitive(PrimitiveType::String),
+      //
+      Self::PrimitiveValue(PrimitiveValueKind::String, _) => Self::Primitive(PrimitiveType::String),
       // `CString` - алиас от `Pointer`: в ABI-форме это указатель.
       Self::Primitive(PrimitiveType::CString) => Self::Primitive(PrimitiveType::Pointer),
-      Self::PrimitiveValue(PrimitiveKind::Number, value) =>
+      //
+      Self::PrimitiveValue(PrimitiveValueKind::Number, value) =>
       {
         // Те же правила, что naturalType для числового токена: через временный UInt/Int.
         let tokenType: TokenType = 
@@ -337,34 +340,37 @@ impl Structure
   {
     match structureType 
     {
+      //
       StructureType::Primitive(PrimitiveType::U8)    => Some(( 0,                 u8::MAX    as u64 )),
       StructureType::Primitive(PrimitiveType::U16)   => Some(( 0,                 u16::MAX   as u64 )),
       StructureType::Primitive(PrimitiveType::U32)   => Some(( 0,                 u32::MAX   as u64 )),
       StructureType::Primitive(PrimitiveType::U64)   => Some(( 0,                 u64::MAX          )),
       StructureType::Primitive(PrimitiveType::Usize) => Some(( 0,                 usize::MAX as u64 )),
+      //
       StructureType::Primitive(PrimitiveType::I8)    => Some(( i8::MIN    as i64, i8::MAX    as u64 )),
       StructureType::Primitive(PrimitiveType::I16)   => Some(( i16::MIN   as i64, i16::MAX   as u64 )),
       StructureType::Primitive(PrimitiveType::I32)   => Some(( i32::MIN   as i64, i32::MAX   as u64 )),
       StructureType::Primitive(PrimitiveType::I64)   => Some(( i64::MIN,          i64::MAX   as u64 )),
       StructureType::Primitive(PrimitiveType::Isize) => Some(( isize::MIN as i64, isize::MAX as u64 )),
+      //
       _ => None
     }
   }
 
-  /// Приводит данные токена в рамки требуемого StructureType,
-  /// чтобы Structure смог его безопасно хранить;
+  /// Приводит данные токена в рамки требуемого [`StructureType`],
+  /// чтобы [`Structure`] смог его хранить;
   /// 
-  /// Это делается только при присвоении или при изменении.
-  /// 
-  /// todo Есть идея ввести на уровне Structure в будущем bool,
+  /// todo Есть идея ввести на уровне `Structure` в будущем bool,
   ///  чтобы можно было проверить и оптимизировать эту работу.
   pub fn normalizeToken(token: &mut Token, structureType: StructureType) 
   {
     let dataType: &TokenType = token.getDataType();
 
     // Получаем строку из данных.
-    let tokenData: String = if let Some(tokenData) =
-      token.getData().toString() { tokenData } else 
+    let tokenData: String =
+      if let Some(tokenData) = token.getData().toString() {
+        tokenData
+      } else 
       { // Нет данных.
         token.setDefaultValue(structureType);
         return;
@@ -373,14 +379,20 @@ impl Structure
     // Обработка типов
     match structureType 
     {
-      StructureType::Primitive(PrimitiveType::U8) | StructureType::Primitive(PrimitiveType::U16) | StructureType::Primitive(PrimitiveType::U32) | StructureType::Primitive(PrimitiveType::U64) | StructureType::Primitive(PrimitiveType::Usize) |
-      StructureType::Primitive(PrimitiveType::I8) | StructureType::Primitive(PrimitiveType::I16) | StructureType::Primitive(PrimitiveType::I32) | StructureType::Primitive(PrimitiveType::I64) | StructureType::Primitive(PrimitiveType::Isize) |
-      StructureType::Primitive(PrimitiveType::F32) | StructureType::Primitive(PrimitiveType::F64) => 
+      StructureType::Primitive(PrimitiveType::U8) | StructureType::Primitive(PrimitiveType::U16) |
+      StructureType::Primitive(PrimitiveType::U32) | StructureType::Primitive(PrimitiveType::U64) |
+      StructureType::Primitive(PrimitiveType::Usize) |
+      //
+      StructureType::Primitive(PrimitiveType::I8) | StructureType::Primitive(PrimitiveType::I16) |
+      StructureType::Primitive(PrimitiveType::I32) | StructureType::Primitive(PrimitiveType::I64) |
+      StructureType::Primitive(PrimitiveType::Isize) |
+      //
+      StructureType::Primitive(PrimitiveType::F32) | StructureType::Primitive(PrimitiveType::F64) =>
       {
         match dataType
         {
           TokenType::UInt => 
-          { // Токен бесконечен, а u64 нет: всё что больше - граница u64 (#71),
+          { // Токен бесконечен, а `u64` нет: поэтому всё что больше - граница `u64`,
             // дальше значение зажимается в рамки структуры.
             let value: Option<u64> = match tokenData.parse::<u64>() 
             {
@@ -393,7 +405,7 @@ impl Structure
               None => token.setDefaultValue(structureType), // Не распарсилось — базовое значение.
               Some(value) => match structureType 
               {
-                // Для float берём величину числа напрямую, без сжатия в u64.
+                // Для `float` берём величину числа напрямую, без сжатия в `u64`.
                 StructureType::Primitive(PrimitiveType::F32) => {
                   let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64)
                     .clamp(f32::MIN as f64, f32::MAX as f64);
@@ -410,7 +422,7 @@ impl Structure
             }
           }
           TokenType::Int => 
-          { // Токен бесконечен, а i64 нет: всё что больше или меньше - граница i64 (#71),
+          { // Токен бесконечен, а `i64` нет: всё что больше или меньше - граница `i64`,
             // дальше значение зажимается в рамки структуры.
             let value: Option<i64> = match tokenData.parse::<i64>() 
             {
@@ -424,7 +436,7 @@ impl Structure
               None => token.setDefaultValue(structureType), // Не распарсилось — базовое значение.
               Some(value) => match structureType 
               {
-                // Для float берём величину числа напрямую, без сжатия в i64.
+                // Для `float` берём величину числа напрямую, без сжатия в `i64`.
                 StructureType::Primitive(PrimitiveType::F32) => {
                   let floatValue: f64 = tokenData.parse::<f64>().unwrap_or(value as f64)
                     .clamp(f32::MIN as f64, f32::MAX as f64);
@@ -451,9 +463,10 @@ impl Structure
               if dataType == &TokenType::UFloat && value < 0.0 {
                 value = 0.0;
               }
-              if value.is_nan() 
-              { // NaN — базовое значение;
-                // Бесконечность зажмётся в границы типа (#71).
+              if value.is_nan()
+              { // `NaN` — базовое значение;
+                //
+                // Бесконечность зажмётся в границы типа.
                 token.setDefaultValue(structureType);
                 return;
               }
@@ -468,8 +481,9 @@ impl Structure
                   token.setData( Bytes::from(value.to_string()) );
                 }
                 // Приведение к целочисленным типам: округление и зажим в границы типа;
-                // Отрицательное значение остаётся, если тип его принимает (I8 = -5.5 -> -6),
-                // а для беззнаковых типов оно становится 0 (U8 = -5.5 -> 0).
+                //
+                // Отрицательное значение остаётся, если тип его принимает (`I8 = -5.5` -> `-6`),
+                // а для беззнаковых типов оно становится 0 (`U8 = -5.5` -> `0`).
                 target => if let Some((min, max)) = Self::integerLimits(target) 
                 {
                   let rounded: f64 = value.round();
@@ -488,16 +502,16 @@ impl Structure
               token.setDefaultValue(structureType);
             }
           }
-          _ => {
-            // Здесь пытаются прировнять что-то левое.
+          _ => 
+          { // Здесь пытаются прировнять что-то не то.
             token.setDefaultValue(structureType);
           }
           //
         }
       }
       _ => {
-        // todo
         // Другие типы — ничего не делаем.
+        // todo Другие типы или логика здесь нужна?
       }
     }
     //
@@ -508,29 +522,36 @@ impl Structure
 
 impl Token
 {
-  /// Ставит стандартное значение токена при указании требуемого StructureType;
+  // ===============================================================================================
+  
+  /// Ставит стандартное значение токена при указании требуемого [`StructureType`];
   /// 
-  /// Очень удобно для случаев, если в структуру приравнивают что-то левое,
-  /// и нам надо default значение.
+  /// Очень удобно для случаев, если в структуру приравнивают что-то не то,
+  /// и нам надо `default` значение.
   /// 
-  /// Потому что в если `a: U8 = "test"`, то будет 0 из-за константного поведения.
+  /// Например, если `a: U8 = "test"`, то будет `0` из-за константного поведения.
   fn setDefaultValue(&mut self, structureType: StructureType) -> () 
   {
     // Создаём базовый токен.
     match structureType
     {
       // Целочисленные типы.
-      StructureType::Primitive(PrimitiveType::U8) | StructureType::Primitive(PrimitiveType::U16) | StructureType::Primitive(PrimitiveType::U32) | StructureType::Primitive(PrimitiveType::U64) |
-      StructureType::Primitive(PrimitiveType::Usize) | StructureType::Primitive(PrimitiveType::I8) | StructureType::Primitive(PrimitiveType::I16) | StructureType::Primitive(PrimitiveType::I32) |
-      StructureType::Primitive(PrimitiveType::I64) | StructureType::Primitive(PrimitiveType::Isize) => {
+      StructureType::Primitive(PrimitiveType::U8) | StructureType::Primitive(PrimitiveType::U16) |
+      StructureType::Primitive(PrimitiveType::U32) | StructureType::Primitive(PrimitiveType::U64) |
+      StructureType::Primitive(PrimitiveType::Usize) |
+      //
+      StructureType::Primitive(PrimitiveType::I8) | StructureType::Primitive(PrimitiveType::I16) |
+      StructureType::Primitive(PrimitiveType::I32) | StructureType::Primitive(PrimitiveType::I64) |
+      StructureType::Primitive(PrimitiveType::Isize) => {
         self.setDataType(TokenType::UInt);
         self.setData("0");
       }
       // Числа с плавающей точкой.
       StructureType::Primitive(PrimitiveType::F32) | StructureType::Primitive(PrimitiveType::F64) => {
-        self.setDataType(TokenType::Float);
+        self.setDataType(TokenType::Float); // todo Почему не UFloat? по сути же он должен быть как UInt выше сделан.
         self.setData("0.0");
       }
+      //
       StructureType::Primitive(PrimitiveType::True) => {
         self.setDataType(TokenType::True);
         self.setData("True");
@@ -539,28 +560,25 @@ impl Token
         self.setDataType(TokenType::False);
         self.setData("False");
       }
-      // todo
       // Для остальных типов - ничего.
+      // todo Другие типы нужны тут?
       _ => {
         self.setDataType(TokenType::None);
         self.setData(None);
       }
     };
   }
-}
-
-// =================================================================================================
-
-impl Token
-{
-  /// Вычисляет StructureType на основе токена;
+  
+  // ===============================================================================================
+  
+  /// Вычисляет [`StructureType`] на основе токена.
   /// 
   /// Удобно, когда нет рамок структуры (не указан её тип) и нужно понять, 
-  /// что в неё положили, но при этом в рамках StructureType;
+  /// что в неё положили, но при этом в рамках [`StructureType`].
   /// 
-  /// Если станет None - то токен будет очищен.
+  /// Если станет `None` - то токен будет очищен.
   /// 
-  /// todo Было бы круто убрать как-то mut отсюда.
+  /// todo Было бы хорошо убрать как-то mut отсюда.
   pub fn getStructureType(&mut self) -> StructureType
   {
     let result = |selfToken: &mut Self, structureType: StructureType| -> StructureType
@@ -574,9 +592,12 @@ impl Token
     //
     let dataType: &TokenType = self.getDataType();
     
-    // Строки: без этого значение без аннотации (`a := "text"`) получало None,
-    // а токен очищался. Поля `pointer` и `length` тоже зависят от этого типа.
-    // Идёт до чтения данных: у пустой строки `""` данных нет, но это всё равно String.
+    // Строки: без этого значение без аннотации (`a := "text"`) получало `None`,
+    // а токен очищался.
+    // 
+    // Поля `pointer` и `length` тоже зависят от этого типа.
+    //
+    // Идёт до чтения данных: у пустой строки `""` данных нет, но это всё равно `String`.
     match dataType
     {
       TokenType::String => return StructureType::Primitive(PrimitiveType::String),
@@ -591,9 +612,11 @@ impl Token
       return result(self, StructureType::Primitive(PrimitiveType::None))
     };
 
-    // Токены UInt, Int, UFloat, Float бесконечны, а ABI типы структур ограничены;
-    // Если число вышло за самый крайний ABI тип, то это константное поведение (#71):
-    // тип становится крайним (U64, I64, F64), а значение - его границей;
+    // Токены `UInt`/`Int`/`UFloat`/`Float` бесконечны, а ABI типы структур ограничены;
+    //
+    // Если число вышло за самый крайний ABI тип, то это константное поведение:
+    // тип становится крайним (`U64`, `I64`, `F64`), а значение - его границей;
+    //
     // Здесь хранится новое значение, если оно изменилось.
     let mut newData: Option<String> = None;
 
@@ -601,6 +624,9 @@ impl Token
     {
       TokenType::None => StructureType::Primitive(PrimitiveType::None),
       TokenType::Any => StructureType::Primitive(PrimitiveType::Any),
+      //
+      TokenType::True => StructureType::Primitive(PrimitiveType::True),
+      TokenType::False => StructureType::Primitive(PrimitiveType::False),
       // Ссылка - не значение, а указатель на структуру: своего типа у неё нет,
       // но данные сохраняются - ссылка должна остаться ссылкой.
       TokenType::Link => return StructureType::Primitive(PrimitiveType::None),
@@ -613,7 +639,7 @@ impl Token
           Ok(value) if value <= u16::MAX as u64 => StructureType::Primitive(PrimitiveType::U16),
           Ok(value) if value <= u32::MAX as u64 => StructureType::Primitive(PrimitiveType::U32),
           Ok(_) => StructureType::Primitive(PrimitiveType::U64),
-          // Больше U64: вид ошибки говорит, что это переполнение числа.
+          // Больше `U64`: вид ошибки говорит, что это переполнение числа.
           Err(error) if *error.kind() == IntErrorKind::PosOverflow => 
           {
             newData = Some( u64::MAX.to_string() );
@@ -631,7 +657,7 @@ impl Token
           Ok(value) if value >= i16::MIN as i64 && value <= i16::MAX as i64 => StructureType::Primitive(PrimitiveType::I16),
           Ok(value) if value >= i32::MIN as i64 && value <= i32::MAX as i64 => StructureType::Primitive(PrimitiveType::I32),
           Ok(_) => StructureType::Primitive(PrimitiveType::I64),
-          // Меньше или больше I64: вид ошибки говорит, что это переполнение числа.
+          // Меньше или больше `I64`: вид ошибки говорит, что это переполнение числа.
           Err(error) => match error.kind() 
           {
             IntErrorKind::NegOverflow => 
@@ -649,8 +675,7 @@ impl Token
           }
         }
       }
-      TokenType::True => StructureType::Primitive(PrimitiveType::True),
-      TokenType::False => StructureType::Primitive(PrimitiveType::False),
+      //
       TokenType::UFloat | TokenType::Float => 
       {
         match data.parse::<f64>() 
@@ -658,7 +683,7 @@ impl Token
           Ok(value) if value.is_nan() => StructureType::Primitive(PrimitiveType::None),
           Ok(value) if value >= f32::MIN as f64 && value <= f32::MAX as f64 => StructureType::Primitive(PrimitiveType::F32),
           Ok(value) => 
-          { // Самый крайний тип; inf становится границей F64.
+          { // Самый крайний тип; `inf` становится границей `F64`.
             if value.is_infinite() 
             {
               let border: f64 = if value.is_sign_negative() { f64::MIN } else { f64::MAX };
@@ -670,10 +695,10 @@ impl Token
           Err(_) => StructureType::Primitive(PrimitiveType::None)
         }
       }
-      // Для остальных типов - None, и токен очищается.
+      // Для остальных типов - `None`, и токен очищается.
       //
       // todo Сейчас могут попасть лишние т.к. они не объявлены выше.
-      _ => StructureType::Primitive(PrimitiveType::None),
+      _ => StructureType::Primitive(PrimitiveType::None)
     };
 
     if let Some(newData) = newData {
@@ -683,9 +708,11 @@ impl Token
     //
   }
 
-  /// Вычисляет `StructureType` на основе токена;
+  /// Вычисляет `[StructureType`] на основе токена;
   /// 
   /// Но делает это упрощенно по имени токена - т.е. когда мы явно знаем уже тип в строке.
+  /// 
+  /// Например: токен хранит `U64` -> получаем `StructureType::U64`.
   pub fn getStructureTypeSimple(&self) -> StructureType
   {
     let tokenData: String = self.to_string();
@@ -693,7 +720,7 @@ impl Token
     
     if PrimitiveType::isPrimitive(structureTypeName) {
       StructureType::Primitive(
-        PrimitiveType::fromName(structureTypeName).unwrap() // Здесь точно есть т.к. проверено `is`.
+        PrimitiveType::fromName(structureTypeName).unwrap() // Здесь точно есть т.к. проверено `is` выше.
       )
     } else
     { // Всё остальное — `custom`.
@@ -701,7 +728,8 @@ impl Token
     }
     //
   }
+
+  // ===============================================================================================
 }
 
 // =================================================================================================
-

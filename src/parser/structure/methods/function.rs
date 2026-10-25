@@ -480,20 +480,24 @@ impl Function
 
   // ===============================================================================================
 
-  /// Приводит значение к границам StructureType: `U8(a)`, `I16(a)`, `F32(a)`, `Usize(a)`.
+  /// Приводит значение к границам [`StructureType`]: `U8(a)`/`I16(a)`/`F32(a)`/`Usize(a)`/...
   ///
-  /// Это метод-помощник: берёт токен и возвращает токен, структуру не создаёт.
-  /// Границы те же, что при объявлении `a: U8 = ...`: считает их [`Structure::normalizeToken`],
-  /// поэтому всё что больше - зажимается в рамки типа, а не число даёт базовое значение.
+  /// 
+  /// Это метод-помощник: берёт токен и возвращает новый токен в границах [`StructureType`];
+
+  /// Границы те же, что при объявлении `a: U8 = ...`: считает их [`Structure::normalizeToken`].
+  /// 
   ///
-  /// Результат остаётся токеном и работает в выражении: `c := U8(a) + b`.
+  /// Результат остаётся токеном и работает в выражении: `c := U8(a) + b`;
+  /// 
   /// Тип данных дальше не несёт - его хранит структура: `x: U8 = a`.
+  /// 
   ///
   /// Тип приведения - любой примитив из [`PrimitiveType`]: числовые зажимаются
   /// по своим границам, строки становятся строками, `None` - это отсутствие
-  /// значения, а `Any` и `Pointer` ничего не меняют - приведения для них пока нет.
+  /// значения;
   /// 
-  /// todo rewrite desc.
+  /// todo `Any`/`Pointer` и некоторые другие ничего не меняют - приведения для них пока нет.
   fn cast(
     structure: &Structure,
     parameters: &Parameters,
@@ -504,11 +508,16 @@ impl Function
   {
     match parameters.getExpression(structure, 0)
     {
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
       None =>
       { // Нет аргумента - нет значения.
         value[i].setDataType(TokenType::None);
         value[i].setData(None);
       }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
       Some(mut token) =>
       {
         if structureType == StructureType::Primitive(PrimitiveType::None)
@@ -516,7 +525,8 @@ impl Function
           value[i].setDataType(TokenType::None);
           value[i].setData(None);
         } else
-        if structureType == StructureType::Primitive(PrimitiveType::String) || structureType == StructureType::Primitive(PrimitiveType::RawString)
+        if structureType == StructureType::Primitive(PrimitiveType::String) ||
+           structureType == StructureType::Primitive(PrimitiveType::RawString)
         { // Значение становится строкой: `String(5)` - это "5".
           value[i].setDataType(
             if structureType == StructureType::Primitive(PrimitiveType::String)
@@ -530,6 +540,8 @@ impl Function
           value[i].setData(token.getData());
         }
       }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
   }
 
