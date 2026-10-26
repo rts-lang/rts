@@ -15,10 +15,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 fn trueType() -> ()
 {
   checkStructure!(
-    r#"
-    a: True = True
-    "#,
-    "a",
+    "a: True = True", "a",
     type TokenType::True,
     stype StructureType::Primitive(PrimitiveType::True),
     value "True"
@@ -30,10 +27,7 @@ fn trueType() -> ()
 fn falseType() -> ()
 {
   checkStructure!(
-    r#"
-    b: False = False
-    "#,
-    "b",
+    "b: False = False", "b",
     type TokenType::False,
     stype StructureType::Primitive(PrimitiveType::False),
     value "False"
@@ -46,10 +40,7 @@ fn falseType() -> ()
 fn noneType() -> ()
 {
   checkStructure!(
-    r#"
-    c: None = None
-    "#,
-    "c",
+    "c: None = None", "c",
     type TokenType::None,
     stype StructureType::Primitive(PrimitiveType::None),
     value ""
@@ -63,10 +54,7 @@ fn noneType() -> ()
 fn trueFalseUnion() -> ()
 {
   checkStructure!(
-    r#"
-    d~: True | False = True
-    "#,
-    "d",
+    "d~: True | False = True", "d",
     type TokenType::True,
     stype StructureType::Primitive(PrimitiveType::True),
     value "True"
@@ -88,19 +76,13 @@ fn trueFalseUnion() -> ()
 fn inferred() -> ()
 {
   checkStructure!(
-    r#"
-    e := True
-    "#,
-    "e",
+    "e := True", "e",
     type TokenType::True,
     stype StructureType::Primitive(PrimitiveType::True),
     value "True"
   );
   checkStructure!(
-    r#"
-    f := False
-    "#,
-    "f",
+    "f := False", "f",
     type TokenType::False,
     stype StructureType::Primitive(PrimitiveType::False),
     value "False"
@@ -113,10 +95,7 @@ fn inferred() -> ()
 fn forwardDecl() -> ()
 {
   checkStructure!(
-    r#"
-    g
-    "#,
-    "g",
+    "g", "g",
     type TokenType::None,
     stype StructureType::Primitive(PrimitiveType::None),
     value ""
@@ -124,8 +103,7 @@ fn forwardDecl() -> ()
 }
 
 // =================================================================================================
-
-// Известные баги.
+// todo Известные баги.
 
 /// Отрицательное число справа от сравнения: минус склеивается с оператором.
 #[test]

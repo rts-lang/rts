@@ -109,11 +109,13 @@ fn unionExactMatch() -> ()
   // `-10` помещается в `I8`, поэтому `U8 | I8` даёт `I8`, а не зажатое в `U8` ноль.
   checkStructure!(
     "a: U8 | I8 = -10", "a",
-    stype StructureType::Primitive(PrimitiveType::I8), value "-10"
+    stype StructureType::Primitive(PrimitiveType::I8),
+    value "-10"
   );
   checkStructure!(
     "a: U8 | U32 = 70000", "a",
-    stype StructureType::Primitive(PrimitiveType::U32), value "70000"
+    stype StructureType::Primitive(PrimitiveType::U32),
+    value "70000"
   );
 }
 
@@ -122,13 +124,25 @@ fn unionExactMatch() -> ()
 fn unionConvert() -> ()
 {
   // `300` не помещается в `U8`, но приводится в него с зажимом.
-  checkStructure!("a: U8 | String = 300", "a", stype StructureType::Primitive(PrimitiveType::U8), value "255");
+  checkStructure!(
+    "a: U8 | String = 300", "a",
+    stype StructureType::Primitive(PrimitiveType::U8),
+    value "255"
+  );
 
   // Отрицательное в беззнаковый - приведение.
-  checkStructure!("a: U8 | String = -10", "a", stype StructureType::Primitive(PrimitiveType::U8), value "0");
+  checkStructure!(
+    "a: U8 | String = -10", "a",
+    stype StructureType::Primitive(PrimitiveType::U8),
+    value "0"
+  );
 
   // `Float` приводится в целый `вариант` с округлением.
-  checkStructure!("a: U8 | String = 1.5", "a", stype StructureType::Primitive(PrimitiveType::U8), value "2");
+  checkStructure!(
+    "a: U8 | String = 1.5", "a",
+    stype StructureType::Primitive(PrimitiveType::U8),
+    value "2"
+  );
 }
 
 /// Ни один `вариант` не подошёл и привести нельзя - `None`.
@@ -168,7 +182,10 @@ fn unionNone() -> ()
 #[test]
 fn unionPrimitiveParse() -> ()
 {
-  let tenTwenty: StructureType = StructureType::Union(vec![number("10"), number("20")]);
+  let tenTwenty: StructureType = StructureType::Union(vec![
+    number("10"),
+    number("20")
+  ]);
   
   checkStructure!(
     "a: 10 | 20 = 10", "a",
@@ -259,7 +276,11 @@ fn unionPrimitiveMatch() -> ()
   // Числа равны по значению, а не по записи: `Float 10.0` совпал с примитивом `10`,
   // а токен остался `UFloat`.
   checkStructure!(
-    "a: 10 | 20 = 10.0", "a", type TokenType::UFloat, stype number("10"), value "10");
+    "a: 10 | 20 = 10.0", "a",
+    type TokenType::UFloat,
+    stype number("10"),
+    value "10"
+  );
   checkStructure!(
     "a: -1 | 1 = -1", "a",
     stype number("-1"),
@@ -598,10 +619,7 @@ fn primitiveAbiType() -> ()
 fn unionDynamic() -> ()
 {
   checkStructure!(
-    r#"
-    j~~: U8 | String = 10
-    "#,
-    "j",
+    "j~~: U8 | String = 10", "j",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U8),
     value "10"

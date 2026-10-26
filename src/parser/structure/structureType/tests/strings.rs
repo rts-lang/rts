@@ -17,21 +17,18 @@ use std::sync::{Arc, RwLock};
 fn types() -> ()
 {
   checkStructure!(
-    r#"a: String = """#,
-    "a",
+    r#"a: String = """#, "a",
     stype StructureType::Primitive(PrimitiveType::String),
     value ""
   );
   // `CString` - свой тип; алиас от `Pointer` только для FFI.
   checkStructure!(
-    r#"b: CString = """#,
-    "b",
+    r#"b: CString = """#, "b",
     stype StructureType::Primitive(PrimitiveType::CString),
     value ""
   );
   checkStructure!(
-    r#"c: RawString = """#,
-    "c",
+    r#"c: RawString = """#, "c",
     stype StructureType::Primitive(PrimitiveType::RawString),
     value ""
   );

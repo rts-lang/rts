@@ -16,15 +16,13 @@ fn autoUnsigned() -> ()
 {
   // U8.
   checkStructure!(
-    "a := 0",
-    "a",
+    "a := 0", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U8),
     value "0"
   );
   checkStructure!(
-    "a := 255",
-    "a",
+    "a := 255", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U8),
     value "255"
@@ -32,15 +30,13 @@ fn autoUnsigned() -> ()
   
   // U16.
   checkStructure!(
-    "a := 256",
-    "a",
+    "a := 256", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U16),
     value "256"
   );
   checkStructure!(
-    "a := 65535",
-    "a",
+    "a := 65535", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U16),
     value "65535"
@@ -48,15 +44,13 @@ fn autoUnsigned() -> ()
   
   // U32.
   checkStructure!(
-    "a := 65536",
-    "a",
+    "a := 65536", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U32),
     value "65536"
   );
   checkStructure!(
-    "a := 4294967295",
-    "a",
+    "a := 4294967295", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U32),
     value "4294967295"
@@ -64,15 +58,13 @@ fn autoUnsigned() -> ()
   
   // U64.
   checkStructure!(
-    "a := 4294967296",
-    "a",
+    "a := 4294967296", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U64),
     value "4294967296"
   );
   checkStructure!(
-    "a := 18446744073709551615",
-    "a",
+    "a := 18446744073709551615", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U64),
     value "18446744073709551615"
@@ -85,15 +77,13 @@ fn autoSigned() -> ()
 {
   // I8.
   checkStructure!(
-    "a := -1",
-    "a",
+    "a := -1", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I8),
     value "-1"
   );
   checkStructure!(
-    "a := -128",
-    "a",
+    "a := -128", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I8),
     value "-128"
@@ -101,15 +91,13 @@ fn autoSigned() -> ()
   
   // I16.
   checkStructure!(
-    "a := -129",
-    "a",
+    "a := -129", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I16),
     value "-129"
   );
   checkStructure!(
-    "a := -32768",
-    "a",
+    "a := -32768", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I16),
     value "-32768"
@@ -117,15 +105,13 @@ fn autoSigned() -> ()
   
   // I32.
   checkStructure!(
-    "a := -32769",
-    "a",
+    "a := -32769", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I32),
     value "-32769"
   );
   checkStructure!(
-    "a := -2147483648",
-    "a",
+    "a := -2147483648", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I32),
     value "-2147483648"
@@ -133,15 +119,13 @@ fn autoSigned() -> ()
   
   // I64.
   checkStructure!(
-    "a := -2147483649",
-    "a",
+    "a := -2147483649", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I64),
     value "-2147483649"
   );
   checkStructure!(
-    "a := -9223372036854775808",
-    "a",
+    "a := -9223372036854775808", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I64),
     value "-9223372036854775808"
@@ -156,15 +140,13 @@ fn autoSaturation() -> ()
 {
   // Больше `U64` - и очень большое число.
   checkStructure!(
-    "a := 18446744073709551616",
-    "a",
+    "a := 18446744073709551616", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U64),
     value &u64::MAX.to_string()
   );
   checkStructure!(
-    "a := 99999999999999999999999999999999999999999999",
-    "a",
+    "a := 99999999999999999999999999999999999999999999", "a",
     type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::U64),
     value &u64::MAX.to_string()
@@ -172,15 +154,13 @@ fn autoSaturation() -> ()
   
   // Меньше `I64` - и очень большое отрицательное число.
   checkStructure!(
-    "a := -9223372036854775809",
-    "a",
+    "a := -9223372036854775809", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I64),
     value &i64::MIN.to_string()
   );
   checkStructure!(
-    "a := -99999999999999999999999999999999999999999999",
-    "a",
+    "a := -99999999999999999999999999999999999999999999", "a",
     type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::I64),
     value &i64::MIN.to_string()
@@ -193,14 +173,14 @@ fn autoSaturation() -> ()
 fn explicitPlatform() -> ()
 {
   checkStructure!(
-    "b: Usize = 18446744073709551616",
-    "b", type TokenType::UInt,
+    "b: Usize = 18446744073709551616", "b",
+    type TokenType::UInt,
     stype StructureType::Primitive(PrimitiveType::Usize),
     value &usize::MAX.to_string()
   );
   checkStructure!(
-    "c: Isize = -9223372036854775809",
-    "c", type TokenType::Int,
+    "c: Isize = -9223372036854775809", "c",
+    type TokenType::Int,
     stype StructureType::Primitive(PrimitiveType::Isize),
     value &isize::MIN.to_string()
   );
@@ -214,41 +194,35 @@ fn autoFloat() -> ()
 {
   // f32
   checkStructure!(
-    "a := 0.0",
-    "a",
+    "a := 0.0", "a",
     type TokenType::UFloat,
     stype StructureType::Primitive(PrimitiveType::F32)
   );
   checkStructure!(
-    "a := 1.5",
-    "a",
+    "a := 1.5", "a",
     type TokenType::UFloat,
     stype StructureType::Primitive(PrimitiveType::F32),
     value "1.5"
   );
   checkStructure!(
-    "a := 3.4028234663852886e38",
-    "a",
+    "a := 3.4028234663852886e38", "a",
     type TokenType::UFloat,
     stype StructureType::Primitive(PrimitiveType::F32)
   );
   checkStructure!(
-    "a := -3.4028234663852886e38",
-    "a",
+    "a := -3.4028234663852886e38", "a",
     type TokenType::Float,
     stype StructureType::Primitive(PrimitiveType::F32)
   );
   
   // f64
   checkStructure!(
-    "a := 1.7976931348623157e308",
-    "a",
+    "a := 1.7976931348623157e308", "a",
     type TokenType::UFloat,
     stype StructureType::Primitive(PrimitiveType::F64)
   );
   checkStructure!(
-    "a := -1.7976931348623157e308",
-    "a",
+    "a := -1.7976931348623157e308", "a",
     type TokenType::Float,
     stype StructureType::Primitive(PrimitiveType::F64)
   );
@@ -259,15 +233,13 @@ fn autoFloat() -> ()
 fn autoFloatSaturation() -> ()
 {
   checkStructure!(
-    "a := 1.7976931348623157e309",
-    "a",
+    "a := 1.7976931348623157e309", "a",
     type TokenType::UFloat,
     stype StructureType::Primitive(PrimitiveType::F64),
     value &format!("{:e}", f64::MAX)
   );
   checkStructure!(
-    "a := -1.7976931348623157e309",
-    "a",
+    "a := -1.7976931348623157e309", "a",
     type TokenType::Float,
     stype StructureType::Primitive(PrimitiveType::F64),
     value &format!("{:e}", f64::MIN)
@@ -283,15 +255,13 @@ fn autoFloatSaturation() -> ()
 fn autoString() -> ()
 {
   checkStructure!(
-    r#"a := "text""#,
-    "a",
+    r#"a := "text""#, "a",
     type TokenType::String,
     stype StructureType::Primitive(PrimitiveType::String),
     value "text"
   );
   checkStructure!(
-    "b := `raw`",
-    "b",
+    "b := `raw`", "b",
     type TokenType::RawString,
     stype StructureType::Primitive(PrimitiveType::RawString),
     value "raw"
@@ -299,8 +269,7 @@ fn autoString() -> ()
 
   // Пустая строка.
   checkStructure!(
-    r#"c := """#,
-    "c",
+    r#"c := """#, "c",
     type TokenType::String,
     stype StructureType::Primitive(PrimitiveType::String),
     value ""
@@ -308,8 +277,7 @@ fn autoString() -> ()
 
   // Dynamic.
   checkStructure!(
-    r#"d~~ := "text""#,
-    "d",
+    r#"d~~ := "text""#, "d",
     stype StructureType::Primitive(PrimitiveType::String),
     value "text"
   );
@@ -320,15 +288,13 @@ fn autoString() -> ()
 fn autoFormattedString() -> ()
 {
   checkStructure!(
-    r#"a := f"x{1}""#,
-    "a",
+    r#"a := f"x{1}""#, "a",
     type TokenType::String,
     stype StructureType::Primitive(PrimitiveType::String),
     value "x1"
   );
   checkStructure!(
-    "b := f`x{1}`",
-    "b",
+    "b := f`x{1}`", "b",
     type TokenType::RawString,
     stype StructureType::Primitive(PrimitiveType::RawString),
     value "x1"
