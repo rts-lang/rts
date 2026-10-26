@@ -5,14 +5,14 @@ use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
-// Это общие тесты на три вида строк: String, CString и RawString.
+// Это общие тесты на три вида строк: `String`/`CString`/`RawString`.
 
 // =================================================================================================
 
 /// Пустая строка в каждом из трёх типов строк.
 ///
-/// todo type() здесь None, а не String: с явным типом пустая строка теряет тип токена.
-///  Хотя структура получает правильный тип. Без явного типа (`a := ""`) токен остаётся String.
+/// todo `type()` здесь `None`, а не `String`: с явным типом пустая строка теряет тип токена.
+///  Хотя структура получает правильный тип. Без явного типа (`a := ""`) токен остаётся `String`.
 #[test]
 fn types() -> ()
 {
@@ -22,7 +22,7 @@ fn types() -> ()
     stype StructureType::Primitive(PrimitiveType::String),
     value ""
   );
-  // CString - свой тип; алиас от Pointer только для FFI.
+  // `CString` - свой тип; алиас от `Pointer` только для FFI.
   checkStructure!(
     r#"b: CString = """#,
     "b",
@@ -42,7 +42,7 @@ fn types() -> ()
 /// Строка уходит в native: и целиком, и через поля.
 ///
 /// `lib.strlen(str.pointer, str.length)` — ручная распаковка полей.
-/// `lib.strlen(str)` — целиком, `chillffi` сам раскладывает String на ptr+len.
+/// `lib.strlen(str)` — целиком, `chillffi` сам раскладывает `String` на `pointer`+`length`.
 #[test]
 fn native() -> ()
 {
