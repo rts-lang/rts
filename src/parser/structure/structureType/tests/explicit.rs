@@ -214,19 +214,19 @@ fn castInteger() -> ()
   checkStructure!(
     "a: U8 = 300", "a",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
   checkStructure!(
     "b: U8 = -10", "b",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "0"
   );
   checkStructure!(
     "c: I8 = -300", "c",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "-128"
   );
   
@@ -234,19 +234,19 @@ fn castInteger() -> ()
   checkStructure!(
     "d: U64 = 18446744073709551616", "d",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U64),
+    stype U64,
     value "18446744073709551615"
   );
   checkStructure!(
     "e: Usize = 18446744073709551616", "e",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::Usize),
+    stype Usize,
     value "18446744073709551615"
   );
   checkStructure!(
     "f: Isize = -9223372036854775809", "f",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::Isize),
+    stype Isize,
     value "-9223372036854775808"
   );
 }
@@ -258,31 +258,31 @@ fn castBigNumbers() -> ()
   checkStructure!(
     "g: U8 = 44444444444444444444444444444444444444444444", "g",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
   checkStructure!(
     "h: I8 = 44444444444444444444444444444444444444444444", "h",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "127"
   );
   checkStructure!(
     "i: I64 = -44444444444444444444444444444444444444444444", "i",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::I64),
+    stype I64,
     value "-9223372036854775808"
   );
   checkStructure!(
     "j: Usize = 44444444444444444444444444444444444444444444", "j",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::Usize),
+    stype Usize,
     value "18446744073709551615"
   );
   checkStructure!(
     "k: Isize = -44444444444444444444444444444444444444444444", "k",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::Isize),
+    stype Isize,
     value "-9223372036854775808"
   );
 }
@@ -296,19 +296,19 @@ fn castFloats() -> ()
   checkStructure!(
     "l: F32 = 44444444444444444444444444444444444444444444", "l",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::F32),
+    stype F32,
     value &(usize::MAX as f32).to_string()
   );
   checkStructure!(
     "m: F32 = -1.7976931348623157e309", "m",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::F32),
+    stype F32,
     value "-340282350000000000000000000000000000000"
   );
   checkStructure!(
     "n: U8 = 1.7976931348623157e309", "n",
     type TokenType::UFloat,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
 }
@@ -322,49 +322,49 @@ fn castFloatToInteger() -> ()
   checkStructure!(
     "q: I8 = 5.4", "q",
     type TokenType::UFloat,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "5"
   );
   checkStructure!(
     "r: I8 = 5.5", "r",
     type TokenType::UFloat,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "6")
   ;
   checkStructure!(
     "s: U8 = -10.0", "s",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "0"
   );
   checkStructure!(
     "t: U8 = -5.5", "t",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "0"
   );
   checkStructure!(
     "u: I8 = -5.5", "u",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "-6"
   );
   checkStructure!(
     "v: I8 = -5.4", "v",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "-5"
   );
   checkStructure!(
     "w: I8 = -200.5", "w",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "-128"
   );
   checkStructure!(
     "x: I64 = -1000000.7", "x",
     type TokenType::Float,
-    stype StructureType::Primitive(PrimitiveType::I64),
+    stype I64,
     value "-1000001"
   );
 }
@@ -381,19 +381,19 @@ fn castStrings() -> ()
   checkStructure!(
     r#"a: String = "text""#, "a",
     type TokenType::String,
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "text"
   );
   checkStructure!(
     r#"b: CString = "text""#, "b",
     type TokenType::String,
-    stype StructureType::Primitive(PrimitiveType::CString),
+    stype CString,
     value "text"
   );
   checkStructure!(
     r#"c: RawString = "text""#, "c",
     type TokenType::String,
-    stype StructureType::Primitive(PrimitiveType::RawString),
+    stype RawString,
     value "text"
   );
 
@@ -401,19 +401,19 @@ fn castStrings() -> ()
   checkStructure!(
     "d: String = `raw`", "d",
     type TokenType::RawString,
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "raw"
   );
   checkStructure!(
     "e: CString = `raw`", "e",
     type TokenType::RawString,
-    stype StructureType::Primitive(PrimitiveType::CString),
+    stype CString,
     value "raw"
   );
   checkStructure!(
     "f: RawString = `raw`", "f",
     type TokenType::RawString,
-    stype StructureType::Primitive(PrimitiveType::RawString),
+    stype RawString,
     value "raw"
   );
 }

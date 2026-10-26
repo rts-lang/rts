@@ -1,6 +1,5 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{checkStructure, createDirectory, relativePath, showStructure, writeCodeFile};
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
@@ -47,8 +46,8 @@ fn simple() -> ()
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   
-  checkStructure!(main, "a.hello", stype StructureType::Primitive(PrimitiveType::Method));
-  checkStructure!(main, "a.value", stype StructureType::Primitive(PrimitiveType::Usize), value "4");
+  checkStructure!(main, "a.hello", stype Method);
+  checkStructure!(main, "a.value", stype Usize, value "4");
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   
@@ -172,9 +171,9 @@ fn nested() -> ()
   showStructure!(main, "a.bHello", stype);
   checkStructure!(
     main, "a.bHello",
-    type TokenType::String, stype StructureType::Primitive(PrimitiveType::String), value "b: hello"
+    type TokenType::String, stype String, value "b: hello"
   );
-  checkStructure!(main, "a.hello", stype StructureType::Primitive(PrimitiveType::Method));
+  checkStructure!(main, "a.hello", stype Method);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   
@@ -182,9 +181,9 @@ fn nested() -> ()
   showStructure!(main, "c.dHello", stype);
   checkStructure!(
     main, "c.dHello",
-    type TokenType::String, stype StructureType::Primitive(PrimitiveType::String), value "d: hello"
+    type TokenType::String, stype String, value "d: hello"
   );
-  checkStructure!(main, "c.hello", stype StructureType::Primitive(PrimitiveType::Method));
+  checkStructure!(main, "c.hello", stype Method);
 
   // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   

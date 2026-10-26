@@ -219,10 +219,13 @@ pub(super) fn printStructureFacets(
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
 /// фиксированный - `type` → `stype` → `utype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
-///     checkStructure!("a: U8 = 300", "a", type TokenType::UInt, stype StructureType::Primitive(PrimitiveType::U8), value "255");
-///     checkStructure!("a := 0.0", "a", type TokenType::UFloat, stype StructureType::Primitive(PrimitiveType::F32)); // Без значения
-///     checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8)); // Только stype
+///     checkStructure!("a: U8 = 300", "a", type TokenType::UInt, stype U8, value "255");
+///     checkStructure!("a := 0.0", "a", type TokenType::UFloat, stype F32); // Без значения
+///     checkStructure!("a := 10", "a", stype U8); // Только stype
 ///     checkStructure!("a: U8 | 10 = 10", "a", stype number("10"), utype Union(vec![U8, number("10")]));
+///
+/// Тип структуры можно писать коротко - по имени примитива (`stype U8`);
+/// полная форма `StructureType::Primitive(PrimitiveType::U8)` тоже работает.
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
 /// `utype` - полный объявленный тип: набор вариантов объединения (`utype(a)`), а без
@@ -246,65 +249,142 @@ macro_rules! checkStructure
 
 pub(super) use checkStructure;
 
+/// Короткая форма типа-примитива: `U8` вместо `StructureType::Primitive(PrimitiveType::U8)`.
+///
+/// Имя подставляется как вариант `PrimitiveType`, поэтому сокращение работает только
+/// для примитивов из этого перечисления; `Custom` и прочие не-примитивы - нет.
+#[allow(unused_macros)]
+macro_rules! primitiveStype
+{
+  ($primitive:ident) =>
+  {
+    $crate::parser::structure::structureType::StructureType::Primitive(
+      $crate::parser::structure::structureType::PrimitiveType::$primitive
+    )
+  };
+}
+
+#[allow(unused_imports)]
+pub(super) use primitiveStype;
+
+/// Проверка граней: значения типов здесь уже приведены к `StructureType`.
+///
+/// Порядок граней тот же, что и в `tryCheckStructure!`:
+/// `type` → `stype` → `utype` → `value` → `mut` → `lines`.
+macro_rules! checkFacets
+{
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    (|| -> Result<(), String>
+    {
+      $(
+        $crate::parser::testing::checkType($main, $name, $code, &$t)?;
+      )?
+      $(
+        $crate::parser::testing::checkStype($main, $name, $code, &$s)?;
+      )?
+      $(
+        $crate::parser::testing::checkUtype($main, $name, $code, &$u)?;
+      )?
+      $(
+        $crate::parser::testing::checkValue($main, $name, $code, &$v)?;
+      )?
+      $(
+        $crate::parser::testing::checkMut($main, $name, $code, &$m)?;
+      )?
+      $(
+        $crate::parser::testing::checkLines($main, $name, $code, $l)?;
+      )?
+      Ok(())
+    })()
+  }};
+}
+
+#[allow(unused_imports)]
+pub(super) use checkFacets;
+
+/// Разбор граней: короткая форма примитива (`stype U8`) - это идентификатор,
+/// а обычный тип (`stype number("10")`) - выражение. Поэтому грани типа разбираются
+/// отдельно, а всё остальное - обычными выражениями.
+macro_rules! normalizeFacets
+{
+  // Обе грани типа - короткая форма примитива.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:ident)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $crate::parser::testing::primitiveStype!($s))?
+      $(, utype $crate::parser::testing::primitiveStype!($u))?
+      $(, value $v)?
+      $(, mut $m)?
+      $(, lines $l)?
+    )
+  }};
+
+  // `stype` - короткая форма примитива, `utype` - обычное выражение.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $crate::parser::testing::primitiveStype!($s))?
+      $(, utype $u)?
+      $(, value $v)?
+      $(, mut $m)?
+      $(, lines $l)?
+    )
+  }};
+
+  // `stype` - обычное выражение, `utype` - короткая форма примитива.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? , utype $u:ident $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $s)?
+      , utype $crate::parser::testing::primitiveStype!($u)
+      $(, value $v)?
+      $(, mut $m)?
+      $(, lines $l)?
+    )
+  }};
+
+  // Обычные выражения - без сокращений.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $s)?
+      $(, utype $u)?
+      $(, value $v)?
+      $(, mut $m)?
+      $(, lines $l)?
+    )
+  }};
+}
+
+#[allow(unused_imports)]
+pub(super) use normalizeFacets;
+
 /// Версия `checkStructure!` без паники: возвращает `Result<(), String>`,
 /// где первая неверная грань - `Err` с сообщением. Формы и грани те же.
 macro_rules! tryCheckStructure
 {
   // Код: `tryCheckStructure!("a := 10", "a", value "10")`.
-  ($code:literal, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  ($code:literal, $name:expr, $($facets:tt)*) =>
   {{
     let main: ::std::sync::Arc<::std::sync::RwLock<$crate::parser::structure::structure::Structure>> =
       $crate::parser::testing::runCode!($code);
-    (|| -> Result<(), String>
-    {
-      $(
-        $crate::parser::testing::checkType(&main, $name, $code, &$t)?;
-      )?
-      $(
-        $crate::parser::testing::checkStype(&main, $name, $code, &$s)?;
-      )?
-      $(
-        $crate::parser::testing::checkUtype(&main, $name, $code, &$u)?;
-      )?
-      $(
-        $crate::parser::testing::checkValue(&main, $name, $code, &$v)?;
-      )?
-      $(
-        $crate::parser::testing::checkMut(&main, $name, $code, &$m)?;
-      )?
-      $(
-        $crate::parser::testing::checkLines(&main, $name, $code, $l)?;
-      )?
-      Ok(())
-    })()
+    $crate::parser::testing::normalizeFacets!(&main, $name, $code, $($facets)*)
   }};
 
   // Структура: `tryCheckStructure!(main, "a", value "10")`.
-  ($main:expr, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
+  ($main:expr, $name:expr, $($facets:tt)*) =>
   {{
     let main = &$main;
-    (|| -> Result<(), String>
-    {
-      $(
-        $crate::parser::testing::checkType(main, $name, "", &$t)?;
-      )?
-      $(
-        $crate::parser::testing::checkStype(main, $name, "", &$s)?;
-      )?
-      $(
-        $crate::parser::testing::checkUtype(main, $name, "", &$u)?;
-      )?
-      $(
-        $crate::parser::testing::checkValue(main, $name, "", &$v)?;
-      )?
-      $(
-        $crate::parser::testing::checkMut(main, $name, "", &$m)?;
-      )?
-      $(
-        $crate::parser::testing::checkLines(main, $name, "", $l)?;
-      )?
-      Ok(())
-    })()
+    $crate::parser::testing::normalizeFacets!(main, $name, "", $($facets)*)
   }};
 }
 
@@ -603,7 +683,7 @@ mod tests
   fn mainSource() -> ()
   {
     let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
-    checkStructure!(mainLink, "a", stype StructureType::Primitive(PrimitiveType::U8), value "10");
+    checkStructure!(mainLink, "a", stype U8, value "10");
     assert_eq!(
       tryCheckStructure!(mainLink, "a", value "11").unwrap_err(),
       "check value in `` for 'a': expected '11', got '10'"
@@ -628,7 +708,7 @@ mod tests
   #[test]
   fn stypeOnly() -> ()
   {
-    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8));
+    checkStructure!("a := 10", "a", stype U8);
   }
 
   /// Только `value`.
@@ -642,7 +722,7 @@ mod tests
   #[test]
   fn utypeOnly() -> ()
   {
-    checkStructure!("a := 10", "a", utype StructureType::Primitive(PrimitiveType::U8));
+    checkStructure!("a := 10", "a", utype U8);
     checkStructure!(
       "a: U8 | String = 10", "a",
       utype StructureType::Union(vec![StructureType::Primitive(PrimitiveType::U8), StructureType::Primitive(PrimitiveType::String)])
@@ -653,14 +733,33 @@ mod tests
   #[test]
   fn stypeAndValue() -> ()
   {
-    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8), value "10");
+    checkStructure!("a := 10", "a", stype U8, value "10");
   }
 
   /// Все грани и висячая запятая.
   #[test]
   fn allFacetsTrailingComma() -> ()
   {
-    checkStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::Primitive(PrimitiveType::U8), value "10",);
+    checkStructure!("a := 10", "a", type TokenType::UInt, stype U8, value "10",);
+  }
+
+  /// Короткая форма примитива (`stype U8`) равна полной
+  /// (`stype StructureType::Primitive(PrimitiveType::U8)`).
+  ///
+  /// Формы можно смешивать в разных гранях типа.
+  #[test]
+  fn shortPrimitiveType() -> ()
+  {
+    checkStructure!("a := 10", "a", stype U8);
+    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8));
+    checkStructure!("a := 10", "a", stype U8, utype StructureType::Primitive(PrimitiveType::U8));
+    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8), utype U8);
+    checkStructure!("a := 10", "a", stype U8, utype U8);
+    // Ошибка сверки - та же, что и у полной формы.
+    assert_eq!(
+      tryCheckStructure!("a := 10", "a", stype U16).unwrap_err(),
+      tryCheckStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U16)).unwrap_err()
+    );
   }
 
   /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheckStructure!`: паники нет.
@@ -672,7 +771,7 @@ mod tests
       "check type in `a := 10` for 'a': expected 'Int', got 'UInt'"
     );
     assert_eq!(
-      tryCheckStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U16)).unwrap_err(),
+      tryCheckStructure!("a := 10", "a", stype U16).unwrap_err(),
       "check stype in `a := 10` for 'a': expected 'U16', got 'U8'"
     );
     assert_eq!(
@@ -680,11 +779,11 @@ mod tests
       "check value in `a := 10` for 'a': expected '11', got '10'"
     );
     assert_eq!(
-      tryCheckStructure!("a: U8 | String = 10", "a", utype StructureType::Primitive(PrimitiveType::U8)).unwrap_err(),
+      tryCheckStructure!("a: U8 | String = 10", "a", utype U8).unwrap_err(),
       "check utype in `a: U8 | String = 10` for 'a': expected 'U8', got 'U8 | String'"
     );
     // Верные грани - `Ok`.
-    assert!(tryCheckStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::Primitive(PrimitiveType::U8), value "10").is_ok());
+    assert!(tryCheckStructure!("a := 10", "a", type TokenType::UInt, stype U8, value "10").is_ok());
   }
 
   /// `showStructure!` не паникует и печатает ровно запрошенные грани

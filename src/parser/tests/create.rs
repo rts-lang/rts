@@ -68,7 +68,7 @@ fn typeBeforeCreationOperator() -> ()
     "#,
     "a",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
 }
@@ -172,7 +172,7 @@ fn finalWithoutValueTakesFirstValue() -> ()
     "#,
     "c",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8), // Тип выведен из первого значения - 5 влезает в U8.
+    stype U8, // Тип выведен из первого значения - 5 влезает в U8.
     value "5"
   );
 }
@@ -439,7 +439,7 @@ fn creationNoneOnPrimitiveIsIgnored() -> ()
     r#"
     type := None
     "#,
-    "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0
+    "type", stype Method, mut StructureMut::Constant, lines 0
   );
 }
 

@@ -1,4 +1,3 @@
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -34,7 +33,7 @@ fn divideByZeroInteger() -> ()
   checkStructure!(
     "a := 18446744073709551615 / 0", "a",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U64),
+    stype U64,
     value "18446744073709551615"
   );
 
@@ -47,7 +46,7 @@ fn divideByZeroInteger() -> ()
   checkStructure!(
     "a := -9223372036854775808 / 0", "a",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::I64),
+    stype I64,
     value "-9223372036854775808"
   );
 

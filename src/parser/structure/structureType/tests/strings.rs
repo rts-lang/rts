@@ -1,6 +1,5 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};
 // =================================================================================================
@@ -18,18 +17,18 @@ fn types() -> ()
 {
   checkStructure!(
     r#"a: String = """#, "a",
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value ""
   );
   // `CString` - свой тип; алиас от `Pointer` только для FFI.
   checkStructure!(
     r#"b: CString = """#, "b",
-    stype StructureType::Primitive(PrimitiveType::CString),
+    stype CString,
     value ""
   );
   checkStructure!(
     r#"c: RawString = """#, "c",
-    stype StructureType::Primitive(PrimitiveType::RawString),
+    stype RawString,
     value ""
   );
 }
@@ -69,9 +68,9 @@ fn native() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "strlen", stype StructureType::Primitive(PrimitiveType::Method));
-  checkStructure!(main, "string", stype StructureType::Primitive(PrimitiveType::String), value "Hello from RTS 222!");
-  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::Usize), value "38");
+  checkStructure!(main, "strlen", stype Method);
+  checkStructure!(main, "string", stype String, value "Hello from RTS 222!");
+  checkStructure!(main, "result", stype Usize, value "38");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);

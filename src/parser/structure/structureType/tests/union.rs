@@ -36,11 +36,11 @@ fn unionParse() -> ()
 {
   checkStructure!(
     "a: U8 = 10", "a",
-    utype StructureType::Primitive(PrimitiveType::U8))
+    utype U8)
   ;
   checkStructure!(
     "a: String = \"x\"", "a",
-    utype StructureType::Primitive(PrimitiveType::String)
+    utype String
   );
   checkStructure!(
     "a: U8 | String = 10", "a",
@@ -91,17 +91,17 @@ fn unionExactMatch() -> ()
 {
   checkStructure!(
     "a: U8 | String = 10", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "10"
   );
   checkStructure!(
     "a: U8 | String = \"hi\"", "a",
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "hi"
   );
   checkStructure!(
     "a: U8 | F32 = 1.5", "a",
-    stype StructureType::Primitive(PrimitiveType::F32),
+    stype F32,
     value "1.5"
   );
 
@@ -109,12 +109,12 @@ fn unionExactMatch() -> ()
   // `-10` помещается в `I8`, поэтому `U8 | I8` даёт `I8`, а не зажатое в `U8` ноль.
   checkStructure!(
     "a: U8 | I8 = -10", "a",
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "-10"
   );
   checkStructure!(
     "a: U8 | U32 = 70000", "a",
-    stype StructureType::Primitive(PrimitiveType::U32),
+    stype U32,
     value "70000"
   );
 }
@@ -126,21 +126,21 @@ fn unionConvert() -> ()
   // `300` не помещается в `U8`, но приводится в него с зажимом.
   checkStructure!(
     "a: U8 | String = 300", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
 
   // Отрицательное в беззнаковый - приведение.
   checkStructure!(
     "a: U8 | String = -10", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "0"
   );
 
   // `Float` приводится в целый `вариант` с округлением.
   checkStructure!(
     "a: U8 | String = 1.5", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "2"
   );
 }
@@ -152,28 +152,28 @@ fn unionNone() -> ()
   // `True`/`False` не приводятся ни к числу, ни к строке.
   checkStructure!(
     "a: U8 | String = True", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   // Ссылка на несуществующую структуру - тоже `None`.
   checkStructure!(
     "a: U8 | String = b.c", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   // Явный `| None` в объединении: значение не подходит - всё равно `None`.
   checkStructure!(
     "a: String | None = True", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   // Само `None` в объединении - законный `вариант`.
   checkStructure!(
     "a: String | None = None", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 }
@@ -248,7 +248,7 @@ fn unionPrimitiveParse() -> ()
   // Незакрытый `|` не ломает разбор.
   checkStructure!(
     "a: U8 | = 10", "a",
-    utype StructureType::Primitive(PrimitiveType::U8)
+    utype U8
   );
   checkStructure!(
     "a: 10 | = 10", "a",
@@ -312,58 +312,58 @@ fn unionPrimitiveNone() -> ()
   // Ближайшее число не подставляется: только точное совпадение.
   checkStructure!(
     "a: 10 | 20 = 15", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: 10 | 20 = 300", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: 10 | 20 = 10.5", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   // Другой вид значения.
   checkStructure!(
     "a: 10 | 20 = \"text\"", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: 10 | 20 = \"10\"", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: 10 | 20 = True", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   // `None` как значение - тоже `None`, хотя в объединении он не указан.
   checkStructure!(
     "a: 10 | 20 = None", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   //
   checkStructure!(
     "a: \"x\" | 10 = \"y\"", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: \"x\" | 10 = True", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: \"x\" | 10 = 11", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 }
@@ -382,17 +382,17 @@ fn unionPrimitiveWithType() -> ()
   // Не примитив - работают правила типов: приведение с зажимом.
   checkStructure!(
     "a: U8 | 10 = 11", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "11"
   );
   checkStructure!(
     "a: U8 | 10 = 300", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
   checkStructure!(
     "a: U8 | 10 = -5", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "0"
   );
 
@@ -404,12 +404,12 @@ fn unionPrimitiveWithType() -> ()
   );
   checkStructure!(
     "a: \"name\" | U8 = \"other\"", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
     "a: \"name\" | U8 = 300", "a",
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
 }
@@ -425,12 +425,12 @@ fn unionPrimitiveMixedType() -> ()
   );
   checkStructure!(
     "a: String | 10 = \"hi\"", "a",
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "hi"
   );
   checkStructure!(
     "a: String | 10 = 11", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
@@ -442,7 +442,7 @@ fn unionPrimitiveMixedType() -> ()
   );
   checkStructure!(
     "a: String | \"text\" = \"other\"", "a",
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "other"
   );
 }
@@ -454,19 +454,19 @@ fn unionTypeNameVsPrimitive() -> ()
   // Примитивы.
   checkStructure!(
     "a: U8 = 10", "a",
-    utype StructureType::Primitive(PrimitiveType::U8)
+    utype U8
   );
   checkStructure!(
     "a: Any = 10", "a",
-    utype StructureType::Primitive(PrimitiveType::Any)
+    utype Any
   );
   checkStructure!(
     "a: True = True", "a",
-    utype StructureType::Primitive(PrimitiveType::True)
+    utype True
   );
   checkStructure!(
     "a: False = False", "a",
-    utype StructureType::Primitive(PrimitiveType::False)
+    utype False
   );
 
   // Значения-примитивы.
@@ -511,14 +511,14 @@ fn unionEmptyStringPrimitive() -> ()
   // Не подошло ни к одному `варианту` - `None`.
   checkStructure!(
     "a: \"\" | U8 = \"x\"", "a",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 
   // Имя типа `String` - по-прежнему тип, а не значение.
   checkStructure!(
     "a: String = \"\"", "a",
-    stype StructureType::Primitive(PrimitiveType::String)
+    stype String
   );
 }
 
@@ -621,7 +621,7 @@ fn unionDynamic() -> ()
   checkStructure!(
     "j~~: U8 | String = 10", "j",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "10"
   );
   checkStructure!(
@@ -631,7 +631,7 @@ fn unionDynamic() -> ()
     "#,
     "j",
     type TokenType::UFloat,
-    stype StructureType::Primitive(PrimitiveType::F32),
+    stype F32,
     value "1.5"
   );
   checkStructure!(
@@ -641,7 +641,7 @@ fn unionDynamic() -> ()
     "#,
     "j",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U32),
+    stype U32,
     value "99999"
   );
 }
@@ -666,7 +666,7 @@ fn unionVariablePrimitives() -> ()
     t = 30
     "#,
     "t",
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
   checkStructure!(
@@ -701,7 +701,7 @@ fn unionVariableStringPrimitive() -> ()
     "#,
     "v",
     type TokenType::String,
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "other"
   );
 }

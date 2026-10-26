@@ -1,6 +1,5 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{checkStructure, writeCodeFile};
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
@@ -48,7 +47,7 @@ fn sleep() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "slept", stype StructureType::Primitive(PrimitiveType::Usize), value "1");
+  checkStructure!(main, "slept", stype Usize, value "1");
 
   let _ = std::fs::remove_file(&path);
 }

@@ -1,6 +1,5 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
@@ -10,6 +9,7 @@ use std::sync::{Arc, RwLock};
 //
 //  Вариант 1: тип слева указан — он же тип возврата C-функции,
 //             правая часть кастуется к левой.
+//
 //  Вариант 2: тип слева не указан — левая часть получает тип от правой:
 //             то же авто-приведение по величине значения, что и для примитивов
 //             `Usize` в результате не бывает.
@@ -73,17 +73,17 @@ fn typedReturns() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "a1", stype StructureType::Primitive(PrimitiveType::U8), value "200");
-  checkStructure!(main, "a2", stype StructureType::Primitive(PrimitiveType::U16), value "60000");
-  checkStructure!(main, "a3", stype StructureType::Primitive(PrimitiveType::U32), value "4000000000");
-  checkStructure!(main, "a4", stype StructureType::Primitive(PrimitiveType::U64), value "18446744073709551615");
-  checkStructure!(main, "a5", stype StructureType::Primitive(PrimitiveType::Usize), value "123456789");
-  checkStructure!(main, "a6", stype StructureType::Primitive(PrimitiveType::I8), value "-100");
-  checkStructure!(main, "a7", stype StructureType::Primitive(PrimitiveType::I16), value "-30000");
-  checkStructure!(main, "a8", stype StructureType::Primitive(PrimitiveType::I32), value "-2000000000");
-  checkStructure!(main, "a9", stype StructureType::Primitive(PrimitiveType::I64), value "-9000000000000000000");
-  checkStructure!(main, "b1", stype StructureType::Primitive(PrimitiveType::F32), value "-1.5");
-  checkStructure!(main, "b2", stype StructureType::Primitive(PrimitiveType::F64), value "2.5");
+  checkStructure!(main, "a1", stype U8, value "200");
+  checkStructure!(main, "a2", stype U16, value "60000");
+  checkStructure!(main, "a3", stype U32, value "4000000000");
+  checkStructure!(main, "a4", stype U64, value "18446744073709551615");
+  checkStructure!(main, "a5", stype Usize, value "123456789");
+  checkStructure!(main, "a6", stype I8, value "-100");
+  checkStructure!(main, "a7", stype I16, value "-30000");
+  checkStructure!(main, "a8", stype I32, value "-2000000000");
+  checkStructure!(main, "a9", stype I64, value "-9000000000000000000");
+  checkStructure!(main, "b1", stype F32, value "-1.5");
+  checkStructure!(main, "b2", stype F64, value "2.5");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -108,11 +108,11 @@ fn typedReturnsFromSystemLibraries() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "s1", stype StructureType::Primitive(PrimitiveType::Usize), value "11");
-  checkStructure!(main, "s2", stype StructureType::Primitive(PrimitiveType::I32), value "5");
-  checkStructure!(main, "s3", stype StructureType::Primitive(PrimitiveType::I32), value "-1");
-  checkStructure!(main, "s4", stype StructureType::Primitive(PrimitiveType::F64), value "4");
-  checkStructure!(main, "s5", stype StructureType::Primitive(PrimitiveType::F64), value "-3");
+  checkStructure!(main, "s1", stype Usize, value "11");
+  checkStructure!(main, "s2", stype I32, value "5");
+  checkStructure!(main, "s3", stype I32, value "-1");
+  checkStructure!(main, "s4", stype F64, value "4");
+  checkStructure!(main, "s5", stype F64, value "-3");
 
   let _ = std::fs::remove_file(&path);
 }
@@ -150,9 +150,9 @@ fn inferredReturns() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "c1", stype StructureType::Primitive(PrimitiveType::U32), value "123456789");
-  checkStructure!(main, "c2", stype StructureType::Primitive(PrimitiveType::U64), value "18446744073709551615");
-  checkStructure!(main, "c3", stype StructureType::Primitive(PrimitiveType::U8), value "11");
+  checkStructure!(main, "c1", stype U32, value "123456789");
+  checkStructure!(main, "c2", stype U64, value "18446744073709551615");
+  checkStructure!(main, "c3", stype U8, value "11");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -175,8 +175,8 @@ fn argumentsAndResult() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "d1", stype StructureType::Primitive(PrimitiveType::U16), value "300");
-  checkStructure!(main, "d2", stype StructureType::Primitive(PrimitiveType::F64), value "6");
+  checkStructure!(main, "d1", stype U16, value "300");
+  checkStructure!(main, "d2", stype F64, value "6");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -201,9 +201,9 @@ fn resultInsideExpression() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "e1", stype StructureType::Primitive(PrimitiveType::Usize), value "123456790");
-  checkStructure!(main, "e2", stype StructureType::Primitive(PrimitiveType::I32), value "-1999999999");
-  checkStructure!(main, "e3", stype StructureType::Primitive(PrimitiveType::U8), value "4");
+  checkStructure!(main, "e1", stype Usize, value "123456790");
+  checkStructure!(main, "e2", stype I32, value "-1999999999");
+  checkStructure!(main, "e3", stype U8, value "4");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -225,7 +225,7 @@ fn typeAppliesToAllCalls() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "t1", stype StructureType::Primitive(PrimitiveType::I32), value "5");
+  checkStructure!(main, "t1", stype I32, value "5");
 
   let _ = std::fs::remove_file(&path);
 }
@@ -245,7 +245,7 @@ fn argumentFromConstant() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "t2", stype StructureType::Primitive(PrimitiveType::I32), value "1");
+  checkStructure!(main, "t2", stype I32, value "1");
 
   let _ = std::fs::remove_file(&path);
 }
@@ -269,8 +269,8 @@ fn assignmentToExistingStructure() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "r1", stype StructureType::Primitive(PrimitiveType::I32), value "-2000000000");
-  checkStructure!(main, "r2", stype StructureType::Primitive(PrimitiveType::U32), value "123456789");
+  checkStructure!(main, "r1", stype I32, value "-2000000000");
+  checkStructure!(main, "r2", stype U32, value "123456789");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -297,7 +297,7 @@ fn callAsStatement() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "marker", stype StructureType::Primitive(PrimitiveType::Usize), value "1");
+  checkStructure!(main, "marker", stype Usize, value "1");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -319,7 +319,7 @@ fn pointerResult() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "p", stype StructureType::Primitive(PrimitiveType::Pointer));
+  checkStructure!(main, "p", stype Pointer);
 
   let _ = std::fs::remove_file(&path);
 }
@@ -340,7 +340,7 @@ fn unknownMethod() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "z1", stype StructureType::Primitive(PrimitiveType::I32), value "0");
+  checkStructure!(main, "z1", stype I32, value "0");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -365,8 +365,8 @@ fn insideFfiBlock() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "block.f1", stype StructureType::Primitive(PrimitiveType::I32), value "-2000000000");
-  checkStructure!(main, "block.f2", stype StructureType::Primitive(PrimitiveType::U32), value "123456789");
+  checkStructure!(main, "block.f1", stype I32, value "-2000000000");
+  checkStructure!(main, "block.f2", stype U32, value "123456789");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -392,8 +392,8 @@ fn resultAsFunctionReturn() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "w1", stype StructureType::Primitive(PrimitiveType::U8), value "5");
-  checkStructure!(main, "w2", stype StructureType::Primitive(PrimitiveType::Usize), value "11");
+  checkStructure!(main, "w1", stype U8, value "5");
+  checkStructure!(main, "w2", stype Usize, value "11");
 
   let _ = std::fs::remove_file(&path);
 }
@@ -416,7 +416,7 @@ fn f32Arguments() -> ()
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
   // Ожидается 4, а приходит 0.
-  checkStructure!(main, "f1", stype StructureType::Primitive(PrimitiveType::F32), value "4");
+  checkStructure!(main, "f1", stype F32, value "4");
 
   let _ = std::fs::remove_file(&path);
 }
@@ -441,7 +441,7 @@ fn booleanResult() -> ()
   // Ожидается True, а приходит None.
   checkStructure!(
     main, "b1",
-    type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    type TokenType::True, stype True, value "True"
   );
 
   let _ = std::fs::remove_file(&path);

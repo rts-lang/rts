@@ -1,4 +1,3 @@
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{checkExpression, checkStructure};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -17,7 +16,7 @@ fn trueType() -> ()
   checkStructure!(
     "a: True = True", "a",
     type TokenType::True,
-    stype StructureType::Primitive(PrimitiveType::True),
+    stype True,
     value "True"
   );
 }
@@ -29,7 +28,7 @@ fn falseType() -> ()
   checkStructure!(
     "b: False = False", "b",
     type TokenType::False,
-    stype StructureType::Primitive(PrimitiveType::False),
+    stype False,
     value "False"
   );
 }
@@ -42,7 +41,7 @@ fn noneType() -> ()
   checkStructure!(
     "c: None = None", "c",
     type TokenType::None,
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 }
@@ -56,7 +55,7 @@ fn trueFalseUnion() -> ()
   checkStructure!(
     "d~: True | False = True", "d",
     type TokenType::True,
-    stype StructureType::Primitive(PrimitiveType::True),
+    stype True,
     value "True"
   );
   checkStructure!(
@@ -66,7 +65,7 @@ fn trueFalseUnion() -> ()
     "#,
     "d",
     type TokenType::False,
-    stype StructureType::Primitive(PrimitiveType::False),
+    stype False,
     value "False"
   );
 }
@@ -78,13 +77,13 @@ fn inferred() -> ()
   checkStructure!(
     "e := True", "e",
     type TokenType::True,
-    stype StructureType::Primitive(PrimitiveType::True),
+    stype True,
     value "True"
   );
   checkStructure!(
     "f := False", "f",
     type TokenType::False,
-    stype StructureType::Primitive(PrimitiveType::False),
+    stype False,
     value "False"
   );
 }
@@ -97,7 +96,7 @@ fn forwardDecl() -> ()
   checkStructure!(
     "g", "g",
     type TokenType::None,
-    stype StructureType::Primitive(PrimitiveType::None),
+    stype None,
     value ""
   );
 }

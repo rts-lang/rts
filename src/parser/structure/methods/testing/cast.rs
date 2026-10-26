@@ -1,5 +1,5 @@
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::structure::structureType::PrimitiveType;
 use crate::parser::testing::checkStructure;
 use crate::parser::testing::runCode;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -147,14 +147,14 @@ fn resultIsToken() -> ()
     "a := U8(300)",
     "a",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "255"
   );
   checkStructure!(
     "a := I8(-300)",
     "a",
     type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    stype I8,
     value "-128"
   );
 }
@@ -167,7 +167,7 @@ fn usizeIsToken() -> ()
     "a := Usize(5)",
     "a",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    stype U8,
     value "5"
   );
 }
@@ -209,7 +209,7 @@ fn inExpression() -> ()
     "#,
     "c",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U16),
+    stype U16,
     value "265"
   );
 }
@@ -226,7 +226,7 @@ fn noCastInExpression() -> ()
     "#,
     "c",
     type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U32),
+    stype U32,
     value "1111121"
   );
 }
@@ -267,13 +267,13 @@ fn toString() -> ()
   checkStructure!(
     "a := String(5)", "a",
     type TokenType::String,
-    stype StructureType::Primitive(PrimitiveType::String),
+    stype String,
     value "5"
   );
   checkStructure!(
     "a := RawString(5)", "a",
     type TokenType::RawString,
-    stype StructureType::Primitive(PrimitiveType::RawString),
+    stype RawString,
     value "5"
   );
 }
