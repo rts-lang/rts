@@ -1,7 +1,6 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
 use crate::parser::testing::{checkStructure, createDirectory, relativePath, showStructure, writeCodeFile};
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -171,7 +170,7 @@ fn nested() -> ()
   showStructure!(main, "a.bHello", stype);
   checkStructure!(
     main, "a.bHello",
-    type TokenType::String, stype String, value "b: hello"
+    type String, stype String, value "b: hello"
   );
   checkStructure!(main, "a.hello", stype Method);
 
@@ -181,7 +180,7 @@ fn nested() -> ()
   showStructure!(main, "c.dHello", stype);
   checkStructure!(
     main, "c.dHello",
-    type TokenType::String, stype String, value "d: hello"
+    type String, stype String, value "d: hello"
   );
   checkStructure!(main, "c.hello", stype Method);
 

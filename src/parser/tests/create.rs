@@ -1,7 +1,6 @@
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -67,7 +66,7 @@ fn typeBeforeCreationOperator() -> ()
     a: U8 := 300
     "#,
     "a",
-    type TokenType::UInt,
+    type UInt,
     stype U8,
     value "255"
   );
@@ -171,7 +170,7 @@ fn finalWithoutValueTakesFirstValue() -> ()
     c = 5
     "#,
     "c",
-    type TokenType::UInt,
+    type UInt,
     stype U8, // Тип выведен из первого значения - 5 влезает в U8.
     value "5"
   );

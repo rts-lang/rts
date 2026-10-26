@@ -1,5 +1,4 @@
 use crate::parser::testing::checkExpression;
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Тесты на потолки `Value` + `calculate`.
@@ -47,19 +46,19 @@ fn limitsUInt() -> ()
   // Примитив ровно в потолок остаётся как есть.
   checkExpression!(
     &max.to_string(),
-    type TokenType::UInt,
+    type UInt,
     value &max.to_string()
   );
   
   // Примитив на `1` больше потолка обрубается сразу.
   checkExpression!(
     &(max as u128 + 1).to_string(),
-    type TokenType::UInt,
+    type UInt,
     value &max.to_string()
   );
   checkExpression!(
     "99999999999999999999999",
-    type TokenType::UInt,
+    type UInt,
     value &max.to_string()
   );
   
@@ -68,26 +67,26 @@ fn limitsUInt() -> ()
   // 3. Вычитание = 0.
   checkExpression!(
     &format!("({max} + 1) - ({max} + 1)"),
-    type TokenType::UInt,
+    type UInt,
     value "0"
   );
   
   // Примитив обрубается ещё до сложения.
   checkExpression!(
     "(99999999999999999999999 + 1) - (99999999999999999999999 + 1)",
-    type TokenType::UInt,
+    type UInt,
     value "0"
   );
   
   // Результат не округляется до итога: потолок остаётся потолком.
   checkExpression!(
     &format!("({max} + 1) + 0"),
-    type TokenType::UInt,
+    type UInt,
     value &max.to_string()
   );
   checkExpression!(
     "99999999999999999999999 / 1",
-    type TokenType::UInt,
+    type UInt,
     value &max.to_string()
   );
 }
@@ -101,26 +100,26 @@ fn limitsInt() -> ()
   // Примитив ровно в потолок остаётся как есть.
   checkExpression!(
     &min.to_string(),
-    type TokenType::Int,
+    type Int,
     value &min.to_string()
   );
   
   // Примитив на `1` меньше потолка обрубается сразу.
   checkExpression!(
     &(min as i128 - 1).to_string(),
-    type TokenType::Int,
+    type Int,
     value &min.to_string()
   );
   checkExpression!(
     "-99999999999999999999999",
-    type TokenType::Int,
+    type Int,
     value &min.to_string()
   );
   
   // `isize::MIN - 1` обрубается до `isize::MIN`, затем + `1`.
   checkExpression!(
     &format!("({min} - 1) + 1"),
-    type TokenType::Int,
+    type Int,
     value &(min + 1).to_string()
   );
 }
@@ -135,27 +134,27 @@ fn limitsUFloat() -> ()
   // Примитив ровно в потолок остаётся как есть.
   checkExpression!(
     "1.7976931348623157e308",
-    type TokenType::UFloat,
+    type UFloat,
     value &f64::MAX.to_string()
   );
   
   // Первый примитив за потолком (парсится в `inf`) обрубается до `f64::MAX`.
   checkExpression!(
     "1.7976931348623159e308",
-    type TokenType::UFloat,
+    type UFloat,
     value &format!("{:e}", f64::MAX)
   );
   
   // 1. Примитив `1e309` за потолком обрубается до `f64::MAX`.
   checkExpression!(
     "1e309",
-    type TokenType::UFloat,
+    type UFloat,
     value &format!("{:e}", f64::MAX)
   );
   // 2. Вычитание = `0`.
   checkExpression!(
     "1e309 - 1e309",
-    type TokenType::UFloat,
+    type UFloat,
     value "0"
   );
   
@@ -164,19 +163,19 @@ fn limitsUFloat() -> ()
   // 3. Вычитание = `0` (а не `inf - inf = NaN`).
   checkExpression!(
     "(1e308 + 1e308) - (1e308 + 1e308)",
-    type TokenType::UFloat,
+    type UFloat,
     value "0"
   );
   
   // Обрубается на каждом шаге: `f64::MAX - 1e308`, а не `inf - 1e308`.
   checkExpression!(
     "(1e308 + 1e308) - 1e308",
-    type TokenType::UFloat,
+    type UFloat,
     value &(f64::MAX - 1e308).to_string()
   );
   checkExpression!(
     "(1e308 + 1e308) + 1",
-    type TokenType::UFloat,
+    type UFloat,
     value &f64::MAX.to_string()
   );
 }
@@ -188,42 +187,42 @@ fn limitsFloat() -> ()
   // Примитив ровно в потолок остаётся как есть.
   checkExpression!(
     "-1.7976931348623157e308",
-    type TokenType::Float,
+    type Float,
     value &f64::MIN.to_string()
   );
   
   // Первый примитив за потолком (парсится в `-inf`) обрубается до `f64::MIN`.
   checkExpression!(
     "-1.7976931348623159e308",
-    type TokenType::Float,
+    type Float,
     value &format!("{:e}", f64::MIN)
   );
   
   // Примитив `1e309` за нижним потолком обрубается сразу.
   checkExpression!(
     "-1e309",
-    type TokenType::Float,
+    type Float,
     value &format!("{:e}", f64::MIN)
   );
   
   // `-1e308 - 1e308` обрубается до `f64::MIN`, вычитание = `0`.
   checkExpression!(
     "(-1e308 - 1e308) - (-1e308 - 1e308)",
-    type TokenType::Float,
+    type Float,
     value "0"
   );
   
   // `f64::MIN + 1e308`, а не `-inf + 1e308`.
   checkExpression!(
     "(-1e308 - 1e308) + 1e308",
-    type TokenType::Float,
+    type Float,
     value &(f64::MIN + 1e308).to_string()
   );
   
   // `UFloat - UFloat` с отрицательным результатом остаётся `Float`.
   checkExpression!(
     "1.0 - 2.0",
-    type TokenType::Float,
+    type Float,
     value "-1"
   );
 }
@@ -265,17 +264,17 @@ fn limitsMultiply() -> ()
 {
   checkExpression!(
     &format!("{} * 3", isize::MAX),
-    type TokenType::UInt,
+    type UInt,
     value &usize::MAX.to_string()
   );
   checkExpression!(
     &format!("-{} * 2", isize::MAX),
-    type TokenType::Int,
+    type Int,
     value &isize::MIN.to_string()
   );
   checkExpression!(
     "1e308 * 10",
-    type TokenType::UFloat,
+    type UFloat,
     value &f64::MAX.to_string()
   );
 }

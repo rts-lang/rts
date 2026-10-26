@@ -219,13 +219,14 @@ pub(super) fn printStructureFacets(
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
 /// фиксированный - `type` → `stype` → `utype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
-///     checkStructure!("a: U8 = 300", "a", type TokenType::UInt, stype U8, value "255");
-///     checkStructure!("a := 0.0", "a", type TokenType::UFloat, stype F32); // Без значения
+///     checkStructure!("a: U8 = 300", "a", type UInt, stype U8, value "255");
+///     checkStructure!("a := 0.0", "a", type UFloat, stype F32); // Без значения
 ///     checkStructure!("a := 10", "a", stype U8); // Только stype
 ///     checkStructure!("a: U8 | 10 = 10", "a", stype number("10"), utype Union(vec![U8, number("10")]));
 ///
-/// Тип структуры можно писать коротко - по имени примитива (`stype U8`);
-/// полная форма `StructureType::Primitive(PrimitiveType::U8)` тоже работает.
+/// Типы можно писать коротко - по имени варианта (`type UInt`, `stype U8`);
+/// полные формы `TokenType::UInt` и `StructureType::Primitive(PrimitiveType::U8)`
+/// тоже работают.
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
 /// `utype` - полный объявленный тип: набор вариантов объединения (`utype(a)`), а без
@@ -266,6 +267,62 @@ macro_rules! primitiveStype
 
 #[allow(unused_imports)]
 pub(super) use primitiveStype;
+
+/// Короткая форма типа токена: `UInt` вместо `TokenType::UInt`.
+///
+/// Имя подставляется как вариант `TokenType`, поэтому сокращение работает только
+/// для вариантов этого перечисления.
+#[allow(unused_macros)]
+macro_rules! tokenType
+{
+  ($tokenType:ident) =>
+  {
+    $crate::tokenizer::types::tokenType::TokenType::$tokenType
+  };
+}
+
+#[allow(unused_imports)]
+pub(super) use tokenType;
+
+/// Разбор грани `type`: короткая форма (`type UInt`) - это идентификатор,
+/// а обычная (`type TokenType::UInt`) - выражение.
+///
+/// Грань `type` идёт первой, поэтому разбирается отдельно от остальных:
+/// короткая форма приводится к `TokenType::UInt`, а дальше идёт обычный разбор.
+macro_rules! normalizeTypeFacet
+{
+  // Короткая форма: `type UInt`.
+  ($main:expr, $name:expr, $code:literal, type $t:ident $(, $($rest:tt)*)?) =>
+  {{
+    $crate::parser::testing::normalizeFacets!(
+      $main, $name, $code,
+      type $crate::tokenizer::types::tokenType::TokenType::$t
+      $(, $($rest)*)?
+    )
+  }};
+
+  // Обычная форма: `type TokenType::UInt`.
+  ($main:expr, $name:expr, $code:literal, type $t:expr $(, $($rest:tt)*)?) =>
+  {{
+    $crate::parser::testing::normalizeFacets!(
+      $main, $name, $code,
+      type $t
+      $(, $($rest)*)?
+    )
+  }};
+
+  // Без грани `type`.
+  ($main:expr, $name:expr, $code:literal, $($rest:tt)*) =>
+  {{
+    $crate::parser::testing::normalizeFacets!(
+      $main, $name, $code,
+      $($rest)*
+    )
+  }};
+}
+
+#[allow(unused_imports)]
+pub(super) use normalizeTypeFacet;
 
 /// Проверка граней: значения типов здесь уже приведены к `StructureType`.
 ///
@@ -377,14 +434,14 @@ macro_rules! tryCheckStructure
   {{
     let main: ::std::sync::Arc<::std::sync::RwLock<$crate::parser::structure::structure::Structure>> =
       $crate::parser::testing::runCode!($code);
-    $crate::parser::testing::normalizeFacets!(&main, $name, $code, $($facets)*)
+    $crate::parser::testing::normalizeTypeFacet!(&main, $name, $code, $($facets)*)
   }};
 
   // Структура: `tryCheckStructure!(main, "a", value "10")`.
   ($main:expr, $name:expr, $($facets:tt)*) =>
   {{
     let main = &$main;
-    $crate::parser::testing::normalizeFacets!(main, $name, "", $($facets)*)
+    $crate::parser::testing::normalizeTypeFacet!(main, $name, "", $($facets)*)
   }};
 }
 
@@ -465,12 +522,23 @@ pub(super) use showStructure;
 ///
 /// Грани: `type` - тип токена результата, `value` - его значение; порядок `type` → `value`.
 ///
-///     checkExpression!("(1e308 + 1e308) - (1e308 + 1e308)", type TokenType::UFloat, value "0");
+///     checkExpression!("(1e308 + 1e308) - (1e308 + 1e308)", type UFloat, value "0");
 ///     checkExpression!("1e309", value &f64::MAX.to_string()); // Только значение
+///
+/// Тип токена можно писать коротко - по имени варианта (`type UFloat`);
+/// полная форма `TokenType::UFloat` тоже работает.
 ///
 /// Паникует на первой неверной грани.
 macro_rules! checkExpression
 {
+  // Короткая форма типа токена: `type UFloat`.
+  ($code:expr, type $t:ident $(, value $v:expr)? $(,)?) =>
+  {
+    $crate::parser::testing::checkExpression!(
+      $code, type $crate::tokenizer::types::tokenType::TokenType::$t $(, value $v)?
+    )
+  };
+
   ($code:expr $(, type $t:expr)? $(, value $v:expr)? $(,)?) =>
   {{
     let code: &str = $code;
@@ -701,7 +769,7 @@ mod tests
   #[test]
   fn typeOnly() -> ()
   {
-    checkStructure!("a := 10", "a", type TokenType::UInt);
+    checkStructure!("a := 10", "a", type UInt);
   }
 
   /// Только `stype`.
@@ -740,7 +808,7 @@ mod tests
   #[test]
   fn allFacetsTrailingComma() -> ()
   {
-    checkStructure!("a := 10", "a", type TokenType::UInt, stype U8, value "10",);
+    checkStructure!("a := 10", "a", type UInt, stype U8, value "10",);
   }
 
   /// Короткая форма примитива (`stype U8`) равна полной
@@ -762,12 +830,32 @@ mod tests
     );
   }
 
+  /// Короткая форма типа токена (`type UInt`) равна полной (`type TokenType::UInt`).
+  ///
+  /// Короткая форма типа токена смешивается с короткой формой типа структуры.
+  #[test]
+  fn shortTokenType() -> ()
+  {
+    checkStructure!("a := 10", "a", type UInt);
+    checkStructure!("a := 10", "a", type TokenType::UInt);
+    checkStructure!("a := 10", "a", type UInt, stype U8, value "10");
+    checkStructure!("a := 10", "a", type TokenType::UInt, stype U8, value "10");
+    // Ошибка сверки - та же, что и у полной формы.
+    assert_eq!(
+      tryCheckStructure!("a := 10", "a", type Int).unwrap_err(),
+      tryCheckStructure!("a := 10", "a", type TokenType::Int).unwrap_err()
+    );
+    // `checkExpression!` - тот же принцип.
+    checkExpression!("1 < 2", type True);
+    checkExpression!("1 < 2", type TokenType::True);
+  }
+
   /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheckStructure!`: паники нет.
   #[test]
   fn catchesMismatch() -> ()
   {
     assert_eq!(
-      tryCheckStructure!("a := 10", "a", type TokenType::Int).unwrap_err(),
+      tryCheckStructure!("a := 10", "a", type Int).unwrap_err(),
       "check type in `a := 10` for 'a': expected 'Int', got 'UInt'"
     );
     assert_eq!(
@@ -783,7 +871,7 @@ mod tests
       "check utype in `a: U8 | String = 10` for 'a': expected 'U8', got 'U8 | String'"
     );
     // Верные грани - `Ok`.
-    assert!(tryCheckStructure!("a := 10", "a", type TokenType::UInt, stype U8, value "10").is_ok());
+    assert!(tryCheckStructure!("a := 10", "a", type UInt, stype U8, value "10").is_ok());
   }
 
   /// `showStructure!` не паникует и печатает ровно запрошенные грани

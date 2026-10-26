@@ -1,5 +1,4 @@
 use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Тесты на деление.
@@ -12,27 +11,27 @@ fn divideInteger() -> ()
 {
   checkStructure!(
     "a := 10 / 4", "a",
-    type TokenType::UInt,
+    type UInt,
     value "2"
   );
   checkStructure!(
     "a := 10 / 5", "a",
-    type TokenType::UInt,
+    type UInt,
     value "2"
   );
   checkStructure!(
     "a := -7 / 2", "a",
-    type TokenType::Int,
+    type Int,
     value "-3"
   );
   checkStructure!(
     "a := 7 / -2", "a",
-    type TokenType::Int,
+    type Int,
     value "-3"
   );
   checkStructure!(
     "a := -7 / -2", "a",
-    type TokenType::Int,
+    type Int,
     value "3"
   );
 }
@@ -43,22 +42,22 @@ fn divideFloat() -> ()
 {
   checkStructure!(
     "a := 10 / 4.0", "a",
-    type TokenType::UFloat,
+    type UFloat,
     value "2.5"
   );
   checkStructure!(
     "a := 10 / 0.5", "a",
-    type TokenType::UFloat,
+    type UFloat,
     value "20"
   );
   checkStructure!(
     "a := 1 / 0.1", "a",
-    type TokenType::UFloat,
+    type UFloat,
     value "10"
   );
   checkStructure!(
     "a := -7.5 / 2", "a",
-    type TokenType::Float,
+    type Float,
     value "-3.75"
   );
 }
@@ -69,22 +68,22 @@ fn divideChainsAndPrecedence() -> ()
 {
   checkStructure!(
     "a := 100 / 10 / 2", "a",
-    type TokenType::UInt,
+    type UInt,
     value "5"
   );
   checkStructure!(
     "a := 10 - 6 / 2", "a",
-    type TokenType::UInt,
+    type UInt,
     value "7"
   );
   checkStructure!(
     "a := 10 + 6 / 2", "a",
-    type TokenType::UInt,
+    type UInt,
     value "13"
   );
   checkStructure!(
     "a := 20 - 8 / 4 - 1", "a",
-    type TokenType::UInt,
+    type UInt,
     value "17"
   );
 }
@@ -95,7 +94,7 @@ fn divideAdjacentMinus() -> ()
 {
   checkStructure!(
     "a := 10 -6 / 2", "a",
-    type TokenType::UInt,
+    type UInt,
     value "7"
   );
 }

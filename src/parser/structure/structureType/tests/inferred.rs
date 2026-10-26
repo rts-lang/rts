@@ -1,5 +1,4 @@
 use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 //Тесты на получение `StructureType` для структуры:
@@ -16,13 +15,13 @@ fn autoUnsigned() -> ()
   // U8.
   checkStructure!(
     "a := 0", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U8,
     value "0"
   );
   checkStructure!(
     "a := 255", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U8,
     value "255"
   );
@@ -30,13 +29,13 @@ fn autoUnsigned() -> ()
   // U16.
   checkStructure!(
     "a := 256", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U16,
     value "256"
   );
   checkStructure!(
     "a := 65535", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U16,
     value "65535"
   );
@@ -44,13 +43,13 @@ fn autoUnsigned() -> ()
   // U32.
   checkStructure!(
     "a := 65536", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U32,
     value "65536"
   );
   checkStructure!(
     "a := 4294967295", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U32,
     value "4294967295"
   );
@@ -58,13 +57,13 @@ fn autoUnsigned() -> ()
   // U64.
   checkStructure!(
     "a := 4294967296", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U64,
     value "4294967296"
   );
   checkStructure!(
     "a := 18446744073709551615", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U64,
     value "18446744073709551615"
   );
@@ -77,13 +76,13 @@ fn autoSigned() -> ()
   // I8.
   checkStructure!(
     "a := -1", "a",
-    type TokenType::Int,
+    type Int,
     stype I8,
     value "-1"
   );
   checkStructure!(
     "a := -128", "a",
-    type TokenType::Int,
+    type Int,
     stype I8,
     value "-128"
   );
@@ -91,13 +90,13 @@ fn autoSigned() -> ()
   // I16.
   checkStructure!(
     "a := -129", "a",
-    type TokenType::Int,
+    type Int,
     stype I16,
     value "-129"
   );
   checkStructure!(
     "a := -32768", "a",
-    type TokenType::Int,
+    type Int,
     stype I16,
     value "-32768"
   );
@@ -105,13 +104,13 @@ fn autoSigned() -> ()
   // I32.
   checkStructure!(
     "a := -32769", "a",
-    type TokenType::Int,
+    type Int,
     stype I32,
     value "-32769"
   );
   checkStructure!(
     "a := -2147483648", "a",
-    type TokenType::Int,
+    type Int,
     stype I32,
     value "-2147483648"
   );
@@ -119,13 +118,13 @@ fn autoSigned() -> ()
   // I64.
   checkStructure!(
     "a := -2147483649", "a",
-    type TokenType::Int,
+    type Int,
     stype I64,
     value "-2147483649"
   );
   checkStructure!(
     "a := -9223372036854775808", "a",
-    type TokenType::Int,
+    type Int,
     stype I64,
     value "-9223372036854775808"
   );
@@ -140,13 +139,13 @@ fn autoSaturation() -> ()
   // Больше `U64` - и очень большое число.
   checkStructure!(
     "a := 18446744073709551616", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U64,
     value &u64::MAX.to_string()
   );
   checkStructure!(
     "a := 99999999999999999999999999999999999999999999", "a",
-    type TokenType::UInt,
+    type UInt,
     stype U64,
     value &u64::MAX.to_string()
   );
@@ -154,13 +153,13 @@ fn autoSaturation() -> ()
   // Меньше `I64` - и очень большое отрицательное число.
   checkStructure!(
     "a := -9223372036854775809", "a",
-    type TokenType::Int,
+    type Int,
     stype I64,
     value &i64::MIN.to_string()
   );
   checkStructure!(
     "a := -99999999999999999999999999999999999999999999", "a",
-    type TokenType::Int,
+    type Int,
     stype I64,
     value &i64::MIN.to_string()
   );
@@ -173,13 +172,13 @@ fn explicitPlatform() -> ()
 {
   checkStructure!(
     "b: Usize = 18446744073709551616", "b",
-    type TokenType::UInt,
+    type UInt,
     stype Usize,
     value &usize::MAX.to_string()
   );
   checkStructure!(
     "c: Isize = -9223372036854775809", "c",
-    type TokenType::Int,
+    type Int,
     stype Isize,
     value &isize::MIN.to_string()
   );
@@ -194,35 +193,35 @@ fn autoFloat() -> ()
   // f32
   checkStructure!(
     "a := 0.0", "a",
-    type TokenType::UFloat,
+    type UFloat,
     stype F32
   );
   checkStructure!(
     "a := 1.5", "a",
-    type TokenType::UFloat,
+    type UFloat,
     stype F32,
     value "1.5"
   );
   checkStructure!(
     "a := 3.4028234663852886e38", "a",
-    type TokenType::UFloat,
+    type UFloat,
     stype F32
   );
   checkStructure!(
     "a := -3.4028234663852886e38", "a",
-    type TokenType::Float,
+    type Float,
     stype F32
   );
   
   // f64
   checkStructure!(
     "a := 1.7976931348623157e308", "a",
-    type TokenType::UFloat,
+    type UFloat,
     stype F64
   );
   checkStructure!(
     "a := -1.7976931348623157e308", "a",
-    type TokenType::Float,
+    type Float,
     stype F64
   );
 }
@@ -233,13 +232,13 @@ fn autoFloatSaturation() -> ()
 {
   checkStructure!(
     "a := 1.7976931348623157e309", "a",
-    type TokenType::UFloat,
+    type UFloat,
     stype F64,
     value &format!("{:e}", f64::MAX)
   );
   checkStructure!(
     "a := -1.7976931348623157e309", "a",
-    type TokenType::Float,
+    type Float,
     stype F64,
     value &format!("{:e}", f64::MIN)
   );
@@ -255,13 +254,13 @@ fn autoString() -> ()
 {
   checkStructure!(
     r#"a := "text""#, "a",
-    type TokenType::String,
+    type String,
     stype String,
     value "text"
   );
   checkStructure!(
     "b := `raw`", "b",
-    type TokenType::RawString,
+    type RawString,
     stype RawString,
     value "raw"
   );
@@ -269,7 +268,7 @@ fn autoString() -> ()
   // Пустая строка.
   checkStructure!(
     r#"c := """#, "c",
-    type TokenType::String,
+    type String,
     stype String,
     value ""
   );
@@ -288,13 +287,13 @@ fn autoFormattedString() -> ()
 {
   checkStructure!(
     r#"a := f"x{1}""#, "a",
-    type TokenType::String,
+    type String,
     stype String,
     value "x1"
   );
   checkStructure!(
     "b := f`x{1}`", "b",
-    type TokenType::RawString,
+    type RawString,
     stype RawString,
     value "x1"
   );

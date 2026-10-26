@@ -1,7 +1,6 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
 use crate::parser::testing::{checkStructure, writeCodeFile};
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -27,7 +26,7 @@ fn rand() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "a", type TokenType::UInt, lines 1);
+  checkStructure!(main, "a", type UInt, lines 1);
 
   let _ = std::fs::remove_file(&path);
 }

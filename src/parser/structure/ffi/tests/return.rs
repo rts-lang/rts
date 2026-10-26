@@ -1,7 +1,6 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -441,7 +440,7 @@ fn booleanResult() -> ()
   // Ожидается True, а приходит None.
   checkStructure!(
     main, "b1",
-    type TokenType::True, stype True, value "True"
+    type True, stype True, value "True"
   );
 
   let _ = std::fs::remove_file(&path);

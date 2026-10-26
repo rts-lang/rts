@@ -2,7 +2,6 @@ use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::PrimitiveType;
 use crate::parser::testing::checkStructure;
 use crate::parser::testing::runCode;
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -146,14 +145,14 @@ fn resultIsToken() -> ()
   checkStructure!(
     "a := U8(300)",
     "a",
-    type TokenType::UInt,
+    type UInt,
     stype U8,
     value "255"
   );
   checkStructure!(
     "a := I8(-300)",
     "a",
-    type TokenType::Int,
+    type Int,
     stype I8,
     value "-128"
   );
@@ -166,7 +165,7 @@ fn usizeIsToken() -> ()
   checkStructure!(
     "a := Usize(5)",
     "a",
-    type TokenType::UInt,
+    type UInt,
     stype U8,
     value "5"
   );
@@ -208,7 +207,7 @@ fn inExpression() -> ()
     c := U8(a) + b
     "#,
     "c",
-    type TokenType::UInt,
+    type UInt,
     stype U16,
     value "265"
   );
@@ -225,7 +224,7 @@ fn noCastInExpression() -> ()
     c := a + b
     "#,
     "c",
-    type TokenType::UInt,
+    type UInt,
     stype U32,
     value "1111121"
   );
@@ -266,13 +265,13 @@ fn toString() -> ()
 {
   checkStructure!(
     "a := String(5)", "a",
-    type TokenType::String,
+    type String,
     stype String,
     value "5"
   );
   checkStructure!(
     "a := RawString(5)", "a",
-    type TokenType::RawString,
+    type RawString,
     stype RawString,
     value "5"
   );
@@ -282,7 +281,7 @@ fn toString() -> ()
 #[test]
 fn toNone() -> ()
 {
-  checkStructure!("a := None(5)", "a", type TokenType::None, value "");
+  checkStructure!("a := None(5)", "a", type None, value "");
 }
 
 /// todo desc
@@ -296,7 +295,7 @@ fn everyPrimitiveIsCast() -> ()
 
     if name == "None"
     { // `None` - это отсутствие значения.
-      checkStructure!(main, "a", type TokenType::None, value "");
+      checkStructure!(main, "a", type None, value "");
     } else {
       checkStructure!(main, "a", value "5");
     }

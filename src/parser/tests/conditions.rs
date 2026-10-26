@@ -1,5 +1,4 @@
 use crate::parser::testing::{checkExpression, checkStructure};
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Это тесты на условие `?` (if, else, elif).
@@ -231,9 +230,9 @@ fn chain() -> ()
 #[test]
 fn comparisonResult() -> ()
 {
-  checkExpression!("1 < 2", type TokenType::True,  value "True");
-  checkExpression!("2 < 1", type TokenType::False, value "False");
-  checkExpression!("5 != None", type TokenType::True,  value "True");
+  checkExpression!("1 < 2", type True,  value "True");
+  checkExpression!("2 < 1", type False, value "False");
+  checkExpression!("5 != None", type True,  value "True");
 }
 
 // =================================================================================================

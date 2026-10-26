@@ -164,17 +164,17 @@ fn minusNegativeNumber() -> ()
 {
   checkStructure!(
     "a := 5 - -5", "a",
-    type TokenType::UInt,
+    type UInt,
     value "10"
   );
   checkStructure!(
     "a := 5- -5", "a",
-    type TokenType::UInt,
+    type UInt,
     value "10"
   );
   checkStructure!(
     "a := -5 - -5", "a",
-    type TokenType::Int,
+    type Int,
     value "0"
   );
 }
@@ -185,7 +185,7 @@ fn minusSpacedNegativeNumber() -> ()
 {
   checkStructure!(
     "a := 1 - - 5", "a",
-    type TokenType::UInt,
+    type UInt,
     value "6"
   );
 }
@@ -200,7 +200,7 @@ fn minusNegativeNumberFromConstant() -> ()
     a := x - -5
     "#,
     "a",
-    type TokenType::UInt,
+    type UInt,
     value "11"
   );
 }

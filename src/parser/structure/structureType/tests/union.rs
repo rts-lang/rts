@@ -1,6 +1,5 @@
 use crate::parser::structure::structureType::{PrimitiveType, PrimitiveValueKind, StructureType};
 use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Тесты на:
@@ -277,7 +276,7 @@ fn unionPrimitiveMatch() -> ()
   // а токен остался `UFloat`.
   checkStructure!(
     "a: 10 | 20 = 10.0", "a",
-    type TokenType::UFloat,
+    type UFloat,
     stype number("10"),
     value "10"
   );
@@ -620,7 +619,7 @@ fn unionDynamic() -> ()
 {
   checkStructure!(
     "j~~: U8 | String = 10", "j",
-    type TokenType::UInt,
+    type UInt,
     stype U8,
     value "10"
   );
@@ -630,7 +629,7 @@ fn unionDynamic() -> ()
     j = 1.5
     "#,
     "j",
-    type TokenType::UFloat,
+    type UFloat,
     stype F32,
     value "1.5"
   );
@@ -640,7 +639,7 @@ fn unionDynamic() -> ()
     j = 99999
     "#,
     "j",
-    type TokenType::UInt,
+    type UInt,
     stype U32,
     value "99999"
   );
@@ -656,7 +655,7 @@ fn unionVariablePrimitives() -> ()
     t = 20
     "#,
     "t",
-    type TokenType::UInt,
+    type UInt,
     stype number("20"),
     value "20"
   );
@@ -675,7 +674,7 @@ fn unionVariablePrimitives() -> ()
     t = 10
     "#,
     "t",
-    type TokenType::UInt,
+    type UInt,
     stype number("10"),
     value "10"
   );
@@ -690,7 +689,7 @@ fn unionVariableStringPrimitive() -> ()
     v~: String | "text" = "text"
     "#,
     "v",
-    type TokenType::String,
+    type String,
     stype text("text"),
     value "text"
   );
@@ -700,7 +699,7 @@ fn unionVariableStringPrimitive() -> ()
     v = "other"
     "#,
     "v",
-    type TokenType::String,
+    type String,
     stype String,
     value "other"
   );

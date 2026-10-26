@@ -1,5 +1,4 @@
 use crate::parser::testing::{checkExpression, checkStructure};
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Тесты на `True`/`False`/`None` как типы.
@@ -15,7 +14,7 @@ fn trueType() -> ()
 {
   checkStructure!(
     "a: True = True", "a",
-    type TokenType::True,
+    type True,
     stype True,
     value "True"
   );
@@ -27,7 +26,7 @@ fn falseType() -> ()
 {
   checkStructure!(
     "b: False = False", "b",
-    type TokenType::False,
+    type False,
     stype False,
     value "False"
   );
@@ -40,7 +39,7 @@ fn noneType() -> ()
 {
   checkStructure!(
     "c: None = None", "c",
-    type TokenType::None,
+    type None,
     stype None,
     value ""
   );
@@ -54,7 +53,7 @@ fn trueFalseUnion() -> ()
 {
   checkStructure!(
     "d~: True | False = True", "d",
-    type TokenType::True,
+    type True,
     stype True,
     value "True"
   );
@@ -64,7 +63,7 @@ fn trueFalseUnion() -> ()
     d = False
     "#,
     "d",
-    type TokenType::False,
+    type False,
     stype False,
     value "False"
   );
@@ -76,13 +75,13 @@ fn inferred() -> ()
 {
   checkStructure!(
     "e := True", "e",
-    type TokenType::True,
+    type True,
     stype True,
     value "True"
   );
   checkStructure!(
     "f := False", "f",
-    type TokenType::False,
+    type False,
     stype False,
     value "False"
   );
@@ -95,7 +94,7 @@ fn forwardDecl() -> ()
 {
   checkStructure!(
     "g", "g",
-    type TokenType::None,
+    type None,
     stype None,
     value ""
   );
@@ -109,9 +108,9 @@ fn forwardDecl() -> ()
 #[ignore]
 fn negativeRightSide() -> ()
 {
-  checkExpression!("5 > -5", type TokenType::True);
-  checkExpression!("-3 = -3", type TokenType::True);
-  checkExpression!("0 > -3", type TokenType::True);
+  checkExpression!("5 > -5", type True);
+  checkExpression!("-3 = -3", type True);
+  checkExpression!("0 > -3", type True);
 }
 
 /// Числа разных типов: сравниваются по виду, а не по значению.
@@ -119,10 +118,10 @@ fn negativeRightSide() -> ()
 #[ignore]
 fn crossTypeComparison() -> ()
 {
-  checkExpression!("5 = 5.0", type TokenType::True);
-  checkExpression!("10 > 2.5", type TokenType::True);
-  checkExpression!("5 < 3.0", type TokenType::False);
-  checkExpression!("2.5 < 10", type TokenType::True);
+  checkExpression!("5 = 5.0", type True);
+  checkExpression!("10 > 2.5", type True);
+  checkExpression!("5 < 3.0", type False);
+  checkExpression!("2.5 < 10", type True);
 }
 
 /// `True`/`False` не числа: перед сравнением с числом их нужно приводить явно.
@@ -130,8 +129,8 @@ fn crossTypeComparison() -> ()
 #[ignore]
 fn boolNumberComparison() -> ()
 {
-  checkExpression!("True = 1", type TokenType::False);
-  checkExpression!("False = 0", type TokenType::False);
+  checkExpression!("True = 1", type False);
+  checkExpression!("False = 0", type False);
 }
 
 // =================================================================================================

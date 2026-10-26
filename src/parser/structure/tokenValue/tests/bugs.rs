@@ -1,5 +1,4 @@
 use crate::parser::testing::checkExpression;
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // todo Известные баги.
@@ -13,42 +12,42 @@ fn brackets() -> ()
 {
   checkExpression!(
     "(10-20)",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "(10 - 20)",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "(1+2)-(3+4)",
-    type TokenType::Int,
+    type Int,
     value "-4"
   );
   checkExpression!(
     "10 - (20 - 5)",
-    type TokenType::Int,
+    type Int,
     value "-5"
   );
   checkExpression!(
     "10 + (-20)",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "10+(-20)",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "-(5)",
-    type TokenType::Int,
+    type Int,
     value "-5"
   );
   checkExpression!(
     "-(2 + 3) - 4",
-    type TokenType::Int,
+    type Int,
     value "-9"
   );
 }
@@ -59,22 +58,22 @@ fn subtraction() -> ()
 {
   checkExpression!(
     "10-20",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "10 - 20",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "10 + -20",
-    type TokenType::Int,
+    type Int,
     value "-10"
   );
   checkExpression!(
     "10 - 20 - 5",
-    type TokenType::Int,
+    type Int,
     value "-15"
   );
 }
