@@ -5,9 +5,7 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Это тесты на приведение к `StructureType` (левое выражение) - выражения справа.
-// 
-// Лимиты StructureType уже включены сюда.
+// Это тесты на приведение к `StructureType`: выражения справа приводится к границам указанным слева.
 
 // =================================================================================================
 
@@ -15,7 +13,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 //  По сути normalize лишний? Или он проверяет что-то еще?
 //  Если это устаревшее - его можно адаптировать под новый стиль просто.
 
-/// Проверяет значение токена после normalizeToken() в явный тип.
+/// Проверяет значение токена после `normalizeToken()` в явный тип.
 fn normalizeToken(
   tokenType: TokenType,
   data: &str,
@@ -33,7 +31,7 @@ fn normalizeToken(
   );
 }
 
-/// Явный тип зажимает значение в свои границы, даже если число больше u64 и i64 (#71).
+/// Явный тип зажимает значение в свои границы, даже если число больше `u64` и `i64`.
 #[test]
 fn normalize() -> ()
 {
@@ -45,14 +43,14 @@ fn normalize() -> ()
   normalizeToken(TokenType::Int, "-10", StructureType::Primitive(PrimitiveType::U8), "0");
   normalizeToken(TokenType::Int, "-300", StructureType::Primitive(PrimitiveType::I8), "-128");
   
-  // Больше u64.
+  // Больше `u64`.
   normalizeToken(TokenType::UInt, "18446744073709551616", StructureType::Primitive(PrimitiveType::U64), &u64::MAX.to_string());
   normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::U8), "255");
   normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::I8), "127");
   normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::I64), &i64::MAX.to_string());
   normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::Usize), &usize::MAX.to_string());
   
-  // Меньше i64.
+  // Меньше `i64`.
   normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::I8), "-128");
   normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::I64), &i64::MIN.to_string());
   normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::Isize), &isize::MIN.to_string());
@@ -62,7 +60,7 @@ fn normalize() -> ()
   normalizeToken(TokenType::UInt, "abc", StructureType::Primitive(PrimitiveType::U8), "0");
 }
 
-/// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71).
+/// Большие числа в `float` сохраняют величину, а не сжимаются в `u64`.
 #[test]
 fn normalizeFloat() -> ()
 {
@@ -76,9 +74,9 @@ fn normalizeFloat() -> ()
   normalizeToken(TokenType::UFloat, "1e309", StructureType::Primitive(PrimitiveType::U8), "255");
 }
 
-/// Float в целый тип: округляется и зажимается в границы типа;
+/// `Float` в целый тип: округляется и зажимается в границы типа;
 ///
-/// Отрицательное значение остаётся для знаковых типов и становится 0 для беззнаковых.
+/// Отрицательное значение остаётся для знаковых типов и становится `0` для беззнаковых.
 #[test]
 fn normalizeFloatToInteger() -> ()
 {
@@ -157,7 +155,7 @@ fn castInteger() -> ()
   );
 }
 
-/// Число за u64/i64: сначала граница u64/i64, затем зажим в явный тип (#71).
+/// Число за `u64`/`i64`: сначала граница `u64`/`i64`, затем зажим в явный тип.
 #[test]
 fn castBigNumbers() -> ()
 {
@@ -198,12 +196,12 @@ fn castBigNumbers() -> ()
   );
 }
 
-/// Огромное число в F32 и Float за F64 в F32/U8: зажим в границу целевого типа.
+/// Огромное число в `F32` и `Float` за `F64` в `F32`/`U8`: зажим в границу целевого типа.
 #[test]
 fn castFloats() -> ()
 {
-  // UInt токен бесконечный: в expression он обрубается до usize::MAX,
-  // а `l: F32 =` приводит уже обрубленное значение к f32.
+  // `UInt` токен бесконечный: в expression он обрубается до `usize::MAX`,
+  // а `l: F32 =` приводит уже обрубленное значение к `f32`.
   checkStructure!(
     "l: F32 = 44444444444444444444444444444444444444444444",
     "l",
@@ -227,9 +225,9 @@ fn castFloats() -> ()
   );
 }
 
-/// Float в целый явный тип: округляется и зажимается;
+/// `Float` в целый явный тип: округляется и зажимается;
 /// 
-/// Знак сохраняется для знаковых типов, беззнаковые дают 0.
+/// Знак сохраняется для знаковых типов, беззнаковые дают `0`.
 #[test]
 fn castFloatToInteger() -> ()
 {
