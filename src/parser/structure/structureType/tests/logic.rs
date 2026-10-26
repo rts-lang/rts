@@ -1,4 +1,4 @@
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{checkExpression, checkStructure};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -18,7 +18,7 @@ fn trueType() -> ()
     r#"
     a: True = True
     "#,
-    "a", type TokenType::True, stype StructureType::True, value "True"
+    "a", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
   );
 }
 
@@ -30,7 +30,7 @@ fn falseType() -> ()
     r#"
     b: False = False
     "#,
-    "b", type TokenType::False, stype StructureType::False, value "False"
+    "b", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
   );
 }
 
@@ -43,7 +43,7 @@ fn noneType() -> ()
     r#"
     c: None = None
     "#,
-    "c", type TokenType::None, stype StructureType::None, value ""
+    "c", type TokenType::None, stype StructureType::Primitive(PrimitiveType::None), value ""
   );
 }
 
@@ -55,14 +55,14 @@ fn trueFalseUnion() -> ()
     r#"
     d~: True | False = True
     "#,
-    "d", type TokenType::True, stype StructureType::True, value "True"
+    "d", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
   );
   checkStructure!(
     r#"
     d~: True | False = True
     d = False
     "#,
-    "d", type TokenType::False, stype StructureType::False, value "False"
+    "d", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
   );
 }
 
@@ -74,13 +74,13 @@ fn inferred() -> ()
     r#"
     e := True
     "#,
-    "e", type TokenType::True, stype StructureType::True, value "True"
+    "e", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
   );
   checkStructure!(
     r#"
     f := False
     "#,
-    "f", type TokenType::False, stype StructureType::False, value "False"
+    "f", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
   );
 }
 
@@ -93,7 +93,7 @@ fn forwardDecl() -> ()
     r#"
     g
     "#,
-    "g", type TokenType::None, stype StructureType::None, value ""
+    "g", type TokenType::None, stype StructureType::Primitive(PrimitiveType::None), value ""
   );
 }
 

@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -71,8 +71,10 @@ impl Parameters
         }
         //
       }
-    } else { None } // Элемента не было
-    
+    } else
+    { // Элемента не было
+      None
+    }
   }
   
   /// Возвращает все параметры, если они есть 
@@ -128,7 +130,7 @@ impl Structure
         } else {
           result.push((
             expressionBuffer[0].getData(),
-            StructureType::Any
+            StructureType::Primitive(PrimitiveType::Any)
           ));
         }
         

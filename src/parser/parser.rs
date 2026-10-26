@@ -5,12 +5,12 @@ use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::primitives::{isPrimitiveName, ArgsPrimitives, MethodsPrimitives, TypesPrimitives};
+use crate::parser::structure::primitives::{isPrimitiveName, ArgsPrimitives, MethodsPrimitives};
 use crate::tokenizer::types::line::Line;
-use crate::tokenizer::types::token::{Token};
-use crate::tokenizer::types::tokenType::{TokenType};
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
 use crate::tokenizer::tools::splitByType::splitByType;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::tokenizer::readTokensSimple;
 // =================================================================================================
 
@@ -288,13 +288,11 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
     structureName = structureNameTokens[0].getData().toString().unwrap(); // Имя точно есть.
     structureMutability = structureMutabilityType;
     structureType = if let Some(structureTypeTokens) = structureTypeTokens
-    {
-      // `a: U8 | String` — объединение типов (issue #59);
+    { // `a: U8 | String` — объединение типов (issue #59);
       // обычный `a: U8` даёт здесь такой же одиночный тип, как и раньше.
       StructureType::fromTypeTokens(&structureTypeTokens)
-    } else
-    {
-      StructureType::None
+    } else {
+      StructureType::Primitive(PrimitiveType::None)
     }
   };
 
@@ -403,9 +401,12 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
         //
       }
     }
-  } else if isPrimitiveName(&structureName) {
+  } else 
+  if isPrimitiveName(&structureName) {
     // Зарезервированное имя — новую структуру не создаём.
-  } else if !isCreation && structureType == StructureType::None && rightValue.is_some()
+  } else 
+  if !isCreation && structureType == StructureType::Primitive(PrimitiveType::None) &&
+     rightValue.is_some()
   { // `=` без существующей структуры и без объявления типа (`:`) — скип.
     //
     // Это случай именно `a = X` (есть правая часть, но не `:=`): нет структуры =>
@@ -461,7 +462,8 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
       // - `a: U8 | String = lib.f(x)` => У объединения нет единственного ABI-типа,
       //   поэтому вызов читается как Infer, а вариант подбирается уже по значению.
       let expect: bridge::FfiExpect =
-        if structureType == StructureType::None || unionTypes.is_some() ||
+        if structureType == StructureType::Primitive(PrimitiveType::None) ||
+           unionTypes.is_some() ||
            structureMutability == StructureMut::Dynamic
         { bridge::FfiExpect::Infer } else
         { bridge::FfiExpect::Typed(structureType.clone()) };
@@ -540,7 +542,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
           );
         }
       } else
-      if structureType == StructureType::None
+      if structureType == StructureType::Primitive(PrimitiveType::None)
       { // Тип вычисляется если он не был изначально определён.
         // Вычисляется он по типу из результата правой части выражения.
         structureType = value.getStructureType();
@@ -580,7 +582,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
 
     // ABI-композит String: .pointer/.length поверх исходного токена.
     // Primitive(Text) тоже String на уровне ABI (stype при этом показывает примитив).
-    if structureType.abiType() == StructureType::String
+    if structureType.abiType() == StructureType::Primitive(PrimitiveType::String)
     {
       if let Some(valueToken) = rightValue.as_ref().and_then(|tokens| tokens.first())
       {
@@ -673,7 +675,7 @@ fn executeConditionBody(
     Arc::new(RwLock::new(Structure::new(
       None,
       StructureMut::Constant,
-      StructureType::Method,
+      StructureType::Primitive(PrimitiveType::Method),
       body,
       Some(parentLink.clone())
     )));
@@ -834,7 +836,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
       Arc::new(RwLock::new(Structure::new(
         None, // Анонимный
         StructureMut::Constant,
-        StructureType::Method,
+        StructureType::Primitive(PrimitiveType::Method),
         lineLines.clone(),
         Some(parentLink.clone())
       )));
@@ -876,7 +878,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
       Structure::new(
         None, // Анонимный
         StructureMut::Constant,
-        StructureType::Method,
+        StructureType::Primitive(PrimitiveType::Method),
         lineLines.clone(),
         Some(parentLink.clone())
       )));
@@ -927,7 +929,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           Arc::new(RwLock::new(Structure::new(
             None, // Анонимный
             StructureMut::Constant,
-            StructureType::Method,
+            StructureType::Primitive(PrimitiveType::Method),
             Some(innerLines),
             Some(parentLink.clone())
           )));
@@ -1005,7 +1007,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           Structure::new(
             Some(newStructureName),
             StructureMut::Constant,
-            StructureType::Method,
+            StructureType::Primitive(PrimitiveType::Method),
             Some(innerLines),
             Some(parentLink.clone())
           );
@@ -1173,7 +1175,7 @@ pub(super) fn searchStructure(line: &RwLockReadGuard<Line>, parentLink: Arc<RwLo
           Structure::new(
             Some(newStructureName),
             StructureMut::Constant, // todo По идее надо вычислять из синтаксиса.
-            StructureType::Method, // todo По идее надо вычислять из синтаксиса.
+            StructureType::Primitive(PrimitiveType::Method), // todo По идее надо вычислять из синтаксиса.
             Some(lineLines),
             Some(parentLink.clone())
           );
@@ -1261,7 +1263,7 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
     Arc::new(RwLock::new(Structure::new(
       None,
       StructureMut::Constant,
-      StructureType::Method,
+      StructureType::Primitive(PrimitiveType::Method),
       None,
       None
     )));
@@ -1315,7 +1317,7 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
       Arc::new(RwLock::new(Structure::new(
         Some(String::from(*name)),
         StructureMut::Constant, // Неизменяемая.
-        dataType.clone(),
+        StructureType::Primitive(dataType.clone()),
         Some(lines),
         Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
       )))
@@ -1325,13 +1327,13 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
   // -----------------------------------------------------------------------------------------------
   // Примитивы (базовые структуры языка).
 
-  for (name, dataType) in TypesPrimitives
+  for (name, dataType) in PrimitiveType::iter()
   {
     mainStructure.pushStructure(
       Arc::new(RwLock::new(Structure::new(
-        Some(String::from(*name)),
+        Some(String::from(name)),
         StructureMut::Constant, // Неизменяемая.
-        dataType.clone(),
+        StructureType::Primitive(dataType.clone()),
         None, // Без значения — просто маркер.
         Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
       )))
@@ -1344,7 +1346,7 @@ pub fn createMainStructure(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc
       Arc::new(RwLock::new(Structure::new(
         Some(String::from(*name)),
         StructureMut::Constant, // Неизменяемая.
-        StructureType::Method,
+        StructureType::Primitive(PrimitiveType::Method),
         None, // Без значения — просто маркер.
         Some( mainStructureLink.clone() ) // Ссылаемся на родителя.
       )))
@@ -1486,13 +1488,6 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
 // =================================================================================================
 
 /// Запускает код и возвращает основную структуру.
-pub fn runCode(code: &str) -> Arc<RwLock<Structure>>
-{
-  let mut buffer: Vec<u8> = code.as_bytes().to_vec();
-  runCodeBytes(&mut buffer)
-}
-
-/// Запускает код и возвращает основную структуру.
 pub fn runCodeBytes(buffer: &mut Vec<u8>) -> Arc<RwLock<Structure>>
 {
   parseLines( readTokensSimple(buffer) )
@@ -1500,7 +1495,7 @@ pub fn runCodeBytes(buffer: &mut Vec<u8>) -> Arc<RwLock<Structure>>
 
 /// Запускает `.rt` файл и возвращает основную структуру.
 ///
-/// В отличие от обёртки `runCode("m := import(\"…\")")` не опирается на
+/// В отличие от обёртки `runCode!(r#"m := import("…")"#)` не опирается на
 /// `import` — файл читается и выполняется напрямую, как entry в CLI.
 pub fn runCodeFile(path: &str) -> Arc<RwLock<Structure>>
 {

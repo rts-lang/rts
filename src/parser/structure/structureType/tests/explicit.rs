@@ -1,5 +1,5 @@
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -41,25 +41,25 @@ fn normalize() -> ()
   let negBig: String = format!("-{}", big);
   
   // Обычный normalize.
-  normalizeToken(TokenType::UInt, "300", StructureType::U8, "255");
-  normalizeToken(TokenType::Int, "-10", StructureType::U8, "0");
-  normalizeToken(TokenType::Int, "-300", StructureType::I8, "-128");
+  normalizeToken(TokenType::UInt, "300", StructureType::Primitive(PrimitiveType::U8), "255");
+  normalizeToken(TokenType::Int, "-10", StructureType::Primitive(PrimitiveType::U8), "0");
+  normalizeToken(TokenType::Int, "-300", StructureType::Primitive(PrimitiveType::I8), "-128");
   
   // Больше u64.
-  normalizeToken(TokenType::UInt, "18446744073709551616", StructureType::U64, &u64::MAX.to_string());
-  normalizeToken(TokenType::UInt, big, StructureType::U8, "255");
-  normalizeToken(TokenType::UInt, big, StructureType::I8, "127");
-  normalizeToken(TokenType::UInt, big, StructureType::I64, &i64::MAX.to_string());
-  normalizeToken(TokenType::UInt, big, StructureType::Usize, &usize::MAX.to_string());
+  normalizeToken(TokenType::UInt, "18446744073709551616", StructureType::Primitive(PrimitiveType::U64), &u64::MAX.to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::U8), "255");
+  normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::I8), "127");
+  normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::I64), &i64::MAX.to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::Usize), &usize::MAX.to_string());
   
   // Меньше i64.
-  normalizeToken(TokenType::Int, &negBig, StructureType::I8, "-128");
-  normalizeToken(TokenType::Int, &negBig, StructureType::I64, &i64::MIN.to_string());
-  normalizeToken(TokenType::Int, &negBig, StructureType::Isize, &isize::MIN.to_string());
-  normalizeToken(TokenType::Int, &negBig, StructureType::U64, "0");
+  normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::I8), "-128");
+  normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::I64), &i64::MIN.to_string());
+  normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::Isize), &isize::MIN.to_string());
+  normalizeToken(TokenType::Int, &negBig, StructureType::Primitive(PrimitiveType::U64), "0");
   
   // Не число - базовое значение.
-  normalizeToken(TokenType::UInt, "abc", StructureType::U8, "0");
+  normalizeToken(TokenType::UInt, "abc", StructureType::Primitive(PrimitiveType::U8), "0");
 }
 
 /// Большие числа в float сохраняют величину, а не сжимаются в u64 (#71).
@@ -67,13 +67,13 @@ fn normalize() -> ()
 fn normalizeFloat() -> ()
 {
   let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
-  normalizeToken(TokenType::UInt, big, StructureType::F32, &f32::MAX.to_string());
-  normalizeToken(TokenType::UInt, big, StructureType::F64, &big.parse::<f64>().unwrap().to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::F32), &f32::MAX.to_string());
+  normalizeToken(TokenType::UInt, big, StructureType::Primitive(PrimitiveType::F64), &big.parse::<f64>().unwrap().to_string());
   
   // Бесконечность зажимается в границу типа.
-  normalizeToken(TokenType::Float, "-1e309", StructureType::F32, &f32::MIN.to_string());
-  normalizeToken(TokenType::UFloat, "1e309", StructureType::F64, &f64::MAX.to_string());
-  normalizeToken(TokenType::UFloat, "1e309", StructureType::U8, "255");
+  normalizeToken(TokenType::Float, "-1e309", StructureType::Primitive(PrimitiveType::F32), &f32::MIN.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::Primitive(PrimitiveType::F64), &f64::MAX.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::Primitive(PrimitiveType::U8), "255");
 }
 
 /// Float в целый тип: округляется и зажимается в границы типа;
@@ -82,27 +82,27 @@ fn normalizeFloat() -> ()
 #[test]
 fn normalizeFloatToInteger() -> ()
 {
-  normalizeToken(TokenType::UFloat, "5.4", StructureType::I8, "5");
-  normalizeToken(TokenType::UFloat, "5.5", StructureType::I8, "6");
+  normalizeToken(TokenType::UFloat, "5.4", StructureType::Primitive(PrimitiveType::I8), "5");
+  normalizeToken(TokenType::UFloat, "5.5", StructureType::Primitive(PrimitiveType::I8), "6");
   
   // Беззнаковые.
-  normalizeToken(TokenType::Float, "-10.0", StructureType::U8, "0");
-  normalizeToken(TokenType::Float, "-5.5", StructureType::U8, "0");
-  normalizeToken(TokenType::Float, "-0.4", StructureType::U8, "0");
+  normalizeToken(TokenType::Float, "-10.0", StructureType::Primitive(PrimitiveType::U8), "0");
+  normalizeToken(TokenType::Float, "-5.5", StructureType::Primitive(PrimitiveType::U8), "0");
+  normalizeToken(TokenType::Float, "-0.4", StructureType::Primitive(PrimitiveType::U8), "0");
   
   // Знаковые принимают отрицательное, если оно в диапазоне.
-  normalizeToken(TokenType::Float, "-5.5", StructureType::I8, "-6");
-  normalizeToken(TokenType::Float, "-5.4", StructureType::I8, "-5");
-  normalizeToken(TokenType::Float, "-0.4", StructureType::I8, "0");
-  normalizeToken(TokenType::Float, "-1000000.7", StructureType::I64, "-1000001");
+  normalizeToken(TokenType::Float, "-5.5", StructureType::Primitive(PrimitiveType::I8), "-6");
+  normalizeToken(TokenType::Float, "-5.4", StructureType::Primitive(PrimitiveType::I8), "-5");
+  normalizeToken(TokenType::Float, "-0.4", StructureType::Primitive(PrimitiveType::I8), "0");
+  normalizeToken(TokenType::Float, "-1000000.7", StructureType::Primitive(PrimitiveType::I64), "-1000001");
   
   // Вне диапазона - граница типа.
-  normalizeToken(TokenType::Float, "-200.5", StructureType::I8, "-128");
-  normalizeToken(TokenType::UFloat, "200.5", StructureType::I8, "127");
-  normalizeToken(TokenType::UFloat, "300.5", StructureType::U8, "255");
-  normalizeToken(TokenType::Float, "-1e309", StructureType::I64, &i64::MIN.to_string());
-  normalizeToken(TokenType::UFloat, "1e309", StructureType::I64, &i64::MAX.to_string());
-  normalizeToken(TokenType::UFloat, "1e309", StructureType::U64, &u64::MAX.to_string());
+  normalizeToken(TokenType::Float, "-200.5", StructureType::Primitive(PrimitiveType::I8), "-128");
+  normalizeToken(TokenType::UFloat, "200.5", StructureType::Primitive(PrimitiveType::I8), "127");
+  normalizeToken(TokenType::UFloat, "300.5", StructureType::Primitive(PrimitiveType::U8), "255");
+  normalizeToken(TokenType::Float, "-1e309", StructureType::Primitive(PrimitiveType::I64), &i64::MIN.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::Primitive(PrimitiveType::I64), &i64::MAX.to_string());
+  normalizeToken(TokenType::UFloat, "1e309", StructureType::Primitive(PrimitiveType::U64), &u64::MAX.to_string());
 }
 
 // =================================================================================================
@@ -115,21 +115,21 @@ fn castInteger() -> ()
     "a: U8 = 300",
     "a",
     type TokenType::UInt,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "255"
   );
   checkStructure!(
     "b: U8 = -10",
     "b",
     type TokenType::Int,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "0"
   );
   checkStructure!(
     "c: I8 = -300",
     "c",
     type TokenType::Int,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "-128"
   );
   
@@ -138,21 +138,21 @@ fn castInteger() -> ()
     "d: U64 = 18446744073709551616",
     "d",
     type TokenType::UInt,
-    stype StructureType::U64,
+    stype StructureType::Primitive(PrimitiveType::U64),
     value "18446744073709551615"
   );
   checkStructure!(
     "e: Usize = 18446744073709551616",
     "e",
     type TokenType::UInt,
-    stype StructureType::Usize,
+    stype StructureType::Primitive(PrimitiveType::Usize),
     value "18446744073709551615"
   );
   checkStructure!(
     "f: Isize = -9223372036854775809",
     "f",
     type TokenType::Int,
-    stype StructureType::Isize,
+    stype StructureType::Primitive(PrimitiveType::Isize),
     value "-9223372036854775808"
   );
 }
@@ -165,35 +165,35 @@ fn castBigNumbers() -> ()
     "g: U8 = 44444444444444444444444444444444444444444444",
     "g",
     type TokenType::UInt,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "255"
   );
   checkStructure!(
     "h: I8 = 44444444444444444444444444444444444444444444",
     "h",
     type TokenType::UInt,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "127"
   );
   checkStructure!(
     "i: I64 = -44444444444444444444444444444444444444444444",
     "i",
     type TokenType::Int,
-    stype StructureType::I64,
+    stype StructureType::Primitive(PrimitiveType::I64),
     value "-9223372036854775808"
   );
   checkStructure!(
     "j: Usize = 44444444444444444444444444444444444444444444",
     "j",
     type TokenType::UInt,
-    stype StructureType::Usize,
+    stype StructureType::Primitive(PrimitiveType::Usize),
     value "18446744073709551615"
   );
   checkStructure!(
     "k: Isize = -44444444444444444444444444444444444444444444",
     "k",
     type TokenType::Int,
-    stype StructureType::Isize,
+    stype StructureType::Primitive(PrimitiveType::Isize),
     value "-9223372036854775808"
   );
 }
@@ -208,21 +208,21 @@ fn castFloats() -> ()
     "l: F32 = 44444444444444444444444444444444444444444444",
     "l",
     type TokenType::UInt,
-    stype StructureType::F32,
+    stype StructureType::Primitive(PrimitiveType::F32),
     value &(usize::MAX as f32).to_string()
   );
   checkStructure!(
     "m: F32 = -1.7976931348623157e309",
     "m",
     type TokenType::Float,
-    stype StructureType::F32,
+    stype StructureType::Primitive(PrimitiveType::F32),
     value "-340282350000000000000000000000000000000"
   );
   checkStructure!(
     "n: U8 = 1.7976931348623157e309",
     "n",
     type TokenType::UFloat,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "255"
   );
 }
@@ -237,56 +237,56 @@ fn castFloatToInteger() -> ()
     "q: I8 = 5.4",
     "q",
     type TokenType::UFloat,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "5"
   );
   checkStructure!(
     "r: I8 = 5.5",
     "r",
     type TokenType::UFloat,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "6")
   ;
   checkStructure!(
     "s: U8 = -10.0",
     "s",
     type TokenType::Float,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "0"
   );
   checkStructure!(
     "t: U8 = -5.5",
     "t",
     type TokenType::Float,
-    stype StructureType::U8,
+    stype StructureType::Primitive(PrimitiveType::U8),
     value "0"
   );
   checkStructure!(
     "u: I8 = -5.5",
     "u",
     type TokenType::Float,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "-6"
   );
   checkStructure!(
     "v: I8 = -5.4",
     "v",
     type TokenType::Float,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "-5"
   );
   checkStructure!(
     "w: I8 = -200.5",
     "w",
     type TokenType::Float,
-    stype StructureType::I8,
+    stype StructureType::Primitive(PrimitiveType::I8),
     value "-128"
   );
   checkStructure!(
     "x: I64 = -1000000.7",
     "x",
     type TokenType::Float,
-    stype StructureType::I64,
+    stype StructureType::Primitive(PrimitiveType::I64),
     value "-1000001"
   );
 }
@@ -304,21 +304,21 @@ fn castStrings() -> ()
     r#"a: String = "text""#,
     "a",
     type TokenType::String,
-    stype StructureType::String,
+    stype StructureType::Primitive(PrimitiveType::String),
     value "text"
   );
   checkStructure!(
     r#"b: CString = "text""#,
     "b",
     type TokenType::String,
-    stype StructureType::Pointer,
+    stype StructureType::Primitive(PrimitiveType::CString),
     value "text"
   );
   checkStructure!(
     r#"c: RawString = "text""#,
     "c",
     type TokenType::String,
-    stype StructureType::RawString,
+    stype StructureType::Primitive(PrimitiveType::RawString),
     value "text"
   );
 
@@ -327,21 +327,21 @@ fn castStrings() -> ()
     "d: String = `raw`",
     "d",
     type TokenType::RawString,
-    stype StructureType::String,
+    stype StructureType::Primitive(PrimitiveType::String),
     value "raw"
   );
   checkStructure!(
     "e: CString = `raw`",
     "e",
     type TokenType::RawString,
-    stype StructureType::Pointer,
+    stype StructureType::Primitive(PrimitiveType::CString),
     value "raw"
   );
   checkStructure!(
     "f: RawString = `raw`",
     "f",
     type TokenType::RawString,
-    stype StructureType::RawString,
+    stype StructureType::Primitive(PrimitiveType::RawString),
     value "raw"
   );
 }

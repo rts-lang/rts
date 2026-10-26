@@ -1,6 +1,6 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};
 // =================================================================================================
@@ -47,7 +47,7 @@ fn plainCall() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "1");
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "1");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -74,7 +74,7 @@ fn methodBlock() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "2");
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "2");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -100,7 +100,7 @@ fn methodBlockOneLine() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "3");
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "3");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -126,7 +126,7 @@ fn unnamedBlock() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "4");
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "4");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -151,7 +151,7 @@ fn unnamedBlockOneLine() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "5");
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "5");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -177,8 +177,8 @@ fn namedBlock() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "6");
-  checkStructure!(main, "name", stype StructureType::Method);
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "6");
+  checkStructure!(main, "name", stype StructureType::Primitive(PrimitiveType::Method));
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);
@@ -203,8 +203,8 @@ fn namedBlockOneLine() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype StructureType::U32, value "7");
-  checkStructure!(main, "name", stype StructureType::Method);
+  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::U32), value "7");
+  checkStructure!(main, "name", stype StructureType::Primitive(PrimitiveType::Method));
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);

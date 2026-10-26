@@ -1,7 +1,9 @@
-use crate::parser::parser::runCode;
 use crate::parser::structure::structure::Structure;
+use crate::parser::structure::structureType::PrimitiveType;
 use crate::parser::testing::checkStructure;
+use crate::parser::testing::runCode;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
+use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 // =================================================================================================
 
@@ -110,12 +112,12 @@ fn earlyReturnSkipsRest() -> ()
 #[test]
 fn localInBlockNotVisible() -> ()
 {
-  let main: Arc<RwLock<Structure>> = runCode
-  (
-    "f() { ? True { inner := 5 } }\nf()"
-  );
-  let mainGuard = main.read().unwrap();
-  let found = mainGuard.getStructureByLink("inner");
+  let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+    f() { ? True { inner := 5 } }
+    f()
+  "#);
+  let main: RwLockReadGuard<Structure> = mainLink.read().unwrap();
+  let found: Option< Arc<RwLock<Structure>> > = main.getStructureByLink("inner");
   assert!(found.is_none(), "inner must not leak to outer scope");
 }
 
@@ -126,28 +128,32 @@ fn localInBlockNotVisible() -> ()
 #[test]
 fn paramsResetBetweenCalls() -> ()
 {
-  let main: Arc<RwLock<Structure>> = runCode("f(n: U8) { }\nf(100)\nf(200)");
-  let mainGuard: RwLockReadGuard<Structure> = main.read().unwrap();
-  let f: Arc<RwLock<Structure>> = mainGuard.getStructureByScope("f").expect("f");
-  let fGuard: RwLockReadGuard<Structure> = f.read().unwrap();
-  let structures = fGuard.structures.read().unwrap();
-  let params: Vec<_> = structures.as_ref().map(|v| v.clone()).unwrap_or_default();
+  let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+    f(n: U8) { }
+    f(100)
+    f(200)
+  "#);
+  let main: RwLockReadGuard<Structure> = mainLink.read().unwrap();
+  let fLink: Arc<RwLock<Structure>> = main.getStructureByScope("f").expect("f");
+  let f: RwLockReadGuard<Structure> = fLink.read().unwrap();
+  let structures = f.structures.read().unwrap();
+  let parameters: Vec<_> = structures.as_ref().map(|v| v.clone()).unwrap_or_default();
   
   // Первый child — параметр `n`. После f(200) там должно быть 200.
-  if let Some(p) = params.first()
+  if let Some(p) = parameters.first()
   {
-    let pGuard = p.read().unwrap();
-    if let Some(lines) = &pGuard.lines
+    let parameter: RwLockReadGuard<Structure> = p.read().unwrap();
+    if let Some(lines) = &parameter.lines
     {
       if let Some(firstLine) = lines.first()
       {
-        let lineGuard = firstLine.read().unwrap();
-        if let Some(tokens) = &lineGuard.tokens
+        let line: RwLockReadGuard<Line> = firstLine.read().unwrap();
+        if let Some(tokens) = &line.tokens
         {
           if let Some(firstToken) = tokens.first()
           {
-            let val = firstToken.getData().toString();
-            assert_eq!(val.as_deref(), Some("200"));
+            let value: Option<String> = firstToken.getData().toString();
+            assert_eq!(value.as_deref(), Some("200"));
           }
           //
         }
@@ -168,15 +174,15 @@ fn deepCloneIsolates() -> ()
   let original: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("f")),
     crate::parser::structure::structure::StructureMut::Variable,
-    crate::parser::structure::structureType::StructureType::Method,
+    crate::parser::structure::structureType::StructureType::Primitive(PrimitiveType::Method),
     None,
     None
   )));
   // Добавим child в оригинал.
-  let child = Arc::new(RwLock::new(Structure::new(
+  let child: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("inner")),
     crate::parser::structure::structure::StructureMut::Constant,
-    crate::parser::structure::structureType::StructureType::U8,
+    crate::parser::structure::structureType::StructureType::Primitive(PrimitiveType::U8),
     None,
     None
   )));
@@ -190,19 +196,19 @@ fn deepCloneIsolates() -> ()
     .as_mut().unwrap().push(Arc::new(RwLock::new(Structure::new(
       Some(String::from("new_child")),
       crate::parser::structure::structure::StructureMut::Constant,
-      crate::parser::structure::structureType::StructureType::U8,
+      crate::parser::structure::structureType::StructureType::Primitive(PrimitiveType::U8),
       None,
       None
     ))));
 
   // Оригинал не изменился — там всё ещё один child.
-  let originalChildren = original.read().unwrap()
+  let originalChildren: usize = original.read().unwrap()
     .structures.read().unwrap()
     .as_ref().map(|v| v.len()).unwrap_or(0);
   assert_eq!(originalChildren, 1, "original must have 1 child");
 
   // У клона — два child.
-  let clonedChildren = cloned.structures.read().unwrap()
+  let clonedChildren: usize = cloned.structures.read().unwrap()
     .as_ref().map(|v| v.len()).unwrap_or(0);
   assert_eq!(clonedChildren, 2, "clone must have 2 children");
 }
@@ -324,8 +330,8 @@ fn returnToFirstNamed() -> ()
 #[test]
 fn topLevelReturn() -> ()
 {
-  let main: Arc<RwLock<Structure>> = runCode("? True { := 42 }");
-  let result: Option<Token> = main.read().unwrap().result.clone();
+  let mainLink: Arc<RwLock<Structure>> = runCode!("? True { := 42 }");
+  let result: Option<Token> = mainLink.read().unwrap().result.clone();
   assert!(result.is_none());
 }
 

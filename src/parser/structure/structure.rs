@@ -4,7 +4,7 @@ use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope,
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::{Parameters};
 use crate::parser::structure::primitives::isPrimitiveName;
-use crate::parser::structure::structureType::{StructureType};
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::structure::tokenValue::calculate::{calculate, normalizeToken};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
@@ -455,7 +455,7 @@ impl Structure
       let expect: FfiExpect =
       {
         let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
-        if structure.dataType == StructureType::None ||
+        if structure.dataType == StructureType::Primitive(PrimitiveType::None) ||
            structure.unionTypes.is_some() || // У объединения нет одного ABI-типа (#59).
            leftPartMutable == StructureMut::Dynamic
         {
@@ -519,7 +519,7 @@ impl Structure
               Self::normalizeUnion(&mut rightPartValue, &StructureType::Union(variants));
           }
         None => 
-          if structure.dataType == StructureType::None ||
+          if structure.dataType == StructureType::Primitive(PrimitiveType::None) ||
              leftPartMutable == StructureMut::Dynamic // Dynamic может изменить dataType просто так.
           {
             if leftPartMutable != StructureMut::Variable

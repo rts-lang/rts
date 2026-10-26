@@ -12,28 +12,6 @@ pub const fn isLetter(byte: u8) -> bool
 
 // =================================================================================================
 
-/// todo desc
-pub const keywords: &[(&str, TokenType)] = &[
-  ("None", TokenType::None),
-  ("Link", TokenType::Link),
-  ("Any", TokenType::Any),
-  //
-  ("True", TokenType::True),
-  ("False", TokenType::False),
-  //
-  ("UInt", TokenType::UInt),
-  ("Int", TokenType::Int),
-  ("UFloat", TokenType::UFloat),
-  ("Float", TokenType::Float),
-  //
-  ("Char", TokenType::Char),
-  ("String", TokenType::String),
-  ("RawString", TokenType::RawString),
-  ("FormattedChar", TokenType::FormattedChar),
-  ("FormattedString", TokenType::FormattedString),
-  ("FormattedRawString", TokenType::FormattedRawString)
-];
-
 /// Проверяет buffer по index и так находит возможные слова;
 /// Из них также выделяет сразу определяемые зарезервированные
 pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
@@ -89,29 +67,24 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 
   *index = savedIndex;
 
-  // next return.
-  if isLink {
+  //
+  if isLink
+  { // Ссылка
     Token::new(TokenType::Link, result)
   } else
-  { // Ключевое слово.
-    for (keyword, tokenType) in keywords.iter() 
-    {
-      if result == *keyword 
-      { // todo true и false – особые случаи ?
-        //   Мб просто их сделать True/False как и 
-        //   должно быть и они будут отдельный от number в Parser?
-        // True/False/true/false — с data; остальные keywords — empty.
-        return if matches!(result.as_str(), "True" | "False") {
-          Token::new(*tokenType, result)
-        } else {
-          Token::newEmpty(*tokenType)
-        };
-        //
-      }
-    }
-    // Обычное слово (идентификатор).
-    Token::new(TokenType::Word, result)
+  { // Обычное или ключевое слово.
     //
+    // Ключевые слова здесь только значения: `True`, `False` и `None`.
+    // Имена типов (`String`, `U8`, `Any` и так далее) - это обычные слова,
+    // их читает парсер: по скобке он понимает, что это вызов,
+    // а по реестру примитивов - что это имя типа.
+    match result.as_str()
+    {
+      "True" => Token::new(TokenType::True, result),
+      "False" => Token::new(TokenType::False, result),
+      "None" => Token::newEmpty(TokenType::None),
+      _ => Token::new(TokenType::Word, result)
+    }
   }
   //
 }
@@ -121,11 +94,12 @@ pub fn getWord(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Token
 #[cfg(test)]
 mod tests
 {
-  use crate::tokenizer::read::primitives::words::{getWord, keywords};
+  use crate::tokenizer::read::primitives::words::getWord;
   use crate::tokenizer::types::token::{Token};
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
+  /* todo keywords теперь нет. тест либо удалить, либо переписать.
   /// todo desk
   #[test]
   fn value() -> ()
@@ -174,6 +148,7 @@ mod tests
     }
     //
   }
+  */
 
   /// todo desk
   #[test]

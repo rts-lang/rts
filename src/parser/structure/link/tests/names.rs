@@ -1,6 +1,6 @@
 use crate::parser::structure::link::tests::{checkEmpty, checkToken, childStructure, emptyMain, lineOf, linkOf, linkOfIn};
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -107,12 +107,12 @@ fn multiSegmentChain() -> ()
 {
   let main: Arc<RwLock<Structure>> = emptyMain();
   let a: Arc<RwLock<Structure>> =
-    childStructure("a", StructureType::None, vec![lineOf(vec![])], &main);
+    childStructure("a", StructureType::Primitive(PrimitiveType::None), vec![lineOf(vec![])], &main);
   let b: Arc<RwLock<Structure>> =
-    childStructure("b", StructureType::None, vec![lineOf(vec![])], &a);
+    childStructure("b", StructureType::Primitive(PrimitiveType::None), vec![lineOf(vec![])], &a);
   childStructure(
     "c",
-    StructureType::U8,
+    StructureType::Primitive(PrimitiveType::U8),
     vec![lineOf(vec![Token::new(TokenType::UInt, "7")])],
     &b
   );
@@ -128,12 +128,12 @@ fn multiSegmentChainCall() -> ()
 {
   let main: Arc<RwLock<Structure>> = emptyMain();
   let a: Arc<RwLock<Structure>> =
-    childStructure("a", StructureType::None, vec![lineOf(vec![])], &main);
+    childStructure("a", StructureType::Primitive(PrimitiveType::None), vec![lineOf(vec![])], &main);
   let b: Arc<RwLock<Structure>> =
-    childStructure("b", StructureType::None, vec![lineOf(vec![])], &a);
+    childStructure("b", StructureType::Primitive(PrimitiveType::None), vec![lineOf(vec![])], &a);
   childStructure(
     "f",
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     vec![lineOf(vec![Token::new(TokenType::Creation, ""), Token::new(TokenType::UInt, "42")])],
     &b
   );
@@ -149,10 +149,10 @@ fn multiSegmentChainBreak() -> ()
 {
   let main: Arc<RwLock<Structure>> = emptyMain();
   let a: Arc<RwLock<Structure>> =
-    childStructure("a", StructureType::None, vec![lineOf(vec![])], &main);
+    childStructure("a", StructureType::Primitive(PrimitiveType::None), vec![lineOf(vec![])], &main);
   childStructure(
     "c",
-    StructureType::U8,
+    StructureType::Primitive(PrimitiveType::U8),
     vec![lineOf(vec![Token::new(TokenType::UInt, "7")])],
     &a
   );
@@ -191,7 +191,7 @@ fn callMethodWithoutParent() -> ()
   let method: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("hello")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     Some(vec![Arc::new(RwLock::new(Line {
       tokens: Some(vec![Token::new(TokenType::Creation, "")]),
       lines: None
@@ -213,7 +213,7 @@ fn readStructureWithoutLines() -> ()
   let empty: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("a")),
     StructureMut::Constant,
-    StructureType::None,
+    StructureType::Primitive(PrimitiveType::None),
     None,
     Some(main.clone())
   )));

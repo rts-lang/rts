@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -336,7 +336,7 @@ impl Structure
     let structureGuard: RwLockReadGuard<Self> = structureLink.read().unwrap();
 
     // Если структура имеет тип Pointer - это динамическая библиотека.
-    if structureGuard.dataType != StructureType::Pointer {
+    if structureGuard.dataType != StructureType::Primitive(PrimitiveType::Pointer) {
       return None;
     }
 

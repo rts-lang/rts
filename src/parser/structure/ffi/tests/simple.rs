@@ -1,6 +1,6 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};
 // =================================================================================================
@@ -38,8 +38,8 @@ fn simple() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "strlen", stype StructureType::Method);
-  checkStructure!(main, "length", stype StructureType::Usize, value "19");
+  checkStructure!(main, "strlen", stype StructureType::Primitive(PrimitiveType::Method));
+  checkStructure!(main, "length", stype StructureType::Primitive(PrimitiveType::Usize), value "19");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);

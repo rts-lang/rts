@@ -1,6 +1,5 @@
 use std::fmt;
 use std::sync::{Arc, RwLock};
-use crate::tokenizer::read::primitives::words::keywords;
 use crate::parser::bytes::Bytes;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -137,12 +136,6 @@ impl Token
   {
     self.dataType = newDataType;
     self.convertData();
-  }
-
-  /// Проверяет примитивный это токен или нет.
-  pub fn isPrimitive(&self) -> bool
-  {
-    keywords.iter().any(|(_, tt)| *tt == self.dataType)
   }
 
   /// Получает данные.

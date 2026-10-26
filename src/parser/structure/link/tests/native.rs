@@ -1,6 +1,6 @@
 use crate::parser::structure::link::tests::{checkToken, emptyMain, pointerStructure};
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -39,7 +39,7 @@ fn nativeCallWithoutLibraryPath() -> ()
   let lib: Arc<RwLock<Structure>> = Arc::new(RwLock::new(Structure::new(
     Some(String::from("lib")),
     StructureMut::Constant,
-    StructureType::Pointer,
+    StructureType::Primitive(PrimitiveType::Pointer),
     Some(vec![Arc::new(RwLock::new(Line {
       tokens: Some(vec![Token::new(TokenType::Word, "notAPath")]),
       lines: None

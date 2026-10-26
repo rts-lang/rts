@@ -1,6 +1,6 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::AtomicUsize;
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::StructureType;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -30,7 +30,7 @@ pub(super) fn expressionOf(code: &str) -> Token
   let main: Structure = Structure::new(
     Some(String::from("main")),
     StructureMut::Constant,
-    StructureType::Method,
+    StructureType::Primitive(PrimitiveType::Method),
     None,
     None
   );
@@ -219,9 +219,9 @@ pub(super) fn printStructureFacets(
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
 /// фиксированный - `type` → `stype` → `utype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
-///     checkStructure!("a: U8 = 300", "a", type TokenType::UInt, stype StructureType::U8, value "255");
-///     checkStructure!("a := 0.0", "a", type TokenType::UFloat, stype StructureType::F32); // Без значения
-///     checkStructure!("a := 10", "a", stype StructureType::U8); // Только stype
+///     checkStructure!("a: U8 = 300", "a", type TokenType::UInt, stype StructureType::Primitive(PrimitiveType::U8), value "255");
+///     checkStructure!("a := 0.0", "a", type TokenType::UFloat, stype StructureType::Primitive(PrimitiveType::F32)); // Без значения
+///     checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8)); // Только stype
 ///     checkStructure!("a: U8 | 10 = 10", "a", stype number("10"), utype Union(vec![U8, number("10")]));
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
@@ -254,7 +254,7 @@ macro_rules! tryCheckStructure
   ($code:literal, $name:expr $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
     let main: ::std::sync::Arc<::std::sync::RwLock<$crate::parser::structure::structure::Structure>> =
-      $crate::parser::parser::runCode($code);
+      $crate::parser::testing::runCode!($code);
     (|| -> Result<(), String>
     {
       $(
@@ -310,6 +310,31 @@ macro_rules! tryCheckStructure
 
 #[allow(unused_imports)]
 pub(super) use tryCheckStructure;
+
+// =================================================================================================
+
+/// Выполняет код и возвращает основную структуру `main`.
+///
+/// Код с переносами - сырым литералом `r#"..."#`, без `\n` внутри строки:
+///
+///     let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+///       a = 5
+///       type { a }
+///     "#);
+///
+/// Код без переносов - обычной строкой:
+///
+///     let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
+macro_rules! runCode
+{
+  ($code:expr) =>
+  {{
+    let mut buffer: Vec<u8> = $code.as_bytes().to_vec();
+    $crate::parser::parser::runCodeBytes(&mut buffer)
+  }};
+}
+
+pub(super) use runCode;
 
 // =================================================================================================
 
@@ -567,9 +592,8 @@ pub(super) use buildLibrary;
 #[cfg(test)]
 mod tests
 {
-  use crate::parser::parser::runCode;
   use crate::parser::structure::structure::Structure;
-  use crate::parser::structure::structureType::StructureType;
+  use crate::parser::structure::structureType::{PrimitiveType, StructureType};
   use crate::tokenizer::types::tokenType::TokenType;
   use std::sync::{Arc, RwLock};
   // ===============================================================================================
@@ -578,10 +602,10 @@ mod tests
   #[test]
   fn mainSource() -> ()
   {
-    let main: Arc<RwLock<Structure>> = runCode("a := 10");
-    checkStructure!(main, "a", stype StructureType::U8, value "10");
+    let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
+    checkStructure!(mainLink, "a", stype StructureType::Primitive(PrimitiveType::U8), value "10");
     assert_eq!(
-      tryCheckStructure!(main, "a", value "11").unwrap_err(),
+      tryCheckStructure!(mainLink, "a", value "11").unwrap_err(),
       "check value in `` for 'a': expected '11', got '10'"
     );
   }
@@ -604,7 +628,7 @@ mod tests
   #[test]
   fn stypeOnly() -> ()
   {
-    checkStructure!("a := 10", "a", stype StructureType::U8);
+    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8));
   }
 
   /// Только `value`.
@@ -618,10 +642,10 @@ mod tests
   #[test]
   fn utypeOnly() -> ()
   {
-    checkStructure!("a := 10", "a", utype StructureType::U8);
+    checkStructure!("a := 10", "a", utype StructureType::Primitive(PrimitiveType::U8));
     checkStructure!(
       "a: U8 | String = 10", "a",
-      utype StructureType::Union(vec![StructureType::U8, StructureType::String])
+      utype StructureType::Union(vec![StructureType::Primitive(PrimitiveType::U8), StructureType::Primitive(PrimitiveType::String)])
     );
   }
 
@@ -629,14 +653,14 @@ mod tests
   #[test]
   fn stypeAndValue() -> ()
   {
-    checkStructure!("a := 10", "a", stype StructureType::U8, value "10");
+    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8), value "10");
   }
 
   /// Все грани и висячая запятая.
   #[test]
   fn allFacetsTrailingComma() -> ()
   {
-    checkStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::U8, value "10",);
+    checkStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::Primitive(PrimitiveType::U8), value "10",);
   }
 
   /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheckStructure!`: паники нет.
@@ -648,7 +672,7 @@ mod tests
       "check type in `a := 10` for 'a': expected 'Int', got 'UInt'"
     );
     assert_eq!(
-      tryCheckStructure!("a := 10", "a", stype StructureType::U16).unwrap_err(),
+      tryCheckStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U16)).unwrap_err(),
       "check stype in `a := 10` for 'a': expected 'U16', got 'U8'"
     );
     assert_eq!(
@@ -656,11 +680,11 @@ mod tests
       "check value in `a := 10` for 'a': expected '11', got '10'"
     );
     assert_eq!(
-      tryCheckStructure!("a: U8 | String = 10", "a", utype StructureType::U8).unwrap_err(),
+      tryCheckStructure!("a: U8 | String = 10", "a", utype StructureType::Primitive(PrimitiveType::U8)).unwrap_err(),
       "check utype in `a: U8 | String = 10` for 'a': expected 'U8', got 'U8 | String'"
     );
     // Верные грани - `Ok`.
-    assert!(tryCheckStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::U8, value "10").is_ok());
+    assert!(tryCheckStructure!("a := 10", "a", type TokenType::UInt, stype StructureType::Primitive(PrimitiveType::U8), value "10").is_ok());
   }
 
   /// `showStructure!` не паникует и печатает ровно запрошенные грани
@@ -668,19 +692,24 @@ mod tests
   #[test]
   fn showStructure() -> ()
   {
-    let main: Arc<RwLock<Structure>> = runCode("a := 10");
-    showStructure!(main, "a", stype);
-    showStructure!(main, "a", type, stype, value);
-    showStructure!(main, "a", mut, lines,);
+    let mainLink: Arc<RwLock<Structure>> = runCode!("a := 10");
+    showStructure!(mainLink, "a", stype);
+    showStructure!(mainLink, "a", type, stype, value);
+    showStructure!(mainLink, "a", mut, lines,);
   }
 
   /// Путь через точку и метод без токена: не паникует, печатает `type=<none>`.
   #[test]
   fn showStructureDottedAndValueless() -> ()
   {
-    let main: Arc<RwLock<Structure>> = runCode("f(n: UInt) {\n  = n\n}\nf(1)\n");
-    showStructure!(main, "f.n", value);
-    showStructure!(main, "f", stype, type);
+    let mainLink: Arc<RwLock<Structure>> = runCode!(r#"
+      f(n: UInt) {
+        = n
+      }
+      f(1)
+    "#);
+    showStructure!(mainLink, "f.n", value);
+    showStructure!(mainLink, "f", stype, type);
   }
 
   // ===============================================================================================
