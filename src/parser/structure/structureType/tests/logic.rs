@@ -3,7 +3,7 @@ use crate::parser::testing::{checkExpression, checkStructure};
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// `True`/`False`/`None` как типы.
+// Тесты на `True`/`False`/`None` как типы.
 //
 // Здесь есть примеры с `=` они работают т.к. указаны типы структур;
 // В иных случаях `:=` как при создании.
@@ -18,7 +18,10 @@ fn trueType() -> ()
     r#"
     a: True = True
     "#,
-    "a", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    "a",
+    type TokenType::True,
+    stype StructureType::Primitive(PrimitiveType::True),
+    value "True"
   );
 }
 
@@ -30,24 +33,32 @@ fn falseType() -> ()
     r#"
     b: False = False
     "#,
-    "b", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
+    "b",
+    type TokenType::False,
+    stype StructureType::Primitive(PrimitiveType::False),
+    value "False"
   );
 }
 
 /// `None` как тип.
 #[test]
-#[ignore]
+#[ignore] // todo Это известный баг? почему оно тут так?
 fn noneType() -> ()
 {
   checkStructure!(
     r#"
     c: None = None
     "#,
-    "c", type TokenType::None, stype StructureType::Primitive(PrimitiveType::None), value ""
+    "c",
+    type TokenType::None,
+    stype StructureType::Primitive(PrimitiveType::None),
+    value ""
   );
 }
 
-/// Union `True | False`: значение выбирает вариант.
+// =================================================================================================
+
+/// Union `True | False`: значение выбирает `вариант`.
 #[test]
 fn trueFalseUnion() -> ()
 {
@@ -55,14 +66,20 @@ fn trueFalseUnion() -> ()
     r#"
     d~: True | False = True
     "#,
-    "d", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    "d",
+    type TokenType::True,
+    stype StructureType::Primitive(PrimitiveType::True),
+    value "True"
   );
   checkStructure!(
     r#"
     d~: True | False = True
     d = False
     "#,
-    "d", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
+    "d",
+    type TokenType::False,
+    stype StructureType::Primitive(PrimitiveType::False),
+    value "False"
   );
 }
 
@@ -74,26 +91,35 @@ fn inferred() -> ()
     r#"
     e := True
     "#,
-    "e", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    "e",
+    type TokenType::True,
+    stype StructureType::Primitive(PrimitiveType::True),
+    value "True"
   );
   checkStructure!(
     r#"
     f := False
     "#,
-    "f", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
+    "f",
+    type TokenType::False,
+    stype StructureType::Primitive(PrimitiveType::False),
+    value "False"
   );
 }
 
-/// Forward-declaration без значения — None.
+/// Forward-declaration без значения — `None`.
 #[test]
-#[ignore]
+#[ignore] // todo Это известный баг? почему оно тут так?
 fn forwardDecl() -> ()
 {
   checkStructure!(
     r#"
     g
     "#,
-    "g", type TokenType::None, stype StructureType::Primitive(PrimitiveType::None), value ""
+    "g",
+    type TokenType::None,
+    stype StructureType::Primitive(PrimitiveType::None),
+    value ""
   );
 }
 

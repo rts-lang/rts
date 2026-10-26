@@ -5,22 +5,24 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // Это тесты на:
 //
-// - Объединения `a: U8 | String`;
+// - Примитивы: `a: U8 | String = ...`;
+//
+// - Пользовательские типы: `a: Test1 | Test2 = ...`; todo Не уверен что оно тут полностью есть.
 // 
-// - Примитивы как варианты `a: 10 | 20`.
+// - Примитив-значение: `a: 10 | 20 = 10`.
 //
 //
 // todo Есть баг еще вроде как с `U8 = None` будет `0`, что ошибка. НО оно не к этому к `StructureType`.
 
 // =================================================================================================
 
-/// Числовой примитив как вариант типизации.
+/// Числовой примитив как `вариант` типизации.
 fn number(data: &str) -> StructureType
 {
   StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
 }
 
-/// Строковый примитив как вариант типизации.
+/// Строковый примитив как `вариант` типизации.
 fn text(data: &str) -> StructureType
 {
   StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
@@ -28,7 +30,7 @@ fn text(data: &str) -> StructureType
 
 // =================================================================================================
 
-/// Один вариант — обычный тип; несколько — `union`.
+/// Один `вариант` — обычный тип; несколько — `union`.
 #[test]
 fn unionParse() -> ()
 {
@@ -83,7 +85,7 @@ fn unionParse() -> ()
   );
 }
 
-/// Значение ложится в тот вариант, в который помещается как есть.
+/// Значение ложится в тот `вариант`, в который помещается как есть.
 #[test]
 fn unionExactMatch() -> ()
 {
@@ -103,7 +105,7 @@ fn unionExactMatch() -> ()
     value "1.5"
   );
 
-  // Из нескольких подходящих вариантов выбирается тот, в который значение помещается без потерь:
+  // Из нескольких подходящих `вариантов` выбирается тот, в который значение помещается без потерь:
   // `-10` помещается в `I8`, поэтому `U8 | I8` даёт `I8`, а не зажатое в `U8` ноль.
   checkStructure!(
     "a: U8 | I8 = -10", "a",
@@ -115,7 +117,7 @@ fn unionExactMatch() -> ()
   );
 }
 
-/// Не подошёл ни один вариант - приводим в первый, куда приведение возможно.
+/// Не подошёл ни один `вариант` - приводим в первый, куда приведение возможно.
 #[test]
 fn unionConvert() -> ()
 {
@@ -125,11 +127,11 @@ fn unionConvert() -> ()
   // Отрицательное в беззнаковый - приведение.
   checkStructure!("a: U8 | String = -10", "a", stype StructureType::Primitive(PrimitiveType::U8), value "0");
 
-  // `Float` приводится в целый вариант с округлением.
+  // `Float` приводится в целый `вариант` с округлением.
   checkStructure!("a: U8 | String = 1.5", "a", stype StructureType::Primitive(PrimitiveType::U8), value "2");
 }
 
-/// Ни один вариант не подошёл и привести нельзя - `None`.
+/// Ни один `вариант` не подошёл и привести нельзя - `None`.
 #[test]
 fn unionNone() -> ()
 {
@@ -154,7 +156,7 @@ fn unionNone() -> ()
     value ""
   );
 
-  // Само `None` в объединении - законный вариант.
+  // Само `None` в объединении - законный `вариант`.
   checkStructure!(
     "a: String | None = None", "a",
     stype StructureType::Primitive(PrimitiveType::None),
@@ -162,7 +164,7 @@ fn unionNone() -> ()
   );
 }
 
-/// Примитивы - варианты типизации наравне с именами типов (type-секция слева от `=`).
+/// Примитивы - `варианты` типизации наравне с именами типов (type-секция слева от `=`).
 #[test]
 fn unionPrimitiveParse() -> ()
 {
@@ -211,7 +213,7 @@ fn unionPrimitiveParse() -> ()
     ])
   );
 
-  // Одиночный примитив - `union` из одного варианта, иначе значение не проверялось бы.
+  // Одиночный примитив - `union` из одного `варианта`, иначе значение не проверялось бы.
   checkStructure!(
     "a: 10 = 10", "a",
     utype StructureType::Union(vec![number("10")])
@@ -470,7 +472,7 @@ fn unionTypeNameVsPrimitive() -> ()
 #[test]
 fn unionEmptyStringPrimitive() -> ()
 {
-  // Одиночный примитив - `union` из одного варианта, как и любой другой примитив.
+  // Одиночный примитив - `union` из одного `варианта`, как и любой другой примитив.
   checkStructure!(
     "a: \"\" = \"\"", "a",
     stype text(""),
@@ -485,7 +487,7 @@ fn unionEmptyStringPrimitive() -> ()
     ])
   );
 
-  // Не подошло ни к одному варианту - `None`.
+  // Не подошло ни к одному `варианту` - `None`.
   checkStructure!(
     "a: \"\" | U8 = \"x\"", "a",
     stype StructureType::Primitive(PrimitiveType::None),
@@ -501,7 +503,7 @@ fn unionEmptyStringPrimitive() -> ()
 
 // =================================================================================================
 
-/// `variants()` раскладывает тип в список вариантов.
+/// `variants()` раскладывает тип в список `вариантов`.
 #[test]
 fn unionVariants() -> ()
 {
@@ -514,7 +516,7 @@ fn unionVariants() -> ()
     StructureType::Primitive(PrimitiveType::String)
   ]);
 
-  // Одиночный тип - один вариант.
+  // Одиночный тип - один `вариант`.
   assert!(
     StructureType::Primitive(PrimitiveType::U8).variants() == 
     vec![StructureType::Primitive(PrimitiveType::U8)]
