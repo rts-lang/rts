@@ -1,12 +1,16 @@
-use std::fmt;
 use crate::parser::structure::tokenValue::uf64::uf64;
+use std::fmt;
 // =================================================================================================
 
-// Чтобы понять, что выполняет Value, нужно понять следующее:
-// TokenType - это просто абстрактные данные для токенайзера и парсера;
-// Token - хранит data = Vec<u8>, что есть абстрактные данные;
-// А Value - это математика абстрактных данных, т.е. самих токенов.
-// Это все потому, что Token не может знать что есть какой тип - это дело структур;
+// Чтобы понять, что выполняет `Value`, нужно понять следующее:
+// 
+// - `TokenType` - это просто абстрактные данные для токенайзера и парсера;
+// 
+// - `Token` - хранит `data = Vec<u8>`, что есть абстрактные данные;
+//
+// - `Value` - это математика абстрактных данных, т.е. самих токенов.
+//
+// Это все потому, что `Token` не может знать что есть какой тип - это дело структур;
 // Поэтому тут не должно быть ABI типов - это разные вещи.
 
 // =================================================================================================
@@ -15,7 +19,7 @@ use crate::parser::structure::tokenValue::uf64::uf64;
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum Value 
 {
-  None(),
+  None,
   
   Int(i64),
   UInt(u64),
@@ -26,16 +30,16 @@ pub enum Value
   String(String)
 }
 
-impl Value 
+impl Value
 {
   /// To bool.
   /// 
   /// todo rewrite desc
-  pub fn toBool(&self) -> bool 
+  pub fn toBool(&self) -> bool
   {
-    match self 
+    match self
     {
-      Self::None() => false, // todo Непонятно что нужно возвращать здесь.
+      Self::None => false, // todo Непонятно что нужно возвращать здесь.
       Self::Int(v) => *v!=0,
       Self::UInt(v) => *v!=0,
       Self::Float(v) => *v!=0.0,
@@ -47,23 +51,23 @@ impl Value
 
   /// Нулевой ли числовой операнд (для деления на 0);
   ///
-  /// -0.0 == 0.0, поэтому подходит и отрицательный ноль.
-  pub fn isZero(&self) -> bool 
+  /// `-0.0 == 0.0`, поэтому подходит и отрицательный ноль.
+  pub fn isZero(&self) -> bool
   {
-    match self 
+    match self
     {
       Self::Int(v) => *v==0,
       Self::UInt(v) => *v==0,
       Self::Float(v) => *v==0.0,
       Self::UFloat(v) => *v==uf64::from(0.0),
-      _ => false // None, Char, String - не числа.
+      _ => false // `None`, `Char`, `String` - не числа.
     }
   }
 
-  /// Единица того же варианта (x / 1 = x).
-  fn one(&self) -> Self 
+  /// Единица того же варианта `x / 1 = x`.
+  fn one(&self) -> Self
   {
-    match self 
+    match self
     {
       Self::Int(_) => Self::Int(1),
       Self::UInt(_) => Self::UInt(1),
@@ -74,21 +78,21 @@ impl Value
   }
 }
 
-/// u64 в i64 без переполнения: всё что больше - граница i64 (#71);
+/// `u64` в `i64` без переполнения: всё что больше - граница `i64`;
 /// 
-/// Обычное `as i64` тут ломает знак: u64::MAX превращается в -1.
-fn toI64(value: u64) -> i64 
+/// Обычное `as i64` тут ломает знак: `u64::MAX` превращается в `-1`.
+fn toI64(value: u64) -> i64
 {
   i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-impl fmt::Display for Value 
+impl fmt::Display for Value
 {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result 
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
   {
-    match *self 
+    match *self
     {
-      Self::None() => write!(f, "None"), // todo Непонятно что нужно возвращать здесь.
+      Self::None => write!(f, "None"), // todo Непонятно что нужно возвращать здесь.
       Self::Int(val) => write!(f, "{}", val),
       Self::UInt(val) => write!(f, "{}", val),
       Self::Float(val) => write!(f, "{}", val),
@@ -101,70 +105,70 @@ impl fmt::Display for Value
 
 // =================================================================================================
 
-// plus
-impl std::ops::Add for Value 
+// Plus.
+impl std::ops::Add for Value
 {
   type Output = Self;
   
-  fn add(self, other: Self) -> Self 
+  fn add(self, other: Self) -> Self
   {
-    match (self.clone(), other) 
+    match (self.clone(), other)
     {
-      // None.
-      // None + None обрабатывается в _
-      (Self::None(), Self::Int(y))    => Self::Int(y),
-      (Self::None(), Self::UInt(y))   => Self::UInt(y),
-      (Self::None(), Self::Float(y))  => Self::Float(y),
-      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
-      (Self::None(), Self::Char(y))   => Self::Char(y),
-      (Self::None(), Self::String(y)) => Self::String(y),
-      // Int
+      // None;
+      // `None` + `None` обрабатывается в `_`.
+      (Self::None, Self::Int(y))    => Self::Int(y),
+      (Self::None, Self::UInt(y))   => Self::UInt(y),
+      (Self::None, Self::Float(y))  => Self::Float(y),
+      (Self::None, Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None, Self::Char(y))   => Self::Char(y),
+      (Self::None, Self::String(y)) => Self::String(y),
+      // Int.
       (Self::Int(x), Self::Int(y))    => Self::Int   (x.saturating_add(y)),
       (Self::Int(x), Self::UInt(y))   => Self::Int   (x.saturating_add(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float (x as f64 +y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float (x as f64 +f64::from(y)),
       (Self::Int(x), Self::Char(y))   => Self::Int   (x.saturating_add(y as i64)),
       (Self::Int(x), Self::String(y)) => Self::String(x.to_string() +&y),
-      // UInt
+      // UInt.
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x.saturating_add(y)),
       (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_add(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 +y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) +y),
       (Self::UInt(x), Self::Char(y))   => Self::UInt  (x.saturating_add(y as u64)),
       (Self::UInt(x), Self::String(y)) => Self::String(x.to_string() +&y),
-      // Float
+      // Float.
       (Self::Float(x), Self::Float(y))  => Self::Float (x+y),
       (Self::Float(x), Self::Int(y))    => Self::Float (x+ y as f64),
       (Self::Float(x), Self::UInt(y))   => Self::Float (x+ y as f64),
       (Self::Float(x), Self::UFloat(y)) => Self::Float (x+ f64::from(y)),
       (Self::Float(x), Self::String(y)) => Self::String(x.to_string() +&y),
-      // UFloat
+      // UFloat.
       (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x+y),
       (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)+ y as f64),
       (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x+ uf64::from(y)),
       (Self::UFloat(x), Self::Float(y))  => Self::Float (f64::from(x) +y),
       (Self::UFloat(x), Self::String(y)) => Self::String(x.to_string() +&y),
-      // Char
-      (Self::Char(x), Self::Char(y)) => 
+      // Char.
+      (Self::Char(x), Self::Char(y)) =>
       {
         Self::Char(
           char::from_u32(x as u32 + y as u32).unwrap_or('\0')
         )
       },
-      (Self::Char(x), Self::Int(y)) => 
+      (Self::Char(x), Self::Int(y)) =>
       {
         Self::Char(
           char::from_u32((x as i64 +y) as u32).unwrap_or('\0')
         )
       },
-      (Self::Char(x), Self::UInt(y)) => 
+      (Self::Char(x), Self::UInt(y)) =>
       {
         Self::Char(
           char::from_u32((x as u64 +y) as u32).unwrap_or('\0')
         )
       },
       (Self::Char(x), Self::String(y)) => Self::String(x.to_string()+ &y),
-      // String
+      // String.
       (Self::String(x), Self::String(y)) => Self::String(x+ &y),
       (Self::String(x), Self::Int(y))    => Self::String(x+ &y.to_string()),
       (Self::String(x), Self::UInt(y))   => Self::String(x+ &y.to_string()),
@@ -178,32 +182,32 @@ impl std::ops::Add for Value
 }
 
 // =================================================================================================
+// Minus.
 
-// minus
-impl std::ops::Sub for Value 
+impl std::ops::Sub for Value
 {
   type Output = Self;
   
-  fn sub(self, other: Self) -> Self 
+  fn sub(self, other: Self) -> Self
   {
-    match (self.clone(), other) 
+    match (self.clone(), other)
     {
-      // None.
-      // None + None обрабатывается в _
-      (Self::None(), Self::Int(y))    => Self::Int(y),
-      (Self::None(), Self::UInt(y))   => Self::UInt(y),
-      (Self::None(), Self::Float(y))  => Self::Float(y),
-      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
-      (Self::None(), Self::Char(y))   => Self::Char(y),
-      (Self::None(), Self::String(y)) => Self::String(y),
-      // Int
+      // None;
+      // `None` + `None` обрабатывается в `_`.
+      (Self::None, Self::Int(y))    => Self::Int(y),
+      (Self::None, Self::UInt(y))   => Self::UInt(y),
+      (Self::None, Self::Float(y))  => Self::Float(y),
+      (Self::None, Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None, Self::Char(y))   => Self::Char(y),
+      (Self::None, Self::String(y)) => Self::String(y),
+      // Int.
       (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_sub(y)),
       (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_sub(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 -y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 -f64::from(y)),
       (Self::Int(x), Self::Char(y))   => Self::Int  (x.saturating_sub(y as i64)),
-      // UInt
-      (Self::UInt(x), Self::UInt(y)) => 
+      // UInt.
+      (Self::UInt(x), Self::UInt(y)) =>
       {
         if y > x {
           Self::UInt(0)
@@ -215,30 +219,30 @@ impl std::ops::Sub for Value
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 -y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) -y),
       (Self::UInt(x), Self::Char(y))   => Self::UInt  (x.saturating_sub(y as u64)),
-      // Float
+      // Float.
       (Self::Float(x), Self::Float(y))  => Self::Float(x-y),
       (Self::Float(x), Self::Int(y))    => Self::Float(x- y as f64),
       (Self::Float(x), Self::UInt(y))   => Self::Float(x- y as f64),
       (Self::Float(x), Self::UFloat(y)) => Self::Float(x- f64::from(y)),
-      // UFloat
+      // UFloat.
       (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x-y),
       (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)- y as f64),
       (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x- uf64::from(y)),
       (Self::UFloat(x), Self::Float(y))  => Self::Float (f64::from(x) -y),
-      // Char
-      (Self::Char(x), Self::Char(y)) => 
+      // Char.
+      (Self::Char(x), Self::Char(y)) =>
       {
         Self::Char(
           char::from_u32(x as u32 - y as u32).unwrap_or('\0')
         )
       },
-      (Self::Char(x), Self::Int(y)) => 
+      (Self::Char(x), Self::Int(y)) =>
       {
         Self::Char(
           char::from_u32((x as i64 -y) as u32).unwrap_or('\0')
         )
       },
-      (Self::Char(x), Self::UInt(y)) => 
+      (Self::Char(x), Self::UInt(y)) =>
       {
         Self::Char(
           char::from_u32((x as u64 - y) as u32).unwrap_or('\0')
@@ -251,40 +255,40 @@ impl std::ops::Sub for Value
 }
 
 // =================================================================================================
+// Multiple.
 
-// multiple
-impl std::ops::Mul for Value 
+impl std::ops::Mul for Value
 {
   type Output = Self;
   
-  fn mul(self, other: Self) -> Self 
+  fn mul(self, other: Self) -> Self
   {
-    match (self.clone(), other) 
+    match (self.clone(), other)
     {
-      // None.
-      // None + None обрабатывается в _
-      (Self::None(), Self::Int(y))    => Self::Int(y),
-      (Self::None(), Self::UInt(y))   => Self::UInt(y),
-      (Self::None(), Self::Float(y))  => Self::Float(y),
-      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
-      (Self::None(), Self::Char(y))   => Self::Char(y),
-      (Self::None(), Self::String(y)) => Self::String(y),
-      // Int
+      // None;
+      // `None` + `None` обрабатывается в `_`.
+      (Self::None, Self::Int(y))    => Self::Int(y),
+      (Self::None, Self::UInt(y))   => Self::UInt(y),
+      (Self::None, Self::Float(y))  => Self::Float(y),
+      (Self::None, Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None, Self::Char(y))   => Self::Char(y),
+      (Self::None, Self::String(y)) => Self::String(y),
+      // Int.
       (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_mul(y)),
       (Self::Int(x), Self::UInt(y))   => Self::Int  (x.saturating_mul(toI64(y))),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 *y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 *f64::from(y)),
-      // UInt
+      // UInt.
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x.saturating_mul(y)),
       (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_mul(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 *y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) *y),
-      // Float
+      // Float.
       (Self::Float(x), Self::Float(y))  => Self::Float(x*y),
       (Self::Float(x), Self::Int(y))    => Self::Float(x* y as f64),
       (Self::Float(x), Self::UInt(y))   => Self::Float(x* y as f64),
       (Self::Float(x), Self::UFloat(y)) => Self::Float(x* f64::from(y)),
-      // UFloat
+      // UFloat.
       (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x*y),
       (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)* y as f64),
       (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x* uf64::from(y)),
@@ -296,53 +300,75 @@ impl std::ops::Mul for Value
 }
 
 // =================================================================================================
+// Divide.
 
-// divide
-impl std::ops::Div for Value 
+impl std::ops::Div for Value
 {
   type Output = Self;
   
-  fn div(self, other: Self) -> Self 
+  fn div(self, other: Self) -> Self
   {
-    // Деление на 0 не ошибка: результат - левая часть (issue #30).
+    // Деление на `0` не ошибка с точки зрения математики и логики.
     //
-    // Нулевой делитель заменяем единицей того же варианта: x / 1 = x,
-    // а тип результата идет по тем же веткам, что и при обычном делении,
+    // 1. Рассмотрим выражение `1 / 0.1`. Мы можем заметить, что результат увеличивается.
+    // Если продолжать увеличивать количество нулей в знаменателе, мы будем приближаться
+    // к всё большему числу — бесконечности. Даже если теоретически мы можем вычислить
+    // этот результат, возвращаемым значением будет левый операнд. В данном контексте
+    // левый операнд представляет собой значение бесконечности.
+    //
+    // 2. Рассмотрим задачу распределения `10` яблок между 0 людьми.
+    // Технически результатом будет `10`, поскольку яблоки так и не были распределены.
+    // Это означает, что либо кто-то получает все яблоки, либо одна сущность хранит
+    // всё их количество на складе.
+    // 
+    // 3. Более простой пример: если разделить один пирог между 0 людьми,
+    // пирог останется целым и неразделённым — следовательно,
+    // итоговым результатом будет левая часть выражения.
+    //
+    // Можно конечно сказать что это натуро-математика и натуро-логика;
+    // Хотя я уверен, что и для абстрактной математики это верно.
+    //
+    // Поэтому получается, что нулевой делитель заменяем единицей того же варианта:
+    // `x / 1 = x`, а тип результата идет по тем же веткам, что и при обычном делении,
     // т.е. зависит от типов операндов, а не от их значений.
-    let other: Self = if other.isZero() 
+    let other: Self = if other.isZero()
     {
-      match self 
+      match self
       {
-        Self::None() => return self, // Левой части нет - остается None.
+        Self::None => return self, // Левой части нет - остается None.
         _ => other.one()
       }
-    } else { other };
-    match (self.clone(), other) 
+    } else {
+      other
+    };
+    
+    //
+    match (self.clone(), other)
     {
-      // None
-      // None + None обрабатывается в _
-      (Self::None(), Self::Int(y))    => Self::Int(y),
-      (Self::None(), Self::UInt(y))   => Self::UInt(y),
-      (Self::None(), Self::Float(y))  => Self::Float(y),
-      (Self::None(), Self::UFloat(y)) => Self::UFloat(y),
-      (Self::None(), Self::Char(y))   => Self::Char(y),
-      (Self::None(), Self::String(y)) => Self::String(y),
-      // Int
+      // None;
+      // `None` + `None` обрабатывается в `_`.
+      (Self::None, Self::Int(y))    => Self::Int(y),
+      (Self::None, Self::UInt(y))   => Self::UInt(y),
+      (Self::None, Self::Float(y))  => Self::Float(y),
+      (Self::None, Self::UFloat(y)) => Self::UFloat(y),
+      (Self::None, Self::Char(y))   => Self::Char(y),
+      (Self::None, Self::String(y)) => Self::String(y),
+      // Int.
       (Self::Int(x), Self::Int(y))    => Self::Int  (x.saturating_div(y)),
       (Self::Int(x), Self::UInt(y))   => Self::Int  (x/ toI64(y)),
       (Self::Int(x), Self::Float(y))  => Self::Float(x as f64 /y),
       (Self::Int(x), Self::UFloat(y)) => Self::Float(x as f64 /f64::from(y)),
-      // UInt
+      // UInt.
       (Self::UInt(x), Self::UInt(y))   => Self::UInt  (x/y),
       (Self::UInt(x), Self::Int(y))    => Self::Int   (toI64(x).saturating_div(y)),
       (Self::UInt(x), Self::Float(y))  => Self::Float (x as f64 /y),
       (Self::UInt(x), Self::UFloat(y)) => Self::UFloat(uf64::from(x) /y),
-      // Float
+      // Float.
       (Self::Float(x), Self::Float(y))  => Self::Float(x/y),
       (Self::Float(x), Self::Int(y))    => Self::Float(x/ y as f64),
       (Self::Float(x), Self::UInt(y))   => Self::Float(x/ y as f64),
       (Self::Float(x), Self::UFloat(y)) => Self::Float(x/ f64::from(y)),
-      // UFloat
+      // UFloat.
       (Self::UFloat(x), Self::UFloat(y)) => Self::UFloat(x/y),
       (Self::UFloat(x), Self::Int(y))    => Self::Float (f64::from(x)/ y as f64),
       (Self::UFloat(x), Self::UInt(y))   => Self::UFloat(x/ uf64::from(y)),
