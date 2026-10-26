@@ -3,7 +3,8 @@ use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Это тесты на получение `StructureType` для структуры (левая часть) по правой части выражения.
+// Это тесты на получение `StructureType` для структуры:
+// левая часть выводится по правой части выражения.
 // 
 // Лимиты `StructureType` уже включены сюда.
 
@@ -13,7 +14,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[test]
 fn autoUnsigned() -> ()
 {
-  // U8
+  // U8.
   checkStructure!(
     "a := 0",
     "a",
@@ -29,7 +30,7 @@ fn autoUnsigned() -> ()
     value "255"
   );
   
-  // U16
+  // U16.
   checkStructure!(
     "a := 256",
     "a",
@@ -45,7 +46,7 @@ fn autoUnsigned() -> ()
     value "65535"
   );
   
-  // U32
+  // U32.
   checkStructure!(
     "a := 65536",
     "a",
@@ -61,7 +62,7 @@ fn autoUnsigned() -> ()
     value "4294967295"
   );
   
-  // U64
+  // U64.
   checkStructure!(
     "a := 4294967296",
     "a",
@@ -82,7 +83,7 @@ fn autoUnsigned() -> ()
 #[test]
 fn autoSigned() -> ()
 {
-  // I8
+  // I8.
   checkStructure!(
     "a := -1",
     "a",
@@ -98,7 +99,7 @@ fn autoSigned() -> ()
     value "-128"
   );
   
-  // I16
+  // I16.
   checkStructure!(
     "a := -129",
     "a",
@@ -114,7 +115,7 @@ fn autoSigned() -> ()
     value "-32768"
   );
   
-  // I32
+  // I32.
   checkStructure!(
     "a := -32769",
     "a",
@@ -130,7 +131,7 @@ fn autoSigned() -> ()
     value "-2147483648"
   );
   
-  // I64
+  // I64.
   checkStructure!(
     "a := -2147483649",
     "a",
@@ -147,11 +148,13 @@ fn autoSigned() -> ()
   );
 }
 
-/// Число за крайним ABI типом становится его границей (#71).
+// =================================================================================================
+
+/// Число за крайним ABI типом становится его границей.
 #[test]
 fn autoSaturation() -> ()
 {
-  // Больше U64 - и очень большое число.
+  // Больше `U64` - и очень большое число.
   checkStructure!(
     "a := 18446744073709551616",
     "a",
@@ -167,7 +170,7 @@ fn autoSaturation() -> ()
     value &u64::MAX.to_string()
   );
   
-  // Меньше I64 - и очень большое отрицательное число.
+  // Меньше `I64` - и очень большое отрицательное число.
   checkStructure!(
     "a := -9223372036854775809",
     "a",
@@ -184,7 +187,7 @@ fn autoSaturation() -> ()
   );
 }
 
-/// Usize и Isize не выводятся автоматически, только явным типом.
+/// `Usize` и `Isize` не выводятся автоматически, только явным типом;
 /// Они зависят от платформы.
 #[test]
 fn explicitPlatform() -> ()
@@ -203,7 +206,9 @@ fn explicitPlatform() -> ()
   );
 }
 
-/// Дробное число получает F32, если помещается, иначе F64.
+// =================================================================================================
+
+/// Дробное число получает `F32`, если помещается, иначе `F64`.
 #[test]
 fn autoFloat() -> ()
 {
@@ -249,7 +254,7 @@ fn autoFloat() -> ()
   );
 }
 
-/// Дробное число за F64 остаётся границей F64 (#71).
+/// Дробное число за `F64` остаётся границей `F64`.
 #[test]
 fn autoFloatSaturation() -> ()
 {
@@ -271,7 +276,7 @@ fn autoFloatSaturation() -> ()
 
 // =================================================================================================
 
-/// Строка получает `String`, сырая строка - RawString.
+/// Строка получает `String`, сырая строка - `RawString`.
 ///
 /// `CString` не выводится: у него нет токена, только явный тип.
 #[test]
@@ -334,8 +339,14 @@ fn autoFormattedString() -> ()
 #[test]
 fn autoStringFields() -> ()
 {
-  checkStructure!(r#"a := "text""#, "a.length", value "4");
-  checkStructure!(r#"a := "text""#, "a.pointer", stype StructureType::Primitive(PrimitiveType::Pointer));
+  checkStructure!(
+    r#"a := "text""#, "a.length",
+    value "4"
+  );
+  checkStructure!(
+    r#"a := "text""#, "a.pointer",
+    stype StructureType::Primitive(PrimitiveType::Pointer)
+  );
 }
 
 // =================================================================================================
