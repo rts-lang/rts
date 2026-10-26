@@ -1,10 +1,10 @@
-use std::sync::atomic::AtomicUsize;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
 
@@ -476,14 +476,14 @@ pub(super) use relativePath;
 /// Absolute path → `./[dir/]name.rt` для `import()`.
 pub(super) fn relativePathFrom(absolute: &str, dir: Option<&str>) -> String
 {
-  let name = std::path::Path::new(absolute)
+  let name: std::borrow::Cow<str> = std::path::Path::new(absolute)
     .file_name()
     .unwrap_or_else(|| panic!("relativePath: no file name in `{absolute}`"))
     .to_string_lossy();
   match dir
   {
     None => format!("./{name}"),
-    Some(d) => format!("./{}/{name}", d.trim_matches('/')),
+    Some(d) => format!("./{}/{name}", d.trim_matches('/'))
   }
 }
 
