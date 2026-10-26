@@ -3,7 +3,7 @@ use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Это тесты на:
+// Тесты на:
 //
 // - Примитивы: `a: U8 | String = ...`;
 //

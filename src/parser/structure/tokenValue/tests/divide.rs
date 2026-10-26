@@ -11,62 +11,53 @@ use crate::tokenizer::types::tokenType::TokenType;
 fn divideInteger() -> ()
 {
   checkStructure!(
-    "a := 10 / 4",
-    "a",
+    "a := 10 / 4", "a",
     type TokenType::UInt,
     value "2"
   );
   checkStructure!(
-    "a := 10 / 5",
-    "a",
+    "a := 10 / 5", "a",
     type TokenType::UInt,
     value "2"
   );
   checkStructure!(
-    "a := -7 / 2",
-    "a",
+    "a := -7 / 2", "a",
     type TokenType::Int,
     value "-3"
   );
   checkStructure!(
-    "a := 7 / -2",
-    "a",
+    "a := 7 / -2", "a",
     type TokenType::Int,
     value "-3"
   );
   checkStructure!(
-    "a := -7 / -2",
-    "a",
+    "a := -7 / -2", "a",
     type TokenType::Int,
     value "3"
   );
 }
 
-/// Дробные: результат UFloat/Float, точное значение.
+/// Дробные: результат `UFloat`/`Float`, точное значение.
 #[test]
 fn divideFloat() -> ()
 {
   checkStructure!(
-    "a := 10 / 4.0",
-    "a",
+    "a := 10 / 4.0", "a",
     type TokenType::UFloat,
     value "2.5"
   );
   checkStructure!(
-    "a := 10 / 0.5",
-    "a",
+    "a := 10 / 0.5", "a",
     type TokenType::UFloat,
     value "20"
   );
   checkStructure!(
-    "a := 1 / 0.1",
-    "a",
+    "a := 1 / 0.1", "a",
     type TokenType::UFloat,
     value "10"
   );
   checkStructure!(
-    "a := -7.5 / 2",
-    "a",
+    "a := -7.5 / 2", "a",
     type TokenType::Float,
     value "-3.75"
   );
@@ -77,26 +68,22 @@ fn divideFloat() -> ()
 fn divideChainsAndPrecedence() -> ()
 {
   checkStructure!(
-    "a := 100 / 10 / 2",
-    "a",
+    "a := 100 / 10 / 2", "a",
     type TokenType::UInt,
     value "5"
   );
   checkStructure!(
-    "a := 10 - 6 / 2",
-    "a",
+    "a := 10 - 6 / 2", "a",
     type TokenType::UInt,
     value "7"
   );
   checkStructure!(
-    "a := 10 + 6 / 2",
-    "a",
+    "a := 10 + 6 / 2", "a",
     type TokenType::UInt,
     value "13"
   );
   checkStructure!(
-    "a := 20 - 8 / 4 - 1",
-    "a",
+    "a := 20 - 8 / 4 - 1", "a",
     type TokenType::UInt,
     value "17"
   );
@@ -107,8 +94,7 @@ fn divideChainsAndPrecedence() -> ()
 fn divideAdjacentMinus() -> ()
 {
   checkStructure!(
-    "a := 10 -6 / 2",
-    "a",
+    "a := 10 -6 / 2", "a",
     type TokenType::UInt,
     value "7"
   );
