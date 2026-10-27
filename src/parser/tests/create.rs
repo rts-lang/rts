@@ -1,7 +1,6 @@
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -67,8 +66,8 @@ fn typeBeforeCreationOperator() -> ()
     a: U8 := 300
     "#,
     "a",
-    type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    type UInt,
+    stype U8,
     value "255"
   );
 }
@@ -171,8 +170,8 @@ fn finalWithoutValueTakesFirstValue() -> ()
     c = 5
     "#,
     "c",
-    type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8), // Тип выведен из первого значения - 5 влезает в U8.
+    type UInt,
+    stype U8, // Тип выведен из первого значения - 5 влезает в U8.
     value "5"
   );
 }
@@ -439,7 +438,7 @@ fn creationNoneOnPrimitiveIsIgnored() -> ()
     r#"
     type := None
     "#,
-    "type", stype StructureType::Primitive(PrimitiveType::Method), mut StructureMut::Constant, lines 0
+    "type", stype Method, mut StructureMut::Constant, lines 0
   );
 }
 

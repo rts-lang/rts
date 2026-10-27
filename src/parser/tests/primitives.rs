@@ -73,7 +73,7 @@ fn args() -> ()
   );
   checkStructure!(
     "argv := None", "argv",
-    stype StructureType::Primitive(PrimitiveType::List),
+    stype List,
     mut StructureMut::Constant
   );
 }
@@ -88,7 +88,7 @@ fn methods() -> ()
   {
     checkStructure!(
       "", *name, 
-      stype StructureType::Primitive(PrimitiveType::Method),
+      stype Method,
       mut StructureMut::Constant,
       lines 0
     );
@@ -101,25 +101,25 @@ fn overwrite() -> ()
 {
   checkStructure!(
     "type := 5", "type",
-    stype StructureType::Primitive(PrimitiveType::Method),
+    stype Method,
     mut StructureMut::Constant,
     lines 0
   );
   checkStructure!(
     "type := 5", "type",
-    stype StructureType::Primitive(PrimitiveType::Method),
+    stype Method,
     mut StructureMut::Constant,
     lines 0
   ); // todo Дубликат строка?
   checkStructure!
   ("type~ := 5", "type",
-    stype StructureType::Primitive(PrimitiveType::Method),
+    stype Method,
     mut StructureMut::Constant,
     lines 0
   );
   checkStructure!(
     "type~~ := 5", "type",
-    stype StructureType::Primitive(PrimitiveType::Method),
+    stype Method,
     mut StructureMut::Constant,
     lines 0
   );
@@ -138,7 +138,7 @@ fn block() -> ()
     type { a }
     "#,
     "type",
-    stype StructureType::Primitive(PrimitiveType::Method),
+    stype Method,
     mut StructureMut::Constant,
     lines 0
   );
@@ -179,7 +179,7 @@ fn importModule() -> ()
   {
     checkStructure!(
       mainLink, *name,
-      stype StructureType::Primitive(PrimitiveType::Method),
+      stype Method,
       mut StructureMut::Constant,
       lines 0
     );

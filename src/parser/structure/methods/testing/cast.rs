@@ -1,8 +1,7 @@
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::structure::structureType::PrimitiveType;
 use crate::parser::testing::checkStructure;
 use crate::parser::testing::runCode;
-use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
@@ -20,33 +19,54 @@ use std::sync::{Arc, RwLock};
 #[test]
 fn u8() -> ()
 {
-  checkStructure!("a := U8(300)", "a", value "255");
-  checkStructure!("a := U8(10)", "a", value "10");
-  checkStructure!("a := U8(-10)", "a", value "0");
+  checkStructure!(
+    "a := U8(300)", "a",
+    value "255"
+  );
+  checkStructure!(
+    "a := U8(10)", "a",
+    value "10"
+  );
+  checkStructure!(
+    "a := U8(-10)", "a",
+    value "0"
+  );
 }
 
 #[test]
 fn u16() -> ()
 {
-  checkStructure!("a := U16(70000)", "a", value "65535");
+  checkStructure!(
+    "a := U16(70000)", "a",
+    value "65535"
+  );
 }
 
 #[test]
 fn u32() -> ()
 {
-  checkStructure!("a := U32(5000000000)", "a", value "4294967295");
+  checkStructure!(
+    "a := U32(5000000000)", "a",
+    value "4294967295"
+  );
 }
 
 #[test]
 fn u64() -> ()
 {
-  checkStructure!("a := U64(99999999999999999999)", "a", value "18446744073709551615");
+  checkStructure!(
+    "a := U64(99999999999999999999)", "a",
+    value "18446744073709551615"
+  );
 }
 
 #[test]
 fn usize() -> ()
 {
-  checkStructure!("a := Usize(99999999999999999999)", "a", value "18446744073709551615");
+  checkStructure!(
+    "a := Usize(99999999999999999999)", "a",
+    value "18446744073709551615"
+  );
 }
 
 // =================================================================================================
@@ -56,33 +76,54 @@ fn usize() -> ()
 #[test]
 fn i8() -> ()
 {
-  checkStructure!("a := I8(300)", "a", value "127");
-  checkStructure!("a := I8(-300)", "a", value "-128");
-  checkStructure!("a := I8(-5)", "a", value "-5");
+  checkStructure!(
+    "a := I8(300)", "a",
+    value "127"
+  );
+  checkStructure!(
+    "a := I8(-300)", "a",
+    value "-128"
+  );
+  checkStructure!(
+    "a := I8(-5)", "a",
+    value "-5"
+  );
 }
 
 #[test]
 fn i16() -> ()
 {
-  checkStructure!("a := I16(40000)", "a", value "32767");
+  checkStructure!(
+    "a := I16(40000)", "a",
+    value "32767"
+  );
 }
 
 #[test]
 fn i32() -> ()
 {
-  checkStructure!("a := I32(3000000000)", "a", value "2147483647");
+  checkStructure!(
+    "a := I32(3000000000)", "a",
+    value "2147483647"
+  );
 }
 
 #[test]
 fn i64() -> ()
 {
-  checkStructure!("a := I64(99999999999999999999)", "a", value "9223372036854775807");
+  checkStructure!(
+    "a := I64(99999999999999999999)", "a",
+    value "9223372036854775807"
+  );
 }
 
 #[test]
 fn isize() -> ()
 {
-  checkStructure!("a := Isize(-99999999999999999999)", "a", value "-9223372036854775808");
+  checkStructure!(
+    "a := Isize(-99999999999999999999)", "a",
+    value "-9223372036854775808"
+  );
 }
 
 // =================================================================================================
@@ -91,21 +132,33 @@ fn isize() -> ()
 #[test]
 fn f32() -> ()
 {
-  checkStructure!("a := F32(1.5)", "a", value "1.5");
+  checkStructure!(
+    "a := F32(1.5)", "a",
+    value "1.5"
+  );
 }
 
 #[test]
 fn f64() -> ()
 {
-  checkStructure!("a := F64(3)", "a", value "3");
+  checkStructure!(
+    "a := F64(3)", "a",
+    value "3"
+  );
 }
 
 /// Дробное в целый тип округляется, как при объявлении.
 #[test]
 fn floatToInteger() -> ()
 {
-  checkStructure!("a := U8(1.9)", "a", value "2");
-  checkStructure!("x: U8 = 1.9", "x", value "2");
+  checkStructure!(
+    "a := U8(1.9)", "a",
+    value "2"
+  );
+  checkStructure!(
+    "x: U8 = 1.9", "x",
+    value "2"
+  );
 }
 
 // =================================================================================================
@@ -115,8 +168,14 @@ fn floatToInteger() -> ()
 #[test]
 fn notNumber() -> ()
 {
-  checkStructure!(r#"a := U8("test")"#, "a", value "0");
-  checkStructure!(r#"x: U8 = "test""#, "x", value "0");
+  checkStructure!(
+    r#"a := U8("test")"#, "a",
+    value "0"
+  );
+  checkStructure!(
+    r#"x: U8 = "test""#, "x",
+    value "0"
+  );
 }
 
 // =================================================================================================
@@ -126,14 +185,34 @@ fn notNumber() -> ()
 #[test]
 fn sameAsDeclaration() -> ()
 {
-  checkStructure!("x: U8 = 300", "x", value "255");
-  checkStructure!("a := U8(300)", "a", value "255");
+  checkStructure!(
+    "x: U8 = 300", "x",
+    value "255"
+  );
+  checkStructure!(
+    "a := U8(300)", "a",
+    value "255"
+  );
 
-  checkStructure!("x: I8 = -300", "x", value "-128");
-  checkStructure!("a := I8(-300)", "a", value "-128");
+  //
+  checkStructure!(
+    "x: I8 = -300", "x",
+    value "-128"
+  );
+  checkStructure!(
+    "a := I8(-300)", "a",
+    value "-128"
+  );
 
-  checkStructure!("x: U8 = -10", "x", value "0");
-  checkStructure!("a := U8(-10)", "a", value "0");
+  //
+  checkStructure!(
+    "x: U8 = -10", "x",
+    value "0"
+  );
+  checkStructure!(
+    "a := U8(-10)", "a",
+    value "0"
+  );
 }
 
 // =================================================================================================
@@ -144,17 +223,15 @@ fn sameAsDeclaration() -> ()
 fn resultIsToken() -> ()
 {
   checkStructure!(
-    "a := U8(300)",
-    "a",
-    type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    "a := U8(300)", "a",
+    type UInt,
+    stype U8,
     value "255"
   );
   checkStructure!(
-    "a := I8(-300)",
-    "a",
-    type TokenType::Int,
-    stype StructureType::Primitive(PrimitiveType::I8),
+    "a := I8(-300)", "a",
+    type Int,
+    stype I8,
     value "-128"
   );
 }
@@ -164,10 +241,9 @@ fn resultIsToken() -> ()
 fn usizeIsToken() -> ()
 {
   checkStructure!(
-    "a := Usize(5)",
-    "a",
-    type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U8),
+    "a := Usize(5)", "a",
+    type UInt,
+    stype U8,
     value "5"
   );
 }
@@ -189,8 +265,14 @@ fn structureAsArgument() -> ()
 #[test]
 fn nested() -> ()
 {
-  checkStructure!("a := U8(U16(70000))", "a", value "255");
-  checkStructure!("a := U16(U8(300))", "a", value "255");
+  checkStructure!(
+    "a := U8(U16(70000))", "a",
+    value "255"
+  );
+  checkStructure!(
+    "a := U16(U8(300))", "a",
+    value "255"
+  );
 }
 
 /// В выражении метод режет только свой операнд, и сумма считается уже с ним.
@@ -208,8 +290,8 @@ fn inExpression() -> ()
     c := U8(a) + b
     "#,
     "c",
-    type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U16),
+    type UInt,
+    stype U16,
     value "265"
   );
 }
@@ -225,8 +307,8 @@ fn noCastInExpression() -> ()
     c := a + b
     "#,
     "c",
-    type TokenType::UInt,
-    stype StructureType::Primitive(PrimitiveType::U32),
+    type UInt,
+    stype U32,
     value "1111121"
   );
 }
@@ -255,9 +337,18 @@ fn methodArgument() -> ()
 #[test]
 fn pointer() -> ()
 {
-  checkStructure!("a := Pointer(5)", "a", value "5");
-  checkStructure!("a := CString(7)", "a", value "7");
-  checkStructure!("a := Any(5)", "a", value "5");
+  checkStructure!(
+    "a := Pointer(5)", "a",
+    value "5"
+  );
+  checkStructure!(
+    "a := CString(7)", "a",
+    value "7"
+  );
+  checkStructure!(
+    "a := Any(5)", "a",
+    value "5"
+  );
 }
 
 /// `String` и `RawString`: значение становится строкой этого типа.
@@ -266,14 +357,14 @@ fn toString() -> ()
 {
   checkStructure!(
     "a := String(5)", "a",
-    type TokenType::String,
-    stype StructureType::Primitive(PrimitiveType::String),
+    type String,
+    stype String,
     value "5"
   );
   checkStructure!(
     "a := RawString(5)", "a",
-    type TokenType::RawString,
-    stype StructureType::Primitive(PrimitiveType::RawString),
+    type RawString,
+    stype RawString,
     value "5"
   );
 }
@@ -282,7 +373,11 @@ fn toString() -> ()
 #[test]
 fn toNone() -> ()
 {
-  checkStructure!("a := None(5)", "a", type TokenType::None, value "");
+  checkStructure!(
+    "a := None(5)", "a",
+    type None,
+    value ""
+  );
 }
 
 /// todo desc
@@ -296,7 +391,7 @@ fn everyPrimitiveIsCast() -> ()
 
     if name == "None"
     { // `None` - это отсутствие значения.
-      checkStructure!(main, "a", type TokenType::None, value "");
+      checkStructure!(main, "a", type None, value "");
     } else {
       checkStructure!(main, "a", value "5");
     }

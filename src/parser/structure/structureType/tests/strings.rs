@@ -1,38 +1,34 @@
 use crate::parser::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};
 // =================================================================================================
 
-// Это общие тесты на три вида строк: String, CString и RawString.
+// Тесты на три вида строк: `String`/`CString`/`RawString`.
 
 // =================================================================================================
 
 /// Пустая строка в каждом из трёх типов строк.
 ///
-/// todo type() здесь None, а не String: с явным типом пустая строка теряет тип токена.
-///  Хотя структура получает правильный тип. Без явного типа (`a := ""`) токен остаётся String.
+/// todo `type()` здесь `None`, а не `String`: с явным типом пустая строка теряет тип токена.
+///  Хотя структура получает правильный тип. Без явного типа (`a := ""`) токен остаётся `String`.
 #[test]
 fn types() -> ()
 {
   checkStructure!(
-    r#"a: String = """#,
-    "a",
-    stype StructureType::Primitive(PrimitiveType::String),
+    r#"a: String = """#, "a",
+    stype String,
     value ""
   );
-  // CString - свой тип; алиас от Pointer только для FFI.
+  // `CString` - свой тип; алиас от `Pointer` только для FFI.
   checkStructure!(
-    r#"b: CString = """#,
-    "b",
-    stype StructureType::Primitive(PrimitiveType::CString),
+    r#"b: CString = """#, "b",
+    stype CString,
     value ""
   );
   checkStructure!(
-    r#"c: RawString = """#,
-    "c",
-    stype StructureType::Primitive(PrimitiveType::RawString),
+    r#"c: RawString = """#, "c",
+    stype RawString,
     value ""
   );
 }
@@ -42,7 +38,7 @@ fn types() -> ()
 /// Строка уходит в native: и целиком, и через поля.
 ///
 /// `lib.strlen(str.pointer, str.length)` — ручная распаковка полей.
-/// `lib.strlen(str)` — целиком, `chillffi` сам раскладывает String на ptr+len.
+/// `lib.strlen(str)` — целиком, `chillffi` сам раскладывает `String` на `pointer`+`length`.
 #[test]
 fn native() -> ()
 {
@@ -72,9 +68,9 @@ fn native() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "strlen", stype StructureType::Primitive(PrimitiveType::Method));
-  checkStructure!(main, "string", stype StructureType::Primitive(PrimitiveType::String), value "Hello from RTS 222!");
-  checkStructure!(main, "result", stype StructureType::Primitive(PrimitiveType::Usize), value "38");
+  checkStructure!(main, "strlen", stype Method);
+  checkStructure!(main, "string", stype String, value "Hello from RTS 222!");
+  checkStructure!(main, "result", stype Usize, value "38");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);

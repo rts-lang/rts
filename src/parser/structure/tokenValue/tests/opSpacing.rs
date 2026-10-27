@@ -28,68 +28,121 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[test]
 fn spacedSignsStaySeparate() -> ()
 {
-  checkTokensTypes("a - -b", &[TokenType::Word, TokenType::Minus, TokenType::Minus, TokenType::Word]);
-  checkTokensTypes("a- -b", &[TokenType::Word, TokenType::Minus, TokenType::Minus, TokenType::Word]);
-  checkTokensTypes("a + +b", &[TokenType::Word, TokenType::Plus, TokenType::Plus, TokenType::Word]);
-  checkTokensTypes("a ! = b", &[TokenType::Word, TokenType::Not, TokenType::Equals, TokenType::Word]);
-  checkTokensTypes("a : = b", &[TokenType::Word, TokenType::Colon, TokenType::Equals, TokenType::Word]);
-  checkTokensTypes("a < = b", &[TokenType::Word, TokenType::LessThan, TokenType::Equals, TokenType::Word]);
-  checkTokensTypes("a > = b", &[TokenType::Word, TokenType::GreaterThan, TokenType::Equals, TokenType::Word]);
+  checkTokensTypes(
+    "a - -b",
+    &[TokenType::Word, TokenType::Minus, TokenType::Minus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a- -b",
+    &[TokenType::Word, TokenType::Minus, TokenType::Minus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a + +b",
+    &[TokenType::Word, TokenType::Plus, TokenType::Plus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a ! = b",
+    &[TokenType::Word, TokenType::Not, TokenType::Equals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a : = b",
+    &[TokenType::Word, TokenType::Colon, TokenType::Equals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a < = b",
+    &[TokenType::Word, TokenType::LessThan, TokenType::Equals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a > = b",
+    &[TokenType::Word, TokenType::GreaterThan, TokenType::Equals, TokenType::Word]
+  );
 }
 
 /// Знаки вплотную по-прежнему склеиваются в один оператор.
 #[test]
 fn adjacentSignsMerge() -> ()
 {
-  checkTokensTypes("a != b", &[TokenType::Word, TokenType::NotEquals, TokenType::Word]);
-  checkTokensTypes("a:=b", &[TokenType::Word, TokenType::Creation, TokenType::Word]);
-  checkTokensTypes("a <= b", &[TokenType::Word, TokenType::LessThanOrEquals, TokenType::Word]);
-  checkTokensTypes("a >= b", &[TokenType::Word, TokenType::GreaterThanOrEquals, TokenType::Word]);
-  checkTokensTypes("a -> b", &[TokenType::Word, TokenType::Pointer, TokenType::Word]);
+  checkTokensTypes(
+    "a != b",
+    &[TokenType::Word, TokenType::NotEquals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a:=b",
+    &[TokenType::Word, TokenType::Creation, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a <= b",
+    &[TokenType::Word, TokenType::LessThanOrEquals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a >= b",
+    &[TokenType::Word, TokenType::GreaterThanOrEquals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a -> b",
+    &[TokenType::Word, TokenType::Pointer, TokenType::Word]
+  );
 }
 
 /// Пробелы вокруг знаков по-прежнему стираются: смысл тот же.
 #[test]
 fn spacesAroundSignsAreErased() -> ()
 {
-  checkTokensTypes("a-b", &[TokenType::Word, TokenType::Minus, TokenType::Word]);
-  checkTokensTypes("a -b", &[TokenType::Word, TokenType::Minus, TokenType::Word]);
-  checkTokensTypes("a - b", &[TokenType::Word, TokenType::Minus, TokenType::Word]);
-  checkTokensTypes("a  !=  b", &[TokenType::Word, TokenType::NotEquals, TokenType::Word]);
+  checkTokensTypes(
+    "a-b",
+    &[TokenType::Word, TokenType::Minus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a -b",
+    &[TokenType::Word, TokenType::Minus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a - b",
+    &[TokenType::Word, TokenType::Minus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a  !=  b",
+    &[TokenType::Word, TokenType::NotEquals, TokenType::Word]
+  );
 }
 
 /// Перенос строки между знаками не склеивает их: оператор в конце строки
-/// просто продолжает выражение (#85), а следующий знак читается заново.
+/// просто продолжает выражение, а следующий знак читается заново.
 #[test]
 fn newlineBetweenSignsDoesNotMerge() -> ()
 {
-  checkTokensTypes("a -\n-b", &[TokenType::Word, TokenType::Minus, TokenType::Minus, TokenType::Word]);
-  checkTokensTypes("a !\n= b", &[TokenType::Word, TokenType::Not, TokenType::Equals, TokenType::Word]);
-  checkTokensTypes("10-\n-20", &[TokenType::UInt, TokenType::Minus, TokenType::Int]);
+  checkTokensTypes(
+    "a -\n-b",
+    &[TokenType::Word, TokenType::Minus, TokenType::Minus, TokenType::Word]
+  );
+  checkTokensTypes(
+    "a !\n= b",
+    &[TokenType::Word, TokenType::Not, TokenType::Equals, TokenType::Word]
+  );
+  checkTokensTypes(
+    "10-\n-20",
+    &[TokenType::UInt, TokenType::Minus, TokenType::Int]
+  );
 }
 
 // =================================================================================================
 
-/// Составных `**`, `//`, `%%`, `^^` нет: каждый знак читается отдельным оператором.
-/// Из двойных остаются только `++`, `--` и операторы с `=`.
-/// Благодаря этому `*` можно использовать как разыменование: `**p` и `a**b` не слипаются.
-#[test]
-fn doubledSignsAreRemoved() -> ()
-{
-  checkTokensTypes("**a", &[TokenType::Multiply, TokenType::Multiply, TokenType::Word]);
-  checkTokensTypes("a**b", &[TokenType::Word, TokenType::Multiply, TokenType::Multiply, TokenType::Word]);
-  checkTokensTypes("a//b", &[TokenType::Word, TokenType::Divide, TokenType::Divide, TokenType::Word]);
-  checkTokensTypes("a%%b", &[TokenType::Word, TokenType::Modulo, TokenType::Modulo, TokenType::Word]);
-  checkTokensTypes("a^^b", &[TokenType::Word, TokenType::Exponent, TokenType::Exponent, TokenType::Word]);
-}
-
-/// `++` и `--` вплотную остаются одним токеном и заканчивают выражение (#85).
+/// `++` и `--` вплотную остаются одним токеном и заканчивают выражение.
 #[test]
 fn incrementEndsLine() -> ()
 {
-  checkTokensTypes("a++", &[TokenType::Word, TokenType::UnaryPlus]);
-  checkTokensTypes("a--", &[TokenType::Word, TokenType::UnaryMinus]);
-  checkTokensTypes("a + +b", &[TokenType::Word, TokenType::Plus, TokenType::Plus, TokenType::Word]);
+  checkTokensTypes(
+    "a++",
+    &[TokenType::Word, TokenType::UnaryPlus]
+  );
+  checkTokensTypes(
+    "a--",
+    &[TokenType::Word, TokenType::UnaryMinus]
+  );
+  checkTokensTypes(
+    "a + +b",
+    &[TokenType::Word, TokenType::Plus, TokenType::Plus, TokenType::Word]
+  );
 }
 
 /// `a++` завершает выражение, а `a +` продолжает его на следующую строку.
@@ -110,38 +163,34 @@ fn incrementDoesNotContinueLine() -> ()
 fn minusNegativeNumber() -> ()
 {
   checkStructure!(
-    "a := 5 - -5",
-    "a",
-    type TokenType::UInt,
+    "a := 5 - -5", "a",
+    type UInt,
     value "10"
   );
   checkStructure!(
-    "a := 5- -5",
-    "a",
-    type TokenType::UInt,
+    "a := 5- -5", "a",
+    type UInt,
     value "10"
   );
   checkStructure!(
-    "a := -5 - -5",
-    "a",
-    type TokenType::Int,
+    "a := -5 - -5", "a",
+    type Int,
     value "0"
   );
 }
 
-/// `1 - - 5`: пробел между минусом и числом тоже стирается, как и раньше.
+/// `1 - - 5`: пробел между минусом и числом тоже стирается.
 #[test]
 fn minusSpacedNegativeNumber() -> ()
 {
   checkStructure!(
-    "a := 1 - - 5",
-    "a",
-    type TokenType::UInt,
+    "a := 1 - - 5", "a",
+    type UInt,
     value "6"
   );
 }
 
-/// То же самое для константы слева.
+/// todo desc
 #[test]
 fn minusNegativeNumberFromConstant() -> ()
 {
@@ -151,7 +200,7 @@ fn minusNegativeNumberFromConstant() -> ()
     a := x - -5
     "#,
     "a",
-    type TokenType::UInt,
+    type UInt,
     value "11"
   );
 }

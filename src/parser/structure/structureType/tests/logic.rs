@@ -1,9 +1,7 @@
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::{checkExpression, checkStructure};
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// `True`/`False`/`None` как типы.
+// Тесты на `True`/`False`/`None` как типы.
 //
 // Здесь есть примеры с `=` они работают т.к. указаны типы структур;
 // В иных случаях `:=` как при создании.
@@ -15,10 +13,10 @@ use crate::tokenizer::types::tokenType::TokenType;
 fn trueType() -> ()
 {
   checkStructure!(
-    r#"
-    a: True = True
-    "#,
-    "a", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    "a: True = True", "a",
+    type True,
+    stype True,
+    value "True"
   );
 }
 
@@ -27,42 +25,47 @@ fn trueType() -> ()
 fn falseType() -> ()
 {
   checkStructure!(
-    r#"
-    b: False = False
-    "#,
-    "b", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
+    "b: False = False", "b",
+    type False,
+    stype False,
+    value "False"
   );
 }
 
 /// `None` как тип.
 #[test]
-#[ignore]
+#[ignore] // todo Это известный баг? почему оно тут так?
 fn noneType() -> ()
 {
   checkStructure!(
-    r#"
-    c: None = None
-    "#,
-    "c", type TokenType::None, stype StructureType::Primitive(PrimitiveType::None), value ""
+    "c: None = None", "c",
+    type None,
+    stype None,
+    value ""
   );
 }
 
-/// Union `True | False`: значение выбирает вариант.
+// =================================================================================================
+
+/// Union `True | False`: значение выбирает `вариант`.
 #[test]
 fn trueFalseUnion() -> ()
 {
   checkStructure!(
-    r#"
-    d~: True | False = True
-    "#,
-    "d", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    "d~: True | False = True", "d",
+    type True,
+    stype True,
+    value "True"
   );
   checkStructure!(
     r#"
     d~: True | False = True
     d = False
     "#,
-    "d", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
+    "d",
+    type False,
+    stype False,
+    value "False"
   );
 }
 
@@ -71,44 +74,43 @@ fn trueFalseUnion() -> ()
 fn inferred() -> ()
 {
   checkStructure!(
-    r#"
-    e := True
-    "#,
-    "e", type TokenType::True, stype StructureType::Primitive(PrimitiveType::True), value "True"
+    "e := True", "e",
+    type True,
+    stype True,
+    value "True"
   );
   checkStructure!(
-    r#"
-    f := False
-    "#,
-    "f", type TokenType::False, stype StructureType::Primitive(PrimitiveType::False), value "False"
+    "f := False", "f",
+    type False,
+    stype False,
+    value "False"
   );
 }
 
-/// Forward-declaration без значения — None.
+/// Forward-declaration без значения — `None`.
 #[test]
-#[ignore]
+#[ignore] // todo Это известный баг? почему оно тут так?
 fn forwardDecl() -> ()
 {
   checkStructure!(
-    r#"
-    g
-    "#,
-    "g", type TokenType::None, stype StructureType::Primitive(PrimitiveType::None), value ""
+    "g", "g",
+    type None,
+    stype None,
+    value ""
   );
 }
 
 // =================================================================================================
-
-// Известные баги.
+// todo Известные баги.
 
 /// Отрицательное число справа от сравнения: минус склеивается с оператором.
 #[test]
 #[ignore]
 fn negativeRightSide() -> ()
 {
-  checkExpression!("5 > -5", type TokenType::True);
-  checkExpression!("-3 = -3", type TokenType::True);
-  checkExpression!("0 > -3", type TokenType::True);
+  checkExpression!("5 > -5", type True);
+  checkExpression!("-3 = -3", type True);
+  checkExpression!("0 > -3", type True);
 }
 
 /// Числа разных типов: сравниваются по виду, а не по значению.
@@ -116,10 +118,10 @@ fn negativeRightSide() -> ()
 #[ignore]
 fn crossTypeComparison() -> ()
 {
-  checkExpression!("5 = 5.0", type TokenType::True);
-  checkExpression!("10 > 2.5", type TokenType::True);
-  checkExpression!("5 < 3.0", type TokenType::False);
-  checkExpression!("2.5 < 10", type TokenType::True);
+  checkExpression!("5 = 5.0", type True);
+  checkExpression!("10 > 2.5", type True);
+  checkExpression!("5 < 3.0", type False);
+  checkExpression!("2.5 < 10", type True);
 }
 
 /// `True`/`False` не числа: перед сравнением с числом их нужно приводить явно.
@@ -127,8 +129,8 @@ fn crossTypeComparison() -> ()
 #[ignore]
 fn boolNumberComparison() -> ()
 {
-  checkExpression!("True = 1", type TokenType::False);
-  checkExpression!("False = 0", type TokenType::False);
+  checkExpression!("True = 1", type False);
+  checkExpression!("False = 0", type False);
 }
 
 // =================================================================================================

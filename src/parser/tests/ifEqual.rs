@@ -1,5 +1,4 @@
 use crate::parser::testing::checkStructure;
-use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 // Тесты на приравнивание условного блока (структуры) с правой стороны
@@ -100,7 +99,7 @@ fn blockExpressionFalseIsNone() -> ()
     a := ? False { = 99 }
     "#,
     "a",
-    type TokenType::None,
+    type None,
     value ""
   );
 }
@@ -114,7 +113,7 @@ fn blockExpressionEmptyIsNone() -> ()
     a := ? True {}
     "#,
     "a",
-    type TokenType::None,
+    type None,
     value ""
   );
 }

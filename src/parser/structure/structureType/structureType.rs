@@ -362,7 +362,7 @@ impl Structure
   /// 
   /// todo Есть идея ввести на уровне `Structure` в будущем bool,
   ///  чтобы можно было проверить и оптимизировать эту работу.
-  pub fn normalizeToken(token: &mut Token, structureType: StructureType) 
+  pub fn normalizeToken(token: &mut Token, structureType: StructureType) -> ()
   {
     let dataType: &TokenType = token.getDataType();
 
