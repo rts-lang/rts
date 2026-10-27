@@ -270,97 +270,212 @@ pub(super) use checkStructure;
 
 // =================================================================================================
 
-/// Короткая форма типа-примитива: `U8` вместо `StructureType::Primitive(PrimitiveType::U8)`.
+/// Упрощение граней: короткая форма - к полной.
 ///
-/// Имя подставляется как вариант `PrimitiveType`, поэтому сокращение работает только
-/// для примитивов из этого перечисления; `Custom` и прочие не-примитивы - нет.
-#[allow(unused_macros)]
-macro_rules! primitiveStype
+/// Грани идут в порядке: `type` → `stype` → `utype` → `value` → `mut` → `lines`.
+/// У каждой грани две формы - короткая (имя варианта) и полная (выражение):
+///
+///     checkStructure!("a: U8 = 10", "a", stype U8);                          // Короткая.
+///     checkStructure!("a: U8 = 10", "a", stype StructureType::Primitive(PrimitiveType::U8)); // Полная.
+///
+/// Короткая форма приводится к полной одинаково для всех граней: правило одно на грань,
+/// и одинаковое для всех - короткая форма `type` разбирается так же, как `stype` или `mut`.
+macro_rules! simplifyFacets
 {
-  ($primitive:ident) =>
+  // Грани структуры: `main`, имя структуры, код.
+  ($main:expr, $name:expr, $code:literal, $($facets:tt)*) =>
+  {{
+    $crate::parser::testing::simplifyFacets!(@helpers);
+    $crate::parser::testing::simplifyFacets!(
+      @step [$main, $name, $code] (); $($facets)* ,
+    )
+  }};
+
+  // Грани выражения: только код.
+  (@expression $code:expr, $($facets:tt)*) =>
+  {{
+    $crate::parser::testing::simplifyFacets!(@helpers);
+    $crate::parser::testing::simplifyFacets!(
+      @step [$code] (); $($facets)* ,
+    )
+  }};
+
+  // Сокращения граней. Объявлены внутри раскрытия - наружу не торчат:
+  // работают только на другие макросы и на сокращения граней.
+  (@helpers) =>
   {
-    $crate::parser::structure::structureType::StructureType::Primitive(
-      $crate::parser::structure::structureType::PrimitiveType::$primitive
+    // Короткая форма типа токена: `UInt` вместо `TokenType::UInt`.
+    // Имя подставляется как вариант `TokenType`, поэтому сокращение работает только
+    // для вариантов этого перечисления.
+    #[allow(unused_macros)]
+    macro_rules! simplifyType
+    {
+      ($tokenType:ident) =>
+      {
+        $crate::tokenizer::types::tokenType::TokenType::$tokenType
+      };
+    }
+
+    // Короткая форма типа-примитива: `U8` вместо `StructureType::Primitive(PrimitiveType::U8)`.
+    // Имя подставляется как вариант `PrimitiveType`, поэтому сокращение работает только
+    // для примитивов из этого перечисления; `Custom` и прочие не-примитивы - нет.
+    #[allow(unused_macros)]
+    macro_rules! simplifyStype
+    {
+      ($primitive:ident) =>
+      {
+        $crate::parser::structure::structureType::StructureType::Primitive(
+          $crate::parser::structure::structureType::PrimitiveType::$primitive
+        )
+      };
+    }
+
+    // Короткая форма типа-примитива для грани `utype` - то же, что и для `stype`.
+    #[allow(unused_macros)]
+    macro_rules! simplifyUtype
+    {
+      ($primitive:ident) =>
+      {
+        $crate::parser::structure::structureType::StructureType::Primitive(
+          $crate::parser::structure::structureType::PrimitiveType::$primitive
+        )
+      };
+    }
+
+    // Короткая форма уровня изменения: `Variable` вместо `StructureMut::Variable`.
+    // Имя подставляется как вариант `StructureMut`, поэтому сокращение работает только
+    // для вариантов этого перечисления.
+    #[allow(unused_macros)]
+    macro_rules! simplifyMut
+    {
+      ($mutability:ident) =>
+      {
+        $crate::parser::structure::structure::StructureMut::$mutability
+      };
+    }
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Разделитель между гранями.
+  (@step [$($context:tt)*] ($($done:tt)*); , $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)*); $($rest)*
     )
   };
-}
 
-#[allow(unused_imports)]
-pub(super) use primitiveStype;
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-/// Короткая форма уровня изменения: `Variable` вместо `StructureMut::Variable`.
-///
-/// Имя подставляется как вариант `StructureMut`, поэтому сокращение работает только
-/// для вариантов этого перечисления.
-#[allow(unused_macros)]
-macro_rules! structureMut
-{
-  ($mutability:ident) =>
+  // Грань `type`: короткая форма - имя варианта.
+  (@step [$($context:tt)*] ($($done:tt)*); type $t:ident, $($rest:tt)*) =>
   {
-    $crate::parser::structure::structure::StructureMut::$mutability
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , type simplifyType!($t)); $($rest)*
+    )
   };
-}
 
-#[allow(unused_imports)]
-pub(super) use structureMut;
-
-/// Короткая форма типа токена: `UInt` вместо `TokenType::UInt`.
-///
-/// Имя подставляется как вариант `TokenType`, поэтому сокращение работает только
-/// для вариантов этого перечисления.
-#[allow(unused_macros)]
-macro_rules! tokenType
-{
-  ($tokenType:ident) =>
+  // Грань `type`: полная форма - выражение.
+  (@step [$($context:tt)*] ($($done:tt)*); type $t:expr, $($rest:tt)*) =>
   {
-    $crate::tokenizer::types::tokenType::TokenType::$tokenType
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , type $t); $($rest)*
+    )
   };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Грань `stype`: короткая форма - имя примитива.
+  (@step [$($context:tt)*] ($($done:tt)*); stype $s:ident, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , stype simplifyStype!($s)); $($rest)*
+    )
+  };
+
+  // Грань `stype`: полная форма - выражение.
+  (@step [$($context:tt)*] ($($done:tt)*); stype $s:expr, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , stype $s); $($rest)*
+    )
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Грань `utype`: короткая форма - имя примитива.
+  (@step [$($context:tt)*] ($($done:tt)*); utype $u:ident, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , utype simplifyUtype!($u)); $($rest)*
+    )
+  };
+
+  // Грань `utype`: полная форма - выражение.
+  (@step [$($context:tt)*] ($($done:tt)*); utype $u:expr, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , utype $u); $($rest)*
+    )
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Грань `value`: только полная форма - выражение.
+  (@step [$($context:tt)*] ($($done:tt)*); value $v:expr, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , value $v); $($rest)*
+    )
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Грань `mut`: короткая форма - имя варианта.
+  (@step [$($context:tt)*] ($($done:tt)*); mut $m:ident, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , mut simplifyMut!($m)); $($rest)*
+    )
+  };
+
+  // Грань `mut`: полная форма - выражение.
+  (@step [$($context:tt)*] ($($done:tt)*); mut $m:expr, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , mut $m); $($rest)*
+    )
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Грань `lines`: только полная форма - выражение.
+  (@step [$($context:tt)*] ($($done:tt)*); lines $l:expr, $($rest:tt)*) =>
+  {
+    $crate::parser::testing::simplifyFacets!(
+      @step [$($context)*] ($($done)* , lines $l); $($rest)*
+    )
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Грани кончились: сверяем структуру.
+  (@step [$main:expr, $name:expr, $code:literal] ($($done:tt)*); ) =>
+  {{
+    $crate::parser::testing::checkFacets!($main, $name, $code $($done)*)
+  }};
+
+  // Грани кончились: сверяем выражение.
+  (@step [$code:expr] ($($done:tt)*); ) =>
+  {{
+    $crate::parser::testing::checkExpressionFacets!($code $($done)*)
+  }};
 }
 
 #[allow(unused_imports)]
-pub(super) use tokenType; // todo
+pub(super) use simplifyFacets;
 
 // =================================================================================================
-
-/// Разбор грани `type`: короткая форма (`type UInt`) - это идентификатор,
-/// а обычная (`type TokenType::UInt`) - выражение.
-///
-/// Грань `type` идёт первой, поэтому разбирается отдельно от остальных:
-/// короткая форма приводится к `TokenType::UInt`, а дальше идёт обычный разбор.
-macro_rules! normalizeTypeFacet
-{
-  // Короткая форма: `type UInt`.
-  ($main:expr, $name:expr, $code:literal, type $t:ident $(, $($rest:tt)*)?) =>
-  {{
-    $crate::parser::testing::normalizeFacets!(
-      $main, $name, $code,
-      type $crate::tokenizer::types::tokenType::TokenType::$t
-      $(, $($rest)*)?
-    )
-  }};
-
-  // Обычная форма: `type TokenType::UInt`.
-  ($main:expr, $name:expr, $code:literal, type $t:expr $(, $($rest:tt)*)?) =>
-  {{
-    $crate::parser::testing::normalizeFacets!(
-      $main, $name, $code,
-      type $t
-      $(, $($rest)*)?
-    )
-  }};
-
-  // Без грани `type`.
-  ($main:expr, $name:expr, $code:literal, $($rest:tt)*) =>
-  {{
-    $crate::parser::testing::normalizeFacets!(
-      $main, $name, $code,
-      $($rest)*
-    )
-  }};
-}
-
-#[allow(unused_imports)]
-pub(super) use normalizeTypeFacet;
 
 /// Проверка граней: значения типов здесь уже приведены к `StructureType`.
 ///
@@ -398,130 +513,6 @@ macro_rules! checkFacets
 #[allow(unused_imports)]
 pub(super) use checkFacets;
 
-/// Разбор граней: короткая форма примитива (`stype U8`) - это идентификатор,
-/// а обычный тип (`stype primitiveValueNumber("10")`) - выражение. Поэтому грани типа разбираются
-/// отдельно, а всё остальное - обычными выражениями.
-///
-/// Грань `mut` - так же: короткая форма `mut Variable` - это идентификатор,
-/// а обычная `mut StructureMut::Variable` - выражение.
-macro_rules! normalizeFacets
-{
-  // Обе грани типа - короткая форма примитива, `mut` - короткая форма.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:ident)? $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $crate::parser::testing::primitiveStype!($s))?
-      $(, utype $crate::parser::testing::primitiveStype!($u))?
-      $(, value $v)?
-      $(, mut $crate::parser::testing::structureMut!($m))?
-      $(, lines $l)?
-    )
-  }};
-
-  // Обе грани типа - короткая форма примитива.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:ident)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $crate::parser::testing::primitiveStype!($s))?
-      $(, utype $crate::parser::testing::primitiveStype!($u))?
-      $(, value $v)?
-      $(, mut $m)?
-      $(, lines $l)?
-    )
-  }};
-
-  // `stype` - короткая форма примитива, `utype` - обычное выражение, `mut` - короткая форма.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $crate::parser::testing::primitiveStype!($s))?
-      $(, utype $u)?
-      $(, value $v)?
-      $(, mut $crate::parser::testing::structureMut!($m))?
-      $(, lines $l)?
-    )
-  }};
-
-  // `stype` - короткая форма примитива, `utype` - обычное выражение.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $crate::parser::testing::primitiveStype!($s))?
-      $(, utype $u)?
-      $(, value $v)?
-      $(, mut $m)?
-      $(, lines $l)?
-    )
-  }};
-
-  // `stype` - обычное выражение, `utype` - короткая форма примитива, `mut` - короткая форма.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? , utype $u:ident $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $s)?
-      , utype $crate::parser::testing::primitiveStype!($u)
-      $(, value $v)?
-      $(, mut $crate::parser::testing::structureMut!($m))?
-      $(, lines $l)?
-    )
-  }};
-
-  // `stype` - обычное выражение, `utype` - короткая форма примитива.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? , utype $u:ident $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $s)?
-      , utype $crate::parser::testing::primitiveStype!($u)
-      $(, value $v)?
-      $(, mut $m)?
-      $(, lines $l)?
-    )
-  }};
-
-  // Обычные выражения - без сокращений, `mut` - короткая форма.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $s)?
-      $(, utype $u)?
-      $(, value $v)?
-      $(, mut $crate::parser::testing::structureMut!($m))?
-      $(, lines $l)?
-    )
-  }};
-
-  // Обычные выражения - без сокращений.
-  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
-  {{
-    $crate::parser::testing::checkFacets!(
-      $main, $name, $code
-      $(, type $t)?
-      $(, stype $s)?
-      $(, utype $u)?
-      $(, value $v)?
-      $(, mut $m)?
-      $(, lines $l)?
-    )
-  }};
-}
-
-#[allow(unused_imports)]
-pub(super) use normalizeFacets;
-
 /// Версия `checkStructure!` без паники: возвращает `Result<(), String>`,
 /// где первая неверная грань - `Err` с сообщением. Формы и грани те же.
 macro_rules! tryCheckStructure
@@ -531,14 +522,14 @@ macro_rules! tryCheckStructure
   {{
     let main: ::std::sync::Arc<::std::sync::RwLock<$crate::parser::structure::structure::Structure>> =
       $crate::parser::testing::runCode!($code);
-    $crate::parser::testing::normalizeTypeFacet!(&main, $name, $code, $($facets)*)
+    $crate::parser::testing::simplifyFacets!(&main, $name, $code, $($facets)*)
   }};
 
   // Структура: `tryCheckStructure!(main, "a", value "10")`.
   ($main:expr, $name:expr, $($facets:tt)*) =>
   {{
     let main = &$main;
-    $crate::parser::testing::normalizeTypeFacet!(main, $name, "", $($facets)*)
+    $crate::parser::testing::simplifyFacets!(main, $name, "", $($facets)*)
   }};
 }
 
@@ -628,15 +619,20 @@ pub(super) use showStructure;
 /// Паникует на первой неверной грани.
 macro_rules! checkExpression
 {
-  // Короткая форма типа токена: `type UFloat`.
-  ($code:expr, type $t:ident $(, value $v:expr)? $(,)?) =>
-  {
-    $crate::parser::testing::checkExpression!(
-      $code, type $crate::tokenizer::types::tokenType::TokenType::$t $(, value $v)?
-    )
-  };
+  ($code:expr, $($facets:tt)*) =>
+  {{
+    $crate::parser::testing::simplifyFacets!(@expression $code, $($facets)*)
+  }};
+}
 
-  ($code:expr $(, type $t:expr)? $(, value $v:expr)? $(,)?) =>
+pub(super) use checkExpression;
+
+/// Сверка граней выражения: значения типов здесь уже приведены к `TokenType`.
+///
+/// Порядок граней: `type` → `value`.
+macro_rules! checkExpressionFacets
+{
+  ($code:expr $(, type $t:expr)? $(, value $v:expr)?) =>
   {{
     let code: &str = $code;
     let token: $crate::tokenizer::types::token::Token = $crate::parser::testing::expressionOf(code);
@@ -660,7 +656,8 @@ macro_rules! checkExpression
   }};
 }
 
-pub(super) use checkExpression;
+#[allow(unused_imports)]
+pub(super) use checkExpressionFacets;
 
 // =================================================================================================
 
@@ -977,6 +974,15 @@ mod tests
       tryCheckStructure!("a := 10", "a", mut Variable).unwrap_err(),
       "check mut in `a := 10` for 'a': expected 'Variable', got 'Constant'"
     );
+  }
+
+  /// Висячая запятая после граней - допустима.
+  #[test]
+  fn trailingCommaOnly() -> ()
+  {
+    checkStructure!("a := 10", "a",);
+    checkStructure!("a := 10", "a", type UInt,);
+    assert!(tryCheckStructure!("a := 10", "a",).is_ok());
   }
 
   /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheckStructure!`: паники нет.
