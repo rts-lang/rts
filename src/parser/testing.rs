@@ -1,5 +1,5 @@
 use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::structure::structureType::{PrimitiveType, PrimitiveValueKind, StructureType};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -51,6 +51,18 @@ pub(super) fn getStructure(main: &Arc<RwLock<Structure>>, name: &str) -> Arc<RwL
       mainGuard.getStructureByScope(name)
     };
   found.unwrap_or_else(|| panic!("Structure '{}' was not created", name))
+}
+
+/// Числовой примитив как `вариант` типизации: `primitiveValueNumber("10")` - это `a: 10`.
+pub(super) fn primitiveValueNumber(data: &str) -> StructureType
+{
+  StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
+}
+
+/// Строковый примитив как `вариант` типизации: `primitiveValueText("x")` - это `a: "x"`.
+pub(super) fn primitiveValueText(data: &str) -> StructureType
+{
+  StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
 }
 
 /// Токен структуры: тип токена, строковое значение.
@@ -222,7 +234,7 @@ pub(super) fn printStructureFacets(
 ///     checkStructure!("a: U8 = 300", "a", type UInt, stype U8, value "255");
 ///     checkStructure!("a := 0.0", "a", type UFloat, stype F32); // Без значения
 ///     checkStructure!("a := 10", "a", stype U8); // Только stype
-///     checkStructure!("a: U8 | 10 = 10", "a", stype number("10"), utype Union(vec![U8, number("10")]));
+///     checkStructure!("a: U8 | 10 = 10", "a", stype primitiveValueNumber("10"), utype Union(vec![U8, primitiveValueNumber("10")]));
 ///
 /// Типы можно писать коротко - по имени варианта (`type UInt`, `stype U8`);
 /// полные формы `TokenType::UInt` и `StructureType::Primitive(PrimitiveType::U8)`
@@ -361,7 +373,7 @@ macro_rules! checkFacets
 pub(super) use checkFacets;
 
 /// Разбор граней: короткая форма примитива (`stype U8`) - это идентификатор,
-/// а обычный тип (`stype number("10")`) - выражение. Поэтому грани типа разбираются
+/// а обычный тип (`stype primitiveValueNumber("10")`) - выражение. Поэтому грани типа разбираются
 /// отдельно, а всё остальное - обычными выражениями.
 macro_rules! normalizeFacets
 {
