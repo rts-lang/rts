@@ -104,7 +104,7 @@ fn constantBlocked() -> ()
 fn constantTyped() -> ()
 {
   checkStructure!(
-    "a: U8 := 300",
+    "a: U8 = 300",
     "a",
     type UInt,
     stype U8,
@@ -118,7 +118,7 @@ fn constantTyped() -> ()
 fn constantSigned() -> ()
 {
   checkStructure!(
-    "a: U8 := -10",
+    "a: U8 = -10",
     "a",
     stype U8,
     mut Constant
@@ -181,7 +181,7 @@ fn variableValue() -> ()
 fn variableTypedValue() -> ()
 {
   checkStructure!(
-    "a~: U8 := 10",
+    "a~: U8 = 10",
     "a",
     type UInt,
     stype U8,
@@ -196,7 +196,7 @@ fn variableCast() -> ()
 {
   checkStructure!(
     r#"
-    a~: U8 := 1
+    a~: U8 = 1
     a = 999
     "#,
     "a",
@@ -261,7 +261,7 @@ fn dynamicValue() -> ()
 fn dynamicTypedValue() -> ()
 {
   checkStructure!(
-    "a~~: U8 := 10",
+    "a~~: U8 = 10",
     "a",
     type UInt,
     stype U8,
@@ -276,7 +276,7 @@ fn dynamicTypeChange() -> ()
 {
   checkStructure!(
     r#"
-    a~~: U8 := 10
+    a~~: U8 = 10
     a = "x"
     "#,
     "a",
