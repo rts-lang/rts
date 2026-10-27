@@ -1,15 +1,16 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::_sourcePath;
 use crate::parser::structure::ffi::bridge::{callExternal, callExternalWithScope, FfiExpect};
 use crate::parser::structure::ffi::scopeStack;
-use crate::parser::structure::methods::parameters::{Parameters};
+use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::structure::tokenValue::calculate::{calculate, normalizeToken};
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
-use crate::tokenizer::types::token::{Token};
-use crate::tokenizer::types::tokenType::{TokenType};
+use crate::tokenizer::types::token::Token;
+use crate::tokenizer::types::tokenType::TokenType;
+use std::cell::Cell;
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 // =================================================================================================
 
 /* 
@@ -107,8 +108,22 @@ pub struct Structure
   /// Запоминается при создании из `_sourcePath`.
   pub sourcePath: Option< Arc<String> >,
 
-  /// Используется только для условных блоков и `go`.
-  pub lineIndex: usize
+  /// Курсор чтения линий для `readLines` и `go`.
+  /// 
+  /// Т.к. блок кода в целом и есть структура, потому что это набор линий,
+  /// то парсер при проходе использует `lineIndex`.
+  /// 
+  /// Раньше `lineIndex` был отдельным и поэтому `unsafe` pointer;
+  /// Он мог бы быть локальным для `readLines`, но тогда у `go` возникнут проблемы;
+  /// Поэтому по сути `lineIndex` общий для разных механизмов.
+  /// 
+  /// `go` хочет знать строку блока чтения - но блок чтения это `Structure`.
+  /// 
+  /// todo Это находится здесь только из-за схожих задач. Нет контекста чтения линий,
+  ///  потому что это и есть задача `Structure`. Но проблема именно в том, что
+  ///  `lineIndex` может никогда не использоваться и занимать место, что следует
+  ///  исправить. А еще он `Cell` из-за однопоточности чтения пока что.
+  pub lineIndex: Cell<usize>
 }
 
 impl Structure 
@@ -135,7 +150,7 @@ impl Structure
       parent,
       isFfiBlock: false,
       sourcePath: _sourcePath.with(|sourcePath| sourcePath.borrow().clone()),
-      lineIndex: 0
+      lineIndex: Cell::new(0)
     }
   }
 
@@ -174,7 +189,7 @@ impl Structure
       parent: self.parent.clone(),
       isFfiBlock: self.isFfiBlock,
       sourcePath: self.sourcePath.clone(),
-      lineIndex: 0
+      lineIndex: Cell::new(0)
     }
   }
 

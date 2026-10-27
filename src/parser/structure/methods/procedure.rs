@@ -55,19 +55,17 @@ impl Procedure
     if let Some(parentLink) = &structure.parent
     { // Получаем ссылку на линию.
       let parent: RwLockReadGuard<Structure> = parentLink.read().unwrap();
-      let lineIndexBuffer: usize = parent.lineIndex;
+      let lineIndexBuffer: usize = parent.lineIndex.get();
 
       if let Some(lines) = &parent.lines
       {
-        let (mut lineIndex, lineLink): (usize, Arc<RwLock<Line>>) =
-          (lineIndexBuffer, lines[lineIndexBuffer].clone());
+        let lineLink: Arc<RwLock<Line>> = lines[lineIndexBuffer].clone();
 
         // Используем линию parent а также сам parent для нового запуска.
         drop(parent);
         searchStructure(
           &lineLink.read().unwrap(),
-          parentLink.clone(),
-          &mut lineIndex
+          parentLink.clone()
         );
       }
       //
