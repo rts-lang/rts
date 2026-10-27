@@ -55,13 +55,13 @@ fn unionParse() -> ()
       StructureType::Primitive(PrimitiveType::String)
     ])
   );
+  // `None` - не явный примитив: из объединения он отбрасывается.
   checkStructure!(
     "a: I8 | U8 | F64 | None = 1", "a",
     utype StructureType::Union(vec![
       StructureType::Primitive(PrimitiveType::I8),
       StructureType::Primitive(PrimitiveType::U8),
-      StructureType::Primitive(PrimitiveType::F64),
-      StructureType::Primitive(PrimitiveType::None)
+      StructureType::Primitive(PrimitiveType::F64)
     ])
   );
 
@@ -144,7 +144,7 @@ fn unionConvert() -> ()
   );
 }
 
-/// Ни один `вариант` не подошёл и привести нельзя - `None`.
+/// `None` для `union`.
 #[test]
 fn unionNone() -> ()
 {
@@ -162,18 +162,16 @@ fn unionNone() -> ()
     value ""
   );
 
-  // Явный `| None` в объединении: значение не подходит - всё равно `None`.
+  // `None` - не явный примитив: `| None` отбрасывается и остаётся обычный тип без `union`.
   checkStructure!(
-    "a: String | None = True", "a",
-    stype None,
-    value ""
+    "a: String | None = \"x\"", "a",
+    utype StructureType::Primitive(PrimitiveType::String),
+    value "x"
   );
-
-  // Само `None` в объединении - законный `вариант`.
   checkStructure!(
-    "a: String | None = None", "a",
-    stype None,
-    value ""
+    "a: None | String = \"x\"", "a",
+    utype StructureType::Primitive(PrimitiveType::String),
+    value "x"
   );
 }
 
