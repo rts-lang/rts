@@ -48,9 +48,10 @@ use crate::tokenizer::types::tokenType::TokenType;
 /// - Имя примитива - `U8` становится `Primitive(PrimitiveType::U8)`;
 /// - Выражение - берётся как есть: `primitiveValueText("x")`.
 ///
-///       union![U8, String];
-///       union![primitiveValueText("x")];
-///       union![U8, primitiveValueText("x")];
+///     union![U8, String];
+///     union![primitiveValueText("x")];
+///     union![U8, primitiveValueText("x")];
+/// todo Тут плохой `union` desc - выглядит плохо в описании. А при сборке ломался.
 ///
 /// Имена примитивов и выражения можно смешивать в одном списке.
 #[allow(unused_macros)]
