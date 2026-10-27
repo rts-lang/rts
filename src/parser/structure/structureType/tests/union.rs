@@ -165,18 +165,18 @@ fn unionNone() -> ()
 #[test]
 fn unionPrimitiveParse() -> ()
 {
-  let tenTwenty: StructureType = StructureType::Union(vec![
+  let tenTwenty = || StructureType::Union(vec![
     primitiveValueNumber("10"),
     primitiveValueNumber("20")
   ]);
   
   checkStructure!(
     "a: 10 | 20 = 10", "a",
-    utype tenTwenty.clone()
+    utype tenTwenty()
   );
   checkStructure!(
     "a: 10|20 = 10", "a", // Без пробелов.
-    utype tenTwenty.clone()
+    utype tenTwenty()
   );
   checkStructure!(
     "a: \"text\" | 10 = 10", "a",
@@ -226,7 +226,7 @@ fn unionPrimitiveParse() -> ()
   // Повторы схлопываются.
   checkStructure!(
     "a: 10 | 10 | 20 = 10", "a",
-    utype tenTwenty.clone());
+    utype tenTwenty());
 
   // Незакрытый `|` не ломает разбор.
   checkStructure!(

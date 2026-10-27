@@ -53,18 +53,6 @@ pub(super) fn getStructure(main: &Arc<RwLock<Structure>>, name: &str) -> Arc<RwL
   found.unwrap_or_else(|| panic!("Structure '{}' was not created", name))
 }
 
-/// Числовой примитив как `вариант` типизации: `primitiveValueNumber("10")` - это `a: 10`.
-pub(super) fn primitiveValueNumber(data: &str) -> StructureType
-{
-  StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
-}
-
-/// Строковый примитив как `вариант` типизации: `primitiveValueText("x")` - это `a: "x"`.
-pub(super) fn primitiveValueText(data: &str) -> StructureType
-{
-  StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
-}
-
 /// Токен структуры: тип токена, строковое значение.
 fn tokenOf(main: &Arc<RwLock<Structure>>, name: &str) -> (TokenType, String)
 {
@@ -78,6 +66,20 @@ fn tokenOf(main: &Arc<RwLock<Structure>>, name: &str) -> (TokenType, String)
     .first().unwrap();
   
   (*token.getDataType(), token.getData().toString().unwrap_or_default())
+}
+
+// =================================================================================================
+
+/// Числовой примитив как `вариант` типизации: `primitiveValueNumber("10")` - это `a: 10`.
+pub(super) fn primitiveValueNumber(data: &str) -> StructureType
+{
+  StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
+}
+
+/// Строковый примитив как `вариант` типизации: `primitiveValueText("x")` - это `a: "x"`.
+pub(super) fn primitiveValueText(data: &str) -> StructureType
+{
+  StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
 }
 
 // =================================================================================================
