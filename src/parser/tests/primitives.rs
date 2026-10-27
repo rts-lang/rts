@@ -1,5 +1,5 @@
 use crate::parser::structure::primitives::{ArgsPrimitives, MethodsPrimitives};
-use crate::parser::structure::structure::{Structure, StructureMut};
+use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use crate::parser::testing::runCode;
@@ -28,7 +28,7 @@ fn structures() -> ()
     checkStructure!(
       "", name,
       stype StructureType::Primitive(dataType.clone()),
-      mut StructureMut::Constant,
+      mut Constant,
       lines 0
     );
   }
@@ -47,7 +47,7 @@ fn args() -> ()
     checkStructure!(
       "", *name,
       stype StructureType::Primitive(dataType.clone()),
-      mut StructureMut::Constant
+      mut Constant
     );
   }
   checkStructure!("", "argc", value "0", lines 1);
@@ -57,24 +57,24 @@ fn args() -> ()
   checkStructure!(
     "argc := 5", "argc",
     value "0",
-    mut StructureMut::Constant
+    mut Constant
   );
   checkStructure!(
     "argc = 5", "argc",
     value "0",
-    mut StructureMut::Constant
+    mut Constant
   );
 
   // И удалить через `:= None` тоже.
   checkStructure!(
     "argc := None", "argc",
     value "0",
-    mut StructureMut::Constant
+    mut Constant
   );
   checkStructure!(
     "argv := None", "argv",
     stype List,
-    mut StructureMut::Constant
+    mut Constant
   );
 }
 
@@ -89,7 +89,7 @@ fn methods() -> ()
     checkStructure!(
       "", *name, 
       stype Method,
-      mut StructureMut::Constant,
+      mut Constant,
       lines 0
     );
   }
@@ -102,25 +102,25 @@ fn overwrite() -> ()
   checkStructure!(
     "type := 5", "type",
     stype Method,
-    mut StructureMut::Constant,
+    mut Constant,
     lines 0
   );
   checkStructure!(
     "type := 5", "type",
     stype Method,
-    mut StructureMut::Constant,
+    mut Constant,
     lines 0
   ); // todo Дубликат строка?
-  checkStructure!
-  ("type~ := 5", "type",
+  checkStructure!(
+    "type~ := 5", "type",
     stype Method,
-    mut StructureMut::Constant,
+    mut Constant,
     lines 0
   );
   checkStructure!(
     "type~~ := 5", "type",
     stype Method,
-    mut StructureMut::Constant,
+    mut Constant,
     lines 0
   );
 }
@@ -139,7 +139,7 @@ fn block() -> ()
     "#,
     "type",
     stype Method,
-    mut StructureMut::Constant,
+    mut Constant,
     lines 0
   );
 
@@ -180,7 +180,7 @@ fn importModule() -> ()
     checkStructure!(
       mainLink, *name,
       stype Method,
-      mut StructureMut::Constant,
+      mut Constant,
       lines 0
     );
   }
@@ -189,7 +189,7 @@ fn importModule() -> ()
     checkStructure!(
       mainLink, name,
       stype StructureType::Primitive(dataType.clone()),
-      mut StructureMut::Constant,
+      mut Constant,
       lines 0
     );
   }

@@ -28,6 +28,83 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // =================================================================================================
 
+/// Короткая форма [`StructureType::Union`]: `union![..]` вместо `StructureType::Union(vec![..])`.
+///
+/// Варианты перечисляются через запятую, каждый - либо имя примитива, либо выражение:
+///
+/// - имя примитива - `U8` становится `Primitive(PrimitiveType::U8)`;
+/// - выражение - берётся как есть: `primitiveValueText("x")`.
+///
+///     union![U8, String];
+///     union![primitiveValueText("x")];
+///     union![U8, primitiveValueText("x")];
+///
+/// Имена примитивов и выражения можно смешивать в одном списке.
+#[allow(unused_macros)]
+macro_rules! union
+{
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Вариантов больше нет.
+  (@munch $variants:expr; ) => {};
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Вариант-примитив по имени, за ним - запятая.
+  (@munch $variants:expr; $name:ident, $($rest:tt)*) =>
+  {
+    $variants.push(
+      $crate::parser::structure::structureType::StructureType::Primitive(
+        $crate::parser::structure::structureType::PrimitiveType::$name
+      )
+    );
+    $crate::parser::structure::structureType::union::union!(@munch $variants; $($rest)*);
+  };
+
+  // Вариант-выражение, за ним - запятая.
+  (@munch $variants:expr; $variant:expr, $($rest:tt)*) =>
+  {
+    $variants.push($variant);
+    $crate::parser::structure::structureType::union::union!(@munch $variants; $($rest)*);
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Последний вариант-примитив по имени.
+  (@munch $variants:expr; $name:ident) =>
+  {
+    $variants.push(
+      $crate::parser::structure::structureType::StructureType::Primitive(
+        $crate::parser::structure::structureType::PrimitiveType::$name
+      )
+    );
+  };
+
+  // Последний вариант-выражение.
+  (@munch $variants:expr; $variant:expr) =>
+  {
+    $variants.push($variant);
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Список вариантов.
+  ($($variant:tt)*) =>
+  {
+    { // Блок - чтобы собрать варианты по одному.
+      let mut __variants: Vec<$crate::parser::structure::structureType::StructureType> = Vec::new();
+      $crate::parser::structure::structureType::union::union!(@munch __variants; $($variant)*);
+      $crate::parser::structure::structureType::StructureType::Union(__variants)
+    }
+  };
+}
+
+/// Реэкспорт макроса `union!` наружу модуля - чтобы им можно было пользоваться снаружи.
+#[allow(unused_imports)]
+pub(crate) use union;
+
+// =================================================================================================
+
 impl StructureType
 {
   // ===============================================================================================

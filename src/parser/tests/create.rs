@@ -35,7 +35,8 @@ fn creationInFunctionStaysLocal() -> ()
     }
     check()
     "#,
-    "limit", value "10"
+    "limit",
+    value "10"
   );
 }
 
@@ -51,7 +52,8 @@ fn creationInConditionBlockStaysLocal() -> ()
       b~ := 20
     }
     "#,
-    "b", value "10"
+    "b",
+    value "10"
   );
 }
 
@@ -81,7 +83,8 @@ fn unionBeforeCreationOperator() -> ()
     t~: 10 | 20 := 10
     t = 20
     "#,
-    "t", value "20"
+    "t",
+    value "20"
   );
 }
 
@@ -102,7 +105,8 @@ fn assignFromFunctionReachesOuter() -> ()
     tick()
     tick()
     "#,
-    "counter", value "2"
+    "counter",
+    value "2"
   );
 }
 
@@ -118,7 +122,8 @@ fn assignFromConditionBlockReachesOuter() -> ()
       a = 20
     }
     "#,
-    "a", value "20"
+    "a",
+    value "20"
   );
 }
 
@@ -136,7 +141,8 @@ fn readFromFunctionReachesOuter() -> ()
     }
     peek()
     "#,
-    "got", value "77"
+    "got",
+    value "77"
   );
 }
 
@@ -152,7 +158,8 @@ fn argcIsVisibleFromFunction() -> ()
     }
     grab()
     "#,
-    "got", value "0"
+    "got",
+    value "0"
   );
 }
 
@@ -171,7 +178,7 @@ fn finalWithoutValueTakesFirstValue() -> ()
     "#,
     "c",
     type UInt,
-    stype U8, // Тип выведен из первого значения - 5 влезает в U8.
+    stype U8, // Тип выведен из первого значения - `5` влезает в `U8`.
     value "5"
   );
 }
@@ -186,7 +193,8 @@ fn variableWithoutValueIsAllowed() -> ()
     v~
     v~ = 7
     "#,
-    "v", value "7"
+    "v",
+    value "7"
   );
 }
 
@@ -296,7 +304,8 @@ fn linkHeadSearchesUpward() -> ()
     }
     r := g()
     "#,
-    "r", value "1"
+    "r",
+    value "1"
   );
 
   // Из блока `? { }` внутри метода.
@@ -315,7 +324,8 @@ fn linkHeadSearchesUpward() -> ()
     }
     r := h()
     "#,
-    "r", value "1"
+    "r",
+    value "1"
   );
 }
 
@@ -345,7 +355,8 @@ fn functionCreatingLocalStructureDoesNotDeadlock() -> ()
     }
     f()
     "#,
-    "outer", value "1"
+    "outer",
+    value "1"
   );
 }
 
@@ -364,7 +375,8 @@ fn functionCreationWithOuterReadDoesNotDeadlock() -> ()
     }
     f()
     "#,
-    "got", value "5"
+    "got",
+    value "5"
   );
 }
 
@@ -390,7 +402,8 @@ fn creationNoneLiteralRemovesStructure() -> ()
     a~ := 5
     a := None
     "#,
-    "a", value "5"
+    "a",
+    value "5"
   );
 }
 
@@ -409,7 +422,8 @@ fn creationWithNoneReturningMethodKeepsStructure() -> ()
     maybe() { = None }
     a~ := maybe()
     "#,
-    "a", value ""
+    "a",
+    value ""
   );
 }
 
@@ -424,7 +438,8 @@ fn assignNoneKeepsStructureWithNoneValue() -> ()
     a~ := "text"
     a = None
     "#,
-    "a", value ""
+    "a",
+    value ""
   );
 }
 
@@ -438,7 +453,10 @@ fn creationNoneOnPrimitiveIsIgnored() -> ()
     r#"
     type := None
     "#,
-    "type", stype Method, mut StructureMut::Constant, lines 0
+    "type",
+    stype Method,
+    mut Constant,
+    lines 0
   );
 }
 

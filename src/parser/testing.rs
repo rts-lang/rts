@@ -236,11 +236,13 @@ pub(super) fn printStructureFacets(
 ///     checkStructure!("a: U8 = 300", "a", type UInt, stype U8, value "255");
 ///     checkStructure!("a := 0.0", "a", type UFloat, stype F32); // Без значения
 ///     checkStructure!("a := 10", "a", stype U8); // Только stype
-///     checkStructure!("a: U8 | 10 = 10", "a", stype primitiveValueNumber("10"), utype Union(vec![U8, primitiveValueNumber("10")]));
+///     checkStructure!("a: U8 | 10 = 10", "a", stype primitiveValueNumber("10"), utype union![U8, primitiveValueNumber("10")]);
 ///
 /// Типы можно писать коротко - по имени варианта (`type UInt`, `stype U8`);
 /// полные формы `TokenType::UInt` и `StructureType::Primitive(PrimitiveType::U8)`
 /// тоже работают.
+///
+/// Грань `mut` - тоже коротко: `mut Variable` (полная форма - `mut StructureMut::Variable`).
 ///
 /// Грани: `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
 /// `utype` - полный объявленный тип: набор вариантов объединения (`utype(a)`), а без
@@ -281,6 +283,22 @@ macro_rules! primitiveStype
 
 #[allow(unused_imports)]
 pub(super) use primitiveStype;
+
+/// Короткая форма уровня изменения: `Variable` вместо `StructureMut::Variable`.
+///
+/// Имя подставляется как вариант `StructureMut`, поэтому сокращение работает только
+/// для вариантов этого перечисления.
+#[allow(unused_macros)]
+macro_rules! structureMut
+{
+  ($mutability:ident) =>
+  {
+    $crate::parser::structure::structure::StructureMut::$mutability
+  };
+}
+
+#[allow(unused_imports)]
+pub(super) use structureMut;
 
 /// Короткая форма типа токена: `UInt` вместо `TokenType::UInt`.
 ///
@@ -377,8 +395,25 @@ pub(super) use checkFacets;
 /// Разбор граней: короткая форма примитива (`stype U8`) - это идентификатор,
 /// а обычный тип (`stype primitiveValueNumber("10")`) - выражение. Поэтому грани типа разбираются
 /// отдельно, а всё остальное - обычными выражениями.
+///
+/// Грань `mut` - так же: короткая форма `mut Variable` - это идентификатор,
+/// а обычная `mut StructureMut::Variable` - выражение.
 macro_rules! normalizeFacets
 {
+  // Обе грани типа - короткая форма примитива, `mut` - короткая форма.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:ident)? $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $crate::parser::testing::primitiveStype!($s))?
+      $(, utype $crate::parser::testing::primitiveStype!($u))?
+      $(, value $v)?
+      $(, mut $crate::parser::testing::structureMut!($m))?
+      $(, lines $l)?
+    )
+  }};
+
   // Обе грани типа - короткая форма примитива.
   ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:ident)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
@@ -389,6 +424,20 @@ macro_rules! normalizeFacets
       $(, utype $crate::parser::testing::primitiveStype!($u))?
       $(, value $v)?
       $(, mut $m)?
+      $(, lines $l)?
+    )
+  }};
+
+  // `stype` - короткая форма примитива, `utype` - обычное выражение, `mut` - короткая форма.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:ident)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $crate::parser::testing::primitiveStype!($s))?
+      $(, utype $u)?
+      $(, value $v)?
+      $(, mut $crate::parser::testing::structureMut!($m))?
       $(, lines $l)?
     )
   }};
@@ -407,6 +456,20 @@ macro_rules! normalizeFacets
     )
   }};
 
+  // `stype` - обычное выражение, `utype` - короткая форма примитива, `mut` - короткая форма.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? , utype $u:ident $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $s)?
+      , utype $crate::parser::testing::primitiveStype!($u)
+      $(, value $v)?
+      $(, mut $crate::parser::testing::structureMut!($m))?
+      $(, lines $l)?
+    )
+  }};
+
   // `stype` - обычное выражение, `utype` - короткая форма примитива.
   ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? , utype $u:ident $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
   {{
@@ -417,6 +480,20 @@ macro_rules! normalizeFacets
       , utype $crate::parser::testing::primitiveStype!($u)
       $(, value $v)?
       $(, mut $m)?
+      $(, lines $l)?
+    )
+  }};
+
+  // Обычные выражения - без сокращений, `mut` - короткая форма.
+  ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:ident)? $(, lines $l:expr)? $(,)?) =>
+  {{
+    $crate::parser::testing::checkFacets!(
+      $main, $name, $code
+      $(, type $t)?
+      $(, stype $s)?
+      $(, utype $u)?
+      $(, value $v)?
+      $(, mut $crate::parser::testing::structureMut!($m))?
       $(, lines $l)?
     )
   }};
@@ -754,7 +831,7 @@ pub(super) use buildLibrary;
 #[cfg(test)]
 mod tests
 {
-  use crate::parser::structure::structure::Structure;
+  use crate::parser::structure::structure::{Structure, StructureMut};
   use crate::parser::structure::structureType::{PrimitiveType, StructureType};
   use crate::tokenizer::types::tokenType::TokenType;
   use std::sync::{Arc, RwLock};
@@ -862,6 +939,38 @@ mod tests
     // `checkExpression!` - тот же принцип.
     checkExpression!("1 < 2", type True);
     checkExpression!("1 < 2", type TokenType::True);
+  }
+
+  /// Короткая форма уровня изменения (`mut Variable`) равна полной
+  /// (`mut StructureMut::Variable`).
+  ///
+  /// Формы можно смешивать с короткими формами других граней.
+  #[test]
+  fn shortStructureMut() -> ()
+  {
+    checkStructure!("a := 10", "a", mut Constant);
+    checkStructure!("a := 10", "a", mut StructureMut::Constant);
+    checkStructure!("a := 10", "a", type UInt, stype U8, value "10", mut Constant);
+    checkStructure!("a := 10", "a", type UInt, stype U8, value "10", mut StructureMut::Constant);
+    // Короткая форма `mut` работает с любой формой граней типа.
+    checkStructure!("a := 10", "a", stype U8, value "10", mut Constant);
+    checkStructure!("a := 10", "a", stype StructureType::Primitive(PrimitiveType::U8), value "10", mut Constant);
+    checkStructure!("a := 10", "a", utype U8, value "10", mut Constant);
+    checkStructure!("a := 10", "a", utype StructureType::Primitive(PrimitiveType::U8), value "10", mut Constant);
+    checkStructure!(
+      "a := 10", "a",
+      stype U8, utype StructureType::Primitive(PrimitiveType::U8), value "10", mut Constant
+    );
+    // Ошибка сверки - та же, что и у полной формы.
+    assert_eq!(
+      tryCheckStructure!("a := 10", "a", mut Variable).unwrap_err(),
+      tryCheckStructure!("a := 10", "a", mut StructureMut::Variable).unwrap_err()
+    );
+    // И сверка ловит неверную грань, а не проходит молча.
+    assert_eq!(
+      tryCheckStructure!("a := 10", "a", mut Variable).unwrap_err(),
+      "check mut in `a := 10` for 'a': expected 'Variable', got 'Constant'"
+    );
   }
 
   /// Сверка ловит неверную грань, а не проходит молча. Через `tryCheckStructure!`: паники нет.

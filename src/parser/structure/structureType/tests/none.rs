@@ -1,5 +1,4 @@
-use crate::parser::structure::structure::StructureMut;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::structure::structureType::union::union;
 use crate::parser::testing::{checkStructure, primitiveValueNumber, primitiveValueText};
 // =================================================================================================
 
@@ -34,14 +33,14 @@ fn noType() -> ()
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Constant
+    mut Constant
   );
   checkStructure!(
     "a := 5", "a",
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Constant
+    mut Constant
   );
 
   // Для каждой изменяемости.
@@ -50,28 +49,28 @@ fn noType() -> ()
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Variable
+    mut Variable
   );
   checkStructure!(
     "a~ := 5", "a",
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Variable
+    mut Variable
   );
   checkStructure!(
     "a~~: None := 5", "a",
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Dynamic
+    mut Dynamic
   );
   checkStructure!(
     "a~~ := 5", "a",
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Dynamic
+    mut Dynamic
   );
 }
 
@@ -111,7 +110,7 @@ fn forward() -> ()
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Constant
+    mut Constant
   );
   checkStructure!(
     r#"
@@ -123,7 +122,7 @@ fn forward() -> ()
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Constant
+    mut Constant
   );
 }
 
@@ -136,7 +135,7 @@ fn onlyNones() -> ()
     type UInt,
     stype U8,
     value "5",
-    mut StructureMut::Constant
+    mut Constant
   );
 }
 
@@ -147,10 +146,7 @@ fn onlyNones() -> ()
 #[test]
 fn droppedFromUnion() -> ()
 {
-  let i8OrU8 = || StructureType::Union(vec![
-    StructureType::Primitive(PrimitiveType::I8),
-    StructureType::Primitive(PrimitiveType::U8)
-  ]);
+  let i8OrU8 = || union![I8, U8];
 
   checkStructure!(
     "a: I8 | U8 | None = 300", "a",
@@ -222,10 +218,7 @@ fn singleLeft() -> ()
 #[test]
 fn droppedFromLogic() -> ()
 {
-  let trueOrFalse = || StructureType::Union(vec![
-    StructureType::Primitive(PrimitiveType::True),
-    StructureType::Primitive(PrimitiveType::False)
-  ]);
+  let trueOrFalse = || union![True, False];
 
   checkStructure!(
     "a: True | False | None = True", "a",
@@ -264,26 +257,25 @@ fn droppedNextToValues() -> ()
   checkStructure!(
     "a: 10 | None = 10", "a",
     stype primitiveValueNumber("10"),
-    utype StructureType::Union(vec![primitiveValueNumber("10")]),
+    utype union![primitiveValueNumber("10")],
     value "10"
   );
   checkStructure!(
     "a: 10 = 10", "a",
     stype primitiveValueNumber("10"),
-    utype StructureType::Union(vec![primitiveValueNumber("10")]),
+    utype union![primitiveValueNumber("10")],
     value "10"
   );
   checkStructure!(
     "a: 10 | 20 | None = 20", "a",
     stype primitiveValueNumber("20"),
-    utype StructureType::Union(vec![primitiveValueNumber("10"),
-      primitiveValueNumber("20")]),
+    utype union![primitiveValueNumber("10"),primitiveValueNumber("20")],
     value "20"
   );
   checkStructure!(
     "a: \"x\" | None = \"x\"", "a",
     stype primitiveValueText("x"),
-    utype StructureType::Union(vec![primitiveValueText("x")]),
+    utype union![primitiveValueText("x")],
     value "x"
   );
 }
@@ -302,7 +294,7 @@ fn droppedOnAssign() -> ()
     stype U8,
     utype U8,
     value "255",
-    mut StructureMut::Variable
+    mut Variable
   );
   checkStructure!(
     r#"
@@ -314,7 +306,7 @@ fn droppedOnAssign() -> ()
     stype U8,
     utype U8,
     value "255",
-    mut StructureMut::Variable
+    mut Variable
   );
 
   // `~~` свободно меняет тип: `300` уже `U16`.
@@ -328,7 +320,7 @@ fn droppedOnAssign() -> ()
     stype U16,
     utype U16,
     value "300",
-    mut StructureMut::Dynamic
+    mut Dynamic
   );
   checkStructure!(
     r#"
@@ -340,7 +332,7 @@ fn droppedOnAssign() -> ()
     stype U16,
     utype U16,
     value "300",
-    mut StructureMut::Dynamic
+    mut Dynamic
   );
 }
 
