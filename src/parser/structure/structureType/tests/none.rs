@@ -1,7 +1,6 @@
-use crate::parser::structure::structure::Structure;
-use crate::parser::testing::{getStructure, runCode};
-use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::sync::{Arc, RwLock, RwLockReadGuard};
+use crate::parser::structure::structure::StructureMut;
+use crate::parser::structure::structureType::{PrimitiveType, PrimitiveValueKind, StructureType};
+use crate::parser::testing::checkStructure;
 // =================================================================================================
 
 // Тесты на `None` в качестве типизации.
@@ -25,114 +24,117 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 // =================================================================================================
 
-/// Читает грани структуры `a` после выполнения кода строкой вида `type=UInt, stype=U8, ...`.
-///
-/// Если код упал (структуры нет и т.п.) — вернёт `error: сообщение`, чтобы сравнение не пропало.
-fn facets(code: &str, names: &[&str]) -> String
+/// Числовой примитив как `вариант` типизации.
+fn number(data: &str) -> StructureType
 {
-  let result = catch_unwind(AssertUnwindSafe(||
-  {
-    let main: Arc<RwLock<Structure>> = runCode!(code);
-    let structureLink: Arc<RwLock<Structure>> = getStructure(&main, "a");
-    let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
-
-    let token: Option<(String, String)> = structure.lines.as_ref()
-      .and_then(|lines| lines.first())
-      .and_then(|line| line.read().unwrap().tokens.clone())
-      .and_then(|tokens| tokens.first().map(|token|
-        (token.getDataType().to_string(), token.getData().toString().unwrap_or_default())
-      ));
-
-    let mut parts: Vec<String> = Vec::new();
-    for name in names
-    {
-      parts.push(match *name
-      {
-        "type"  => format!("type={}",  token.as_ref().map(|t| t.0.clone()).unwrap_or(String::from("<none>"))),
-        "value" => format!("value={}", token.as_ref().map(|t| t.1.clone()).unwrap_or(String::from("<none>"))),
-        "stype" => format!("stype={}", structure.dataType.to_string()),
-        "utype" => format!("utype={}", structure.utype().to_string()),
-        "mut"   => format!("mut={}",   structure.mutable.to_string()),
-        other   => panic!("unknown facet '{}'", other)
-      });
-    }
-    parts.join(", ")
-  }));
-
-  match result
-  {
-    Ok(text) => text,
-    Err(payload) =>
-    {
-      let message: String =
-        if let Some(text) = payload.downcast_ref::<&str>() { text.to_string() } else
-        if let Some(text) = payload.downcast_ref::<String>() { text.clone() } else
-        { String::from("unknown panic") };
-      format!("error: {}", message)
-    }
-  }
+  StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
 }
 
-const ALL: &[&str] = &["type", "stype", "utype", "value", "mut"];
-
-/// Запись с `None` в типе должна дать то же, что запись без него.
-///
-/// Структура `a` в обоих случаях должна быть создана: совпадение двух одинаковых ошибок
-/// ничего не доказывает.
-fn assertSame(withNone: &str, withoutNone: &str) -> ()
+/// Строковый примитив как `вариант` типизации.
+fn text(data: &str) -> StructureType
 {
-  let first: String = facets(withNone, ALL);
-  let second: String = facets(withoutNone, ALL);
+  StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
+}
 
-  assert!(!first.starts_with("error:"), "\n  {:?}\n    -> {}\n", withNone, first);
+/// Объединение `I8 | U8`.
+fn i8OrU8() -> StructureType
+{
+  StructureType::Union(vec![
+    StructureType::Primitive(PrimitiveType::I8),
+    StructureType::Primitive(PrimitiveType::U8)
+  ])
+}
 
-  assert_eq!(
-    first, second,
-    "\n  с None:   {:?}\n    -> {}\n  без None: {:?}\n    -> {}\n",
-    withNone, first, withoutNone, second
-  );
+/// Объединение `True | False`.
+fn trueOrFalse() -> StructureType
+{
+  StructureType::Union(vec![
+    StructureType::Primitive(PrimitiveType::True),
+    StructureType::Primitive(PrimitiveType::False)
+  ])
 }
 
 // =================================================================================================
 // Одиночный `None` в типе - это отсутствие типа.
 
-/// `a: None := 5` — то же, что `a := 5`.
+/// `a: None := 5` - то же, что `a := 5`: тип выводится из значения.
 #[test]
 fn noneTypeIsNoType() -> ()
 {
-  assertSame("a: None := 5", "a := 5");
-  assertSame("a~: None := 5", "a~ := 5");
-  assertSame("a~~: None := 5", "a~~ := 5");
+  checkStructure!(
+    "a: None := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Constant
+  );
+  checkStructure!(
+    "a := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Constant
+  );
+
+  // Для каждой изменяемости.
+  checkStructure!(
+    "a~: None := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Variable
+  );
+  checkStructure!(
+    "a~ := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Variable
+  );
+  checkStructure!(
+    "a~~: None := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Dynamic
+  );
+  checkStructure!(
+    "a~~ := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Dynamic
+  );
 }
 
-/// `a: None = 5` — то же, что `a = 5`: `=` структуру не создаёт.
+/// `a: None = 5` - то же, что `a = 5`: `=` структуру не создаёт.
 #[test]
+#[should_panic(expected = "Structure 'a' was not created")]
 fn noneTypeWithEqualsIsSkipped() -> ()
 {
-  for (withNone, withoutNone) in [("a: None = 5", "a = 5"), ("a~: None = 5", "a~ = 5")]
-  {
-    let first: String = facets(withNone, ALL);
-    let second: String = facets(withoutNone, ALL);
-
-    // Структуры нет в обоих случаях, и причина одна.
-    assert!(first.starts_with("error: Structure 'a' was not created"), "{:?} -> {}", withNone, first);
-    assert_eq!(first, second, "{:?} и {:?}", withNone, withoutNone);
-  }
+  checkStructure!("a: None = 5", "a", value "5");
 }
 
-/// `a: None` — то же, что `a`: структура ждёт первого значения.
+/// То же для `a~: None = 5`.
+#[test]
+#[should_panic(expected = "Structure 'a' was not created")]
+fn variableNoneTypeWithEqualsIsSkipped() -> ()
+{
+  checkStructure!("a~: None = 5", "a", value "5");
+}
+
+/// `a: None` - то же, что `a`: структура ждёт первого значения и становится `Constant`.
 #[test]
 fn noneTypeForwardDeclaration() -> ()
 {
-  assertSame("a: None\na = 5", "a\na = 5");
-  assertSame("a: None\na = 5\na = 300", "a\na = 5\na = 300");
+  checkStructure!(
+    r#"
+    a: None
+    a = 5
+    a = 300
+    "#,
+    "a", type UInt, stype U8, value "5", mut StructureMut::Constant
+  );
+  checkStructure!(
+    r#"
+    a
+    a = 5
+    a = 300
+    "#,
+    "a", type UInt, stype U8, value "5", mut StructureMut::Constant
+  );
 }
 
-/// Несколько `None` подряд — тоже отсутствие типа.
+/// Несколько `None` подряд - тоже отсутствие типа.
 #[test]
 fn onlyNonesAreNoType() -> ()
 {
-  assertSame("a: None | None := 5", "a := 5");
+  checkStructure!(
+    "a: None | None := 5", "a",
+    type UInt, stype U8, value "5", mut StructureMut::Constant
+  );
 }
 
 // =================================================================================================
@@ -142,77 +144,130 @@ fn onlyNonesAreNoType() -> ()
 #[test]
 fn noneIsDroppedFromUnion() -> ()
 {
-  assertSame("a: U8 | None = 300", "a: U8 = 300");
-  assertSame("a: None | U8 = 300", "a: U8 = 300");
-  assertSame("a: I8 | None | U8 = 300", "a: I8 | U8 = 300");
-  assertSame("a: I8 | U8 | None = -300", "a: I8 | U8 = -300");
+  checkStructure!(
+    "a: I8 | U8 | None = 300", "a",
+    stype I8, utype i8OrU8(), value "127"
+  );
+  checkStructure!(
+    "a: None | I8 | U8 = 300", "a",
+    stype I8, utype i8OrU8(), value "127"
+  );
+  checkStructure!(
+    "a: I8 | None | U8 = 300", "a",
+    stype I8, utype i8OrU8(), value "127"
+  );
+  checkStructure!(
+    "a: I8 | U8 = 300", "a",
+    stype I8, utype i8OrU8(), value "127"
+  );
+
+  // С отрицательным значением.
+  checkStructure!(
+    "a: I8 | U8 | None = -300", "a",
+    type Int, stype I8, utype i8OrU8(), value "-128"
+  );
+  checkStructure!(
+    "a: I8 | U8 = -300", "a",
+    type Int, stype I8, utype i8OrU8(), value "-128"
+  );
 }
 
 /// После отбрасывания из `U8 | None` остаётся обычный `U8`, а не `union` из одного варианта.
 #[test]
 fn singleTypeLeftAfterDroppingNone() -> ()
 {
-  let facetsText: String = facets("a: U8 | None = 300", &["stype", "utype", "value"]);
-  assert_eq!(facetsText, "stype=U8, utype=U8, value=255");
-}
-
-/// `True | False | None` — это `True | False`.
-#[test]
-fn noneIsDroppedFromLogicUnion() -> ()
-{
-  assertSame("a: True | False | None = True", "a: True | False = True");
-  assertSame("a: True | False | None = False", "a: True | False = False");
-}
-
-/// Примитивы-значения рядом с `None`.
-#[test]
-fn noneIsDroppedNextToPrimitiveValues() -> ()
-{
-  assertSame("a: 10 | None = 10", "a: 10 = 10");
-  assertSame("a: 10 | 20 | None = 20", "a: 10 | 20 = 20");
-  assertSame("a: \"x\" | None = \"x\"", "a: \"x\" = \"x\"");
-}
-
-/// Объявление без значения, затем присваивание.
-#[test]
-fn noneIsDroppedForVariableAssign() -> ()
-{
-  assertSame("a~: U8 | None\na = 300", "a~: U8\na = 300");
-  assertSame("a~~: U8 | None\na = 300", "a~~: U8\na = 300");
-}
-
-// =================================================================================================
-// Хранение и удаление `None` этим не затронуты.
-
-/// `a = None` хранит `None`, структура остаётся жива и сохраняет свой тип.
-#[test]
-fn storingNoneStillWorks() -> ()
-{
-  assert_eq!(
-    facets("a~ := \"text\"\na = None", &["stype", "value", "mut"]),
-    "stype=String, value=, mut=Variable"
+  checkStructure!(
+    "a: U8 | None = 300", "a",
+    stype U8, utype U8, value "255"
+  );
+  checkStructure!(
+    "a: None | U8 = 300", "a",
+    stype U8, utype U8, value "255"
+  );
+  checkStructure!(
+    "a: U8 = 300", "a",
+    stype U8, utype U8, value "255"
   );
 }
 
-/// `a := None` удаляет структуру.
+/// `True | False | None` - это `True | False`.
 #[test]
-fn deletingStructureStillWorks() -> ()
+fn noneIsDroppedFromLogicUnion() -> ()
 {
-  assert!(facets("a := 5\na := None", ALL).starts_with("error: Structure 'a' was not created"));
+  checkStructure!(
+    "a: True | False | None = True", "a",
+    type True, stype True, utype trueOrFalse(), value "True"
+  );
+  checkStructure!(
+    "a: True | False = True", "a",
+    type True, stype True, utype trueOrFalse(), value "True"
+  );
+  checkStructure!(
+    "a: True | False | None = False", "a",
+    type False, stype False, utype trueOrFalse(), value "False"
+  );
+  checkStructure!(
+    "a: True | False = False", "a",
+    type False, stype False, utype trueOrFalse(), value "False"
+  );
 }
 
-/// `None(5)` как приведение по-прежнему даёт пустое значение.
+/// Примитивы-значения рядом с `None`: остаётся `union` без него.
 #[test]
-fn castToNoneStillWorks() -> ()
+fn noneIsDroppedNextToPrimitiveValues() -> ()
 {
-  assert_eq!(facets("a := None(5)", &["type", "value"]), "type=None, value=");
+  checkStructure!(
+    "a: 10 | None = 10", "a",
+    stype number("10"), utype StructureType::Union(vec![number("10")]), value "10"
+  );
+  checkStructure!(
+    "a: 10 = 10", "a",
+    stype number("10"), utype StructureType::Union(vec![number("10")]), value "10"
+  );
+  checkStructure!(
+    "a: 10 | 20 | None = 20", "a",
+    stype number("20"), utype StructureType::Union(vec![number("10"), number("20")]), value "20"
+  );
+  checkStructure!(
+    "a: \"x\" | None = \"x\"", "a",
+    stype text("x"), utype StructureType::Union(vec![text("x")]), value "x"
+  );
 }
 
-/// Структура без значения и без типа по-прежнему ничего не хранит.
+/// Объявление без значения, затем присваивание: `None` отбрасывается так же.
 #[test]
-fn unknownReferenceStillGivesNone() -> ()
+fn noneIsDroppedForVariableAssign() -> ()
 {
-  assert_eq!(facets("a := b", &["type", "stype", "value"]), "type=None, stype=None, value=");
+  checkStructure!(
+    r#"
+    a~: U8 | None
+    a = 300
+    "#,
+    "a", type UInt, stype U8, utype U8, value "255", mut StructureMut::Variable
+  );
+  checkStructure!(
+    r#"
+    a~: U8
+    a = 300
+    "#,
+    "a", type UInt, stype U8, utype U8, value "255", mut StructureMut::Variable
+  );
+
+  // `~~` свободно меняет тип: `300` уже `U16`.
+  checkStructure!(
+    r#"
+    a~~: U8 | None
+    a = 300
+    "#,
+    "a", type UInt, stype U16, utype U16, value "300", mut StructureMut::Dynamic
+  );
+  checkStructure!(
+    r#"
+    a~~: U8
+    a = 300
+    "#,
+    "a", type UInt, stype U16, utype U16, value "300", mut StructureMut::Dynamic
+  );
 }
 
 // =================================================================================================
