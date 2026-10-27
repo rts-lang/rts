@@ -3,3 +3,4 @@ mod inferred;
 mod strings;
 mod union;
 mod logic;
+mod none;

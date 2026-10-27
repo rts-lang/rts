@@ -1,5 +1,6 @@
-use crate::parser::structure::structureType::{PrimitiveType, PrimitiveValueKind, StructureType};
-use crate::parser::testing::checkStructure;
+use crate::parser::structure::structureType::union::union;
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::testing::{checkStructure, primitiveValueNumber, primitiveValueText};
 // =================================================================================================
 
 // Тесты на:
@@ -12,20 +13,6 @@ use crate::parser::testing::checkStructure;
 //
 //
 // todo Есть баг еще вроде как с `U8 = None` будет `0`, что ошибка. НО оно не к этому к `StructureType`.
-
-// =================================================================================================
-
-/// Числовой примитив как `вариант` типизации.
-fn number(data: &str) -> StructureType
-{
-  StructureType::PrimitiveValue(PrimitiveValueKind::Number, String::from(data))
-}
-
-/// Строковый примитив как `вариант` типизации.
-fn text(data: &str) -> StructureType
-{
-  StructureType::PrimitiveValue(PrimitiveValueKind::String, String::from(data))
-}
 
 // =================================================================================================
 
@@ -43,44 +30,31 @@ fn unionParse() -> ()
   );
   checkStructure!(
     "a: U8 | String = 10", "a",
-    utype StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::U8),
-      StructureType::Primitive(PrimitiveType::String)
-    ])
+    utype union![U8, String]
   );
   checkStructure!(
     "b: U8|String = 10", "b", // Без пробелов.
-    utype StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::U8),
-      StructureType::Primitive(PrimitiveType::String)
-    ])
+    utype union![U8, String]
   );
+  // `None` - не явный примитив: из объединения он отбрасывается.
   checkStructure!(
     "a: I8 | U8 | F64 | None = 1", "a",
-    utype StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::I8),
-      StructureType::Primitive(PrimitiveType::U8),
-      StructureType::Primitive(PrimitiveType::F64),
-      StructureType::Primitive(PrimitiveType::None)
-    ])
+    utype union![I8, U8, F64]
   );
 
   // Пользовательские структуры.
   checkStructure!(
     "a: Test1 | Test2 = 1", "a",
-    utype StructureType::Union(vec![
+    utype union![
       StructureType::Primitive(PrimitiveType::Custom(String::from("Test1"))),
       StructureType::Primitive(PrimitiveType::Custom(String::from("Test2")))
-    ])
+    ]
   );
 
   // Повторы схлопываются.
   checkStructure!(
     "a: U8 | U8 | String = 10", "a",
-    utype StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::U8),
-      StructureType::Primitive(PrimitiveType::String)
-    ])
+    utype union![U8, String]
   );
 }
 
@@ -144,7 +118,7 @@ fn unionConvert() -> ()
   );
 }
 
-/// Ни один `вариант` не подошёл и привести нельзя - `None`.
+/// `None` для `union`.
 #[test]
 fn unionNone() -> ()
 {
@@ -162,18 +136,16 @@ fn unionNone() -> ()
     value ""
   );
 
-  // Явный `| None` в объединении: значение не подходит - всё равно `None`.
+  // `None` - не явный примитив: `| None` отбрасывается и остаётся обычный тип без `union`.
   checkStructure!(
-    "a: String | None = True", "a",
-    stype None,
-    value ""
+    "a: String | None = \"x\"", "a",
+    utype StructureType::Primitive(PrimitiveType::String),
+    value "x"
   );
-
-  // Само `None` в объединении - законный `вариант`.
   checkStructure!(
-    "a: String | None = None", "a",
-    stype None,
-    value ""
+    "a: None | String = \"x\"", "a",
+    utype StructureType::Primitive(PrimitiveType::String),
+    value "x"
   );
 }
 
@@ -181,68 +153,68 @@ fn unionNone() -> ()
 #[test]
 fn unionPrimitiveParse() -> ()
 {
-  let tenTwenty: StructureType = StructureType::Union(vec![
-    number("10"),
-    number("20")
-  ]);
+  let tenTwenty = || union![
+    primitiveValueNumber("10"),
+    primitiveValueNumber("20")
+  ];
   
   checkStructure!(
     "a: 10 | 20 = 10", "a",
-    utype tenTwenty.clone()
+    utype tenTwenty()
   );
   checkStructure!(
     "a: 10|20 = 10", "a", // Без пробелов.
-    utype tenTwenty.clone()
+    utype tenTwenty()
   );
   checkStructure!(
     "a: \"text\" | 10 = 10", "a",
-    utype StructureType::Union(vec![text("text"), number("10")])
+    utype union![primitiveValueText("text"), primitiveValueNumber("10")]
   );
   checkStructure!(
     "a: \"name\" | U8 = 10", "a",
-    utype StructureType::Union(vec![
-      text("name"),
-      StructureType::Primitive(PrimitiveType::U8)
-    ])
+    utype union![
+      primitiveValueText("name"),
+      U8
+    ]
   );
   checkStructure!(
     "a: U8 | 10 = 10", "a",
-    utype StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::U8),
-      number("10")
-    ])
+    utype union![
+      U8,
+      primitiveValueNumber("10")
+    ]
   );
   checkStructure!(
     "a: 1.5 | 2 = 2", "a",
-    utype StructureType::Union(vec![
-      number("1.5"),
-      number("2")
-    ])
+    utype union![
+      primitiveValueNumber("1.5"),
+      primitiveValueNumber("2")
+    ]
   );
 
   // Отрицательное число - один токен `Int`.
   checkStructure!(
     "a: -1 | 1 = 1", "a",
-    utype StructureType::Union(vec![
-      number("-1"),
-      number("1")
-    ])
+    utype union![
+      primitiveValueNumber("-1"),
+      primitiveValueNumber("1")
+    ]
   );
 
   // Одиночный примитив - `union` из одного `варианта`, иначе значение не проверялось бы.
   checkStructure!(
     "a: 10 = 10", "a",
-    utype StructureType::Union(vec![number("10")])
+    utype union![primitiveValueNumber("10")]
   );
   checkStructure!(
     "a: \"x\" = \"x\"", "a",
-    utype StructureType::Union(vec![text("x")])
+    utype union![primitiveValueText("x")]
   );
 
   // Повторы схлопываются.
   checkStructure!(
     "a: 10 | 10 | 20 = 10", "a",
-    utype tenTwenty.clone());
+    utype tenTwenty());
 
   // Незакрытый `|` не ломает разбор.
   checkStructure!(
@@ -251,7 +223,7 @@ fn unionPrimitiveParse() -> ()
   );
   checkStructure!(
     "a: 10 | = 10", "a",
-    utype StructureType::Union(vec![number("10")])
+    utype union![primitiveValueNumber("10")]
   );
 }
 
@@ -263,12 +235,12 @@ fn unionPrimitiveMatch() -> ()
 {
   checkStructure!(
     "a: 10 | 20 = 10", "a",
-    stype number("10"),
+    stype primitiveValueNumber("10"),
     value "10"
   );
   checkStructure!(
     "a: 10 | 20 = 20", "a",
-    stype number("20"),
+    stype primitiveValueNumber("20"),
     value "20"
   );
 
@@ -277,29 +249,29 @@ fn unionPrimitiveMatch() -> ()
   checkStructure!(
     "a: 10 | 20 = 10.0", "a",
     type UFloat,
-    stype number("10"),
+    stype primitiveValueNumber("10"),
     value "10"
   );
   checkStructure!(
     "a: -1 | 1 = -1", "a",
-    stype number("-1"),
+    stype primitiveValueNumber("-1"),
     value "-1"
   );
   checkStructure!(
     "a: -1 | 1 = 1", "a",
-    stype number("1"),
+    stype primitiveValueNumber("1"),
     value "1"
   );
 
   //
   checkStructure!(
     "a: \"x\" | 10 = \"x\"", "a",
-    stype text("x"),
+    stype primitiveValueText("x"),
     value "x"
   );
   checkStructure!(
     "a: \"x\" | 10 = 10", "a",
-    stype number("10"),
+    stype primitiveValueNumber("10"),
     value "10"
   );
 }
@@ -374,7 +346,7 @@ fn unionPrimitiveWithType() -> ()
   // Приоритет: примитив раньше типа.
   checkStructure!(
     "a: U8 | 10 = 10", "a",
-    stype number("10"),
+    stype primitiveValueNumber("10"),
     value "10"
   );
 
@@ -398,7 +370,7 @@ fn unionPrimitiveWithType() -> ()
   // Строковый примитив рядом с типом: матч примитива → `stype` = примитив.
   checkStructure!(
     "a: \"name\" | U8 = \"name\"", "a",
-    stype text("name"),
+    stype primitiveValueText("name"),
     value "name"
   );
   checkStructure!(
@@ -419,7 +391,7 @@ fn unionPrimitiveMixedType() -> ()
 {
   checkStructure!(
     "a: String | 10 = 10", "a",
-    stype number("10"),
+    stype primitiveValueNumber("10"),
     value "10"
   );
   checkStructure!(
@@ -436,7 +408,7 @@ fn unionPrimitiveMixedType() -> ()
   //
   checkStructure!(
     "a: String | \"text\" = \"text\"", "a",
-    stype text("text"),
+    stype primitiveValueText("text"),
     value "text"
   );
   checkStructure!(
@@ -471,20 +443,20 @@ fn unionTypeNameVsPrimitive() -> ()
   // Значения-примитивы.
   checkStructure!(
     "a: 10 = 10", "a",
-    utype StructureType::Union(vec![number("10")])
+    utype union![primitiveValueNumber("10")]
   );
   checkStructure!(
     "a: \"text\" = \"text\"", "a",
-    utype StructureType::Union(vec![text("text")])
+    utype union![primitiveValueText("text")]
   );
 
   // Примитив и значение-примитв рядом.
   checkStructure!(
     "a: U8 | 10 = 10", "a",
-    utype StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::U8),
-      number("10")
-    ])
+    utype union![
+      U8,
+      primitiveValueNumber("10")
+    ]
   );
 }
 
@@ -495,16 +467,16 @@ fn unionEmptyStringPrimitive() -> ()
   // Одиночный примитив - `union` из одного `варианта`, как и любой другой примитив.
   checkStructure!(
     "a: \"\" = \"\"", "a",
-    stype text(""),
-    utype StructureType::Union(vec![text("")])
+    stype primitiveValueText(""),
+    utype union![primitiveValueText("")]
   );
   checkStructure!(
     "a: \"\" | U8 = \"\"", "a",
-    stype text(""),
-    utype StructureType::Union(vec![
-      text(""),
-      StructureType::Primitive(PrimitiveType::U8)
-    ])
+    stype primitiveValueText(""),
+    utype union![
+      primitiveValueText(""),
+      U8
+    ]
   );
 
   // Не подошло ни к одному `варианту` - `None`.
@@ -527,25 +499,21 @@ fn unionEmptyStringPrimitive() -> ()
 #[test]
 fn unionVariants() -> ()
 {
-  let union: StructureType = StructureType::Union(vec![
-    StructureType::Primitive(PrimitiveType::U8),
-    StructureType::Primitive(PrimitiveType::String)
-  ]);
-  assert!(union.variants() == vec![
+  let unioned: StructureType = union![U8, String];
+  assert!(unioned.variants() == vec![
     StructureType::Primitive(PrimitiveType::U8),
     StructureType::Primitive(PrimitiveType::String)
   ]);
 
   // Одиночный тип - один `вариант`.
   assert!(
-    StructureType::Primitive(PrimitiveType::U8).variants() == 
+    StructureType::Primitive(PrimitiveType::U8).variants() ==
     vec![StructureType::Primitive(PrimitiveType::U8)]
   );
 
   // Пустое объединение и `None` - пустой список, то есть тип не указан.
   assert!(
-    StructureType::Union(vec![])
-      .variants().is_empty()
+    union![].variants().is_empty()
   );
   assert!(
     StructureType::Primitive(PrimitiveType::None)
@@ -557,34 +525,24 @@ fn unionVariants() -> ()
 #[test]
 fn unionToString() -> ()
 {
-  assert_eq!(StructureType::Union(vec![
-    StructureType::Primitive(PrimitiveType::U8),
-    StructureType::Primitive(PrimitiveType::String)
-  ]).to_string(), "U8 | String");
-  assert_eq!(StructureType::Union(vec![
-    StructureType::Primitive(PrimitiveType::I8),
-    StructureType::Primitive(PrimitiveType::F64),
-    StructureType::Primitive(PrimitiveType::None)
-  ]).to_string(), "I8 | F64 | None");
+  assert_eq!(union![U8, String].to_string(), "U8 | String");
+  assert_eq!(union![I8, F64, None].to_string(), "I8 | F64 | None");
 
   // Вложенный `union` схлопывается при разборе, но и сам печатается нормально.
-  assert_eq!(StructureType::Union(vec![
-    StructureType::Union(vec![
-      StructureType::Primitive(PrimitiveType::U8),
-      StructureType::Primitive(PrimitiveType::String)
-    ]),
-    StructureType::Primitive(PrimitiveType::U16)
-  ]).to_string(), "U8 | String | U16");
+  assert_eq!(union![
+    union![U8, String],
+    U16
+  ].to_string(), "U8 | String | U16");
 
   // Примитивы: число как есть, строка в кавычках.
-  assert_eq!(StructureType::Union(vec![
-    number("10"),
-    number("20")
-  ]).to_string(), "10 | 20");
-  assert_eq!(StructureType::Union(vec![
-    text("text"),
-    StructureType::Primitive(PrimitiveType::U8)
-  ]).to_string(), "\"text\" | U8");
+  assert_eq!(union![
+    primitiveValueNumber("10"),
+    primitiveValueNumber("20")
+  ].to_string(), "10 | 20");
+  assert_eq!(union![
+    primitiveValueText("text"),
+    U8
+  ].to_string(), "\"text\" | U8");
 }
 
 /// `abiType` сводит примитив к storage-форме.
@@ -592,15 +550,15 @@ fn unionToString() -> ()
 fn primitiveAbiType() -> ()
 {
   assert!(
-    text("text").abiType() ==
+    primitiveValueText("text").abiType() ==
     StructureType::Primitive(PrimitiveType::String)
   );
   assert!(
-    number("10").abiType() ==
+    primitiveValueNumber("10").abiType() ==
     StructureType::Primitive(PrimitiveType::U8)
   );
   assert!(
-    number("-1").abiType() ==
+    primitiveValueNumber("-1").abiType() ==
     StructureType::Primitive(PrimitiveType::I8)
   );
   
@@ -656,7 +614,7 @@ fn unionVariablePrimitives() -> ()
     "#,
     "t",
     type UInt,
-    stype number("20"),
+    stype primitiveValueNumber("20"),
     value "20"
   );
   checkStructure!(
@@ -675,7 +633,7 @@ fn unionVariablePrimitives() -> ()
     "#,
     "t",
     type UInt,
-    stype number("10"),
+    stype primitiveValueNumber("10"),
     value "10"
   );
 }
@@ -690,7 +648,7 @@ fn unionVariableStringPrimitive() -> ()
     "#,
     "v",
     type String,
-    stype text("text"),
+    stype primitiveValueText("text"),
     value "text"
   );
   checkStructure!(

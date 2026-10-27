@@ -11,19 +11,109 @@ use crate::tokenizer::types::tokenType::TokenType;
 // По сути это объединение возможных значений для хранения в структуре;
 //
 // `Union` может состоять из `вариантов`:
+//
 // - `StructureType`, это примитивы;
+//
 // - Пользовательских структур; todo Не уверен что оно работает или есть, но должно быть.
+//
 // - Значение-римитив [`StructureType::PrimitiveValue`].
 //
 // Повторяющиеся типы объединяются т.к. это дубликаты.
 //
 //
-// `None` автоматически может содержаться при `константном` или `неопределенном` поведении;
-// Поэтому он никогда не указывается в `union` или в качестве типизации для структур.
-// todo Хотя вроде как `a: None = ...` имеет смысл и можно указывать? Поэтому или можно убрать?
-//  Имеется ввиду, что ожидание `None` может быть явное без удаления структуры и поэтому так.
+// `None` - не явный тип: он автоматически может содержаться у любой структуры
+// при `константном` или `неопределенном` поведении; Х
+//
+// Хранение и удаление `None` описаны отдельно:
+//
+// - `a = None` хранит значение;
+//
+// - `a := None` удаляет структуру.
+//
+// Поэтому в `union` и в типизацию структур он не вписывается: парсер просто его отбрасывает:
+//
+// - `a: None` - это `a`;
+//
+// - `a: U8 | None` - это `a: U8`.
+//
 //
 // todo `Any` - сейчас не используется. По логике он позволяет содержать любой тип.
+
+// =================================================================================================
+
+/// Короткая форма [`StructureType::Union`]: `union![..]` вместо `StructureType::Union(vec![..])`.
+///
+/// Варианты перечисляются через запятую, каждый - либо имя примитива, либо выражение:
+///
+/// - Имя примитива - `U8` становится `Primitive(PrimitiveType::U8)`;
+/// - Выражение - берётся как есть: `primitiveValueText("x")`.
+///
+///       union![U8, String];
+///       union![primitiveValueText("x")];
+///       union![U8, primitiveValueText("x")];
+///
+/// Имена примитивов и выражения можно смешивать в одном списке.
+#[allow(unused_macros)]
+macro_rules! union
+{
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Вариантов больше нет.
+  (@munch $variants:expr; ) => {};
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Вариант-примитив по имени, за ним - запятая.
+  (@munch $variants:expr; $name:ident, $($rest:tt)*) =>
+  {
+    $variants.push(
+      $crate::parser::structure::structureType::StructureType::Primitive(
+        $crate::parser::structure::structureType::PrimitiveType::$name
+      )
+    );
+    $crate::parser::structure::structureType::union::union!(@munch $variants; $($rest)*);
+  };
+
+  // Вариант-выражение, за ним - запятая.
+  (@munch $variants:expr; $variant:expr, $($rest:tt)*) =>
+  {
+    $variants.push($variant);
+    $crate::parser::structure::structureType::union::union!(@munch $variants; $($rest)*);
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Последний вариант-примитив по имени.
+  (@munch $variants:expr; $name:ident) =>
+  {
+    $variants.push(
+      $crate::parser::structure::structureType::StructureType::Primitive(
+        $crate::parser::structure::structureType::PrimitiveType::$name
+      )
+    );
+  };
+
+  // Последний вариант-выражение.
+  (@munch $variants:expr; $variant:expr) =>
+  {
+    $variants.push($variant);
+  };
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Список вариантов.
+  ($($variant:tt)*) =>
+  {
+    { // Блок - чтобы собрать варианты по одному.
+      let mut __variants: Vec<$crate::parser::structure::structureType::StructureType> = Vec::new();
+      $crate::parser::structure::structureType::union::union!(@munch __variants; $($variant)*);
+      $crate::parser::structure::structureType::StructureType::Union(__variants)
+    }
+  };
+}
+
+#[allow(unused_imports)]
+pub(crate) use union;
 
 // =================================================================================================
 
@@ -152,6 +242,11 @@ impl StructureType
   ///
   /// Одиночный примитив `a: 10` возвращается как `union` из одного варианта,
   /// иначе он не прошёл бы проверку значения: обычный тип этого не делает.
+  ///
+  /// `None` - не явный примитив, поэтому как `вариант` он отбрасывается:
+  /// `a: None` даёт то же, что и `a` без типа, а `a: U8 | None` - то же, что `a: U8`;
+  /// Но фактически `None` может храниться как отсутствие значения;
+  /// Более того именно `None` не указывается ещё потому, что он везде отбрасывается.
   pub fn fromTypeTokens(typeTokens: &[Token]) -> Self
   {
     let mut variants: Vec<Self> = Vec::new();
@@ -159,7 +254,10 @@ impl StructureType
     let mut current: Vec<Token> = Vec::new();
     let pushVariant = |variants: &mut Vec<Self>, current: &mut Vec<Token>| -> ()
     {
-      let found: Option<Self> = current.iter().find_map(|token: &Token| Self::fromTypeToken(token));
+      let found: Option<Self> = current.iter().find_map(|token: &Token| Self::fromTypeToken(token))
+        // `None` - не явный примитив: его не вписывают ни в `union`, ни в типизацию;
+        // такой `вариант` просто выбрасывается, как и всё, что не является типом.
+        .filter(|variant: &Self| *variant != Self::Primitive(PrimitiveType::None));
       if let Some(variant) = found
       {
         // Повторы и вложенные union'ы схлопываем в плоский список вариантов.
