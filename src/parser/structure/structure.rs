@@ -470,12 +470,11 @@ impl Structure
   {
     match op
     { // Принимаем только математические операции.
-      TokenType::Equals => {} /* |
+      TokenType::Equals |
       TokenType::PlusEquals |
       TokenType::MinusEquals |
       TokenType::MultiplyEquals |
       TokenType::DivideEquals => {},
-      */
       _ => return
     }
 
@@ -586,8 +585,7 @@ impl Structure
     } else
     { // Иные операторы, например += -= *= /=
       // получаем левую и правую часть.
-      // todo сейчас тут много ошибок.
-      let _leftValue: Token = 
+      let leftValue: Token = 
       {
         let structure: RwLockReadGuard<Self> = structureLink.read().unwrap();
         if let Some(lines) = &structure.lines
@@ -605,39 +603,35 @@ impl Structure
         } else {
           Token::newEmpty(TokenType::None)
         }
-        //
       };
-      let _rightPart: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо.
-      
-      /* todo Может плохо работать с #85, нужен контроль.
+      let rightValue: Token = self.expression(&mut rightPart.clone()); // todo: возможно не надо клонировать токены, но скорее надо.
+
       // Далее обрабатываем саму операцию.
-      let mut structure: RwLockWriteGuard<Structure> = structureLink.write().unwrap();
-      match op 
+      let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
+      let resultToken: Token = match op 
       { // Определяем тип операции
         TokenType::PlusEquals => 
-        { 
-          structure.lines = 
-            Some(vec![
-              Arc::new(RwLock::new( 
-                Line {
-                  tokens: Some(vec![ calculate(&TokenType::Plus, &leftValue, &rightPart) ]),
-                  // todo Здесь должны быть преобразования типа у структуры.
-                  //  Сейчас если станет Int, то у структуры не поменяется U8 на I8.
-                  //  + Здесь должна быть normalizeToken когда не Dynamic.
-                  indent: None,
-                  lines:  None,
-                  parent: None
-                }
-              ))
-            ]);
-        }
-        _ => {} // todo: Дописать другие варианты; а также добавит для них отдельные тесты.
-      }
-      //if op == TokenType::PlusEquals     { structure.value = calculate(&TokenType::Plus,     &leftValue, &rightValue); } else 
-      //if op == TokenType::MinusEquals    { structure.value = calculate(&TokenType::Minus,    &leftValue, &rightValue); } else 
-      //if op == TokenType::MultiplyEquals { structure.value = calculate(&TokenType::Multiply, &leftValue, &rightValue); } else 
-      //if op == TokenType::DivideEquals   { structure.value = calculate(&TokenType::Divide,   &leftValue, &rightValue); }
-      */
+          calculate(&TokenType::Plus, &leftValue, &rightValue),
+        TokenType::MinusEquals => 
+          calculate(&TokenType::Minus, &leftValue, &rightValue),
+        TokenType::MultiplyEquals => 
+          calculate(&TokenType::Multiply, &leftValue, &rightValue),
+        TokenType::DivideEquals => 
+          calculate(&TokenType::Divide, &leftValue, &rightValue),
+        _ => Token::newEmpty(TokenType::None)
+      };
+      // todo Здесь должны быть преобразования типа у структуры.
+      //  Сейчас если станет Int, то у структуры не поменяется U8 на I8.
+      //  + Здесь должна быть normalizeToken когда не Dynamic.
+      structure.lines =
+        Some(vec![
+          Arc::new(RwLock::new( 
+            Line {
+              tokens: Some(vec![ resultToken ]),
+              lines:  None,
+            }
+          ))
+        ]);
     }
   }
 

@@ -19,24 +19,23 @@ use crate::tokenizer::tokenizer::readTokensSimple;
 
 // =================================================================================================
 
-/// Проверяет, что переданный dataType является математическим оператором.
+/// Проверяет, что переданный `dataType` является математическим оператором.
+/// 
+/// todo Есть проблема в том, что `=` и `:=` не совсем математические операторы.
 const fn isMathOperator(dataType: TokenType) -> bool
 {
   matches!(dataType,
-    // `=` — присваивание по области видимости (ищет вверх);
-    // `:=` — создание в текущей области (вверх НЕ ищет).
-    TokenType::Equals | TokenType::Creation
-    /* | // =
-    todo Может плохо работать с #85, нужен контроль
-    TokenType::UnaryPlus      | // ++
+    // `=` — Присваивание по области видимости (ищет вверх);
+    // `:=` — Создание в текущей области (вверх не ищет).
+    TokenType::Equals | TokenType::Creation |
     TokenType::PlusEquals     | // +=
-    TokenType::UnaryMinus     | // --
     TokenType::MinusEquals    | // -=
     TokenType::MultiplyEquals | // *=
-    TokenType::DivideEquals   | // /=
-    TokenType::ModuloEquals   | // %=
-    TokenType::ExponentEquals   // ^=
-    */
+    TokenType::DivideEquals     // /=
+    // TokenType::ModuloEquals   | // %=
+    // TokenType::ExponentEquals | // ^=
+    // TokenType::UnaryPlus      | // ++
+    // TokenType::UnaryMinus     | // --
   )
 }
 
