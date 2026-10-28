@@ -1197,15 +1197,20 @@ pub(super) fn searchStructure(
         {
           for parameter in parameters
           {
-            newStructure.pushStructure(
-              Arc::new(RwLock::new(Structure::new(
-                parameter.0.toString(),
-                StructureMut::Constant, // todo По идее надо еще читать правила mut (в getStructureParameters).
-                parameter.1.clone(),
-                None,
-                None
-              )))
+            let mut parameterStructure: Structure = Structure::new(
+              parameter.0.toString(),
+              StructureMut::Constant, // todo По идее надо еще читать правила mut (в getStructureParameters).
+              parameter.1.clone(),
+              None,
+              None
             );
+            // Объединение типов `n: U8 | String`: набор `вариантов` хранится отдельно,
+            // как и у обычного объявления; `вариант` подбирается при каждом вызове.
+            if let StructureType::Union(variants) = &parameter.1
+            {
+              parameterStructure.unionTypes = Some(variants.clone());
+            }
+            newStructure.pushStructure(Arc::new(RwLock::new(parameterStructure)));
           }
         }
 

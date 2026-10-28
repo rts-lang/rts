@@ -119,10 +119,10 @@ impl Structure
         
         // todo Тут еще надо определять structure mutable.
         
-        // Это типизация параметра.
-        if expressionBuffer.len() == 3 
+        // Это типизация параметра: `n: U8` или `union` `n: U8 | String`.
+        if expressionBuffer.len() >= 3
         {
-          let parameterType: StructureType = expressionBuffer[2].getStructureTypeSimple();
+          let parameterType: StructureType = StructureType::fromTypeTokens(&expressionBuffer[2..]);
           result.push((
             expressionBuffer[0].getData(),
             parameterType
