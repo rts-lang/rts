@@ -170,10 +170,17 @@ impl Structure
                     // todo:
                     //  Кстати не должен ли getAllExpressions сам делать приведение?
                     //  Много таких мест в коде с params.
-                    Self::normalizeToken(
-                      &mut token, 
-                      calledStructureStructure.dataType.clone()
-                    );
+                    if let Some(variants) = calledStructureStructure.unionTypes.clone()
+                    { // Объединение `n: U8 | String`: под каждый вызов подбирается свой вариант.
+                      calledStructureStructure.dataType =
+                        Self::normalizeUnion(&mut token, &StructureType::Union(variants));
+                    } else
+                    {
+                      Self::normalizeToken(
+                        &mut token,
+                        calledStructureStructure.dataType.clone()
+                      );
+                    }
 
                     // ABI-композит String: .pointer/.length;
                     // Считаем ДО перемещения токена в lines ниже.
