@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock};
 ///
 /// `String`/`RawString` - cast приводит токен к своему типу даже для пустой
 /// строки, как у метода `String("")`. `CString` - алиас `Pointer`, приведения
-/// для него нет: токен остаётся без типа, структура получает свой тип.
+/// для него нет: значение по умолчанию у него - пустая строка.
 #[test]
 fn types() -> ()
 {
@@ -25,7 +25,7 @@ fn types() -> ()
   // `CString` - свой тип; алиас от `Pointer` только для FFI.
   checkStructure!(
     r#"b: CString = """#, "b",
-    type None,
+    type String,
     stype CString,
     value ""
   );

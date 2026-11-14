@@ -1,6 +1,9 @@
 // =================================================================================================
 pub mod structureType;
 pub use structureType::*;
+mod primitiveTypeFrame;
+mod primitiveType;
+pub use primitiveType::PrimitiveType;
 pub mod union;
 // =================================================================================================
 #[cfg(test)]

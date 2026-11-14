@@ -1,4 +1,5 @@
-use super::structureType::{PrimitiveValueKind, PrimitiveType, StructureType};
+use super::structureType::{PrimitiveValueKind, StructureType};
+use crate::parser::structure::structureType::PrimitiveType;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================

@@ -171,12 +171,12 @@ impl Structure
                     //  Кстати не должен ли `getAllExpressions()` сам делать приведение?
                     //  Много таких мест в коде с params.
                     calledStructureStructure.dataType =
-                      match calledStructureStructure.unionTypes.clone() 
+                      match calledStructureStructure.unionTypes.clone()
                       { // Объединение `n: U8 | String`: под каждый вызов подбирается свой вариант.
                         Some(variants) => StructureType::Union(variants).normalizeUnion(&mut token),
                         None => 
                         { // Одиночный тип параметра: `n: U8`.
-                          calledStructureStructure.dataType.clone().castToken(&mut token);
+                          calledStructureStructure.dataType.castToken(&mut token);
                           calledStructureStructure.dataType.clone()
                         }
                       };

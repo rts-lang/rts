@@ -165,7 +165,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
 ///   UFloat  0 ... f64::MAX;
 ///   Float   f64::MIN ... -0.
 ///
-/// todo У floats inf становится границей в виде `{:e}`, как в структуре; NaN - 0.
+/// todo У floats `inf` становится границей в виде `{:e}`, как в структуре; `NaN` - 0.
 pub fn normalizeToken(token: &mut Token) -> ()
 {
   let data: String = token.getData().toString().unwrap_or_default();
@@ -202,7 +202,11 @@ pub fn normalizeToken(token: &mut Token) -> ()
 /// Значение за границей f64 зажимается в границу, как в структуре: inf - f64::MAX/MIN, NaN - 0.
 fn normalizeFloat(value: f64) -> f64
 {
-  if value.is_nan() { 0.0 } else { value.clamp(f64::MIN, f64::MAX) }
+  if value.is_nan() {
+    0.0
+  } else {
+    value.clamp(f64::MIN, f64::MAX)
+  }
 }
 
 /// Зависимость для calculate;
@@ -217,10 +221,12 @@ fn normalizeValue(value: Value) -> Value
     // UInt - usize, Int - isize (Value хранит u64/i64, на 32 битах потолок ниже).
     Value::UInt(x) => Value::UInt(x.min(usize::MAX as u64)),
     Value::Int(x) => Value::Int(x.clamp(isize::MIN as i64, isize::MAX as i64)),
+    //
     Value::Float(x) => Value::Float(normalizeFloat(x)),
     // Отрицательный UFloat сохраняется: из него calculate делает Float (`1.0 - 2.0`).
     Value::UFloat(x) if !f64::from(x).is_finite() =>
       Value::UFloat(uf64::from(normalizeFloat(f64::from(x)))),
+    //
     other => other
   }
 }
