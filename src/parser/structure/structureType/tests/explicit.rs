@@ -100,18 +100,23 @@ fn normalize() -> ()
   );
 }
 
-/// Большие числа в `float` сохраняют величину, а не сжимаются в `u64`.
+/// Большие числа в `float`-рамке зажимаются в границу типа.
+//
+//  `UInt` за `u64` доходит до приведения уже как `u64::MAX`: токен насыщается
+//  в границы своего собственного типа ещё при создании (`normalizeData`),
+//  поэтому величина исходного числа до `float`-рамки не доходит - как и в
+//  `castFloats`, где expression обрубает значение до `usize::MAX`.
 #[test]
 fn normalizeFloat() -> ()
 {
   let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
   castToken(
     TokenType::UInt, big,
-    StructureType::Primitive(PrimitiveType::F32), &format!("{:?}", f32::MAX)
+    StructureType::Primitive(PrimitiveType::F32), &format!("{:?}", u64::MAX as f32)
   );
   castToken(
     TokenType::UInt, big,
-    StructureType::Primitive(PrimitiveType::F64), &format!("{:?}", big.parse::<f64>().unwrap())
+    StructureType::Primitive(PrimitiveType::F64), &format!("{:?}", u64::MAX as f64)
   );
   
   // Бесконечность зажимается в границу типа.

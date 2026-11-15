@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use crate::parser::structure::structureType::primitiveTypeFrame::PrimitiveTypeFrame;
-use crate::parser::structure::tokenValue::calculate::normalizeToken;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
@@ -135,6 +134,26 @@ impl PrimitiveType
 {
   // ===============================================================================================
   
+  /// Ставит стандартное значение токена для требуемого [`StructureType`].
+  ///
+  /// Очень удобно для случаев, если в структуру приравнивают что-то не то,
+  /// и нам надо `default` значение.
+  ///
+  /// Например, если `a: U8 = "test"`, то будет `0` из-за константного поведения.
+  pub(super) fn setTokenDefault(&self, token: &mut Token) -> ()
+  {
+    // Создаём базовый токен.
+    let default: (TokenType, &str) = match self
+    {
+      primitive => primitive.getFrame().default
+    };
+
+    token.setDataType(default.0);
+    token.setData(default.1);
+  }
+
+  // ===============================================================================================
+
   /// Выдаёт `TokenType`, соответствующий текущему `StructureType`:
   ///
   /// - `U8`/`U16`/`U32`/`U64`/`Usize` ⟶ `UInt`;
@@ -168,24 +187,12 @@ impl PrimitiveType
     }
   }
 
-  // ===============================================================================================
-  
-  /// Ставит стандартное значение токена для требуемого [`StructureType`].
-  ///
-  /// Очень удобно для случаев, если в структуру приравнивают что-то не то,
-  /// и нам надо `default` значение.
-  ///
-  /// Например, если `a: U8 = "test"`, то будет `0` из-за константного поведения.
-  fn setTokenDefault(&self, token: &mut Token) -> ()
+  pub(super) fn retypeToken(&self, token: &mut Token) -> ()
   {
-    // Создаём базовый токен.
-    let default: (TokenType, &str) = match self
-    {
-      primitive => primitive.getFrame().default
-    };
-
-    token.setDataType(default.0);
-    token.setData(default.1);
+    let tokenValue: String = token.getData().toString().unwrap_or_default();
+    if let Some(targetTokenType) = self.getTokenType(&tokenValue) {
+      token.setDataType(targetTokenType);
+    }
   }
 
   // ===============================================================================================
@@ -211,7 +218,7 @@ impl PrimitiveType
   ///   границы типа, значение не того рода становится базовым значением типа
   ///   (`U8(-10)` -> `0`, как и `U8("test")` -> `0`).
   ///
-  /// - Границы приведения живут в рамке ([`CastFrame`]): она есть только у
+  /// - Границы приведения живут в рамке ([`PrimitiveTypeFrame`]): они есть только у
   ///   числовых типов; у остальных приведения нет - значение проходит как есть.
   ///
   /// - `TokenType` и `StructureType` - разные вещи: `TokenType` - вид данных
@@ -251,32 +258,7 @@ impl PrimitiveType
 
     // ---------------------------------------------------------------------------------------------
     
-    // Замыкание для перерасчёта `TokenType`.
-    let retypeToken = |token: &mut Token, structureType: &PrimitiveType| -> ()
-    {
-      let tokenValue: String = token.getData().toString().unwrap_or_default();
-      if let Some(targetTokenType) = structureType.getTokenType(&tokenValue) {
-        token.setDataType(targetTokenType);
-      }
-    };
-
-    // ---------------------------------------------------------------------------------------------
-    
-    /*
-    // Получаем строку из данных.
-    let tokenData: String =
-      if let Some(tokenData) = token.getData().toString() {
-        tokenData
-      } else
-      { // Нет данных.
-        self.setTokenDefault(token);
-        retypeToken(token, self);
-        return;
-      };
-    */
-
-    //
-    let dataType: &TokenType = token.getDataType();
+    let dataType: TokenType = *token.getDataType(); // todo Плохо, что тут `*`.
 
     // ---------------------------------------------------------------------------------------------
 
@@ -289,99 +271,15 @@ impl PrimitiveType
       // но легче проверять через `TokenType`.
       Some(_) => match dataType
       {
-        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
         TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
-        {
-          normalizeToken(token);
+        { // Числовые типы нормализуются.
+          self.normalizeToken(&frame, token, &dataType);
         }
-        
-        /*
-        TokenType::UInt =>
-        {
-          // Токен бесконечен, а `u64` нет: поэтому всё что больше - граница `u64`,
-          // дальше значение зажимается в рамки структуры.
-          let value: Option<u64> = match tokenData.parse::<u64>()
-          {
-            Ok(value) => Some(value),
-            Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(u64::MAX),
-            Err(_) => None
-          };
-
-          match value
-          {
-            None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
-            Some(value) =>
-            {
-              // Для `float` берём величину числа напрямую, без сжатия в `u64`.
-              let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
-              frame.normalizeTokenNumber(token, Number::Unsigned(value, magnitude))
-            }
-          }
-        }
-
-        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        TokenType::Int =>
-        {
-          // Токен бесконечен, а `i64` нет: всё что больше или меньше - граница `i64`,
-          // дальше значение зажимается в рамки структуры.
-          let value: Option<i64> = match tokenData.parse::<i64>()
-          { // todo Напоминает очень сильно границы `calculate`, получается дубль так то.
-            Ok(value) => Some(value),
-            Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(i64::MIN),
-            Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(i64::MAX),
-            Err(_) => None
-          };
-
-          match value
-          {
-            None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
-            Some(value) =>
-            {
-              // Для `float` берём величину числа напрямую, без сжатия в `i64`.
-              let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
-              frame.normalizeTokenNumber(token, Number::Signed(value, magnitude))
-            }
-          }
-        }
-
-        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-        TokenType::UFloat | TokenType::Float =>
-        {
-          if let Ok(mut value) = tokenData.parse::<f64>()
-          {
-            // Для `UFloat` обрезаем отрицательные до `0`.
-            if dataType == &TokenType::UFloat && value < 0.0 {
-              value = 0.0;
-            }
-
-            if value.is_nan()
-            { // `NaN` — базовое значение;
-              //
-              // Бесконечность зажмётся в границы типа.
-              self.setTokenDefault(token);
-              retypeToken(token, self);
-              return;
-            }
-
-            frame.normalizeTokenNumber(token, Number::Float(value));
-          } else
-          { // Не распарсилось — базовое значение.
-            self.setTokenDefault(token);
-          }
-        }
-        */
-
-        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
+        // todo Строковые типы и другие должны тут нормализоваться? Или только `min`/`max`?
         _ =>
         { // Здесь пытаются прировнять что-то не то.
           self.setTokenDefault(token);
         }
-
-        // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       }
       None => {
         // Другие типы — ничего не делаем.
@@ -395,7 +293,7 @@ impl PrimitiveType
     // ---------------------------------------------------------------------------------------------
 
     // Пересчёт `TokenType`.
-    retypeToken(token, self);
+    self.retypeToken(token);
 
     // ---------------------------------------------------------------------------------------------
   }

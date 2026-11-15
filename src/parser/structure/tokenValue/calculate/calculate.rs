@@ -157,6 +157,7 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
 
 // =================================================================================================
 
+/*
 /// Нормализация (#71) Token по его TokenType: токен бесконечен, а математика Rust нет.
 ///
 /// 4 класса токенов для чисел, у каждого свои min и max значения:
@@ -197,6 +198,7 @@ pub fn normalizeToken(token: &mut Token) -> ()
     token.setData(normalized);
   }
 }
+*/
 
 /// Зависимость для calculate;
 /// Значение за границей f64 зажимается в границу, как в структуре: inf - f64::MAX/MIN, NaN - 0.

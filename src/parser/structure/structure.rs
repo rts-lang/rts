@@ -4,7 +4,7 @@ use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
-use crate::parser::structure::tokenValue::calculate::{calculate, normalizeToken};
+use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -642,10 +642,10 @@ impl Structure
   /// Вычисляем значение для struct имени типа `TokenType::Word`.
   fn replaceStructureByName(&self, value: &mut [Token], index: usize) -> ()
   {
-    fn setNone(value: &mut [Token], index: usize) 
+    fn setNone(value: &mut [Token], index: usize)
     { // Возвращаем пустое значение.
-      value[index].setData(None);
       value[index].setDataType(TokenType::None);
+      value[index].setData(None);
     }
 
     if let Some(structureName) = value[index].getData().toString() 
@@ -851,11 +851,6 @@ impl Structure
             }
             //
           }
-        }
-        TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
-        { // Токен бесконечен: сразу приводим в границы типа Rust,
-          // дальше структура приводит уже обрубленное значение к своему типу.
-          normalizeToken(&mut value[0]);
         }
         _ => {} // Идём дальше.
       }

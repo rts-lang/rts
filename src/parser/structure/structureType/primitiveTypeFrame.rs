@@ -1,4 +1,7 @@
+use std::num::IntErrorKind;
+use crate::parser::bytes::Bytes;
 use crate::parser::structure::structureType::PrimitiveType;
+use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
@@ -201,93 +204,304 @@ impl PrimitiveType
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
   }
-
+  
   // ===============================================================================================
 }
 
 // =================================================================================================
 
-/*
-impl PrimitiveTypeFrame
+impl PrimitiveType
 {
-  // ===============================================================================================
-  
-  /// Положить число в рамку.
-  ///
-  /// `number` - прочитанное по виду данных токена число.
-  fn normalizeTokenNumber(&self, token: &mut Token, number: Number) -> ()
+  pub(super) fn normalizeToken(
+    &self,
+    frame: &PrimitiveTypeFrame,
+    token: &mut Token,
+    dataType: &TokenType
+  ) -> ()
   {
-    match *self
+    // Получаем строку из данных.
+    let tokenData: String =
+      if let Some(tokenData) = token.getData().toString() {
+        tokenData
+      } else
+      { // Нет данных.
+        self.setTokenDefault(token);
+        self.retypeToken(token);
+        return;
+      };
+    
+    match dataType
     {
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       
-      CastFrame::Integer(min, max) => match number
+      TokenType::UInt =>
       {
-        Number::Unsigned(value, _) =>
-          token.setData( Bytes::from(value.min(max).to_string()) ),
-        //
-        Number::Signed(value, _) =>
+        // Токен бесконечен, а `u64` нет: поэтому всё что больше - граница `u64`,
+        // дальше значение зажимается в рамки структуры.
+        let value: Option<u64> = match tokenData.parse::<u64>()
         {
-          let normalized: String =
-            if value < min {
-              min.to_string()
-            } else if value > 0 && (value as u64) > max {
-              max.to_string()
-            } else {
-              value.to_string()
-            };
-          token.setData( Bytes::from(normalized) );
-        }
-        //
-        Number::Float(value) =>
+          Ok(value) => Some(value),
+          Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(u64::MAX),
+          Err(_) => None
+        };
+
+        match value
         {
-          // Приведение к целочисленным типам: округление и зажим в границы типа;
-          //
-          // Отрицательное значение остаётся, если тип его принимает (`I8 = -5.5` -> `-6`),
-          // а для беззнаковых типов оно становится 0 (`U8 = -5.5` -> `0`).
-          let rounded: f64 = value.round();
-          let normalized: String = if rounded < 0.0
-          { // Приведение `f64` в `i64` насыщается само, `inf` тоже.
-            // todo Тут упомянут `inf` - нужно разобраться т.к. его нет в RTS.
-            (rounded as i64).max(min).to_string()
-          } else
-          { // todo Тут бы desc как сделано в ветке сверху?
-            (rounded as u64).min(max).to_string()
-          };
-          token.setData( Bytes::from(normalized) );
+          None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
+          Some(value) =>
+          {
+            // Для `float` берём величину числа напрямую, без сжатия в `u64`.
+            let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
+            frame.normalizeTokenUnsigned(token, value, magnitude)
+          }
         }
       }
-      
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      
-      CastFrame::Float32 =>
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      TokenType::Int =>
       {
-        let floatValue: f64 = number.magnitude().clamp(f32::MIN as f64, f32::MAX as f64);
-        // `{:?}` для `f32`/`f64` сохраняет точку для целых `float`:
-        // `1.0` -> `1.0`, не `1`; и использует `e`-нотацию только для
-        // больших/маленьких чисел. Так `data` всегда одинаково проходит 
-        // через токенайзер как `Float`/`UFloat`.
-        token.setData( Bytes::from(format!("{:?}", floatValue as f32)) );
+        // Токен бесконечен, а `i64` нет: всё что больше или меньше - граница `i64`,
+        // дальше значение зажимается в рамки структуры.
+        let value: Option<i64> = match tokenData.parse::<i64>()
+        { // todo Напоминает очень сильно границы `calculate`, получается дубль так то.
+          Ok(value) => Some(value),
+          Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(i64::MIN),
+          Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(i64::MAX),
+          Err(_) => None
+        };
+
+        match value
+        {
+          None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
+          Some(value) =>
+          {
+            // Для `float` берём величину числа напрямую, без сжатия в `i64`.
+            let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
+            frame.normalizeTokenSigned(token, value, magnitude)
+          }
+        }
       }
-      
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      
-      CastFrame::Float64 =>
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      TokenType::UFloat | TokenType::Float =>
       {
-        let floatValue: f64 = number.magnitude().clamp(f64::MIN, f64::MAX);
-        // `{:?}` для `f32`/`f64` сохраняет точку для целых `float`:
-        // `1.0` -> `1.0`, не `1`; и использует `e`-нотацию только для
-        // больших/маленьких чисел. Так `data` всегда одинаково проходит 
-        // через токенайзер как `Float`/`UFloat`.
-        token.setData( Bytes::from(format!("{:?}", floatValue)) );
+        if let Ok(mut value) = tokenData.parse::<f64>()
+        {
+          // Для `UFloat` обрезаем отрицательные до `0`.
+          if dataType == &TokenType::UFloat && value < 0.0 {
+            value = 0.0;
+          }
+
+          if value.is_nan()
+          { // `NaN` — базовое значение;
+            //
+            // Бесконечность зажмётся в границы типа.
+            self.setTokenDefault(token);
+            self.retypeToken(token);
+            return;
+          }
+
+          frame.normalizeTokenFloat(token, value);
+        } else
+        { // Не распарсилось — базовое значение.
+          self.setTokenDefault(token);
+        }
       }
-      
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      _ =>
+      { // Здесь пытаются прировнять что-то не то.
+        self.setTokenDefault(token);
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
   }
 
   // ===============================================================================================
+
 }
-*/
+
+// =================================================================================================
+
+impl PrimitiveTypeFrame
+{
+  // ===============================================================================================
+
+  /// `true`, если рамка дробная (`f32`/`f64`):
+  /// её значения зажимаются величиной числа, а не точным целым.
+  fn isFloat(&self) -> bool
+  {
+    matches!(
+      self.min,
+      Some(PrimitiveTypeFrameNumber::F32(_)) | Some(PrimitiveTypeFrameNumber::F64(_))
+    )
+  }
+
+  // ===============================================================================================
+
+  /// Границы целочисленной рамки: `(минимум, максимум)`.
+  ///
+  /// У `float`-рамок целочисленных границ нет - будет `None`:
+  /// их значения зажимаются величиной в границы `f32`/`f64`.
+  //
+  //  `U128`/`I128` рамок пока нет: их границы не вмещаются в
+  //  `i64`/`u64`, а молча исказить границу нельзя - поэтому `None`.
+  fn integerBounds(&self) -> Option<(i64, u64)>
+  {
+    match (self.min, self.max)
+    {
+      (Some(PrimitiveTypeFrameNumber::U8(min)),    Some(PrimitiveTypeFrameNumber::U8(max)))    => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::U16(min)),   Some(PrimitiveTypeFrameNumber::U16(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::U32(min)),   Some(PrimitiveTypeFrameNumber::U32(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::U64(min)),   Some(PrimitiveTypeFrameNumber::U64(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::Usize(min)), Some(PrimitiveTypeFrameNumber::Usize(max))) => Some((min as i64, max as u64)),
+      //
+      (Some(PrimitiveTypeFrameNumber::I8(min)),    Some(PrimitiveTypeFrameNumber::I8(max)))    => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::I16(min)),   Some(PrimitiveTypeFrameNumber::I16(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::I32(min)),   Some(PrimitiveTypeFrameNumber::I32(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::I64(min)),   Some(PrimitiveTypeFrameNumber::I64(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::Isize(min)), Some(PrimitiveTypeFrameNumber::Isize(max))) => Some((min as i64, max as u64)),
+      //
+      _ => None
+    }
+  }
+
+  // ===============================================================================================
+
+  /// Кладёт величину числа в токен как значение `float`-рамки.
+  ///
+  /// Величина зажимается в `min`/`max` самой рамки: иначе бесконечность
+  /// осталась бы бесконечной и в `f32`/`f64`.
+  fn setFloatToken(&self, token: &mut Token, magnitude: f64) -> ()
+  {
+    // `{:?}` для `f32`/`f64` сохраняет точку для целых `float`:
+    // `1.0` -> `1.0`, не `1`; и использует `e`-нотацию только для
+    // больших/маленьких чисел. Так `data` всегда одинаково проходит
+    // через токенайзер как `Float`/`UFloat`.
+    match (self.min, self.max)
+    {
+      (Some(PrimitiveTypeFrameNumber::F32(min)), Some(PrimitiveTypeFrameNumber::F32(max))) =>
+      {
+        let floatValue: f64 = magnitude.clamp(min as f64, max as f64);
+        token.setData( Bytes::from(format!("{:?}", floatValue as f32)) );
+      }
+      //
+      (Some(PrimitiveTypeFrameNumber::F64(min)), Some(PrimitiveTypeFrameNumber::F64(max))) =>
+      {
+        let floatValue: f64 = magnitude.clamp(min, max);
+        token.setData( Bytes::from(format!("{:?}", floatValue)) );
+      }
+      //
+      _ => {}
+    }
+  }
+
+  // ===============================================================================================
+
+  /// Зажимает беззнаковое целое из токена в рамки примитива.
+  ///
+  /// `value` - точное значение, насыщенное в границы `u64`:
+  /// токен бесконечен, а `u64` нет - всё что больше, становится границей;
+  ///
+  /// `magnitude` - величина числа из данных токена: для `float`-рамок число
+  /// берётся из неё, а не из насыщенного целого - иначе большие числа теряют
+  /// величину ещё до рамки (`44444...` зажалось бы в `u64::MAX`, а не в `f32::MAX`).
+  pub(super) fn normalizeTokenUnsigned(&self, token: &mut Token, value: u64, magnitude: f64) -> ()
+  {
+    // `float`-рамка: значение зажимается величиной в границы `f32`/`f64`.
+    if self.isFloat()
+    {
+      self.setFloatToken(token, magnitude);
+      return;
+    }
+
+    // Целочисленная рамка: точное значение зажимается в максимум.
+    //
+    // Минимум не нужен: беззнаковое значение всегда `>= 0`,
+    // а минимум целочисленной рамки положительным не бывает.
+    if let Some((_, max)) = self.integerBounds()
+    {
+      token.setData( Bytes::from(value.min(max).to_string()) );
+    }
+
+    // Рамки нет: значение проходит как есть.
+  }
+
+  // ===============================================================================================
+
+  /// Зажимает знаковое целое из токена в рамки примитива.
+  ///
+  /// `value` - точное значение, насыщенное в границы `i64`;
+  /// `magnitude` - величина числа из данных токена, как у беззнакового.
+  pub(super) fn normalizeTokenSigned(&self, token: &mut Token, value: i64, magnitude: f64) -> ()
+  {
+    // `float`-рамка: значение зажимается величиной в границы `f32`/`f64`.
+    if self.isFloat()
+    {
+      self.setFloatToken(token, magnitude);
+      return;
+    }
+
+    if let Some((min, max)) = self.integerBounds()
+    {
+      let normalized: String =
+        if value < min
+        {
+          min.to_string()
+        }
+        else if value > 0 && (value as u64) > max
+        {
+          max.to_string()
+        }
+        else
+        {
+          value.to_string()
+        };
+      token.setData( Bytes::from(normalized) );
+    }
+
+    // Рамки нет: значение проходит как есть.
+  }
+
+  // ===============================================================================================
+
+  /// Зажимает дробное значение из токена в рамки примитива.
+  pub(super) fn normalizeTokenFloat(&self, token: &mut Token, value: f64) -> ()
+  {
+    // `float`-рамка: значение зажимается величиной в границы `f32`/`f64`.
+    if self.isFloat()
+    {
+      self.setFloatToken(token, value);
+      return;
+    }
+
+    if let Some((min, max)) = self.integerBounds()
+    {
+      // Приведение к целочисленному типу: округление и зажим в границы типа;
+      //
+      // Отрицательное значение остаётся, если тип его принимает
+      // (`I8 = -5.5` -> `-6`), а для беззнаковых типов оно становится `0`
+      // (`U8 = -5.5` -> `0`).
+      let rounded: f64 = value.round();
+      let normalized: String = if rounded < 0.0
+      { // Приведение `f64` в `i64` насыщается само, `inf` тоже.
+        // todo Тут упомянут `inf` - нужно разобраться т.к. его нет в RTS.
+        (rounded as i64).max(min).to_string()
+      } else
+      { // todo Тут бы desc как сделано в ветке сверху?
+        (rounded as u64).min(max).to_string()
+      };
+      token.setData( Bytes::from(normalized) );
+    }
+
+    // Рамки нет: значение проходит как есть.
+  }
+
+  // ===============================================================================================
+}
 
 // =================================================================================================
