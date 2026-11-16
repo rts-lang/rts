@@ -48,14 +48,14 @@ const fn isMathOperator(dataType: TokenType) -> bool
 
 // =================================================================================================
 
-/// Проверяет, является ли токен тегом `[ffi]` (issue #79, #84).
-///
-/// `SquareBracketBegin` кодируется в tokenizer'е как токен с
-/// `dataType = SquareBracketBegin` и вложенными `lines` —
-/// собственно содержимым скобок. Внутри содержимого лежит одна линия
-/// с токенами `[Word("ffi")]` (для `[ffi]`). Возвращаем `true`, если это так.
+/// Проверяет, является ли [`Token`] тегом `[ffi]`.
+/// 
+/// Токен должен иметь тип [`TokenType::SquareBracketBegin`] и
+/// хранить одну вложенную линию с токеном `ffi` типа [`TokenType::Word`];
+/// 
+/// Возвращаем `true`, если это так.
 //
-// todo Когда появятся другие теги (`@async`, `@thread` и т.д.) — расширить.
+// todo Когда появятся другие теги (`async`, `thread` и т.д.) — расширить.
 fn isFfiTagToken(token: &Token) -> bool
 {
   // todo desc
@@ -92,72 +92,88 @@ fn isFfiTagToken(token: &Token) -> bool
   false
 }
 
-/// Проверяет, является ли предыдущая линия (по индексу `lineIndex - 1`)
-/// тегом `[ffi]`. Используется для многострочной формы
-///   [ffi]
-///   { ... }
-/// где вторая линия сама по себе не знает про тег.
+/// Проверяет, является ли предыдущая [`Line`] тегом `[ffi]`.
+/// 
+/// Используется для многострочной формы:
+/// ```ignore
+/// [ffi]
+/// {
+///   ...
+/// }
+/// ```
+/// 
+/// Здесь вторая [`Line`] сама по себе не знает о теге сверху.
 fn isPrevLineFfiTag(parentLink: &Arc<RwLock<Structure>>, lineIndex: usize) -> bool
 {
-  // todo desc
+  // Если до этой `Line` нет других - то ничего не будет.
   if lineIndex == 0 {
     return false;
   }
 
-  // todo desc
-  let prevLineOpt: Option< Arc<RwLock<Line>> > = parentLink.read().unwrap()
+  // Получаем предыдущую `Line`.
+  let prevLineLinkOption: Option< Arc<RwLock<Line>> > = parentLink.read().unwrap()
     .lines.as_ref()
-    .and_then(|lines| lines.get(lineIndex - 1).cloned());
-
-  // todo desc
-  let prevLine: Arc<RwLock<Line>> = if let Some(line) =
-    prevLineOpt { line }
-    else { return false };
-
-  // todo desc
-  let prevGuard: RwLockReadGuard<Line> = prevLine.read().unwrap();
-  let prevTokens: &[Token] = if let Some(tokens) =
-    prevGuard.tokens.as_ref() { tokens }
-    else { return false };
+    .and_then(|lines| lines.get(lineIndex-1).cloned());
   
-  // Многострочная форма: ровно один токен `[ffi]` на предыдущей строке.
-  if prevTokens.len() != 1 {
+  let prevLineLink: Arc<RwLock<Line>> = match prevLineLinkOption {
+    Some(line) => line,
+    None => return false,
+  };
+
+  // Получаем токены предыдущей `Line`.
+  let prevLine: RwLockReadGuard<Line> = prevLineLink.read().unwrap();
+  let prevLineTokens: &[Token] = match prevLine.tokens.as_ref() {
+    Some(tokens) => tokens,
+    None => return false,
+  };
+  
+  // Предыдущая `Line` должна иметь ровно один токен: `[ffi]`.
+  if prevLineTokens.len() != 1 {
     return false;
   }
   
-  // todo desc
-  isFfiTagToken(&prevTokens[0])
+  // Проверяет, является ли токен тегом `[ffi]`.
+  isFfiTagToken(&prevLineTokens[0])
 }
 
 // =================================================================================================
 
-/// Эта функция ищет return для структур `= value`;
+/// Эта функция ищет линию с `return` и определяет куда пишется результат:
 /// 
-/// Видно, что это не просто валяющееся значение.
-fn searchReturn(
+/// - `:=`: В ближайшую именованную [`Structure`] вверх по области видимости;
+/// 
+/// - `=`: В текущую [`Structure`].
+/// 
+fn searchReturnLine(
   line: &RwLockReadGuard<Line>,
   structureLink: Arc<RwLock<Structure>>
 ) -> bool
 {
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
   let mut lineTokens: Vec<Token> =
   { // Читаемая линия, на которой мы сейчас находимся.
-    if let Some(tokens) = 
-      line.tokens.clone() { tokens } // Токены линии на которой мы сейчас находимся.
-      else { return false } // Если в линии нет токенов, то мы её не читаем.
+    match line.tokens {
+      Some(ref tokens) => tokens.clone(), // Токены линии, на которой мы сейчас находимся.
+      None => return false // Если в линии нет токенов, то мы её не читаем.
+    }
   };
   if lineTokens.is_empty() {
     return false // Если в линии нет токенов, то мы её не читаем.
   }
 
-  // Что это: return (`:=`) или результат блока (`=`)?
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  
+  // Это `return` (`:=`) или результат блока (`=`)?
   let firstType: TokenType = *lineTokens[0].getDataType();
-  let isReturn: bool = firstType == TokenType::Equals || firstType == TokenType::Creation;
-  if !isReturn {
+  if !matches!(firstType, TokenType::Equals | TokenType::Creation) {
     return false
   }
 
   // Удаляем первый токен (`=` или `:=`), чтобы он не мешался.
   lineTokens.remove(0);
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   // Редактируемый родитель, поскольку мы собираемся присвоить значение его `result`.
   let newResultData: Token =
@@ -169,43 +185,60 @@ fn searchReturn(
       replaceConditionExpression(&lineTokens, &line.lines, &structureLink) {
         lineTokens = replaced;
       }
+    
     // Используем `expression`, чтобы получить результат выражения.
     let structure: RwLockReadGuard<Structure> = structureLink.read().unwrap();
     structure.expression(&mut lineTokens)
   };
 
-  // Куда писать `result`:
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  drop(lineTokens); // Больше не нужно.
+  
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  // Ищем куда писать `result`:
   //
-  // - `:=` => Возврат результата только именной структуры.
-  //           Поднимаемся через `parent` до первого `name.is_some()`.
+  // - `:=` => Возврат результата только именной `Structure`.
+  //           Поднимаемся через `.parent` до первого `name.is_some()`.
   //
-  // - `=` => Пишем в текущую `structureLink` - т.е. текущую структуру.
+  // - `=` => Пишем в текущую `structureLink` - т.е. текущую `Structure`.
+  //
   let targetLink: Arc<RwLock<Structure>> = if firstType == TokenType::Creation
   {
-    let mut current: Arc<RwLock<Structure>> = structureLink.clone();
+    let mut currentLink: Arc<RwLock<Structure>> = structureLink.clone();
     loop
     {
-      let hasName: bool = current.read().unwrap().name.is_some();
+      let current: RwLockReadGuard<Structure> = currentLink.read().unwrap();
+      
+      // Проверка на наличие имени у `Structure`.
+      let hasName: bool = current.name.is_some();
       if hasName {
         break
       }
-      let parent: Option<Arc<RwLock<Structure>>> = current.read().unwrap().parent.clone();
-      if let Some(parent) = parent {
-        current = parent;
-      } else
-      { // Дошли до верха (main, noname) — `:=` игнорируется.
-        return false 
-      }
+      
+      // Берём нового родителя.
+      let parent: Option< Arc<RwLock<Structure>> > = current.parent.clone();
+      drop(current);
+      
+      match parent
+      { // Поднимаемся выше, текущая `Structure` тоже была без имени.
+        Some(parent) => currentLink = parent,
+        // Дошли до самого верха, ничего выше `main` нет — `:=` игнорируется.
+        None => return false
+      };
     }
-    current
+    currentLink
   } else {
     structureLink.clone()
   };
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
   let mut structure: RwLockWriteGuard<Structure> = targetLink.write().unwrap();
 
   // Структура ожидает какой-то тип в результате,
-  // либо это может быть `TokenType:None`. Но мы просто будем менять `data`.
+  // либо это может быть `TokenType::None`. Но мы просто будем менять `data`.
 
   if structure.result.is_some()
   { // Вариант, в котором результат ожидает возвращение определённого типа данных.
@@ -214,29 +247,54 @@ fn searchReturn(
       structureResult.setData( newResultData.getData() );
     }
   } else
-  { // Вариант, в котором тип результата был не указан.
+  { // Вариант, в котором тип результата был не указан;
     //
-    // Используем `expression`, чтобы получить результат выражения.
+    // Используем `expression`, чтобы получить результат выражения;
     //
     // Присваиваем новый результат.
     structure.result = Some(newResultData);
   }
 
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
   // Всё успешно, это был результат.
   true
+
+  // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 }
 
 // =================================================================================================
 
-/// Читает линейную запись.
-fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isBlockValue: bool) -> bool
+/// Читает `линейное выражение`; Это запись в одну `Line`.
+/// 
+/// Например:
+/// ```ignore
+/// a = 10
+/// a := 10+20
+/// ```
+/// 
+/// Обычно состоит оно из левой и правой части выражения;
+/// 
+/// Хотя правая часть может отсутствовать в некоторых контекстах.
+/// 
+/// Например:
+/// ```ignore
+/// a
+/// a: U8
+/// a~
+/// ```
+/// 
+fn linearStructure(
+  lineTokens: &[Token],
+  parentLink: Arc<RwLock<Structure>>,
+  isBlockValue: bool
+) -> bool
 {
   // Получаем тип операции.
   let operatorType: TokenType = lineTokens.iter().find_map(|token| {
-    if isMathOperator( *token.getDataType() ) {
-      Some(*token.getDataType())
-    } else {
-      None
+    match isMathOperator(*token.getDataType()) {
+      true => Some(*token.getDataType()),
+      false => None,
     }
   }).unwrap_or(TokenType::None);
 
@@ -279,10 +337,9 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
         {
           TokenType::DoubleTilde => StructureMut::Dynamic,
           TokenType::Tilde => StructureMut::Variable,
-          _ => return false // Это что-то другое, а не линейная запись.
+          _ => return false // Это что-то другое, а не линейное выражение.
         }
-      }
-      else if rightValue.is_some() {
+      } else if rightValue.is_some() {
         StructureMut::Constant
       } else 
       { // Если нет флага изменяемости и правой части.
@@ -294,7 +351,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
     structureMutability = structureMutabilityType;
     structureType = if let Some(structureTypeTokens) = structureTypeTokens
     { // `a: U8 | String` — объединение типов (issue #59);
-      // обычный `a: U8` даёт здесь такой же одиночный тип, как и раньше.
+      // Обычный `a: U8` даёт здесь одиночный тип.
       StructureType::fromTypeTokens(&structureTypeTokens)
     } else {
       StructureType::Primitive(PrimitiveType::None)
@@ -781,7 +838,7 @@ fn replaceConditionExpression(
   Some(replaced)
 }
 
-/// Читает линейную запись; блок-выражение в правой части `a := ? True { = 20 }`
+/// Читает `линейное выражение`; блок-выражение в правой части `a := ? True { = 20 }`
 /// предварительно заменяется своим результатом.
 fn linearLine(
   lineTokens: &[Token],
@@ -798,12 +855,12 @@ fn linearLine(
 
 // =================================================================================================
 
-/// Эта функция ищет структуры;
+/// Ищет структуры.
 ///
 /// Это может быть:
-/// - Вложенная структура (array/vector/list ...)   todo необходимо вынести в отдельный метод
-/// - Линейное выражение (a = 10)
-/// - Условный блок (if/elif/else)
+/// - Вложенная структура (array/vector/list ...).   todo Необходимо вынести в отдельный метод.
+/// - Линейное выражение ⟶ [linearStructure`];
+/// - Условный блок ⟶ [`executeConditionStatement`].
 pub(super) fn searchStructure(
   line: &RwLockReadGuard<Line>,
   parentLink: Arc<RwLock<Structure>>
@@ -1058,14 +1115,14 @@ pub(super) fn searchStructure(
 
   if *firstTokenType == TokenType::Word
   { // Если мы видим TokenType::Word в начале строки, 
-    // это значит, что это либо структура, либо линейная запись.
+    // это значит, что это либо структура, либо линейное выражение.
     //
-    // Если в токенах есть оператор (`:=` или `=`) — это линейная запись,
+    // Если в токенах есть оператор (`:=` или `=`) — это линейное выражение,
     // даже если есть вложенные линии (например `a := ? True { = 20 }`).
     let hasOperator: bool = lineTokens.iter()
       .any(|t| isMathOperator(*t.getDataType()));
     if hasOperator
-    { // Линейная запись с оператором.
+    { // Линейное выражение с оператором.
       return linearLine(lineTokens, &lineLines, parentLink);
     }
     if let Some(lineLines) = lineLines
@@ -1252,11 +1309,11 @@ pub(super) fn searchStructure(
         return true;
       }
     } else
-    { // Это линейная запись.
+    { // Это линейное выражение.
       return linearLine(lineTokens, &lineLines, parentLink);
     }
   } else
-  // В том случае, если это не структура и не линейная запись, 
+  // В том случае, если это не структура и не линейное выражение, 
   // мы видим `TokenType::Question` в начале строки и есть вложения у этой линии, 
   // то это условное вложение.
   if *firstTokenType == TokenType::Question && !lineLines.is_none()
@@ -1466,7 +1523,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
     if !searchStructure(&line, structureLink.clone())
     { // Читаем return.
 
-      if !searchReturn(&line, structureLink.clone())
+      if !searchReturnLine(&line, structureLink.clone())
       { // Ищем линейные выражения.
 
         let tokens: &mut Vec<Token> =
