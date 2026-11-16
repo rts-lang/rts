@@ -18,7 +18,7 @@ use std::{
 };
 use std::sync::atomic::Ordering;
 use crate::logger::logger::{log, logExit};
-use crate::parser::parser::runCodeBytes;
+use crate::parser::runCodeBytes;
 
 // todo удалить mods
 mod tokenizer;

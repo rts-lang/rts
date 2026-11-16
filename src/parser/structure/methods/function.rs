@@ -1,4 +1,4 @@
-use crate::parser::parser::readLines;
+use crate::parser::readLines;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::structure::{Structure, StructureMut};

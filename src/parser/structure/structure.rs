@@ -4,7 +4,6 @@ use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
-use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;

@@ -556,7 +556,7 @@ macro_rules! runCode
   ($code:expr) =>
   {{
     let mut buffer: Vec<u8> = $code.as_bytes().to_vec();
-    $crate::parser::parser::runCodeBytes(&mut buffer)
+    $crate::parser::runCodeBytes(&mut buffer)
   }};
 }
 

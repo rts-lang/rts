@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{_exit, _exitCode, _sourcePath};
-use crate::parser::parser::{readLines, searchStructure};
+use crate::parser::readLines;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
@@ -63,10 +63,13 @@ impl Procedure
 
         // Используем линию parent а также сам parent для нового запуска.
         drop(parent);
-        searchStructure(
-          &lineLink.read().unwrap(),
-          parentLink.clone()
-        );
+        // todo Я пока что убрал это, все равно оно давно не работало;
+        //  дело в том, что `searchStructure` внутренний метод и я не уверен, что его следует
+        //  так использовать. Возможно, есть варианты куда лучше.
+        //searchStructure(
+        //  &lineLink.read().unwrap(),
+        //  parentLink.clone()
+        //);
       }
       //
     }
