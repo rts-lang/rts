@@ -9,7 +9,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 //
 // Это сама реализация операций математики и логики.
 //
-// Схема такая: `calculate` -> `tokenizer`+`parser` expression -> `StructureType` -> FFI.
+// Схема такая: `calculate` ⟶ `tokenizer`+`parser` expression ⟶ `StructureType` ⟶ FFI.
 
 // =================================================================================================
 
@@ -61,19 +61,20 @@ impl TokenType
     // Получаем значение выражения, а также предварительный тип.
     
     // `float` значения форматируем через `{:?}` для `f32`/`f64`: он сохраняет
-    // точку для целых `float` (`1.0` -> `1.0`, не `1`) и использует `e`-нотацию
+    // точку для целых `float` (`1.0` ⟶ `1.0`, не `1`) и использует `e`-нотацию
     // только для больших/маленьких чисел.
     // 
     // Без этого `Display` (`{}`) выкидывает точку, и `data` неверно будет интерпретироваться
     // при повторном чтении через токенайзер.
-    let valueToDataString = |v: Value| -> String {
+    fn valueToDataString(v: Value) -> String
+    {
       match v
       {
         Value::Float(x)  => format!("{:?}", x),
         Value::UFloat(x) => format!("{:?}", f64::from(x)),
         other            => other.to_string()
       }
-    };
+    }
     
     //
     let mut resultType: TokenType = TokenType::UInt;

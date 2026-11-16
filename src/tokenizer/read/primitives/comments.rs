@@ -134,8 +134,8 @@ mod tests
   fn singleInterruptedByHigherLevel() -> ()
   {
     checkCases(vec![
-      ("# text ## more\n", 7),  // "# text " -> обрыв на ##
-      ("# text ### more\n", 7), // "# text " -> обрыв на ###
+      ("# text ## more\n", 7),  // "# text " ⟶ обрыв на ##
+      ("# text ### more\n", 7), // "# text " ⟶ обрыв на ###
     ]);
   }
 

@@ -252,25 +252,28 @@ impl StructureType
     let mut variants: Vec<Self> = Vec::new();
 
     let mut current: Vec<Token> = Vec::new();
-    let pushVariant = |variants: &mut Vec<Self>, current: &mut Vec<Token>| -> ()
+    fn pushVariant(variants: &mut Vec<StructureType>, current: &mut Vec<Token>) -> ()
     {
-      let found: Option<Self> = current.iter().find_map(|token: &Token| Self::fromTypeToken(token))
+      let found: Option<StructureType> =
+        current.iter().find_map(|token: &Token| StructureType::fromTypeToken(token))
         // `None` - не явный примитив: его не вписывают ни в `union`, ни в типизацию;
         // такой `вариант` просто выбрасывается, как и всё, что не является типом.
-        .filter(|variant: &Self| *variant != Self::Primitive(PrimitiveType::None));
+        .filter(|variant: &StructureType| *variant != StructureType::Primitive(PrimitiveType::None));
+      
       if let Some(variant) = found
       {
         // Повторы и вложенные union'ы схлопываем в плоский список вариантов.
         match variant
         {
-          Self::Union(nested) => variants.extend(nested),
+          StructureType::Union(nested) => variants.extend(nested),
           _ => if !variants.contains(&variant) {
             variants.push(variant);
           }
         }
       } // Ни имя типа, ни примитив — просто пропускаем этот вариант.
+      
       current.clear();
-    };
+    }
 
     for token in typeTokens
     {
@@ -450,7 +453,7 @@ impl StructureType
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
     // `Примитив-значение` - выбранный вариант типизации: токен (значение) не трогаем,
-    // `dataType`/`stype` становится самим примитивом (`a: 10 | 20 = 10` -> `stype 10`).
+    // `dataType`/`stype` становится самим примитивом (`a: 10 | 20 = 10` ⟶ `stype 10`).
     //
     // ABI-форма — через `abiType()` там, где нужен `String/U8/...`.
     if matches!(variant, StructureType::PrimitiveValue(..)) {

@@ -9,7 +9,7 @@ use std::num::IntErrorKind;
 // Идея простая - т.к. мы имеем хранение в токенах, то это абстрактные данные;
 // Вообще сам по себе токен бесконечен;
 //
-// Когда из `токенов` -> `линии` -> `блоки` цепочки появляется `Structure`, то он
+// Когда из `токенов` ⟶ `линии` ⟶ `блоки` цепочки появляется `Structure`, то он
 // привязан к FFI уже, поэтому требует определенные физические типы;
 //
 // Внутри это все еще токены, но через `StructureType` - мы контролируем их.
@@ -87,7 +87,7 @@ pub enum StructureType
 //   но их не хватит т.к. тут есть другие, 
 //   + здесь structure type
 impl ToString for StructureType
-{ // todo convert -> fmt::Display ?
+{ // todo convert ⟶ fmt::Display ?
   fn to_string(&self) -> String
   {
     match self
@@ -157,8 +157,8 @@ impl StructureType
 {
   /// ABI / storage тип: примитив сводится к natural-форме значения.
   ///
-  /// `Primitive(String, _)` → `String`; `Primitive(Number, v)` → наименьший числовой
-  /// ABI-тип для `v`; `Primitive(CString)` → `Pointer` (алиас); всё остальное — как есть.
+  /// `Primitive(String, _)` ⟶ `String`; `Primitive(Number, v)` ⟶ наименьший числовой
+  /// ABI-тип для `v`; `Primitive(CString)` ⟶ `Pointer` (алиас); всё остальное — как есть.
   /// 
   /// Нужен там, где `dataType` участвует в FFI, string-полях и `castToken`, а не в `stype`.
   /// 
@@ -247,13 +247,13 @@ impl Token
   /// todo Было бы хорошо убрать как-то mut отсюда.
   pub fn getStructureType(&mut self) -> StructureType
   {
-    let result = |selfToken: &mut Self, structureType: StructureType| -> StructureType
+    fn result(selfToken: &mut Token, structureType: StructureType) -> StructureType
     {
       if structureType == StructureType::Primitive(PrimitiveType::None) {
         selfToken.setData(None);
       }
       structureType
-    };
+    }
     
     //
     let dataType: &TokenType = self.getDataType();
@@ -378,7 +378,7 @@ impl Token
   /// 
   /// Но делает это упрощенно по имени токена - т.е. когда мы явно знаем уже тип в строке.
   /// 
-  /// Например: токен хранит `U64` -> получаем `StructureType::U64`.
+  /// Например: токен хранит `U64` ⟶ получаем `StructureType::U64`.
   pub fn getStructureTypeSimple(&self) -> StructureType
   {
     let tokenData: String = self.to_string();

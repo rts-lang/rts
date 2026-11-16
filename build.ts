@@ -9,17 +9,17 @@
   No entry: only the build step (rts for release, wasm pkg for tools).
 
   release:
-    folder      -> <folder>/main.rt   (rts run)
-    file.rt     -> rts run file.rt
-    file.ts     -> bun file.ts
+    folder      ⟶ <folder>/main.rt   (rts run)
+    file.rt     ⟶ rts run file.rt
+    file.ts     ⟶ bun file.ts
     build       rts is built once, only if an .rt entry is present;
                 every x.c in the entry folder becomes libx.so in the same folder;
                 cwd = entry folder (importNative("./libx.so"))
     paths       from release/, then from repo root
 
   tools:
-    folder      -> <folder>/main.ts
-    file.ts     -> bun file.ts (--release is forwarded to it)
+    folder      ⟶ <folder>/main.ts
+    file.ts     ⟶ bun file.ts (--release is forwarded to it)
     build       bare `bun run tools` builds wasm once;
                 TS tools call ensureWasm() themselves (same as ensureRts);
                 cwd = repo root
@@ -31,9 +31,9 @@
 
   API (import without running the CLI — gated by import.meta.main):
     import { ensureRts, ensureNative, ensureWasm } from "../../build.ts";
-    const rts = await ensureRts({ release: true }); // -> release/rts
-    await ensureNative(import.meta.dir);            // *.c -> lib*.so
-    const pkg = await ensureWasm({ release: true }); // -> pkg/
+    const rts = await ensureRts({ release: true }); // ⟶ release/rts
+    await ensureNative(import.meta.dir);            // *.c ⟶ lib*.so
+    const pkg = await ensureWasm({ release: true }); // ⟶ pkg/
 */
 // =====================================================================================================================
 
@@ -55,7 +55,7 @@ type Profile = {
   baseDir: string;
   folderEntry: string;
   runners: Record<string, Runner>;
-  native: boolean; // x.c -> libx.so next to the entry
+  native: boolean; // `x.c` ⟶ `libx.so` next to the entry
   forwardRelease: boolean; // pass --release to the entry
   entryCwd: (entry: Entry) => string;
 };
@@ -85,7 +85,7 @@ const profiles: Record<string, Profile> = {
 };
 
 // CLI state — filled by parseCli() only when this file is the main module.
-// When imported (ensureRts / ensureNative), profile stays unset and isRelease is false
+// When imported (`ensureRts`/`ensureNative`), profile stays unset and isRelease is false
 // unless the caller passes { release: true }.
 let profileName: string = "";
 let profile: Profile | undefined;
@@ -126,7 +126,7 @@ function isDir(path: string): boolean {
   return existsSync(path) && statSync(path).isDirectory();
 }
 
-/** Path from the profile folder (release/ or tools/), then from repo root */
+/** Path from the profile folder (`release/` or `tools/`), then from repo root */
 function locate(input: string): string | null {
   for (const base of [profile!.baseDir, rootDir]) {
     const path: string = resolve(base, input);
@@ -232,7 +232,7 @@ export async function ensureRts(opts?: { release?: boolean }): Promise<string> {
 }
 
 /**
-  every x.c in dir -> libx.so in dir, only if the .c is newer.
+  every `x.c` in dir ⟶ `libx.so` in dir, only if the `.c` is newer.
 */
 export async function ensureNative(dir: string): Promise<void> {
   const sources: string[] = readdirSync(dir).filter((f: string) => f.endsWith(".c"));
@@ -264,8 +264,8 @@ export async function ensureNative(dir: string): Promise<void> {
 
 
 /**
-  Build wasm pkg via tools/build.ts and return path to pkg/.
-  TS tools (ast.ts, …) call this — same pattern as ensureRts → release/build.ts.
+  Build wasm pkg via `tools/build.ts` and return path to `pkg/`.
+  TS tools (`ast.ts`, …) call this — same pattern as `ensureRts` ⟶ `release/build.ts`.
 */
 export async function ensureWasm(opts?: { release?: boolean }): Promise<string> {
   const release: boolean = opts?.release ?? isRelease;

@@ -813,7 +813,7 @@ pub(super) fn searchStructure(
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
-  //   { ... }              <- эта линия
+  //   { ... }              ⟵ эта линия
   //
   // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
   // `tokens = Some(vec![])`, `lines = Some([внутренние линии])` (после фикса
@@ -858,7 +858,7 @@ pub(super) fn searchStructure(
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
-  //   { ... }              <- эта линия
+  //   { ... }              ⟵ эта линия
   //
   // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
   // `tokens = None`, `lines = Some([внутренние линии])` (после фикса
@@ -1405,7 +1405,7 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   //   - анонимный `[ffi] { ... }` (выполняется прямо в searchStructure,
   //     но и оттуда можно звать readLines);
   //   - метод `[ffi] test() { ... }` (вызывается как функция в procedure.rs
-  //     → readLines(calledStructureLink));
+  //     ⟶ readLines(calledStructureLink));
   //   - именованный блок `[ffi] name { ... }` (тоже вызывается).
   // Scope сам создаётся лениво в scopeStack::ensureFfiScope() при первом
   // FFI-вызове внутри блока — точно как просит issue #79/#84.

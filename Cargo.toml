@@ -38,7 +38,7 @@ wasm-opt = ['-Oz', '--enable-bulk-memory'] # Нужно было для билд
 [lib]
 name = "rts"
 path = "src/lib.rs"
-crate-type = ["cdylib", "rlib"] # cdylib → WASM/FFI, rlib → внутреннее использование
+crate-type = ["cdylib", "rlib"] # cdylib ⟶ WASM/FFI, rlib ⟶ внутреннее использование
 
 [[bin]]
 name = "rts"

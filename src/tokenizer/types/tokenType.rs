@@ -174,7 +174,7 @@ impl TokenType
 
 impl ToString for TokenType
 { 
-  // todo convert -> fmt::Display ?
+  // todo convert ⟶ fmt::Display ?
   fn to_string(&self) -> String 
   {
     match self 
@@ -244,7 +244,7 @@ impl ToString for TokenType
       
       Self::Creation => String::from(":="),
       
-      Self::Pointer => String::from("->"),
+      Self::Pointer => String::from("⟶"),
 
       Self::Tilde       => String::from("~"),
       Self::DoubleTilde => String::from("~~"),
@@ -261,6 +261,7 @@ impl ToString for TokenType
       Self::True  => String::from("True"),
       Self::False => String::from("False"),
 
+      //
       Self::Joint     => String::from("Joint"),
       Self::Disjoint  => String::from("Disjoint"),
       Self::Inclusion => String::from("Inclusion"),

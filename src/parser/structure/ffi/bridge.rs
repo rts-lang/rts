@@ -11,7 +11,7 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-/// Мост Token -> ABI StructureType::Primitive(PrimitiveType::String).
+/// Мост Token ⟶ ABI StructureType::Primitive(PrimitiveType::String).
 ///
 /// StructureType не-custom типы — хардкод примитивов,
 /// т.к. ABI chillffi сильно ограничен. String — единственный ABI-примитив,
@@ -90,7 +90,7 @@ enum FfiArgValue
   RawString(Vec<u8>)
 }
 
-/// Token -> FfiArgValue, с приведением размера к наименьшему подходящему типу.
+/// Token ⟶ FfiArgValue, с приведением размера к наименьшему подходящему типу.
 fn tokenToFfiArg(token: &Token) -> Result<FfiArgValue, String>
 {
   let tokenDataType: &TokenType = token.getDataType();
@@ -189,13 +189,13 @@ pub enum FfiExpect
 
 // =================================================================================================
 
-/// Беззнаковое целое -> абстрактный токен UInt;
+/// Беззнаковое целое ⟶ абстрактный токен UInt;
 fn unsignedToken(value: u64) -> Token
 {
   Token::new(TokenType::UInt, value.to_string())
 }
 
-/// Знаковое целое -> абстрактный токен (как у примитивов: `>= 0` это UInt, `< 0` это Int).
+/// Знаковое целое ⟶ абстрактный токен (как у примитивов: `>= 0` это UInt, `< 0` это Int).
 fn signedToken(value: i64) -> Token
 {
   if value < 0 {
@@ -205,7 +205,7 @@ fn signedToken(value: i64) -> Token
   }
 }
 
-/// Число с плавающей точкой -> абстрактный токен (`>= 0` это UFloat, `< 0` это Float).
+/// Число с плавающей точкой ⟶ абстрактный токен (`>= 0` это UFloat, `< 0` это Float).
 /// `text` — уже отформатированное значение (для F32 оно отличается от F64).
 fn floatToken(text: String, negative: bool) -> Token
 {
@@ -225,7 +225,9 @@ fn floatToken(text: String, negative: bool) -> Token
 /// Выполняет вызов и превращает результат C-функции в токен по ожиданию `expect`.
 fn callWithResult<'a, 'g>(builder: CallBuilder<'a, 'g>, expect: &FfiExpect) -> Result<Token, String>
 {
-  let error = |e: FFIError| -> String { e.to_string() };
+  fn error(e: FFIError) -> String {
+    e.to_string()
+  }
 
   // Тип слева не указан или "любой" — ABI-вызов идёт как usize (внутренний
   // регистр-read, не итоговый stype() — тот выводится из значения ниже).
@@ -392,7 +394,10 @@ mod tests
   {
     let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
     let negBig: String = format!("-{}", big);
-    let arg = |tokenType: TokenType, data: &str| tokenToFfiArg(&Token::new(tokenType, data));
+    
+    fn arg(tokenType: TokenType, data: &str) -> Result<FfiArgValue, String> {
+      tokenToFfiArg(&Token::new(tokenType, data))
+    }
     
     // Внутри диапазона размер подбирается под число
     assert!(matches!(arg(TokenType::UInt, "255"), Ok(FfiArgValue::U8(255))));

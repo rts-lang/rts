@@ -3,7 +3,7 @@ use termion::color::{Bg, Fg, Rgb, Reset};
 use termion::style;
 // =================================================================================================
 
-/// hex str -> `termion::color::Rgb`.
+/// hex str ⟶ `termion::color::Rgb`.
 fn hexToTermionColor(hex: &str) -> Option<Rgb>
 {
   if hex.len() != 6 {
@@ -291,10 +291,10 @@ pub fn log(textType: &str, text: &str) -> ()
       parts = text.split("->").map(|s| s.to_string()).collect();
       let string: String = 
         parts.join(
-          &formatString("\\fg(#f0f8ff)\\b->\\c")
+          &formatString("\\fg(#f0f8ff)\\b⟶\\c")
         );
       formatPrint(&format!(
-        "\\fg(#f0f8ff)\\b->\\c \\fg(#f0f8ff){}\\c\n",
+        "\\fg(#f0f8ff)\\b⟶\\c \\fg(#f0f8ff){}\\c\n",
         string
       ));
     }} 
