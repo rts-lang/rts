@@ -53,7 +53,7 @@ impl Parameters
     if let Some(lineLink) = self.get(index)
     { // Возвращаем результат выражения.
       let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-      // todo Изменить match -> if.
+      // todo Изменить match ⟶ if.
       match &line.tokens // todo Может быть не 0
       {
         None =>

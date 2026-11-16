@@ -5,168 +5,170 @@ use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
-// Это вычисление на основе Value от токенов.
+// Это вычисление на основе `Value` от токенов.
 //
 // Это сама реализация операций математики и логики.
 //
-// Схема такая: calculate -> tokenizer+parser expression -> StructureType -> FFI.
+// Схема такая: `calculate` -> `tokenizer`+`parser` expression -> `StructureType` -> FFI.
 
 // =================================================================================================
 
-/// Вычисляет по операции значение и тип нового токена из двух.
-pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token 
+impl TokenType
 {
-  // Получаем значение левой части выражения.
-  let leftTokenDataType: TokenType = *leftToken.getDataType();
-  let leftValue: Value = getValue(
-    leftToken.getData().toString().unwrap_or_default(),
-    &leftTokenDataType
-  );
-  // Получаем значение правой части выражения.
-  let rightTokenDataType: TokenType = *rightToken.getDataType();
-  let rightValue: Value = getValue(
-    rightToken.getData().toString().unwrap_or_default(),
-    &rightTokenDataType
-  );
-
-  // -----------------------------------------------------------------------------------------------
-  // Логические операции и сравнения: результат всегда токен True или False (#39, #65).
-  //
-  // todo #39: `&` и `|` пока двоичные (None приводится к False). Таблицы троичной логики
-  //  с None добавятся вместе с операторами, сейчас они не подключены в expressionWith.
-  let truth: Option<bool> = match *op
+  /// Вычисляет по операции значение и тип нового токена из двух.
+  pub fn calculate(&self, leftToken: &Token, rightToken: &Token) -> Token 
   {
-    TokenType::Inclusion           => Some(leftValue.toBool() || rightValue.toBool()),
-    TokenType::Joint               => Some(leftValue.toBool() && rightValue.toBool()),
-    TokenType::Equals              => Some(leftValue == rightValue),
-    TokenType::NotEquals           => Some(leftValue != rightValue),
-    TokenType::GreaterThan         => Some(leftValue > rightValue),
-    TokenType::LessThan            => Some(leftValue < rightValue),
-    TokenType::GreaterThanOrEquals => Some(leftValue >= rightValue),
-    TokenType::LessThanOrEquals    => Some(leftValue <= rightValue),
-    _ => None
-  };
-  if let Some(truth) = truth
-  {
-    return if truth {
-      Token::new(TokenType::True, String::from("True")) // todo По идее не должно быть String, а только newEmpty(...)
-    } else {
-      Token::new(TokenType::False, String::from("False")) // todo По идее не должно быть String, а только newEmpty(...)
+    // Получаем значение левой части выражения.
+    let leftTokenDataType: TokenType = *leftToken.getDataType();
+    let leftValue: Value = getValue(
+      leftToken.getData().toString().unwrap_or_default(),
+      &leftTokenDataType
+    );
+    // Получаем значение правой части выражения.
+    let rightTokenDataType: TokenType = *rightToken.getDataType();
+    let rightValue: Value = getValue(
+      rightToken.getData().toString().unwrap_or_default(),
+      &rightTokenDataType
+    );
+  
+    // -----------------------------------------------------------------------------------------------
+    // Логические операции и сравнения: результат всегда токен True или False (#39, #65).
+    //
+    // todo #39: `&` и `|` пока двоичные (None приводится к False). Таблицы троичной логики
+    //  с None добавятся вместе с операторами, сейчас они не подключены в expressionWith.
+    let truth: Option<bool> = match self
+    {
+      TokenType::Inclusion           => Some(leftValue.toBool() || rightValue.toBool()),
+      TokenType::Joint               => Some(leftValue.toBool() && rightValue.toBool()),
+      TokenType::Equals              => Some(leftValue == rightValue),
+      TokenType::NotEquals           => Some(leftValue != rightValue),
+      TokenType::GreaterThan         => Some(leftValue > rightValue),
+      TokenType::LessThan            => Some(leftValue < rightValue),
+      TokenType::GreaterThanOrEquals => Some(leftValue >= rightValue),
+      TokenType::LessThanOrEquals    => Some(leftValue <= rightValue),
+      _ => None
     };
-  }
-
-  // -----------------------------------------------------------------------------------------------
-  // Получаем значение выражения, а также предварительный тип.
-  let mut resultType: TokenType = TokenType::UInt;
-  let resultValue: String = match *op 
-  {
-    TokenType::Plus     => normalizeValue(leftValue + rightValue).to_string(),
-    TokenType::Minus    => normalizeValue(leftValue - rightValue).to_string(),
-    TokenType::Multiply => normalizeValue(leftValue * rightValue).to_string(),
-    TokenType::Divide   => normalizeValue(leftValue / rightValue).to_string(),
-    _ => "0".to_string(),
-  };
-  // После того как значение было получено,
-  // смотрим какой точно тип выдать новому токену.
-  if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
-  {
-    resultType = TokenType::String;
-  } else
-  if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
-      rightTokenDataType == TokenType::Char
-  { //
-    resultType = leftTokenDataType;
-  } else
-  if leftTokenDataType == TokenType::Char
-  {
-    resultType = TokenType::Char;
-  } else
-  if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
-  {
-    // Проверяем смену типа;
+    if let Some(truth) = truth
+    {
+      return if truth {
+        Token::new(TokenType::True, String::from("True")) // todo По идее не должно быть String, а только newEmpty(...)
+      } else {
+        Token::new(TokenType::False, String::from("False")) // todo По идее не должно быть String, а только newEmpty(...)
+      };
+    }
+  
+    // -----------------------------------------------------------------------------------------------
+    // Получаем значение выражения, а также предварительный тип.
+    
+    // `float` значения форматируем через `{:?}` для `f32`/`f64`: он сохраняет
+    // точку для целых `float` (`1.0` -> `1.0`, не `1`) и использует `e`-нотацию
+    // только для больших/маленьких чисел.
+    // 
+    // Без этого `Display` (`{}`) выкидывает точку, и `data` неверно будет интерпретироваться
+    // при повторном чтении через токенайзер.
+    let valueToDataString = |v: Value| -> String {
+      match v
+      {
+        Value::Float(x)  => format!("{:?}", x),
+        Value::UFloat(x) => format!("{:?}", f64::from(x)),
+        other            => other.to_string()
+      }
+    };
+    
     //
-    // TokenType::UFloat не ограничен - это тип токена, а не Value::UFloat(uf64).
-    // Ограничение по размеру накладывается структурой (F32/F64), а не здесь.
-    // Поэтому тип результата зависит только от знака строкового значения.
-    if resultValue.starts_with('-') {
+    let mut resultType: TokenType = TokenType::UInt;
+    let resultValue: String = match self
+    {
+      TokenType::Plus     => valueToDataString(normalizeValue(leftValue + rightValue)),
+      TokenType::Minus    => valueToDataString(normalizeValue(leftValue - rightValue)),
+      TokenType::Multiply => valueToDataString(normalizeValue(leftValue * rightValue)),
+      TokenType::Divide   => valueToDataString(normalizeValue(leftValue / rightValue)),
+      _ => "0".to_string(),
+    };
+  
+    // -----------------------------------------------------------------------------------------------
+    // После того как значение было получено, смотрим какой точно тип выдать новому токену.
+    
+    //
+    if leftTokenDataType == TokenType::String || rightTokenDataType == TokenType::String
+    {
+      resultType = TokenType::String;
+    } else
+    
+    //
+    if matches!(leftTokenDataType, TokenType::Int | TokenType::UInt) &&
+       rightTokenDataType == TokenType::Char
+    {
+      resultType = leftTokenDataType;
+    } else
+    
+    //
+    if leftTokenDataType == TokenType::Char
+    {
+      resultType = TokenType::Char;
+    } else
+    
+    //
+    if leftTokenDataType == TokenType::UFloat || rightTokenDataType == TokenType::UFloat
+    {
+      // Проверяем смену типа;
+      //
+      // `TokenType::UFloat` не ограничен - это тип токена, а не `Value::UFloat(uf64)`.
+      // Ограничение по размеру накладывается `StructureType`, а не здесь.
+      // Поэтому тип результата зависит только от знака строкового значения.
+      if resultValue.starts_with('-') {
+        resultType = TokenType::Float;
+      } else {
+        resultType = TokenType::UFloat;
+      }
+    } else
+    
+    //
+    if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
+    {
       resultType = TokenType::Float;
-    } else {
-      resultType = TokenType::UFloat;
-    }
-  } else
-  if leftTokenDataType == TokenType::Float || rightTokenDataType == TokenType::Float
-  {
-    resultType = TokenType::Float;
-  } else
-  if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
-  {
-    // Проверяем смену типа;
+    } else
+    
     //
-    // TokenType::UInt не ограничен сверху - это тип токена, а не Value::UInt(u64).
-    // Ограничение по размеру накладывается структурой (USize/ABI), а не здесь.
-    // Поэтому тип результата зависит только от знака строкового значения.
-    if resultValue.starts_with('-') {
+    if leftTokenDataType == TokenType::UInt || rightTokenDataType == TokenType::UInt
+    {
+      // Проверяем смену типа;
+      //
+      // `TokenType::UInt` не ограничен сверху - это тип токена, а не `Value::UInt(u64)`;
+      // Ограничение по размеру накладывается `StructureType`, а не здесь;
+      // Поэтому тип результата зависит только от знака строкового значения.
+      if resultValue.starts_with('-') {
+        resultType = TokenType::Int;
+      } else {
+        resultType = TokenType::UInt;
+      }
+    } else
+    
+    //
+    if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {
       resultType = TokenType::Int;
-    } else {
-      resultType = TokenType::UInt;
     }
-  } else
-  if leftTokenDataType == TokenType::Int || rightTokenDataType == TokenType::Int {
-    resultType = TokenType::Int;
+  
+    // -----------------------------------------------------------------------------------------------
+    
+    // Return.
+    Token::new(resultType, resultValue)
+    
+    // -----------------------------------------------------------------------------------------------
   }
-  // return
-  Token::new(resultType, resultValue)
-  // -----------------------------------------------------------------------------------------------
 }
 
 // =================================================================================================
-
-/// Нормализация (#71) Token по его TokenType: токен бесконечен, а математика Rust нет.
-///
-/// 4 класса токенов для чисел, у каждого свои min и max значения:
-///   UInt    0 ... usize::MAX;
-///   Int     isize::MIN ... -1.
-///   UFloat  0 ... f64::MAX;
-///   Float   f64::MIN ... -0.
-///
-/// todo У floats inf становится границей в виде `{:e}`, как в структуре; NaN - 0.
-pub fn normalizeToken(token: &mut Token) -> ()
-{
-  let data: String = token.getData().toString().unwrap_or_default();
-  let normalized: Option<String> = match *token.getDataType()
-  {
-    TokenType::UInt => match data.parse::<u64>()
-    {
-      Ok(value) if value > usize::MAX as u64 => Some(usize::MAX.to_string()),
-      Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(usize::MAX.to_string()),
-      _ => None
-    },
-    TokenType::Int => match data.parse::<i64>()
-    {
-      Ok(value) if value > isize::MAX as i64 => Some(isize::MAX.to_string()),
-      Ok(value) if value < isize::MIN as i64 => Some(isize::MIN.to_string()),
-      Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(isize::MAX.to_string()),
-      Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(isize::MIN.to_string()),
-      _ => None
-    },
-    TokenType::UFloat | TokenType::Float => match data.parse::<f64>()
-    {
-      Ok(value) if value.is_nan() => Some(String::from("0")),
-      Ok(value) if value.is_infinite() => Some(format!("{:e}", normalizeFloat(value))),
-      _ => None
-    },
-    _ => None
-  };
-  if let Some(normalized) = normalized { 
-    token.setData(normalized);
-  }
-}
 
 /// Зависимость для calculate;
 /// Значение за границей f64 зажимается в границу, как в структуре: inf - f64::MAX/MIN, NaN - 0.
 fn normalizeFloat(value: f64) -> f64
 {
-  if value.is_nan() { 0.0 } else { value.clamp(f64::MIN, f64::MAX) }
+  if value.is_nan() {
+    0.0
+  } else {
+    value.clamp(f64::MIN, f64::MAX)
+  }
 }
 
 /// Зависимость для calculate;
@@ -181,10 +183,12 @@ fn normalizeValue(value: Value) -> Value
     // UInt - usize, Int - isize (Value хранит u64/i64, на 32 битах потолок ниже).
     Value::UInt(x) => Value::UInt(x.min(usize::MAX as u64)),
     Value::Int(x) => Value::Int(x.clamp(isize::MIN as i64, isize::MAX as i64)),
+    //
     Value::Float(x) => Value::Float(normalizeFloat(x)),
     // Отрицательный UFloat сохраняется: из него calculate делает Float (`1.0 - 2.0`).
     Value::UFloat(x) if !f64::from(x).is_finite() =>
       Value::UFloat(uf64::from(normalizeFloat(f64::from(x)))),
+    //
     other => other
   }
 }

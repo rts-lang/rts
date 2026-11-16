@@ -250,7 +250,7 @@ fn unionPrimitiveMatch() -> ()
     "a: 10 | 20 = 10.0", "a",
     type UFloat,
     stype primitiveValueNumber("10"),
-    value "10"
+    value "10.0"
   );
   checkStructure!(
     "a: -1 | 1 = -1", "a",

@@ -126,7 +126,7 @@ fn divideByZeroFloat() -> ()
   checkStructure!(
     "a := 0.0 / 0.0", "a",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   checkStructure!(
     "a := -10.5 / 0.0", "a",
@@ -186,27 +186,27 @@ fn divideByZeroMixed() -> ()
   checkStructure!(
     "a := 10 / 0.0", "a",
     type UFloat,
-    value "10"
+    value "10.0"
   );
   checkStructure!(
     "a := 0 / 0.0", "a",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   checkStructure!(
     "a := -10 / 0.0", "a",
     type Float,
-    value "-10"
+    value "-10.0"
   );
   checkStructure!(
     "a := 10 / -0.0", "a",
     type Float,
-    value "10"
+    value "10.0"
   );
   checkStructure!(
     "a := -10 / -0.0", "a",
     type Float,
-    value "-10"
+    value "-10.0"
   );
 
   // Дробное / целый ноль.

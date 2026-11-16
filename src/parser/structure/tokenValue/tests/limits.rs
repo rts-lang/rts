@@ -128,34 +128,31 @@ fn limitsInt() -> ()
 #[test]
 fn limitsUFloat() -> ()
 {
-  // todo У `f64::MAX` две записи: примитив внутри потолка и результат операций - как `to_string()`,
-  //  а обрубленный примитив - как `{:e}` (так `inf` пишет и `StructureType`). Значение то же.
-  //
   // Примитив ровно в потолок остаётся как есть.
   checkExpression!(
     "1.7976931348623157e308",
     type UFloat,
-    value &f64::MAX.to_string()
+    value &format!("{:?}", f64::MAX)
   );
   
   // Первый примитив за потолком (парсится в `inf`) обрубается до `f64::MAX`.
   checkExpression!(
     "1.7976931348623159e308",
     type UFloat,
-    value &format!("{:e}", f64::MAX)
+    value &format!("{:?}", f64::MAX)
   );
   
   // 1. Примитив `1e309` за потолком обрубается до `f64::MAX`.
   checkExpression!(
     "1e309",
     type UFloat,
-    value &format!("{:e}", f64::MAX)
+    value &format!("{:?}", f64::MAX)
   );
   // 2. Вычитание = `0`.
   checkExpression!(
     "1e309 - 1e309",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   
   // 1. `1e308 + 1e308` обрубается до `f64::MAX` (а не `inf`).
@@ -164,19 +161,19 @@ fn limitsUFloat() -> ()
   checkExpression!(
     "(1e308 + 1e308) - (1e308 + 1e308)",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   
   // Обрубается на каждом шаге: `f64::MAX - 1e308`, а не `inf - 1e308`.
   checkExpression!(
     "(1e308 + 1e308) - 1e308",
     type UFloat,
-    value &(f64::MAX - 1e308).to_string()
+    value &format!("{:?}", f64::MAX - 1e308)
   );
   checkExpression!(
     "(1e308 + 1e308) + 1",
     type UFloat,
-    value &f64::MAX.to_string()
+    value &format!("{:?}", f64::MAX)
   );
 }
 
@@ -188,42 +185,42 @@ fn limitsFloat() -> ()
   checkExpression!(
     "-1.7976931348623157e308",
     type Float,
-    value &f64::MIN.to_string()
+    value &format!("{:?}", f64::MIN)
   );
   
   // Первый примитив за потолком (парсится в `-inf`) обрубается до `f64::MIN`.
   checkExpression!(
     "-1.7976931348623159e308",
     type Float,
-    value &format!("{:e}", f64::MIN)
+    value &format!("{:?}", f64::MIN)
   );
   
   // Примитив `1e309` за нижним потолком обрубается сразу.
   checkExpression!(
     "-1e309",
     type Float,
-    value &format!("{:e}", f64::MIN)
+    value &format!("{:?}", f64::MIN)
   );
   
   // `-1e308 - 1e308` обрубается до `f64::MIN`, вычитание = `0`.
   checkExpression!(
     "(-1e308 - 1e308) - (-1e308 - 1e308)",
     type Float,
-    value "0"
+    value "0.0"
   );
   
   // `f64::MIN + 1e308`, а не `-inf + 1e308`.
   checkExpression!(
     "(-1e308 - 1e308) + 1e308",
     type Float,
-    value &(f64::MIN + 1e308).to_string()
+    value &format!("{:?}", f64::MIN + 1e308)
   );
   
   // `UFloat - UFloat` с отрицательным результатом остаётся `Float`.
   checkExpression!(
     "1.0 - 2.0",
     type Float,
-    value "-1"
+    value "-1.0"
   );
 }
 

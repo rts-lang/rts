@@ -10,24 +10,28 @@ use std::sync::{Arc, RwLock};
 
 /// Пустая строка в каждом из трёх типов строк.
 ///
-/// todo `type()` здесь `None`, а не `String`: с явным типом пустая строка теряет тип токена.
-///  Хотя структура получает правильный тип. Без явного типа (`a := ""`) токен остаётся `String`.
+/// `String`/`RawString` - cast приводит токен к своему типу даже для пустой
+/// строки, как у метода `String("")`. `CString` - алиас `Pointer`, приведения
+/// для него нет: значение по умолчанию у него - пустая строка.
 #[test]
 fn types() -> ()
 {
   checkStructure!(
     r#"a: String = """#, "a",
+    type String,
     stype String,
     value ""
   );
   // `CString` - свой тип; алиас от `Pointer` только для FFI.
   checkStructure!(
     r#"b: CString = """#, "b",
+    type String,
     stype CString,
     value ""
   );
   checkStructure!(
     r#"c: RawString = """#, "c",
+    type RawString,
     stype RawString,
     value ""
   );

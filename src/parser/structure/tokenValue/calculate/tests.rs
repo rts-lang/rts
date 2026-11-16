@@ -21,8 +21,7 @@ fn check(
   expectedData: &str
 )
 {
-  let result: Token = calculate(
-    &op,
+  let result: Token = op.calculate(
     &Token::new(left.0, String::from(left.1)),
     &Token::new(right.0, String::from(right.1))
   );
@@ -42,6 +41,7 @@ fn comparison() -> ()
 {
   let t: TokenType = TokenType::True;
   let f: TokenType = TokenType::False;
+  
   check(TokenType::Equals,              (TokenType::UInt, "1"), (TokenType::UInt, "1"), t, "True");
   check(TokenType::Equals,              (TokenType::UInt, "1"), (TokenType::UInt, "2"), f, "False");
   check(TokenType::NotEquals,           (TokenType::UInt, "1"), (TokenType::UInt, "1"), f, "False");
@@ -58,10 +58,12 @@ fn comparisonNone() -> ()
 {
   let t: TokenType = TokenType::True;
   let f: TokenType = TokenType::False;
+  
   check(TokenType::Equals,    (TokenType::None, ""),  (TokenType::None, ""), t, "True");
   check(TokenType::NotEquals, (TokenType::None, ""),  (TokenType::None, ""), f, "False");
   check(TokenType::Equals,    (TokenType::UInt, "5"), (TokenType::None, ""), f, "False");
   check(TokenType::NotEquals, (TokenType::UInt, "5"), (TokenType::None, ""), t, "True");
+  
   // 0 - это не пустота.
   check(TokenType::Equals,    (TokenType::UInt, "0"), (TokenType::None, ""), f, "False");
 }
@@ -76,6 +78,7 @@ fn multiplyMixed() -> ()
   // Int * UFloat: раньше стояло деление x / y, и -3 * 2.5 давало -1.2.
   check(TokenType::Multiply, (TokenType::Int,   "-3"), (TokenType::UFloat, "2.5"),  TokenType::Float,  "-7.5");
   check(TokenType::Multiply, (TokenType::UFloat, "2.5"), (TokenType::Int,   "-3"),  TokenType::Float,  "-7.5");
+  
   // Соседние ветки
   check(TokenType::Multiply, (TokenType::UInt,  "3"),  (TokenType::UFloat, "2.5"),  TokenType::UFloat, "7.5");
   check(TokenType::Multiply, (TokenType::Int,   "-3"), (TokenType::Float,  "-2.5"), TokenType::Float,  "7.5");
@@ -98,8 +101,8 @@ fn multiplyCommutative() -> ()
     {
       let leftToken:  Token = Token::new(left.0,  String::from(left.1));
       let rightToken: Token = Token::new(right.0, String::from(right.1));
-      let ab: Token = calculate(&TokenType::Multiply, &leftToken,  &rightToken);
-      let ba: Token = calculate(&TokenType::Multiply, &rightToken, &leftToken);
+      let ab: Token = TokenType::Multiply.calculate(&leftToken,  &rightToken);
+      let ba: Token = TokenType::Multiply.calculate(&rightToken, &leftToken);
       let abData: String = ab.getData().toString().unwrap_or_default();
       let baData: String = ba.getData().toString().unwrap_or_default();
       assert!(
@@ -117,18 +120,21 @@ fn multiplyCommutative() -> ()
 #[test]
 fn floatOverflow() -> ()
 {
-  let max: String = f64::MAX.to_string();
-  let min: String = f64::MIN.to_string();
+  let max: String = format!("{:?}", f64::MAX);
+  let min: String = format!("{:?}", f64::MIN);
+  
   // Сумма за границей.
   check(TokenType::Plus,  (TokenType::UFloat, "1e308"),  (TokenType::UFloat, "1e308"), TokenType::UFloat, &max);
   check(TokenType::Minus, (TokenType::Float,  "-1e308"), (TokenType::UFloat, "1e308"), TokenType::Float,  &min);
+  
   // Примитив за границей зажимается до операции: MAX - MAX = 0, а не inf - inf.
-  check(TokenType::Minus, (TokenType::UFloat, "1e309"),  (TokenType::UFloat, "1e309"),  TokenType::UFloat, "0");
+  check(TokenType::Minus, (TokenType::UFloat, "1e309"),  (TokenType::UFloat, "1e309"),  TokenType::UFloat, "0.0");
   // todo Это бред, inf нет в RTS, если оно есть где-то в обработке - это нужно удалить.
-  check(TokenType::Minus, (TokenType::UFloat, "inf"),    (TokenType::UFloat, "inf"),    TokenType::UFloat, "0");
-  check(TokenType::Minus, (TokenType::Float,  "-1e309"), (TokenType::Float,  "-1e309"), TokenType::Float,  "0");
+  check(TokenType::Minus, (TokenType::UFloat, "inf"),    (TokenType::UFloat, "inf"),    TokenType::UFloat, "0.0");
+  check(TokenType::Minus, (TokenType::Float,  "-1e309"), (TokenType::Float,  "-1e309"), TokenType::Float,  "0.0");
+  
   // Отрицательный UFloat не теряется: из него получается Float.
-  check(TokenType::Minus, (TokenType::UFloat, "1.0"),    (TokenType::UFloat, "2.0"),    TokenType::Float,  "-1");
+  check(TokenType::Minus, (TokenType::UFloat, "1.0"),    (TokenType::UFloat, "2.0"),    TokenType::Float,  "-1.0");
 }
 
 // =================================================================================================

@@ -48,12 +48,12 @@ fn divideFloat() -> ()
   checkStructure!(
     "a := 10 / 0.5", "a",
     type UFloat,
-    value "20"
+    value "20.0"
   );
   checkStructure!(
     "a := 1 / 0.1", "a",
     type UFloat,
-    value "10"
+    value "10.0"
   );
   checkStructure!(
     "a := -7.5 / 2", "a",

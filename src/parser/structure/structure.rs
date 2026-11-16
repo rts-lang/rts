@@ -4,7 +4,7 @@ use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
-use crate::parser::structure::tokenValue::calculate::{calculate, normalizeToken};
+use crate::parser::structure::tokenValue::calculate::calculate;
 use crate::tokenizer::tokenizer::readTokensSimple;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
@@ -550,8 +550,8 @@ impl Structure
             structure.dataType = rightPartValue.getStructureType();
           } else
           {
-            structure.dataType = 
-              Self::normalizeUnion(&mut rightPartValue, &StructureType::Union(variants));
+            structure.dataType =
+              StructureType::Union(variants).normalizeUnion(&mut rightPartValue);
           }
         None => 
           if structure.dataType == StructureType::Primitive(PrimitiveType::None) ||
@@ -563,8 +563,10 @@ impl Structure
             }
           } else
           { // Требуется выполнить преобразование в указанный тип данных.
-            // Primitive → natural ABI-форма (normalizeToken не знает примитивов).
-            Self::normalizeToken(&mut rightPartValue, structure.dataType.abiType())
+            //
+            // `Primitive` → natural ABI-форма (`StructureType.castToken` не знает примитивов-значений).
+            // todo Мб теперь знает? Нужно проверить.
+            structure.dataType.abiType().castToken(&mut rightPartValue);
           }
       }
 
@@ -610,19 +612,15 @@ impl Structure
       let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
       let resultToken: Token = match op 
       { // Определяем тип операции
-        TokenType::PlusEquals => 
-          calculate(&TokenType::Plus, &leftValue, &rightValue),
-        TokenType::MinusEquals => 
-          calculate(&TokenType::Minus, &leftValue, &rightValue),
-        TokenType::MultiplyEquals => 
-          calculate(&TokenType::Multiply, &leftValue, &rightValue),
-        TokenType::DivideEquals => 
-          calculate(&TokenType::Divide, &leftValue, &rightValue),
+        TokenType::PlusEquals     => TokenType::Plus.calculate(&leftValue, &rightValue),
+        TokenType::MinusEquals    => TokenType::Minus.calculate(&leftValue, &rightValue),
+        TokenType::MultiplyEquals => TokenType::Multiply.calculate(&leftValue, &rightValue),
+        TokenType::DivideEquals   => TokenType::Divide.calculate(&leftValue, &rightValue),
         _ => Token::newEmpty(TokenType::None)
       };
       // todo Здесь должны быть преобразования типа у структуры.
-      //  Сейчас если станет Int, то у структуры не поменяется U8 на I8.
-      //  + Здесь должна быть normalizeToken когда не Dynamic.
+      //  Сейчас если станет `Int`, то у структуры не поменяется `U8` на `I8`.
+      //  + Здесь должна быть `castToken` когда не `Dynamic`.
       structure.lines =
         Some(vec![
           Arc::new(RwLock::new( 
@@ -640,10 +638,10 @@ impl Structure
   /// Вычисляем значение для struct имени типа `TokenType::Word`.
   fn replaceStructureByName(&self, value: &mut [Token], index: usize) -> ()
   {
-    fn setNone(value: &mut [Token], index: usize) 
+    fn setNone(value: &mut [Token], index: usize)
     { // Возвращаем пустое значение.
-      value[index].setData(None);
       value[index].setDataType(TokenType::None);
+      value[index].setData(None);
     }
 
     if let Some(structureName) = value[index].getData().toString() 
@@ -850,11 +848,6 @@ impl Structure
             //
           }
         }
-        TokenType::UInt | TokenType::Int | TokenType::UFloat | TokenType::Float =>
-        { // Токен бесконечен: сразу обрубаем до потолка u64/i64/f64 (#71),
-          // дальше структура приводит уже обрубленное значение к своему типу.
-          normalizeToken(&mut value[0]);
-        }
         _ => {} // Идём дальше.
       }
       return value[0].clone(); // Возвращаем результат в виде одного токена.
@@ -863,7 +856,7 @@ impl Structure
     // Если это выражение не из одного токена,
     // то следует проверять каждый токен в цикле и
     // производить соответствующие операции.
-    let mut i: usize = 0; // указатель на текущий токен.
+    let mut i: usize = 0; // Указатель на текущий токен.
 
     while i < valueLength
     { // Проверяем на использование методов,
@@ -1201,7 +1194,7 @@ impl Structure
       tokenType = token.getDataType();
       if i+1 < *valueLength && operations.contains(tokenType)
       { // Вычисление заданной операции между двумя операндами.
-        value[i-1] = calculate(tokenType, &value[i-1], &value[i+1]);
+        value[i-1] = tokenType.calculate(&value[i-1], &value[i+1]);
 
         value.remove(i); // remove op
         value.remove(i); // remove right value
@@ -1219,7 +1212,7 @@ impl Structure
       if operations.contains(&TokenType::Plus) &&
          matches!(*tokenType, TokenType::Int | TokenType::Float)
       {
-        value[i-1] = calculate(&TokenType::Plus, &value[i-1], &value[i]);
+        value[i-1] = TokenType::Plus.calculate(&value[i-1], &value[i]);
 
         value.remove(i); // remove UInt.
         *valueLength -= 1;

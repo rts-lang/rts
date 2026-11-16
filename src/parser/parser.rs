@@ -453,7 +453,7 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
       // Что ждём от FFI-вызова справа:
       //
       // - `a: Usize = lib.f(x)` => Тип указан, он же тип возврата C-функции
-      //   и в него кастуется результат (`normalizeToken` ниже);
+      //   и в него кастуется результат (`castToken` ниже);
       //
       // - `a = lib.f(x)` / `a~~ = lib.f(x)` => Тип слева получаем от правой части;
       //
@@ -485,11 +485,11 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
       // Динамический import(): правая часть выражения — не скаляр, а целая
       // под-структура (модуль со своими подструктурами).
       // 
-      // Обычная ветка ниже (inference/normalizeToken/Line{tokens: Some(vec![value])}) 
+      // Обычная ветка ниже (inference/castToken/Line{tokens: Some(vec![value])}) 
       // рассчитана на скаляр, поэтому переносим (dataType, lines, structures) модуля
       // напрямую в новую структуру и выходим раньше.
       //
-      // todo rewrite desc
+      // todo rewrite desc (в целом, эти абзацы не информативные).
       if *value.getDataType() == TokenType::Link
       {
         if let Some(markerName) = value.getData().toString()
@@ -534,24 +534,22 @@ fn linearStructure(lineTokens: &[Token], parentLink: Arc<RwLock<Structure>>, isB
           // поэтому объединение можно указать, но оно ничего не ограничивает (#22).
           structureType = value.getStructureType();
         } else
-        {
-          structureType = Structure::normalizeUnion(&mut value,
-            &StructureType::Union(variants)
-          );
+        { // todo сюда desc бы?
+          structureType = StructureType::Union(variants).normalizeUnion(&mut value);
         }
       } else
       if structureType == StructureType::Primitive(PrimitiveType::None)
-      { // Тип вычисляется если он не был изначально определён.
+      { // Тип вычисляется если он не был изначально определён;
         // Вычисляется он по типу из результата правой части выражения.
         structureType = value.getStructureType();
       } else
       if structureMutability == StructureMut::Dynamic
-      { // Тип вычисляется, если флаг изменяемости Dynamic.
+      { // Тип вычисляется, если флаг изменяемости Dynamic;
         // Вычисляется он по типу из результата правой части выражения.
         structureType = value.getStructureType();
       } else 
       { // Требуется выполнить преобразование в указанный тип данных.
-        Structure::normalizeToken(&mut value, structureType.clone());
+        structureType.castToken(&mut value);
       }
 
       //
@@ -815,7 +813,7 @@ pub(super) fn searchStructure(
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
-  //   { ... }              ← эта линия
+  //   { ... }              <- эта линия
   //
   // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
   // `tokens = Some(vec![])`, `lines = Some([внутренние линии])` (после фикса
@@ -860,7 +858,7 @@ pub(super) fn searchStructure(
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
-  //   { ... }              ← эта линия
+  //   { ... }              <- эта линия
   //
   // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
   // `tokens = None`, `lines = Some([внутренние линии])` (после фикса

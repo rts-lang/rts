@@ -12,22 +12,22 @@ fn floatDotZeros() -> ()
   checkStructure!(
     "a := .", "a",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   checkStructure!(
     "a := .0", "a",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   checkStructure!(
     "a := 0.", "a",
     type UFloat,
-    value "0"
+    value "0.0"
   );
   checkStructure!(
     "a := 0.0", "a",
     type UFloat,
-    value "0"
+    value "0.0"
   );
 }
 
@@ -59,12 +59,12 @@ fn floatDotTrailing() -> ()
   checkStructure!(
     "a := 3.", "a",
     type UFloat,
-    value "3"
+    value "3.0"
   );
   checkStructure!(
     "a := 201.", "a",
     type UFloat,
-    value "201"
+    value "201.0"
   );
 }
 
@@ -77,7 +77,7 @@ fn floatDotExpressions() -> ()
   checkStructure!(
     "a := .5 + .5", "a",
     type UFloat,
-    value "1"
+    value "1.0"
   );
   checkStructure!(
     "a := 1. + .5", "a",
@@ -87,7 +87,7 @@ fn floatDotExpressions() -> ()
   checkStructure!(
     "a := 3. + 2.", "a",
     type UFloat,
-    value "5"
+    value "5.0"
   );
   checkStructure!(
     "a := .5 - .25", "a",
@@ -107,7 +107,7 @@ fn floatDotExpressions() -> ()
   checkStructure!(
     "a := 1 / .5", "a",
     type UFloat,
-    value "2"
+    value "2.0"
   );
 }
 

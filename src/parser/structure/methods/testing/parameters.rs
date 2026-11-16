@@ -1,5 +1,9 @@
+use crate::parser::structure::structure::Structure;
+use crate::parser::structure::structureType::PrimitiveType;
 use crate::parser::structure::structureType::union::union;
 use crate::parser::testing::checkStructure;
+use crate::parser::testing::runCode;
+use std::sync::{Arc, RwLock};
 // =================================================================================================
 
 // Тесты на параметры методов.
@@ -171,6 +175,84 @@ fn noType() -> ()
     stype U16,
     value "300"
   );
+}
+
+// =================================================================================================
+// Единое приведение с методом `P(...)`.
+
+/// Параметр приводится тем же приведением, что и метод приведения `P(...)`.
+#[test]
+fn likeCastMethod() -> ()
+{
+  // Число в строковом параметре становится строкой: как `String(5)`.
+  checkStructure!(
+    r#"
+    f(x: String) { = x }
+    a := f(5)
+    "#,
+    "a",
+    type String,
+    stype String,
+    value "5"
+  );
+  checkStructure!(
+    r#"
+    f(x: RawString) { = x }
+    a := f(5)
+    "#,
+    "a",
+    type RawString,
+    stype RawString,
+    value "5"
+  );
+
+  // Отрицательное в беззнаковом параметре - граница типа, как `U8(-10)`.
+  checkStructure!(
+    r#"
+    f(x: U8) { = x }
+    a := f(-10)
+    "#,
+    "a",
+    type UInt,
+    stype U8,
+    value "0"
+  );
+
+  // `None`-параметр - отсутствие значения, как `None(5)`.
+  checkStructure!(
+    r#"
+    f(x: None) { = x }
+    a := f(5)
+    "#,
+    "a",
+    type None,
+    stype None,
+    value ""
+  );
+}
+
+/// Для каждого примитива параметр с его типом даёт то же значение,
+/// что и метод приведения: `f(p: P) { = p } a := f(5)` - это `a := P(5)`.
+#[test]
+fn everyPrimitiveParamIsCast() -> ()
+{
+  for (name, _) in PrimitiveType::iter()
+  {
+    let code: String = format!("f(p: {name}) {{ = p }} a := f(5)");
+    let main: Arc<RwLock<Structure>> = runCode!(&code);
+
+    if name == "None"
+    { // `None` - это отсутствие значения.
+      checkStructure!(main, "a", type None, value "");
+    } else
+    if name == "F32" || name == "F64"
+    { // `float` примитивы: значение `5` форматируется через `{:?}`,
+      // который сохраняет точку для целых `float` ⟶ `5.0`.
+      checkStructure!(main, "a", value "5.0");
+    } else {
+      checkStructure!(main, "a", value "5");
+    }
+  }
 }
 
 // =================================================================================================

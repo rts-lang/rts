@@ -165,29 +165,31 @@ impl Structure
                     // Забираем токен один раз
                     let mut token: Token = parametersValues[idx].take().unwrap(); // Здесь токен еще точно есть.
                     
-                    // Нормализируем под тип параметра.
+                    // Приводим значение под тип параметра.
                     //
                     // todo:
-                    //  Кстати не должен ли getAllExpressions сам делать приведение?
+                    //  Кстати не должен ли `getAllExpressions()` сам делать приведение?
                     //  Много таких мест в коде с params.
-                    if let Some(variants) = calledStructureStructure.unionTypes.clone()
-                    { // Объединение `n: U8 | String`: под каждый вызов подбирается свой вариант.
-                      calledStructureStructure.dataType =
-                        Self::normalizeUnion(&mut token, &StructureType::Union(variants));
-                    } else
-                    {
-                      Self::normalizeToken(
-                        &mut token,
-                        calledStructureStructure.dataType.clone()
-                      );
-                    }
+                    calledStructureStructure.dataType =
+                      match calledStructureStructure.unionTypes.clone()
+                      { // Объединение `n: U8 | String`: под каждый вызов подбирается свой вариант.
+                        Some(variants) => StructureType::Union(variants).normalizeUnion(&mut token),
+                        None => 
+                        { // Одиночный тип параметра: `n: U8`.
+                          calledStructureStructure.dataType.castToken(&mut token);
+                          calledStructureStructure.dataType.clone()
+                        }
+                      };
 
-                    // ABI-композит String: .pointer/.length;
-                    // Считаем ДО перемещения токена в lines ниже.
+                    // ABI-композит `String`: `.pointer`/`.length`;
+                    //
+                    // Считаем до перемещения токена в lines ниже.
                     let stringFields: Option<[Arc<RwLock<Self>>; 2]> = 
                       if calledStructureStructure.dataType == StructureType::Primitive(PrimitiveType::String) {
                         bridge::stringFields(&token)
-                      } else { None };
+                      } else {
+                        None
+                      };
                     
                     // Устанавливаем lines параметра как линию с одним токеном – переданным значением.
                     calledStructureStructure.lines = Some(vec![
@@ -232,8 +234,11 @@ impl Structure
             _sourcePath.with(|sourcePath|
               *sourcePath.borrow_mut() = previousSourcePath
             );
-            // Переносим result из clone в оригинал, чтобы caller (function.rs)
-            // мог прочитать его через getStructureByScope.
+            // Переносим `result` из clone в оригинал, чтобы caller `function.rs`
+            // мог прочитать его через `getStructureByScope`.
+            //
+            // todo Процедура не должна писать `.result` никогда. Но для `function` можно
+            //  передать флаг сюда - тогда менять логику конкретно под их запуски.
             let clonedResult: Option<Token> = calledClone.read().unwrap().result.clone();
             calledStructureLink.write().unwrap().result = clonedResult;
           }

@@ -1,4 +1,3 @@
-use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::parser::testing::checkStructure;
 use crate::tokenizer::types::token::Token;
@@ -10,12 +9,11 @@ use crate::tokenizer::types::tokenType::TokenType;
 
 // =================================================================================================
 
-// todo Я не уверен что normalize и тесты кода - это не одно и то же.
-//  По сути normalize лишний? Или он проверяет что-то еще?
-//  Если это устаревшее - его можно адаптировать под новый стиль просто.
+// Юнит-тесты `castToken`: тот же cast, что и в тестах кода ниже,
+// но напрямую, без парсера - на голом токене.
 
-/// Проверяет значение токена после `normalizeToken()` в явный тип.
-fn normalizeToken(
+/// Проверяет значение токена после `castToken()` в явный тип.
+fn castToken(
   tokenType: TokenType,
   data: &str,
   structureType: StructureType,
@@ -23,7 +21,7 @@ fn normalizeToken(
 ) -> ()
 {
   let mut token: Token = Token::new(tokenType, String::from(data));
-  Structure::normalizeToken(&mut token, structureType);
+  structureType.castToken(&mut token);
   let tokenData: String = token.getData().toString().unwrap_or_default();
   assert!(
     tokenData == expectedData,
@@ -42,90 +40,95 @@ fn normalize() -> ()
   let negBig: String = format!("-{}", big);
   
   // Обычный `normalize`.
-  normalizeToken(
+  castToken(
     TokenType::UInt, "300",
     StructureType::Primitive(PrimitiveType::U8), "255"
   );
-  normalizeToken(
+  castToken(
     TokenType::Int, "-10",
     StructureType::Primitive(PrimitiveType::U8), "0"
   );
-  normalizeToken(
+  castToken(
     TokenType::Int, "-300",
     StructureType::Primitive(PrimitiveType::I8), "-128"
   );
   
   // Больше `u64`.
-  normalizeToken(
+  castToken(
     TokenType::UInt, "18446744073709551616",
     StructureType::Primitive(PrimitiveType::U64), &u64::MAX.to_string()
   );
-  normalizeToken(
+  castToken(
     TokenType::UInt, big,
     StructureType::Primitive(PrimitiveType::U8), "255"
   );
-  normalizeToken(
+  castToken(
     TokenType::UInt, big,
     StructureType::Primitive(PrimitiveType::I8), "127"
   );
-  normalizeToken(
+  castToken(
     TokenType::UInt, big,
     StructureType::Primitive(PrimitiveType::I64), &i64::MAX.to_string()
   );
-  normalizeToken(
+  castToken(
     TokenType::UInt, big,
     StructureType::Primitive(PrimitiveType::Usize), &usize::MAX.to_string()
   );
   
   // Меньше `i64`.
-  normalizeToken(
+  castToken(
     TokenType::Int, &negBig,
     StructureType::Primitive(PrimitiveType::I8), "-128"
   );
-  normalizeToken(
+  castToken(
     TokenType::Int, &negBig,
     StructureType::Primitive(PrimitiveType::I64), &i64::MIN.to_string()
   );
-  normalizeToken(
+  castToken(
     TokenType::Int, &negBig,
     StructureType::Primitive(PrimitiveType::Isize), &isize::MIN.to_string()
   );
-  normalizeToken(
+  castToken(
     TokenType::Int, &negBig,
     StructureType::Primitive(PrimitiveType::U64), "0"
   );
   
   // Не число - базовое значение.
-  normalizeToken(
+  castToken(
     TokenType::UInt, "abc",
     StructureType::Primitive(PrimitiveType::U8), "0"
   );
 }
 
-/// Большие числа в `float` сохраняют величину, а не сжимаются в `u64`.
+/// Большие числа в `float`-рамке зажимаются в границу типа.
+//
+//  `UInt` за `u64` доходит до приведения уже как `u64::MAX`: токен насыщается
+//  в границы своего собственного типа ещё при создании (`normalizeData`),
+//  поэтому величина исходного числа до `float`-рамки не доходит - как и в
+//  `castFloats`, где expression обрубает значение до `usize::MAX`.
 #[test]
 fn normalizeFloat() -> ()
 {
   let big: &str = "44444444444444444444444444444444444444444444"; // 44 цифры
-  normalizeToken(
+  castToken(
     TokenType::UInt, big,
-    StructureType::Primitive(PrimitiveType::F32), &f32::MAX.to_string()
+    StructureType::Primitive(PrimitiveType::F32), &format!("{:?}", u64::MAX as f32)
   );
-  normalizeToken(
+  castToken(
     TokenType::UInt, big,
-    StructureType::Primitive(PrimitiveType::F64), &big.parse::<f64>().unwrap().to_string()
+    StructureType::Primitive(PrimitiveType::F64), &format!("{:?}", u64::MAX as f64)
   );
   
   // Бесконечность зажимается в границу типа.
-  normalizeToken(
+  castToken(
     TokenType::Float, "-1e309",
-    StructureType::Primitive(PrimitiveType::F32), &f32::MIN.to_string()
+    StructureType::Primitive(PrimitiveType::F32), &format!("{:?}", f32::MIN)
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "1e309",
-    StructureType::Primitive(PrimitiveType::F64), &f64::MAX.to_string()
+    StructureType::Primitive(PrimitiveType::F64), &format!("{:?}", f64::MAX)
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "1e309",
     StructureType::Primitive(PrimitiveType::U8), "255"
   );
@@ -137,69 +140,69 @@ fn normalizeFloat() -> ()
 #[test]
 fn normalizeFloatToInteger() -> ()
 {
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "5.4",
     StructureType::Primitive(PrimitiveType::I8), "5"
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "5.5",
     StructureType::Primitive(PrimitiveType::I8), "6"
   );
   
   // Беззнаковые.
-  normalizeToken(
+  castToken(
     TokenType::Float, "-10.0",
     StructureType::Primitive(PrimitiveType::U8), "0"
   );
-  normalizeToken(
+  castToken(
     TokenType::Float, "-5.5",
     StructureType::Primitive(PrimitiveType::U8), "0"
   );
-  normalizeToken(
+  castToken(
     TokenType::Float, "-0.4",
     StructureType::Primitive(PrimitiveType::U8), "0"
   );
   
   // Знаковые принимают отрицательное, если оно в диапазоне.
-  normalizeToken(
+  castToken(
     TokenType::Float, "-5.5",
     StructureType::Primitive(PrimitiveType::I8), "-6"
   );
-  normalizeToken(
+  castToken(
     TokenType::Float, "-5.4",
     StructureType::Primitive(PrimitiveType::I8), "-5"
   );
-  normalizeToken(
+  castToken(
     TokenType::Float, "-0.4",
     StructureType::Primitive(PrimitiveType::I8), "0"
   );
-  normalizeToken(
+  castToken(
     TokenType::Float, "-1000000.7",
     StructureType::Primitive(PrimitiveType::I64), "-1000001"
   );
   
   // Вне диапазона - граница типа.
-  normalizeToken(
+  castToken(
     TokenType::Float, "-200.5",
     StructureType::Primitive(PrimitiveType::I8), "-128"
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "200.5",
     StructureType::Primitive(PrimitiveType::I8), "127"
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "300.5",
     StructureType::Primitive(PrimitiveType::U8), "255"
   );
-  normalizeToken(
+  castToken(
     TokenType::Float, "-1e309",
     StructureType::Primitive(PrimitiveType::I64), &i64::MIN.to_string()
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "1e309",
     StructureType::Primitive(PrimitiveType::I64), &i64::MAX.to_string()
   );
-  normalizeToken(
+  castToken(
     TokenType::UFloat, "1e309",
     StructureType::Primitive(PrimitiveType::U64), &u64::MAX.to_string()
   );
@@ -219,7 +222,7 @@ fn castInteger() -> ()
   );
   checkStructure!(
     "b: U8 = -10", "b",
-    type Int,
+    type UInt,
     stype U8,
     value "0"
   );
@@ -263,7 +266,7 @@ fn castBigNumbers() -> ()
   );
   checkStructure!(
     "h: I8 = 44444444444444444444444444444444444444444444", "h",
-    type UInt,
+    type Int,
     stype I8,
     value "127"
   );
@@ -295,19 +298,19 @@ fn castFloats() -> ()
   // а `l: F32 =` приводит уже обрубленное значение к `f32`.
   checkStructure!(
     "l: F32 = 44444444444444444444444444444444444444444444", "l",
-    type UInt,
+    type UFloat,
     stype F32,
-    value &(usize::MAX as f32).to_string()
+    value &format!("{:?}", usize::MAX as f32)
   );
   checkStructure!(
     "m: F32 = -1.7976931348623157e309", "m",
     type Float,
     stype F32,
-    value "-340282350000000000000000000000000000000"
+    value &format!("{:?}", f32::MIN)
   );
   checkStructure!(
     "n: U8 = 1.7976931348623157e309", "n",
-    type UFloat,
+    type UInt,
     stype U8,
     value "255"
   );
@@ -321,49 +324,49 @@ fn castFloatToInteger() -> ()
 {
   checkStructure!(
     "q: I8 = 5.4", "q",
-    type UFloat,
+    type Int,
     stype I8,
     value "5"
   );
   checkStructure!(
     "r: I8 = 5.5", "r",
-    type UFloat,
+    type Int,
     stype I8,
     value "6")
   ;
   checkStructure!(
     "s: U8 = -10.0", "s",
-    type Float,
+    type UInt,
     stype U8,
     value "0"
   );
   checkStructure!(
     "t: U8 = -5.5", "t",
-    type Float,
+    type UInt,
     stype U8,
     value "0"
   );
   checkStructure!(
     "u: I8 = -5.5", "u",
-    type Float,
+    type Int,
     stype I8,
     value "-6"
   );
   checkStructure!(
     "v: I8 = -5.4", "v",
-    type Float,
+    type Int,
     stype I8,
     value "-5"
   );
   checkStructure!(
     "w: I8 = -200.5", "w",
-    type Float,
+    type Int,
     stype I8,
     value "-128"
   );
   checkStructure!(
     "x: I64 = -1000000.7", "x",
-    type Float,
+    type Int,
     stype I64,
     value "-1000001"
   );
@@ -371,9 +374,10 @@ fn castFloatToInteger() -> ()
 
 // =================================================================================================
 
-/// Явный тип строки не меняет токен, только тип структуры.
+/// Явный строковый тип приводит значение к строке этого типа, как метод:
+/// `a: String = \`raw\`` даёт токен `String` - так же, как `String(\`raw\`)`.
 ///
-/// `CString` = `Pointer` (алиас).
+/// `CString` = `Pointer` (алиас): приведения для него нет, токен проходит как есть.
 #[test]
 fn castStrings() -> ()
 {
@@ -392,7 +396,7 @@ fn castStrings() -> ()
   );
   checkStructure!(
     r#"c: RawString = "text""#, "c",
-    type String,
+    type RawString,
     stype RawString,
     value "text"
   );
@@ -400,7 +404,7 @@ fn castStrings() -> ()
   // Сырая строка.
   checkStructure!(
     "d: String = `raw`", "d",
-    type RawString,
+    type String,
     stype String,
     value "raw"
   );

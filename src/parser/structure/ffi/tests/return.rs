@@ -110,8 +110,8 @@ fn typedReturnsFromSystemLibraries() -> ()
   checkStructure!(main, "s1", stype Usize, value "11");
   checkStructure!(main, "s2", stype I32, value "5");
   checkStructure!(main, "s3", stype I32, value "-1");
-  checkStructure!(main, "s4", stype F64, value "4");
-  checkStructure!(main, "s5", stype F64, value "-3");
+  checkStructure!(main, "s4", stype F64, value "4.0");
+  checkStructure!(main, "s5", stype F64, value "-3.0");
 
   let _ = std::fs::remove_file(&path);
 }
@@ -175,7 +175,7 @@ fn argumentsAndResult() -> ()
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
   checkStructure!(main, "d1", stype U16, value "300");
-  checkStructure!(main, "d2", stype F64, value "6");
+  checkStructure!(main, "d2", stype F64, value "6.0");
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);

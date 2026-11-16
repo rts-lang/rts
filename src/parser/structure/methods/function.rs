@@ -81,7 +81,7 @@ impl Function
             {
               // Структуры с таким именем нет - значит это значение.
               // Отвечаем его типом: так же, как тип структуры, в которую оно попало бы:
-              // `5` -> U8, `"text"` -> String.
+              // `5` ⟶ U8, `text` ⟶ String.
               let mut tokenCopy: Token = token.clone();
               let structureType: StructureType = StructureType::naturalType(&mut tokenCopy);
 
@@ -108,7 +108,7 @@ impl Function
     }
   }
   
-  /// Возвращает полный union-тип структуры (`a: U8 | 10` → `U8 | 10`).
+  /// Возвращает полный union-тип структуры (`a: U8 | 10` ⟶ `U8 | 10`).
   ///
   /// Если структура объявлена без объединения — совпадает со `stype`.
   /// `unionTypes` хранит исходный набор вариантов и не сужается при присваивании.
@@ -300,7 +300,7 @@ impl Function
         // importNative — FFI-вызов. Если мы внутри [ffi]-блока, ensureFfiScope 
         // создаёт/удерживает scope, а load проверяет, что библиотека реально открывается.
         // 
-        // Ошибка загрузки → None (import «падает» вместе с блоком).
+        // Ошибка загрузки ⟶ `None` (import «падает» вместе с блоком).
         // 
         // Вне блока просто возвращаем путь — handle можно хранить, 
         // но вызовы без живого scope не сработают
@@ -482,24 +482,21 @@ impl Function
 
   // ===============================================================================================
 
-  /// Приводит значение к границам [`StructureType`]: `U8(a)`/`I16(a)`/`F32(a)`/`Usize(a)`/...
+  /// Это метод-помощник, Приводит значение к границам [`StructureType`]: 
+  /// 
+  /// `U8(a)`/`I16(a)`/`F32(a)`/`Usize(a)`/...
   ///
-  /// 
-  /// Это метод-помощник: берёт токен и возвращает новый токен в границах [`StructureType`];
-
-  /// Границы те же, что при объявлении `a: U8 = ...`: считает их [`Structure::normalizeToken`].
-  /// 
+  /// **Например:**
   ///
-  /// Результат остаётся токеном и работает в выражении: `c := U8(a) + b`;
-  /// 
-  /// Тип данных дальше не несёт - его хранит структура: `x: U8 = a`.
-  /// 
+  /// - Результат остаётся токеном и работает в выражении: `c := U8(a) + b`;
+  ///
+  /// - Тип данных дальше не несёт - его хранит структура: `x: U8 = a`.
   ///
   /// Тип приведения - любой примитив из [`PrimitiveType`]: числовые зажимаются
   /// по своим границам, строки становятся строками, `None` - это отсутствие
   /// значения;
-  /// 
-  /// todo `Any`/`Pointer` и некоторые другие ничего не меняют - приведения для них пока нет.
+  //
+  // todo `Any`/`Pointer` и некоторые другие ничего не меняют - приведения для них пока нет.
   fn cast(
     structure: &Structure,
     parameters: &Parameters,
@@ -521,26 +518,11 @@ impl Function
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       
       Some(mut token) =>
-      {
-        if structureType == StructureType::Primitive(PrimitiveType::None)
-        { // `None` - это отсутствие значения, а не значение.
-          value[i].setDataType(TokenType::None);
-          value[i].setData(None);
-        } else
-        if structureType == StructureType::Primitive(PrimitiveType::String) ||
-           structureType == StructureType::Primitive(PrimitiveType::RawString)
-        { // Значение становится строкой: `String(5)` - это "5".
-          value[i].setDataType(
-            if structureType == StructureType::Primitive(PrimitiveType::String)
-            { TokenType::String } else { TokenType::RawString }
-          );
-          value[i].setData( token.getData().toString().unwrap_or_default() );
-        } else
-        { // Остальные примитивы приводятся по своим границам.
-          Structure::normalizeToken(&mut token, structureType);
-          value[i].setDataType(*token.getDataType());
-          value[i].setData(token.getData());
-        }
+      { // Единое приведение: то же, что при типизации параметров `abc(a: U8)`.
+        structureType.castToken(&mut token);
+        
+        value[i].setDataType(*token.getDataType());
+        value[i].setData(token.getData());
       }
 
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -621,13 +603,13 @@ impl Structure
       { // По результату структуры, определяем пустой он или нет.
         if let Some(result) = &structureLink.read().unwrap().result
         { // Результат не пустой, значит оставляем его.
-          value[i].setData(result.getData());
           value[i].setDataType(*result.getDataType());
+          value[i].setData(result.getData());
         } else
         { // Если результата структуры не было,
           // значит это была действительно процедура.
-          value[i].setData(None);
           value[i].setDataType(TokenType::None);
+          value[i].setData(None);
         }
       }
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
