@@ -15,7 +15,7 @@ pub const fn isSingleChar(byte: u8) -> bool
 
 // =================================================================================================
 
-/// todo desc
+// todo desc
 pub const operators: &[(&str, TokenType)] = &[
   // Одиночные математические
   ("+", TokenType::Plus),
@@ -129,7 +129,7 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
-  /// todo desk
+  // todo desk
   #[test]
   fn value() -> ()
   {
@@ -172,7 +172,7 @@ mod tests
     //
   }
 
-  /// todo desk
+  // todo desk
   #[test]
   fn index() -> ()
   {

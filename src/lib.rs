@@ -115,7 +115,7 @@ impl RTS
     readLines(main);
   }
   
-  /// todo desc
+  // todo desc
   pub fn getNative(method: extern "C" fn(args: &[Token])) -> Bytes
   {
     let ptr: *const () = method as *const ();

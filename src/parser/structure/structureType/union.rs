@@ -50,7 +50,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 ///     union![U8, String];
 ///     union![primitiveValueText("x")];
 ///     union![U8, primitiveValueText("x")];
-/// todo Тут плохой `union` desc - выглядит плохо в описании. А при сборке ломался.
+// todo Тут плохой `union` desc - выглядит плохо в описании. А при сборке ломался.
 ///
 /// Имена примитивов и выражения можно смешивать в одном списке.
 #[allow(unused_macros)]

@@ -11,7 +11,7 @@ use crate::tokenizer::types::tokenType::TokenType;
 #[derive(Clone)]
 pub struct Parameters
 {
-  /// todo desc
+  // todo desc
   values: Option< Vec< Arc<RwLock<Line>> > >
 }
 
@@ -146,8 +146,8 @@ impl Structure
   }
 
   /// Получает параметры при вызове структуры в качестве метода.
-  ///
-  /// todo Типы данных в параметрах.
+  //
+  // todo Типы данных в параметрах.
   pub fn getCallParameters(
     &self, 
     value: &mut Vec<Token>, 

@@ -168,7 +168,7 @@ pub(super) fn checkLines(main: &Arc<RwLock<Structure>>, name: &str, code: &str, 
 /// `type`/`value` печатаются как `<none>`. Грани различаются между собой:
 /// `type` - тип токена (`type(a)` в `.rt`), `stype` - тип структуры (`stype(a)`),
 /// `utype` - полный объявленный тип (`utype(a)`).
-/// todo Другие варианты тут?
+// todo Другие варианты тут?
 ///
 /// В `cargo test` вывод виден только с `-- --nocapture`
 /// (или `RUST_TEST_NOCAPTURE=1`).

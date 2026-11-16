@@ -51,7 +51,7 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
-  /// todo desk (чек 2 токена)
+  // todo desk (чек 2 токена)
   #[test]
   fn withTokens() -> ()
   {
@@ -67,9 +67,9 @@ mod tests
     assert_eq!(line.tokens.as_ref().unwrap().len(), 2, "The length of tokens must be 2");
   }
   
-  /// todo desk (чек токена)
-  ///  Мне кажется что тут баг так как `indent` а по итогу 1 токен чек. Видать было что-то другое,
-  ///  но теперь нет indent - мб бесполезный и удалить его?
+  // todo desk (чек токена)
+  //  Мне кажется что тут баг так как `indent` а по итогу 1 токен чек. Видать было что-то другое,
+  //  но теперь нет indent - мб бесполезный и удалить его?
   #[test]
   fn withIndent() -> ()
   {
@@ -83,7 +83,7 @@ mod tests
     assert_eq!(line.tokens.as_ref().unwrap().len(), 1, "The length of tokens must be 1");
   }
   
-  /// todo desk (чек вложения)
+  // todo desk (чек вложения)
   #[test]
   fn nestedLines() -> ()
   {

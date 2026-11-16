@@ -11,8 +11,8 @@ use crate::tokenizer::types::tokenType::TokenType;
 // =================================================================================================
 
 /// Множество встроенных процедур и функций
-///
-/// todo Должно автоматически собираться из парсера
+//
+// todo Должно автоматически собираться из парсера
 fn builtins() -> HashSet<&'static str>
 {
   HashSet::from([
@@ -123,51 +123,51 @@ fn flattenTokensTo(tokens: &[Token], out: &mut Vec<AnalyzeToken>) -> ()
 // =================================================================================================
 
 /// Токен с вложениями — для tools/ast.ts (дерево как в старом debug)
-///
-/// todo rewrite desc + desc для параметров
+//
+// todo rewrite desc + desc для параметров
 #[derive(Serialize, Clone)]
 pub struct TreeToken
 {
-  /// todo desc
+  // todo desc
   pub start: usize,
 
-  /// todo desc
+  // todo desc
   pub end: usize,
 
-  /// todo desc
+  // todo desc
   pub kind: String,
 
-  /// todo desc
+  // todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub data: Option<String>,
 
-  /// todo desc
+  // todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub primitive: Option<bool>,
 
-  /// todo desc
+  // todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub lines: Option<Vec<TreeLine>>
 }
 
 /// Линия с вложениями — для tools/ast.ts
-///
-/// todo rewrite desc + desc для параметров
+//
+// todo rewrite desc + desc для параметров
 #[derive(Serialize, Clone)]
 pub struct TreeLine
 {
-  /// todo desc
+  // todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub tokens: Option<Vec<TreeToken>>,
   
-  /// todo desc
+  // todo desc
   #[serde(skip_serializing_if = "Option::is_none")]
   pub lines: Option<Vec<TreeLine>>
 }
 
 /// Дерево AST JSON — API для tools/ast.ts
-///
-/// todo rewrite desc
+//
+// todo rewrite desc
 #[wasm_bindgen]
 pub fn analyzeLinesTree(code: &str) -> String
 {
@@ -177,7 +177,7 @@ pub fn analyzeLinesTree(code: &str) -> String
   to_string(&result).unwrap_or_else(|_| "[]".to_string())
 }
 
-/// todo desc + внутренние comments
+// todo desc + внутренние comments
 fn convertTreeLines(lines: &[Arc<RwLock<Line>>]) -> Vec<TreeLine>
 {
   let mut out: Vec<TreeLine> = Vec::new();
@@ -191,7 +191,7 @@ fn convertTreeLines(lines: &[Arc<RwLock<Line>>]) -> Vec<TreeLine>
   out
 }
 
-/// todo desc + внутренние comments
+// todo desc + внутренние comments
 fn convertTreeTokens(tokens: &[Token]) -> Vec<TreeToken>
 {
   let builtinsSet: HashSet<&'static str> = builtins();

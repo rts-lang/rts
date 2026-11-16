@@ -161,8 +161,8 @@ impl StructureType
   /// ABI-тип для `v`; `Primitive(CString)` ⟶ `Pointer` (алиас); всё остальное — как есть.
   /// 
   /// Нужен там, где `dataType` участвует в FFI, string-полях и `castToken`, а не в `stype`.
-  /// 
-  /// todo Я бы изменил название и desc и так далее. Потому что слишком непонятная штука.
+  //
+  // todo Я бы изменил название и desc и так далее. Потому что слишком непонятная штука.
   pub fn abiType(&self) -> Self
   {
     match self
@@ -243,8 +243,8 @@ impl Token
   /// что в неё положили, но при этом в рамках [`StructureType`].
   /// 
   /// Если станет `None` - то токен будет очищен.
-  /// 
-  /// todo Было бы хорошо убрать как-то mut отсюда.
+  //
+  // todo Было бы хорошо убрать как-то mut отсюда.
   pub fn getStructureType(&mut self) -> StructureType
   {
     fn result(selfToken: &mut Token, structureType: StructureType) -> StructureType
