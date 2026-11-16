@@ -21,8 +21,7 @@ fn check(
   expectedData: &str
 )
 {
-  let result: Token = calculate(
-    &op,
+  let result: Token = op.calculate(
     &Token::new(left.0, String::from(left.1)),
     &Token::new(right.0, String::from(right.1))
   );
@@ -102,8 +101,8 @@ fn multiplyCommutative() -> ()
     {
       let leftToken:  Token = Token::new(left.0,  String::from(left.1));
       let rightToken: Token = Token::new(right.0, String::from(right.1));
-      let ab: Token = calculate(&TokenType::Multiply, &leftToken,  &rightToken);
-      let ba: Token = calculate(&TokenType::Multiply, &rightToken, &leftToken);
+      let ab: Token = TokenType::Multiply.calculate(&leftToken,  &rightToken);
+      let ba: Token = TokenType::Multiply.calculate(&rightToken, &leftToken);
       let abData: String = ab.getData().toString().unwrap_or_default();
       let baData: String = ba.getData().toString().unwrap_or_default();
       assert!(

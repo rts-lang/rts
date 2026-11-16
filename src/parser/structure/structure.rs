@@ -612,14 +612,10 @@ impl Structure
       let mut structure: RwLockWriteGuard<Self> = structureLink.write().unwrap();
       let resultToken: Token = match op 
       { // Определяем тип операции
-        TokenType::PlusEquals => 
-          calculate(&TokenType::Plus, &leftValue, &rightValue),
-        TokenType::MinusEquals => 
-          calculate(&TokenType::Minus, &leftValue, &rightValue),
-        TokenType::MultiplyEquals => 
-          calculate(&TokenType::Multiply, &leftValue, &rightValue),
-        TokenType::DivideEquals => 
-          calculate(&TokenType::Divide, &leftValue, &rightValue),
+        TokenType::PlusEquals     => TokenType::Plus.calculate(&leftValue, &rightValue),
+        TokenType::MinusEquals    => TokenType::Minus.calculate(&leftValue, &rightValue),
+        TokenType::MultiplyEquals => TokenType::Multiply.calculate(&leftValue, &rightValue),
+        TokenType::DivideEquals   => TokenType::Divide.calculate(&leftValue, &rightValue),
         _ => Token::newEmpty(TokenType::None)
       };
       // todo Здесь должны быть преобразования типа у структуры.
@@ -1198,7 +1194,7 @@ impl Structure
       tokenType = token.getDataType();
       if i+1 < *valueLength && operations.contains(tokenType)
       { // Вычисление заданной операции между двумя операндами.
-        value[i-1] = calculate(tokenType, &value[i-1], &value[i+1]);
+        value[i-1] = tokenType.calculate(&value[i-1], &value[i+1]);
 
         value.remove(i); // remove op
         value.remove(i); // remove right value
@@ -1216,7 +1212,7 @@ impl Structure
       if operations.contains(&TokenType::Plus) &&
          matches!(*tokenType, TokenType::Int | TokenType::Float)
       {
-        value[i-1] = calculate(&TokenType::Plus, &value[i-1], &value[i]);
+        value[i-1] = TokenType::Plus.calculate(&value[i-1], &value[i]);
 
         value.remove(i); // remove UInt.
         *valueLength -= 1;
