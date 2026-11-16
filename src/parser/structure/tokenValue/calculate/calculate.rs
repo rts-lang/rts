@@ -157,49 +157,6 @@ pub fn calculate(op: &TokenType, leftToken: &Token, rightToken: &Token) -> Token
 
 // =================================================================================================
 
-/*
-/// Нормализация (#71) Token по его TokenType: токен бесконечен, а математика Rust нет.
-///
-/// 4 класса токенов для чисел, у каждого свои min и max значения:
-///   UInt    0 ... usize::MAX;
-///   Int     isize::MIN ... -1.
-///   UFloat  0 ... f64::MAX;
-///   Float   f64::MIN ... -0.
-///
-/// todo У floats `inf` становится границей в виде `{:e}`, как в структуре; `NaN` - 0.
-pub fn normalizeToken(token: &mut Token) -> ()
-{
-  let data: String = token.getData().toString().unwrap_or_default();
-  let normalized: Option<String> = match *token.getDataType()
-  {
-    TokenType::UInt => match data.parse::<u64>()
-    {
-      Ok(value) if value > usize::MAX as u64 => Some(usize::MAX.to_string()),
-      Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(usize::MAX.to_string()),
-      _ => None
-    },
-    TokenType::Int => match data.parse::<i64>()
-    {
-      Ok(value) if value > isize::MAX as i64 => Some(isize::MAX.to_string()),
-      Ok(value) if value < isize::MIN as i64 => Some(isize::MIN.to_string()),
-      Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(isize::MAX.to_string()),
-      Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(isize::MIN.to_string()),
-      _ => None
-    },
-    TokenType::UFloat | TokenType::Float => match data.parse::<f64>()
-    {
-      Ok(value) if value.is_nan() => Some(String::from("0")),
-      Ok(value) if value.is_infinite() => Some(format!("{:e}", normalizeFloat(value))),
-      _ => None
-    },
-    _ => None
-  };
-  if let Some(normalized) = normalized { 
-    token.setData(normalized);
-  }
-}
-*/
-
 /// Зависимость для calculate;
 /// Значение за границей f64 зажимается в границу, как в структуре: inf - f64::MAX/MIN, NaN - 0.
 fn normalizeFloat(value: f64) -> f64

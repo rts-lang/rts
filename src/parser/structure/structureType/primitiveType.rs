@@ -1,3 +1,4 @@
+use std::num::IntErrorKind;
 use serde::{Deserialize, Serialize};
 use crate::parser::structure::structureType::primitiveTypeFrame::PrimitiveTypeFrame;
 use crate::tokenizer::types::token::Token;
@@ -187,11 +188,123 @@ impl PrimitiveType
     }
   }
 
-  pub(super) fn retypeToken(&self, token: &mut Token) -> ()
+  pub fn retypeToken(&self, token: &mut Token) -> ()
   {
     let tokenValue: String = token.getData().toString().unwrap_or_default();
     if let Some(targetTokenType) = self.getTokenType(&tokenValue) {
       token.setDataType(targetTokenType);
+    }
+  }
+
+  // ===============================================================================================
+  
+  /// todo desc
+  pub fn normalizeToken(
+    &self,
+    frame: &PrimitiveTypeFrame,
+    token: &mut Token,
+    dataType: &TokenType
+  ) -> ()
+  {
+    // Получаем строку из данных.
+    let tokenData: String =
+      if let Some(tokenData) = token.getData().toString() {
+        tokenData
+      } else
+      { // Нет данных.
+        self.setTokenDefault(token);
+        self.retypeToken(token);
+        return;
+      };
+    
+    match dataType
+    {
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      TokenType::UInt =>
+      {
+        // Токен бесконечен, а `u64` нет: поэтому всё что больше - граница `u64`,
+        // дальше значение зажимается в рамки структуры.
+        let value: Option<u64> = match tokenData.parse::<u64>()
+        {
+          Ok(value) => Some(value),
+          Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(u64::MAX),
+          Err(_) => None
+        };
+
+        match value
+        {
+          None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
+          Some(value) =>
+          {
+            // Для `float` берём величину числа напрямую, без сжатия в `u64`.
+            let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
+            frame.normalizeTokenUnsigned(token, value, magnitude)
+          }
+        }
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      TokenType::Int =>
+      {
+        // Токен бесконечен, а `i64` нет: всё что больше или меньше - граница `i64`,
+        // дальше значение зажимается в рамки структуры.
+        let value: Option<i64> = match tokenData.parse::<i64>()
+        { // todo Напоминает очень сильно границы `calculate`, получается дубль так то.
+          Ok(value) => Some(value),
+          Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(i64::MIN),
+          Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(i64::MAX),
+          Err(_) => None
+        };
+
+        match value
+        {
+          None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
+          Some(value) =>
+          {
+            // Для `float` берём величину числа напрямую, без сжатия в `i64`.
+            let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
+            frame.normalizeTokenSigned(token, value, magnitude)
+          }
+        }
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      TokenType::UFloat | TokenType::Float =>
+      {
+        if let Ok(mut value) = tokenData.parse::<f64>()
+        {
+          // Для `UFloat` обрезаем отрицательные до `0`.
+          if dataType == &TokenType::UFloat && value < 0.0 {
+            value = 0.0;
+          }
+
+          if value.is_nan()
+          { // `NaN` — базовое значение;
+            //
+            // Бесконечность зажмётся в границы типа.
+            self.setTokenDefault(token);
+            self.retypeToken(token);
+            return;
+          }
+
+          frame.normalizeTokenFloat(token, value);
+        } else
+        { // Не распарсилось — базовое значение.
+          self.setTokenDefault(token);
+        }
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+      _ =>
+      { // Здесь пытаются прировнять что-то не то.
+        self.setTokenDefault(token);
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
   }
 

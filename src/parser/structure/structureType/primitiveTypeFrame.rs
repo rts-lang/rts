@@ -1,4 +1,3 @@
-use std::num::IntErrorKind;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::structureType::PrimitiveType;
 use crate::tokenizer::types::token::Token;
@@ -15,14 +14,16 @@ pub enum PrimitiveTypeFrameNumber
   U64(u64),
   U128(u128),
   Usize(usize),
-
+  
+  //
   I8(i8),
   I16(i16),
   I32(i32),
   I64(i64),
   I128(i128),
   Isize(isize),
-
+  
+  //
   F32(f32),
   F64(f64)
 }
@@ -210,123 +211,6 @@ impl PrimitiveType
 
 // =================================================================================================
 
-impl PrimitiveType
-{
-  pub(super) fn normalizeToken(
-    &self,
-    frame: &PrimitiveTypeFrame,
-    token: &mut Token,
-    dataType: &TokenType
-  ) -> ()
-  {
-    // Получаем строку из данных.
-    let tokenData: String =
-      if let Some(tokenData) = token.getData().toString() {
-        tokenData
-      } else
-      { // Нет данных.
-        self.setTokenDefault(token);
-        self.retypeToken(token);
-        return;
-      };
-    
-    match dataType
-    {
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      
-      TokenType::UInt =>
-      {
-        // Токен бесконечен, а `u64` нет: поэтому всё что больше - граница `u64`,
-        // дальше значение зажимается в рамки структуры.
-        let value: Option<u64> = match tokenData.parse::<u64>()
-        {
-          Ok(value) => Some(value),
-          Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(u64::MAX),
-          Err(_) => None
-        };
-
-        match value
-        {
-          None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
-          Some(value) =>
-          {
-            // Для `float` берём величину числа напрямую, без сжатия в `u64`.
-            let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
-            frame.normalizeTokenUnsigned(token, value, magnitude)
-          }
-        }
-      }
-
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-      TokenType::Int =>
-      {
-        // Токен бесконечен, а `i64` нет: всё что больше или меньше - граница `i64`,
-        // дальше значение зажимается в рамки структуры.
-        let value: Option<i64> = match tokenData.parse::<i64>()
-        { // todo Напоминает очень сильно границы `calculate`, получается дубль так то.
-          Ok(value) => Some(value),
-          Err(error) if *error.kind() == IntErrorKind::NegOverflow => Some(i64::MIN),
-          Err(error) if *error.kind() == IntErrorKind::PosOverflow => Some(i64::MAX),
-          Err(_) => None
-        };
-
-        match value
-        {
-          None => self.setTokenDefault(token), // Не распарсилось — базовое значение.
-          Some(value) =>
-          {
-            // Для `float` берём величину числа напрямую, без сжатия в `i64`.
-            let magnitude: f64 = tokenData.parse::<f64>().ok().unwrap_or(value as f64);
-            frame.normalizeTokenSigned(token, value, magnitude)
-          }
-        }
-      }
-
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-      TokenType::UFloat | TokenType::Float =>
-      {
-        if let Ok(mut value) = tokenData.parse::<f64>()
-        {
-          // Для `UFloat` обрезаем отрицательные до `0`.
-          if dataType == &TokenType::UFloat && value < 0.0 {
-            value = 0.0;
-          }
-
-          if value.is_nan()
-          { // `NaN` — базовое значение;
-            //
-            // Бесконечность зажмётся в границы типа.
-            self.setTokenDefault(token);
-            self.retypeToken(token);
-            return;
-          }
-
-          frame.normalizeTokenFloat(token, value);
-        } else
-        { // Не распарсилось — базовое значение.
-          self.setTokenDefault(token);
-        }
-      }
-
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-      _ =>
-      { // Здесь пытаются прировнять что-то не то.
-        self.setTokenDefault(token);
-      }
-
-      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-    }
-  }
-
-  // ===============================================================================================
-
-}
-
-// =================================================================================================
-
 impl PrimitiveTypeFrame
 {
   // ===============================================================================================
@@ -348,8 +232,9 @@ impl PrimitiveTypeFrame
   /// У `float`-рамок целочисленных границ нет - будет `None`:
   /// их значения зажимаются величиной в границы `f32`/`f64`.
   //
-  //  `U128`/`I128` рамок пока нет: их границы не вмещаются в
-  //  `i64`/`u64`, а молча исказить границу нельзя - поэтому `None`.
+  //  todo:
+  //   `U128`/`I128` рамок пока нет: их границы не вмещаются в
+  //   `i64`/`u64`, а молча исказить границу нельзя - поэтому `None`.
   fn integerBounds(&self) -> Option<(i64, u64)>
   {
     match (self.min, self.max)
@@ -357,13 +242,13 @@ impl PrimitiveTypeFrame
       (Some(PrimitiveTypeFrameNumber::U8(min)),    Some(PrimitiveTypeFrameNumber::U8(max)))    => Some((min as i64, max as u64)),
       (Some(PrimitiveTypeFrameNumber::U16(min)),   Some(PrimitiveTypeFrameNumber::U16(max)))   => Some((min as i64, max as u64)),
       (Some(PrimitiveTypeFrameNumber::U32(min)),   Some(PrimitiveTypeFrameNumber::U32(max)))   => Some((min as i64, max as u64)),
-      (Some(PrimitiveTypeFrameNumber::U64(min)),   Some(PrimitiveTypeFrameNumber::U64(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::U64(min)),   Some(PrimitiveTypeFrameNumber::U64(max)))   => Some((min as i64, max)),
       (Some(PrimitiveTypeFrameNumber::Usize(min)), Some(PrimitiveTypeFrameNumber::Usize(max))) => Some((min as i64, max as u64)),
       //
       (Some(PrimitiveTypeFrameNumber::I8(min)),    Some(PrimitiveTypeFrameNumber::I8(max)))    => Some((min as i64, max as u64)),
       (Some(PrimitiveTypeFrameNumber::I16(min)),   Some(PrimitiveTypeFrameNumber::I16(max)))   => Some((min as i64, max as u64)),
       (Some(PrimitiveTypeFrameNumber::I32(min)),   Some(PrimitiveTypeFrameNumber::I32(max)))   => Some((min as i64, max as u64)),
-      (Some(PrimitiveTypeFrameNumber::I64(min)),   Some(PrimitiveTypeFrameNumber::I64(max)))   => Some((min as i64, max as u64)),
+      (Some(PrimitiveTypeFrameNumber::I64(min)),   Some(PrimitiveTypeFrameNumber::I64(max)))   => Some((min,        max as u64)),
       (Some(PrimitiveTypeFrameNumber::Isize(min)), Some(PrimitiveTypeFrameNumber::Isize(max))) => Some((min as i64, max as u64)),
       //
       _ => None
