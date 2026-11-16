@@ -323,7 +323,7 @@ fn pointerResult() -> ()
   let _ = std::fs::remove_file(&path);
 }
 
-/// Ошибки: неизвестный метод и тип без поддержки результата дают None → default типа.
+/// Ошибки: неизвестный метод и тип без поддержки результата дают `None` ⟶ default типа.
 #[test]
 fn unknownMethod() -> ()
 {

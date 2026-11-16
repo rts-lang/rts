@@ -20,7 +20,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 
 /// Выполняет код и читает из корня ссылку `link`.
 ///
-/// `link` - путь ссылки: `"a.b"` -> `["a", "b"]`.
+/// `link` - путь ссылки: `"a.b"` ⟶ `["a", "b"]`.
 /// `parameters` - `None` - это чтение значения, `Some` - это вызов метода.
 pub(super) fn linkOf(code: &str, link: &str, parameters: Option< Vec<Token> >) -> Token
 {

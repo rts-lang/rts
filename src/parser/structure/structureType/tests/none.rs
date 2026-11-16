@@ -1,3 +1,4 @@
+use crate::parser::structure::structureType::StructureType;
 use crate::parser::structure::structureType::union::union;
 use crate::parser::testing::{checkStructure, primitiveValueNumber, primitiveValueText};
 // =================================================================================================
@@ -146,7 +147,9 @@ fn onlyNones() -> ()
 #[test]
 fn droppedFromUnion() -> ()
 {
-  let i8OrU8 = || union![I8, U8];
+  fn i8OrU8() -> StructureType {
+    union![I8, U8]
+  }
 
   checkStructure!(
     "a: I8 | U8 | None = 300", "a",
@@ -218,7 +221,9 @@ fn singleLeft() -> ()
 #[test]
 fn droppedFromLogic() -> ()
 {
-  let trueOrFalse = || union![True, False];
+  fn trueOrFalse() -> StructureType {
+    union![True, False]
+  }
 
   checkStructure!(
     "a: True | False | None = True", "a",

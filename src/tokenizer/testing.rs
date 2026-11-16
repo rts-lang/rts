@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 
 // =================================================================================================
 
-/// Получает `bytes` -> выдает token types для проверки в тестах.
+/// Получает `bytes` ⟶ выдает token types для проверки в тестах.
 pub(crate) fn getTokensFromBuffer(src: &str) -> Vec<Token>
 {
   let mut buffer: Vec<u8> = src.as_bytes().to_vec();

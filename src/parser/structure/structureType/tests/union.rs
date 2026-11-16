@@ -153,10 +153,12 @@ fn unionNone() -> ()
 #[test]
 fn unionPrimitiveParse() -> ()
 {
-  let tenTwenty = || union![
-    primitiveValueNumber("10"),
-    primitiveValueNumber("20")
-  ];
+  fn tenTwenty() -> StructureType {
+    union![
+      primitiveValueNumber("10"),
+      primitiveValueNumber("20")
+    ]
+  }
   
   checkStructure!(
     "a: 10 | 20 = 10", "a",
@@ -367,7 +369,7 @@ fn unionPrimitiveWithType() -> ()
     value "0"
   );
 
-  // Строковый примитив рядом с типом: матч примитива → `stype` = примитив.
+  // Строковый примитив рядом с типом: матч примитива ⟶ `stype` = примитив.
   checkStructure!(
     "a: \"name\" | U8 = \"name\"", "a",
     stype primitiveValueText("name"),

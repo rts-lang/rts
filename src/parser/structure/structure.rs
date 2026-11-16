@@ -216,7 +216,7 @@ impl Structure
 
   // ===============================================================================================
 
-  /// Полный объявленный тип: набор вариантов объединения (`a: U8 | 10` → `U8 | 10`),
+  /// Полный объявленный тип: набор вариантов объединения (`a: U8 | 10` ⟶ `U8 | 10`),
   /// а без объединения - `dataType`.
   ///
   /// `dataType` хранит выбранный вариант, `unionTypes` - исходный набор, 
@@ -259,7 +259,7 @@ impl Structure
   /// И только потом от найденной `a` идёт вниз.
   pub fn getStructureByLink(&self, name: &str) -> Option< Arc<RwLock<Self>> > 
   {
-    // "a.b.c" -> ["a", "b", "c"]
+    // "a.b.c" ⟶ ["a", "b", "c"]
     let segments: Vec<String> = Self::parseLink(name);
     
     // Если имя пустое - нечего искать.
@@ -564,7 +564,7 @@ impl Structure
           } else
           { // Требуется выполнить преобразование в указанный тип данных.
             //
-            // `Primitive` → natural ABI-форма (`StructureType.castToken` не знает примитивов-значений).
+            // `Primitive` ⟶ natural ABI-форма (`StructureType.castToken` не знает примитивов-значений).
             // todo Мб теперь знает? Нужно проверить.
             structure.dataType.abiType().castToken(&mut rightPartValue);
           }

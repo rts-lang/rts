@@ -32,11 +32,11 @@ macro_rules! defineEnum
       const Names: &'static [&'static str] =
         defineEnum!(@names []; $($variant $(($field))?,)*);
 
-      /// Пары `имя -> значение` для примитивов (без `Custom`).
+      /// Пары `имя ⟶ значение` для примитивов (без `Custom`).
       const Entries: &'static [(&'static str, PrimitiveType)] =
         defineEnum!(@entries []; $($variant $(($field))?,)*);
 
-      /// Примитив по имени; `Custom` и неизвестные имена -> `None`.
+      /// Примитив по имени; `Custom` и неизвестные имена ⟶ `None`.
       pub fn fromName(name: &str) -> Option<Self>
       {
         Self::Entries.iter().find(|(n, _)| *n == name).map(|(_, v)| v.clone())
@@ -329,7 +329,7 @@ impl PrimitiveType
   ///
   /// - Остальное приводится по границам `StructureType`: число зажимается в
   ///   границы типа, значение не того рода становится базовым значением типа
-  ///   (`U8(-10)` -> `0`, как и `U8("test")` -> `0`).
+  ///   (`U8(-10)` ⟶ `0`, как и `U8("test")` ⟶ `0`).
   ///
   /// - Границы приведения живут в рамке ([`PrimitiveTypeFrame`]): они есть только у
   ///   числовых типов; у остальных приведения нет - значение проходит как есть.

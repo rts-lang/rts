@@ -59,7 +59,7 @@ async function maybeUpdateWasmPack(buildOutput: string): Promise<void> {
   if (!info) return;
 
   console.log(
-    `[tools/build] wasm-pack ${info.current} → available ${info.latest}`
+    `[tools/build] wasm-pack ${info.current} ⟶ available ${info.latest}`
   );
 
   const ok: boolean = await ask(
@@ -184,7 +184,7 @@ export async function ensureWasm(options?: {
   }
 
   const wasmSize: number = statSync(pkgWasm).size;
-  console.log(`[tools/build] ok → ${pkgDir} (${wasmSize} bytes wasm)`);
+  console.log(`[tools/build] ok ⟶ ${pkgDir} (${wasmSize} bytes wasm)`);
   return true;
 }
 

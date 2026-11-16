@@ -234,7 +234,7 @@ pub(super) fn printStructureFacets(
 ///
 /// Грани юзаются в любом наборе - ровно те, что проверяет `.rt` файл: где-то сверяются
 /// `type` и `stype`, где-то только один из них, где-то ещё и значение. Порядок граней
-/// фиксированный - `type` → `stype` → `utype` → `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
+/// фиксированный - `type` ⟶ `stype` ⟶ `utype` ⟶ `value`, как в `.rt` файлах (`type(a) | stype(a) = a`):
 ///
 ///     checkStructure!("a: U8 = 300", "a", type UInt, stype U8, value "255");
 ///     checkStructure!("a := 0.0", "a", type UFloat, stype F32); // Без значения
@@ -273,10 +273,10 @@ pub(super) use checkStructure;
 
 /// Упрощение граней: короткая форма - к полной.
 ///
-/// Грани идут в порядке: `type` → `stype` → `utype` → `value` → `mut` → `lines`.
+/// Грани идут в порядке: `type` ⟶ `stype` ⟶ `utype` ⟶ `value` ⟶ `mut` ⟶ `lines`.
 /// У каждой грани две формы - короткая (имя варианта) и полная (выражение):
 ///
-///     checkStructure!("a: U8 = 10", "a", stype U8);                          // Короткая.
+///     checkStructure!("a: U8 = 10", "a", stype U8); // Короткая.
 ///     checkStructure!("a: U8 = 10", "a", stype StructureType::Primitive(PrimitiveType::U8)); // Полная.
 ///
 /// Короткая форма приводится к полной одинаково для всех граней: правило одно на грань,
@@ -481,7 +481,7 @@ pub(super) use simplifyFacets;
 /// Проверка граней: значения типов здесь уже приведены к `StructureType`.
 ///
 /// Порядок граней тот же, что и в `tryCheckStructure!`:
-/// `type` → `stype` → `utype` → `value` → `mut` → `lines`.
+/// `type` ⟶ `stype` ⟶ `utype` ⟶ `value` ⟶ `mut` ⟶ `lines`.
 macro_rules! checkFacets
 {
   ($main:expr, $name:expr, $code:literal $(, type $t:expr)? $(, stype $s:expr)? $(, utype $u:expr)? $(, value $v:expr)? $(, mut $m:expr)? $(, lines $l:expr)? $(,)?) =>
@@ -609,7 +609,7 @@ pub(super) use showStructure;
 /// Смоук-тесты самого `tryCheckStructure!`: разные наборы граней компилируются и реально сверяются.
 /// Проверка выражения из токенов (без `a = ...`): сверяются ТОЛЬКО указанные грани.
 ///
-/// Грани: `type` - тип токена результата, `value` - его значение; порядок `type` → `value`.
+/// Грани: `type` - тип токена результата, `value` - его значение; порядок `type` ⟶ `value`.
 ///
 ///     checkExpression!("(1e308 + 1e308) - (1e308 + 1e308)", type UFloat, value "0");
 ///     checkExpression!("1e309", value &f64::MAX.to_string()); // Только значение
@@ -630,7 +630,7 @@ pub(super) use checkExpression;
 
 /// Сверка граней выражения: значения типов здесь уже приведены к `TokenType`.
 ///
-/// Порядок граней: `type` → `value`.
+/// Порядок граней: `type` ⟶ `value`.
 macro_rules! checkExpressionFacets
 {
   ($code:expr $(, type $t:expr)? $(, value $v:expr)?) =>
@@ -694,13 +694,13 @@ pub(super) use createDirectory;
 
 // =================================================================================================
 
-/// Absolute path → relative для `import()` в RTS-коде.
+/// Absolute path ⟶ relative для `import()` в RTS-коде.
 ///
 /// Берёт последний компонент пути; опциональный префикс каталога:
 ///
-///     relativePath!(&path)              // `/tmp/x/10.rt` → `./10.rt`
-///     relativePath!(&path, "lib")       // → `./lib/10.rt`
-///     relativePath!(&path, "lib/deep")  // → `./lib/deep/10.rt`
+///     relativePath!(&path)              // `/tmp/x/10.rt` ⟶ `./10.rt`
+///     relativePath!(&path, "lib")       // ⟶ `./lib/10.rt`
+///     relativePath!(&path, "lib/deep")  // ⟶ `./lib/deep/10.rt`
 macro_rules! relativePath
 {
   ($absolute:expr) =>
@@ -716,7 +716,7 @@ macro_rules! relativePath
 
 pub(super) use relativePath;
 
-/// Absolute path → `./[dir/]name.rt` для `import()`.
+/// Absolute path ⟶ `./[dir/]name.rt` для `import()`.
 pub(super) fn relativePathFrom(absolute: &str, dir: Option<&str>) -> String
 {
   let name: std::borrow::Cow<str> = std::path::Path::new(absolute)

@@ -37,7 +37,7 @@ pub fn isFloatDotStart(buffer: &[u8], index: usize, bufferLength: usize) -> bool
   }
 
   let next: u8 = buffer[temp];
-  // Буква/`_` → member access (`a.b`), иначе числовой ноль.
+  // Буква/`_` ⟶ member access (`a.b`), иначе числовой ноль.
   !(next == b'_' || isLetter(next))
 }
 
@@ -120,7 +120,7 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
     if currentByte == b'.' && !hasDot
     { // UFloat
 
-      // Нужно, чтобы читать: `12 34 . 20` и `0.\n10` → `0.10`.
+      // Нужно, чтобы читать: `12 34 . 20` и `0.\n10` ⟶ `0.10`.
       let mut temp: usize = savedIndex + 1;
       skipWhitespaceBytes(buffer, &mut temp, bufferLength, b" \t\n");
       let hasDigitAfterDot: bool = temp < bufferLength && isDigit(buffer[temp]);
@@ -179,17 +179,17 @@ pub fn getNumber(buffer: &[u8], index: &mut usize, bufferLength: usize) -> Optio
   // Каноническая запись через `{:?}`.
   // 
   // Например, для `f64`:
-  // - `0.0` → `0.0`;
-  // - `3.` → `3.0`;
-  // - `.5` → `0.5`;
-  // - `1e3` → `1000.0`;
-  // - `1e20` → `1e20`.
+  // - `0.0` ⟶ `0.0`;
+  // - `3.` ⟶ `3.0`;
+  // - `.5` ⟶ `0.5`;
+  // - `1e3` ⟶ `1000.0`;
+  // - `1e20` ⟶ `1e20`.
   //
   // Точка всегда сохраняется для целых `float`,
   // `e`-нотация — только для больших/маленьких чисел.
   //
   // Раньше использовался `to_string()`, который выкидывал точку/`e` для целых
-  // `float`: `1.0` → `1`. Из-за этого `data` переставал рассматриваться как
+  // `float`: `1.0` ⟶ `1`. Из-за этого `data` переставал рассматриваться как
   // `Float`/`UFloat` при новом чтении токенайзера.
   if hasDot
   {

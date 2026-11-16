@@ -75,16 +75,16 @@ impl std::ops::Div for uf64
   {
     match other.0
     {
-      0.0 => { Self(self.0) } // Если 0.0, то возвращаем левую часть
-      _ => { Self(self.0 / other.0) } // Если не 0.0, то делим
+      0.0 => { Self(self.0) } // Если `0.0`, то возвращаем левую часть.
+      _ => { Self(self.0 / other.0) } // Если не `0.0`, то делим.
     }
   }
 }
 
 // =================================================================================================
-// uf64 <- f64 u64 i64
+// `uf64` ⟵ `f64`/`u64`/`i64`
 
-// f64 -> uf64
+// `f64` ⟶ `uf64`
 impl From<f64> for uf64 
 {
   fn from(value: f64) -> Self 
@@ -96,7 +96,7 @@ impl From<f64> for uf64
     }
   }
 }
-// u64 -> uf64
+// `u64` ⟶ `uf64`
 impl From<u64> for uf64 
 {
   fn from(value: u64) -> Self 
@@ -104,7 +104,7 @@ impl From<u64> for uf64
     Self(value as f64)
   }
 }
-// i64 -> uf64
+// `i64` ⟶ `uf64`
 impl From<i64> for uf64 
 {
   fn from(value: i64) -> Self 
@@ -118,9 +118,9 @@ impl From<i64> for uf64
 }
 
 // =================================================================================================
-// uf64 -> f64 u64 i64
+// `uf64` ⟶ `f64`/`u64`/i64`
 
-// uf64 -> f64
+// `uf64` ⟶ `f64`
 impl From<uf64> for f64 
 {
   fn from(value: uf64) -> Self 
@@ -128,14 +128,14 @@ impl From<uf64> for f64
     value.0
   }
 }
-// uf64 -> u64
+// `uf64` ⟶ `u64`
 impl From<uf64> for u64 
 {
   fn from(value: uf64) -> Self {
     value.0 as Self
   }
 }
-// uf64 -> i64
+// `uf64` ⟶ `i64`
 impl From<uf64> for i64 
 {
   fn from(value: uf64) -> Self 
@@ -146,7 +146,7 @@ impl From<uf64> for i64
 
 // =================================================================================================
 
-// uf64
+// `uf64`
 impl uf64 
 {
   pub fn new(value: f64) -> Self 

@@ -57,6 +57,6 @@ if (existsSync(dest)) {
 }
 
 renameSync(outputPath, dest);
-console.log(`[build] binary → ${dest}`);
+console.log(`[build] binary ⟶ ${dest}`);
 
 // =====================================================================================================================
