@@ -1,10 +1,10 @@
-use std::sync::{Arc, RwLock, RwLockReadGuard};
-use crate::parser::readLines;
+use super::parser::readLines;
 use crate::parser::structure::structure::{Structure, StructureMut};
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use std::sync::{Arc, RwLock, RwLockReadGuard};
 // =================================================================================================
 
 /// Одна ветка условной цепочки: `? условие { тело }`.
