@@ -100,7 +100,7 @@ mod tests
   // ===============================================================================================
 
   /* todo keywords теперь нет. тест либо удалить, либо переписать.
-  /// todo desk
+  // todo desk
   #[test]
   fn value() -> ()
   {
@@ -150,7 +150,7 @@ mod tests
   }
   */
 
-  /// todo desk
+  // todo desk
   #[test]
   fn links() -> ()
   {
@@ -209,7 +209,7 @@ mod tests
     //
   }
 
-  /// todo desk
+  // todo desk
   #[test]
   fn index() -> ()
   {

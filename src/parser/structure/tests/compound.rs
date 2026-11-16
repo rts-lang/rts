@@ -13,7 +13,7 @@ use crate::parser::testing::checkStructure;
 // =================================================================================================
 // +=
 
-/// todo desc
+// todo desc
 #[test]
 fn plusEquals() -> ()
 {
@@ -27,7 +27,7 @@ fn plusEquals() -> ()
   );
 }
 
-/// todo desc
+// todo desc
 #[test]
 fn plusEqualsTwice() -> ()
 {
@@ -45,7 +45,7 @@ fn plusEqualsTwice() -> ()
 // =================================================================================================
 // -=
 
-/// todo desc
+// todo desc
 #[test]
 fn minusEquals() -> ()
 {
@@ -62,7 +62,7 @@ fn minusEquals() -> ()
 // =================================================================================================
 // *=
 
-/// todo desc
+// todo desc
 #[test]
 fn multiplyEquals() -> ()
 {
@@ -79,7 +79,7 @@ fn multiplyEquals() -> ()
 // =================================================================================================
 // /=
 
-/// todo desc
+// todo desc
 #[test]
 fn divideEquals() -> ()
 {
@@ -93,7 +93,7 @@ fn divideEquals() -> ()
   );
 }
 
-/// todo desc
+// todo desc
 #[test]
 fn divideEqualsInt() -> ()
 {

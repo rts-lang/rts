@@ -224,7 +224,7 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
   
-  /// todo desc
+  // todo desc
   #[test]
   fn value() -> ()
   {
@@ -271,7 +271,7 @@ mod tests
     }
   }
 
-  /// todo desc
+  ///todo desc
   #[test]
   fn floatDotStart() -> ()
   {
@@ -286,7 +286,7 @@ mod tests
 
   // ===============================================================================================
 
-  /// todo desk
+  // todo desk
   #[test]
   fn index() -> ()
   {
@@ -339,7 +339,7 @@ mod tests
 
   // ===============================================================================================
 
-  /// todo desk
+  // todo desk
   #[test]
   fn exponential() -> ()
   {

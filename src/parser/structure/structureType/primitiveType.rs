@@ -198,7 +198,7 @@ impl PrimitiveType
 
   // ===============================================================================================
   
-  /// todo desc
+  // todo desc
   pub fn normalizeToken(
     &self,
     frame: &PrimitiveTypeFrame,

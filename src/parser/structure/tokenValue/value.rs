@@ -15,7 +15,7 @@ use std::fmt;
 
 // =================================================================================================
 
-/// todo desc
+// todo desc
 #[derive(Clone, PartialEq, PartialOrd)]
 pub enum Value 
 {
@@ -33,8 +33,8 @@ pub enum Value
 impl Value
 {
   /// To bool.
-  /// 
-  /// todo rewrite desc
+  //
+  // todo rewrite desc
   pub fn toBool(&self) -> bool
   {
     match self

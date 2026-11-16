@@ -88,7 +88,7 @@ mod tests
   use crate::tokenizer::types::tokenType::TokenType;
   // ===============================================================================================
 
-  /// todo desk
+  // todo desk
   #[test]
   fn value() -> ()
   {
@@ -146,7 +146,7 @@ mod tests
     //
   }
   
-  /// todo desk
+  // todo desk
   #[test]
   fn index() -> ()
   {

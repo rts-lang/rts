@@ -27,8 +27,8 @@ use crate::tokenizer::types::tokenType::TokenType;
 /// в TokenType::String через обычный linkExpression() и идет в
 /// FfiArgValue::String ниже — chillffi сам разложит его на pointer+len).
 /// Вызывать после того, как `.lines` структуры уже выставлены.
-/// 
-/// todo rewrite desc
+//
+// todo rewrite desc
 pub fn stringFields(token: &Token) -> Option<[Arc<RwLock<Structure>>; 2]>
 {
   match token.getDataType()
@@ -359,7 +359,7 @@ mod tests
   const LibcPath: &str = "libc.so.6";
   const LibmPath: &str = "libm.so.6";
 
-  /// todo desc
+  // todo desc
   fn call(
     library: &str, 
     method: &str, 
@@ -370,7 +370,7 @@ mod tests
     callExternal(library, method, &mut parameters, &expect)
   }
 
-  /// todo desc
+  // todo desc
   fn dataOf(token: &Token) -> (TokenType, String)
   {
     (*token.getDataType(), token.getData().toString().unwrap_or_default())
