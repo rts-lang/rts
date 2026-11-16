@@ -1,5 +1,5 @@
 use super::condition::replaceConditionExpression;
-use super::reader::isMathOperator;
+use super::expression::isMathOperator;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structure::{Structure, StructureMut};
@@ -422,7 +422,7 @@ fn linearStructure(
 /// 
 /// Блок-выражение в правой части `a := ? True { = 20 }`
 /// предварительно заменяется своим результатом.
-pub(super) fn linearLine(
+pub fn linearLine(
   lineTokens: &[Token],
   lineLines: &Option< Vec< Arc<RwLock<Line>> > >,
   parentLink: Arc<RwLock<Structure>>

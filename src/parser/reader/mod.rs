@@ -1,3 +1,4 @@
 pub mod reader;
-mod condition;
-mod linear;
+pub(super) mod expression;
+pub(super) mod linear;
+pub(super) mod condition;

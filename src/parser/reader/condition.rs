@@ -124,7 +124,7 @@ fn executeConditionChain(
 /// Первая ветка — текущая линия, остальные ищутся ниже.
 /// 
 /// Сдвигает `lineIndex` на количество пройденных блоков.
-pub(super) fn executeConditionStatement(
+pub fn executeConditionStatement(
   lineTokens: &[Token],
   lineLines: &Option< Vec< Arc<RwLock<Line>> > >,
   parentLink: &Arc<RwLock<Structure>>
@@ -153,7 +153,7 @@ pub(super) fn executeConditionStatement(
 /// `?` без условия — это else: блок выполняется безусловно.
 ///
 /// Возвращает `None`, если блока-выражения нет — тогда это обычные токены.
-pub(super) fn replaceConditionExpression(
+pub fn replaceConditionExpression(
   tokens: &[Token],
   bodyLines: &Option< Vec< Arc<RwLock<Line>> > >,
   parentLink: &Arc<RwLock<Structure>>
