@@ -1,4 +1,4 @@
-use super::parser::readLines;
+use super::reader::readLines;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;

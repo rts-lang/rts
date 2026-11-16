@@ -1,5 +1,5 @@
 use super::condition::replaceConditionExpression;
-use super::parser::isMathOperator;
+use super::reader::isMathOperator;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structure::{Structure, StructureMut};

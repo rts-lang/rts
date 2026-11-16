@@ -1,9 +1,9 @@
 pub mod bytes;
 // =================================================================================================
 #[cfg(not(feature = "analyzer"))]
-pub(super) mod parser;
+pub(super) mod reader;
 #[cfg(not(feature = "analyzer"))]
-pub use parser::parser::*;
+pub use reader::reader::*;
 // =================================================================================================
 #[cfg(not(feature = "analyzer"))]
 pub mod structure;
