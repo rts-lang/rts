@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::bytes::Bytes;
 #[cfg(not(feature = "analyzer"))]
-use crate::parser::parser::{createMainStructure, readLines};
+use crate::parser::{createMainStructure, readLines};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::structure::structure::{Structure, StructureMut};
 #[cfg(not(feature = "analyzer"))]

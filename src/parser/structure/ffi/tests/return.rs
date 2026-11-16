@@ -1,4 +1,4 @@
-use crate::parser::parser::runCodeFile;
+use crate::parser::runCodeFile;
 use crate::parser::structure::structure::Structure;
 use crate::parser::testing::{buildLibrary, checkStructure, writeCodeFile};
 use std::sync::{Arc, RwLock};

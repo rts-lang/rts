@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{_exit, _exitCode, _sourcePath};
-use crate::parser::parser::{readLines, searchStructure};
+use crate::parser::{readLines, searchStructure};
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
