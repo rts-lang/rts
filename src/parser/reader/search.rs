@@ -2,7 +2,7 @@ use super::condition::executeConditionStatement;
 use super::linear::linearLine;
 use super::tags::{isFfiTagToken, isPrevLineFfiTag};
 use crate::parser::bytes::Bytes;
-use crate::parser::readLines;
+use crate::parser::readStructureLines;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
@@ -86,8 +86,8 @@ pub fn searchStructure(
     newStructureLink.write().unwrap().isFfiBlock = true;
     parentLink.write().unwrap()
       .pushStructure(newStructureLink.clone());
-    // readLines сам пушнет scope, потому что isFfiBlock=true.
-    readLines(newStructureLink);
+    // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
+    readStructureLines(newStructureLink);
     return true;
   }
 
@@ -128,8 +128,8 @@ pub fn searchStructure(
     newStructureLink.write().unwrap().isFfiBlock = true;
     parentLink.write().unwrap()
       .pushStructure(newStructureLink.clone());
-    // readLines сам пушнет scope, потому что isFfiBlock=true.
-    readLines(newStructureLink);
+    // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
+    readStructureLines(newStructureLink);
     return true;
   }
 
@@ -146,7 +146,7 @@ pub fn searchStructure(
   //   3) если после тега нет больше токенов — анонимный блок: создаём структуру,
   //      пушим scope, читаем тело, пупим scope.
   //   4) если после тега есть Word — обычная структура (метод или именованный
-  //      блок), помечаем `isFfiBlock = true`. `readLines` сам за себя разберётся
+  //      блок), помечаем `isFfiBlock = true`. `readStructureLines` сам за себя разберётся
   //      с FFI scope, когда эта структура будет вызвана.
   //
   // Раньше поддерживался только тег `[ffi]` ОТДЕЛЬНОЙ строкой над структурой
@@ -182,16 +182,16 @@ pub fn searchStructure(
         parentLink.write().unwrap()
           .pushStructure(newStructureLink.clone());
 
-        // readLines сам пушнет scope, потому что isFfiBlock=true.
+        // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
         // Здесь НЕ зовём enterFfiBlock/exitFfiBlock явно — будет двойной push.
-        readLines(newStructureLink);
+        readStructureLines(newStructureLink);
         return true;
       }
 
       // --- Случай B: `[ffi] <Word> ...` — структура с тегом. ---
       // Дальше идёт стандартная обработка структуры: берём имя, парсим
       // параметры/результат, создаём Structure, читаем body. isFfiBlock
-      // проставится внутри благодаря новой логике в readLines, но чтобы
+      // проставится внутри благодаря новой логике в `readStructureLines`, но чтобы
       // не зависеть от того, что блок когда-то будет вызван, ставим флаг
       // сразу на этапе создания.
       if restTokensLength >= 1
@@ -280,10 +280,10 @@ pub fn searchStructure(
         // Для метода (с круглыми скобками) body ждёт вызова — не выполняем.
         //
         // Для именованного блока (без скобок) body выполняется прямо сейчас,
-        // под удерживаемым FFI scope. readLines сам пушнет scope, потому
+        // под удерживаемым FFI scope. `readStructureLines` сам пушнет scope, потому
         // что isFfiBlock=true, так что здесь enterFfiBlock НЕ нужен.
         if !isMethod {
-          readLines(newStructureLink);
+          readStructureLines(newStructureLink);
         }
         return true;
       }
@@ -477,12 +477,12 @@ pub fn searchStructure(
         // Для FFI-блоков (как анонимных, так и именованных) тело должно
         // выполниться прямо здесь, иначе оно никогда не выполнится —
         // никто не зовёт `name` без скобок. Метод (с круглыми скобками)
-        // ждёт явного вызова. `readLines` сам пушнет FFI scope, потому
+        // ждёт явного вызова. `readStructureLines` сам пушнет FFI scope, потому
         // что `isFfiBlock=true`.
         if isFfi && !isMethodForm {
-          readLines(newStructureLink);
+          readStructureLines(newStructureLink);
         }
-        //            readLines(
+        //            readStructureLines(
         //              parentLink.read().unwrap()
         //                .getStructureByLink(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
         //            );

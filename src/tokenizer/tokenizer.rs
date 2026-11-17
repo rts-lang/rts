@@ -163,7 +163,7 @@ fn readTokens(
       // `[ffi]\n{\n  ...\n}`). Фикс: пушим линию сами, причём с
       // пустым `tokens = Some(vec![])` если в текущей строке до `{`
       // ничего не было. `Some(vec![])` выбран, а не `None`, потому что
-      // `readLines` пропускает линии с `tokens == None`, а наш парсер
+      // `readStructureLines` пропускает линии с `tokens == None`, а наш парсер
       // ловит "пустые токены + есть вложение" как анонимный FFI-блок.
       let tokens: Vec<Token> = std::mem::take(&mut lineTokens);
       linesLinks.push(Arc::new(RwLock::new(Line {

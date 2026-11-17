@@ -1,4 +1,4 @@
-use crate::parser::readLines;
+use crate::parser::readStructureLines;
 use crate::parser::structure::ffi::scopeStack;
 use crate::parser::structure::methods::parameters::Parameters;
 use crate::parser::structure::structure::{Structure, StructureMut};
@@ -464,7 +464,7 @@ impl Function
       // динамический импорт: объявления файла (структуры)
       // пушатся в `moduleLink.structures` по мере исполнения его строк,
       // так же, как это происходит при обычном запуске кода.
-      readLines(moduleLink.clone());
+      readStructureLines(moduleLink.clone());
       _sourcePath.with(|sourcePath|
         *sourcePath.borrow_mut() = previousSourcePath
       );

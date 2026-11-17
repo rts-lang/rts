@@ -11,7 +11,7 @@ use std::sync::{Arc, RwLock, RwLockWriteGuard};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::bytes::Bytes;
 #[cfg(not(feature = "analyzer"))]
-use crate::parser::{createMainStructure, readLines};
+use crate::parser::{createMainStructure, readStructureLines};
 #[cfg(not(feature = "analyzer"))]
 use crate::parser::structure::structure::{Structure, StructureMut};
 #[cfg(not(feature = "analyzer"))]
@@ -112,7 +112,7 @@ impl RTS
       self.namespace.write().unwrap().parent = Some( main.clone() );
       main.read().unwrap().pushStructure( self.namespace.clone() );
     }
-    readLines(main);
+    readStructureLines(main);
   }
   
   // todo desc

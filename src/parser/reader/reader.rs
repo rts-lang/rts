@@ -32,7 +32,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 /// которые способен обработать и тем самым запускает последовательности токенов.
 //
 // todo: исправить переполнение стека.
-pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
+pub fn readStructureLines(structureLink: Arc<RwLock<Structure>>) -> ()
 { // Получаем сколько линий вложено в структуру,
   // а также индекс чтения строк (у каждой структуры он свой, чтобы не путать чтение)
 
@@ -40,9 +40,9 @@ pub fn readLines(structureLink: Arc<RwLock<Structure>>) -> ()
   // пушим слот в FFI scope-стек на всё время чтения её тела. Это
   // покрывает ВСЕ пути, по которым блок может быть выполнен:
   //   - анонимный `[ffi] { ... }` (выполняется прямо в searchStructure,
-  //     но и оттуда можно звать readLines);
+  //     но и оттуда можно звать `readStructureLines`);
   //   - метод `[ffi] test() { ... }` (вызывается как функция в procedure.rs
-  //     ⟶ readLines(calledStructureLink));
+  //     ⟶ `readStructureLines(calledStructureLink))`;
   //   - именованный блок `[ffi] name { ... }` (тоже вызывается).
   // Scope сам создаётся лениво в scopeStack::ensureFfiScope() при первом
   // FFI-вызове внутри блока — точно как просит issue #79/#84.

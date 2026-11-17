@@ -1,5 +1,5 @@
 use super::bytes::Bytes;
-use super::readLines;
+use super::readStructureLines;
 use super::structure::primitives::{ArgsPrimitives, MethodsPrimitives};
 use super::structure::structure::{Structure, StructureMut};
 use super::structure::structureType::{PrimitiveType, StructureType};
@@ -11,7 +11,7 @@ use crate::{_argc, _argv, _sourcePath};
 use std::sync::{Arc, RwLock, RwLockWriteGuard};
 // =================================================================================================
 
-// Здесь основная часть `parser`. Заключается она в том, чтобы создать `main`
+// Здесь основная часть `parser`. Основная задача в том, чтобы создать `main`
 // `Structure` и предоставить основные методы запуска последовательностей токенов.
 
 // =================================================================================================
@@ -138,7 +138,7 @@ fn parseLines(tokenizerLinesLinks: Vec< Arc<RwLock<Line>> >) -> Arc<RwLock<Struc
   // Подготовка закончена, читаем линии;
   //
   // Передаём ссылку на структуру и запускаем.
-  readLines(mainStructureLink.clone());
+  readStructureLines(mainStructureLink.clone());
   
   //
   mainStructureLink
@@ -196,4 +196,3 @@ pub fn runCodeFile(path: &str) -> Arc<RwLock<Structure>>
 }
 
 // =================================================================================================
-

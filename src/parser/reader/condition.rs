@@ -1,4 +1,4 @@
-use super::reader::readLines;
+use super::reader::readStructureLines;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
@@ -81,7 +81,7 @@ fn executeConditionBody(
       body,
       Some(parentLink.clone())
     )));
-  readLines(blockStructure.clone());
+  readStructureLines(blockStructure.clone());
   let result: Option<Token> = blockStructure.read().unwrap().result.clone();
   result.unwrap_or_else(|| Token::newEmpty(TokenType::None))
 }
