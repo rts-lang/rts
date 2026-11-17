@@ -53,6 +53,8 @@ pub fn searchStructure(
   parentLink: Arc<RwLock<Structure>>
 ) -> bool
 {
+  // -----------------------------------------------------------------------------------------------
+  
   // Ссылка на токены линии.
   let lineTokens: &Vec<Token> = match &line.tokens {
     Some(tokens) => tokens,
@@ -61,9 +63,10 @@ pub fn searchStructure(
   
   let lineTokensLength: usize = lineTokens.len(); // размер токенов линии.
 
-  let lineLines: Option< Vec< Arc<RwLock<Line>> > > = line.lines.clone(); // Вложенные линии.
+  let lineLines: Option<Vec< Arc<RwLock<Line>> >> = line.lines.clone(); // Вложенные линии.
 
-  // -----------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
+  
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
@@ -80,7 +83,7 @@ pub fn searchStructure(
   // Эта проверка идёт ДО раннего `return false` на пустых токенах ниже —
   // иначе анонимный FFI-блок после `[ffi]` на предыдущей строке никогда
   // бы не дошёл досюда.
-  // -----------------------------------------------------------------------------
+  //
   if lineTokensLength == 0
     && lineLines.is_some()
     && isPrevLineFfiTag(&parentLink, parentLink.read().unwrap().lineIndex.get())
@@ -108,7 +111,8 @@ pub fn searchStructure(
 
   let firstTokenType: &TokenType = lineTokens[0].getDataType(); // Тип первого токена в строке.
 
-  // -----------------------------------------------------------------------------
+  // -----------------------------------------------------------------------------------------------
+  
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
@@ -121,7 +125,7 @@ pub fn searchStructure(
   // ветки не сработают — ловим этот случай отдельно: если предыдущая
   // линия — `[ffi]`, а текущая — пустая/None-токены с вложением,
   // выполняем её как анонимный FFI-блок.
-  // -----------------------------------------------------------------------------
+  //
   if line.tokens.is_none() || lineTokens.is_empty() && // todo Кстати интересно тут норм что || без скобок?
      lineLines.is_some() && 
      isPrevLineFfiTag(&parentLink, parentLink.read().unwrap().lineIndex.get())
@@ -143,25 +147,30 @@ pub fn searchStructure(
     return true;
   }
 
-  // -----------------------------------------------------------------------------
-  // Обработка тега `[ffi]` в НАЧАЛЕ той же строки, что и блок:
+  // -----------------------------------------------------------------------------------------------
+  
+  // Обработка тега `[ffi]` в начале той же строки, что и блок:
   //
-  //   [ffi] test() { ... }   — метод с FFI-тегом (вариант #3 в release/native/scopeRetantion/main.rt)
-  //   [ffi] name { ... }     — именованный FFI-блок (вариант #7)
-  //   [ffi] { ... }          — анонимный FFI-блок (варианты #4, #5)
+  // - `[ffi] test() { ... }`: Метод с FFI-тегом.
+  //
+  // - `[ffi] name { ... }`: Именованный FFI-блок.
+  //
+  // - `[ffi] { ... }`: Анонимный FFI-блок.
+  //
   //
   // Логика:
-  //   1) первый токен — SquareBracketBegin, внутри которого `ffi`;
-  //   2) скипаем тег и работаем с оставшимися токенами как с обычной структурой;
-  //   3) если после тега нет больше токенов — анонимный блок: создаём структуру,
-  //      пушим scope, читаем тело, пупим scope.
-  //   4) если после тега есть Word — обычная структура (метод или именованный
-  //      блок), помечаем `isFfiBlock = true`. `readStructureLines` сам за себя разберётся
-  //      с FFI scope, когда эта структура будет вызвана.
   //
-  // Раньше поддерживался только тег `[ffi]` ОТДЕЛЬНОЙ строкой над структурой
-  // (варианты #2 и #6). Этот код добавляет #3, #4, #5, #7.
-  // -----------------------------------------------------------------------------
+  // 1) Первый токен — SquareBracketBegin, внутри которого `ffi`;
+  //
+  // 2) Скипаем тег и работаем с оставшимися токенами как с обычной структурой;
+  //
+  // 3) Если после тега нет больше токенов — анонимный блок: создаём структуру,
+  //    пушим `scope`, читаем тело, пупим `scope`.
+  //
+  // 4) Если после тега есть Word — обычная структура (метод или именованный
+  //    блок), помечаем `isFfiBlock = true`. `readStructureLines` сам за себя разберётся
+  //    с FFI `scope`, когда эта структура будет вызвана.
+  //
   if *firstTokenType == TokenType::SquareBracketBegin
     && lineLines.is_some()
   {
@@ -169,12 +178,17 @@ pub fn searchStructure(
     let isFfiTag: bool = isFfiTagToken(&lineTokens[0]);
     if isFfiTag
     {
-      // Достаём токены ПОСЛЕ тега `[ffi]`.
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Достаём токены после тега `[ffi]`.
       let restTokens: &[Token] = &lineTokens[1..];
       let restTokensLength: usize = restTokens.len();
       let innerLines: Vec< Arc<RwLock<Line>> > = lineLines.clone().unwrap();
 
-      // --- Случай A: анонимный блок `[ffi] { ... }` ---
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Случай A: анонимный блок `[ffi] { ... }`.
+      //
       // Тег — единственный токен, и блок сразу же выполняется.
       if restTokensLength == 0
       {
@@ -198,7 +212,10 @@ pub fn searchStructure(
         return true;
       }
 
-      // --- Случай B: `[ffi] <Word> ...` — структура с тегом. ---
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Случай B: `[ffi] <Word> ...` — структура с тегом.
+      //
       // Дальше идёт стандартная обработка структуры: берём имя, парсим
       // параметры/результат, создаём Structure, читаем body. isFfiBlock
       // проставится внутри благодаря новой логике в `readStructureLines`, но чтобы
@@ -297,35 +314,44 @@ pub fn searchStructure(
         }
         return true;
       }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
       // Неизвестная форма после `[ffi]` — падаем в основной парсер, чтобы
       // он попробовал обработать как структуру (и корректно ругнулся, если
       // это не структура).
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     }
   }
 
+  // -----------------------------------------------------------------------------------------------
+
   if *firstTokenType == TokenType::Word
-  { // Если мы видим TokenType::Word в начале строки, 
+  { // Если мы видим `TokenType::Word` в начале строки, 
     // это значит, что это либо структура, либо линейное выражение.
-    //
-    // Если в токенах есть оператор (`:=` или `=`) — это линейное выражение,
-    // даже если есть вложенные линии (например `a := ? True { = 20 }`).
-    let hasOperator: bool = lineTokens.iter()
-      .any(|t| isMathOperator(*t.getDataType()));
-    if hasOperator
-    { // Линейное выражение с оператором.
-      return linearLine(lineTokens, &lineLines, parentLink);
+
+    { // Если в токенах есть оператор `:=` или `=` — это линейное выражение,
+      // даже если есть вложенные линии. Например: `a := ? True { = 20 }`.
+      let hasOperator: bool = lineTokens.iter()
+        .any(|t| isMathOperator(*t.getDataType()));
+      if hasOperator
+      { // Линейное выражение с оператором.
+        return linearLine(lineTokens, &lineLines, parentLink);
+      }
     }
+    
     if let Some(lineLines) = lineLines
     {
       // Если в линии есть вложение, то это структура с вложением.
       if let Some(newStructureName) = lineTokens[0].getData().toString()
       { // Здесь первый токен - имя структуры.
         
-        // получаем имя структуры.
+        // Получаем имя структуры.
         let mut newStructureResultType: Option<&TokenType> = None; // Результат структуры.
         let mut parameters: Option< Vec<(Bytes, StructureType)> > = None; // Параметры структуры.
         if lineTokensLength > 1 && *lineTokens[1].getDataType() == TokenType::CircleBracketBegin
-        { // Если токенов > 1 и 1 токен это TokenType::CircleBracketBegin 
+        { // Если токенов > 1 и 1 токен это `TokenType::CircleBracketBegin`
           // значит это вариант параметры + возможно результат.
 
           // Получаем параметры структуры.
@@ -334,7 +360,7 @@ pub fn searchStructure(
             { // Берём первую линию внутри скобок (там обычно перечислены параметры).
               let mut result: Vec<(Bytes, StructureType)> = Vec::new();
               for lineLink in lines
-              { // Берём вложенные токены в TokenType::CircleBracketBegin 
+              { // Берём вложенные токены в `TokenType::CircleBracketBegin`
                 // получаем параметры из этих токенов, давая доступ к родительским структурам.
                 let paramTokens: Vec<Token> = {
                   let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
@@ -376,9 +402,8 @@ pub fn searchStructure(
         }
         // Если параметров и результата не было, то просто пропускаем.
 
-        // Проверка блока тегов [ffi]
-        // todo Нет [ffi] {} т.е. это проверка если строка сверху но нет в 1 строку. (актуально?)
-        // todo Точно требуются комментарии по этому блоку.
+        // Проверка блока тегов `[ffi]`.
+        // todo Точно требуются комментарии по этому блоку. Я описал бы их внутри.
         let isFfi: bool = if parentLink.read().unwrap().lineIndex.get() == 0
         { false } else
         {
@@ -450,15 +475,14 @@ pub fn searchStructure(
           {
             let mut parameterStructure: Structure = Structure::new(
               parameter.0.toString(),
-              StructureMut::Constant, // todo По идее надо еще читать правила mut (в getStructureParameters).
+              StructureMut::Constant, // todo По идее надо еще читать правила mut (в `getStructureParameters`).
               parameter.1.clone(),
               None,
               None
             );
             // Объединение типов `n: U8 | String`: набор `вариантов` хранится отдельно,
             // как и у обычного объявления; `вариант` подбирается при каждом вызове.
-            if let StructureType::Union(variants) = &parameter.1
-            {
+            if let StructureType::Union(variants) = &parameter.1 {
               parameterStructure.unionTypes = Some(variants.clone());
             }
             newStructure.pushStructure(Arc::new(RwLock::new(parameterStructure)));
@@ -469,33 +493,35 @@ pub fn searchStructure(
         newStructure.result = newStructureResultType
           .map(|newStructureResultType| Token::newEmpty(*newStructureResultType));
 
-        // Запоминаем, была ли это форма МЕТОДА (с круглыми скобками) или
-        // просто именованного блока. Для метода body ждёт вызова `name()`,
-        // для именованного блока body выполняется сразу — иначе его никто
-        // никогда не выполнит (никто не пишет `name` без скобок для вызова).
+        // Запоминаем, была ли это форма метода (с круглыми скобками) или
+        // просто именованного блока.
+        // 
+        // Для метода `body` ждёт вызова `name()`, для именованного блока `body`
+        // выполняется сразу — иначе его никто никогда не выполнит
+        // (никто не пишет `name` без скобок для вызова).
         let isMethodForm: bool = parameters.is_some();
 
         let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(newStructure));
-        { // Добавляем новую структуру в родителя
+        { // Добавляем новую структуру в родителя.
           parentLink.write().unwrap()
             .pushStructure(newStructureLink.clone());
         }
         // Просматриваем строки этой новой структуры;
-        // todo: в целом, это можно заменить на чтение при первом обращении к структуре;
-        //       сейчас же все структуры читаются (подготавливаются),
-        //       если попали на lineIndex указатель.
+        //
+        // todo В целом, это можно заменить на чтение при первом обращении к структуре;
+        //      сейчас же все структуры читаются (подготавливаются),
+        //      если попали на `lineIndex` указатель.
+        //
         // Для FFI-блоков (как анонимных, так и именованных) тело должно
         // выполниться прямо здесь, иначе оно никогда не выполнится —
-        // никто не зовёт `name` без скобок. Метод (с круглыми скобками)
-        // ждёт явного вызова. `readStructureLines` сам пушнет FFI scope, потому
+        // никто не зовёт `name` без скобок.
+        // 
+        // Метод (`Structure` с круглыми скобками) ждёт явного вызова.
+        // `readStructureLines` сам сделает `push` FFI `scope`, потому
         // что `isFfiBlock=true`.
         if isFfi && !isMethodForm {
           readStructureLines(newStructureLink);
         }
-        //            readStructureLines(
-        //              parentLink.read().unwrap()
-        //                .getStructureByLink(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
-        //            );
         return true;
       }
     } else
@@ -503,15 +529,19 @@ pub fn searchStructure(
       return linearLine(lineTokens, &lineLines, parentLink);
     }
   } else
-  // В том случае, если это не структура и не линейное выражение, 
-  // мы видим `TokenType::Question` в начале строки и есть вложения у этой линии, 
-  // то это условное вложение.
+  
   if *firstTokenType == TokenType::Question && !lineLines.is_none()
-  {
+  { // В том случае, если это не структура и не линейное выражение, 
+    // мы видим `TokenType::Question` в начале строки и
+    // есть вложения у этой линии, то это условное вложение.
     return executeConditionStatement(lineTokens, &lineLines, &parentLink);
   }
-  //
+
+  // -----------------------------------------------------------------------------------------------
+  
   false
+
+  // -----------------------------------------------------------------------------------------------
 }
 
 // =================================================================================================
