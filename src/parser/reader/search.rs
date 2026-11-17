@@ -123,11 +123,12 @@ fn isPrevLineFfiTag(parentLink: &Arc<RwLock<Structure>>, lineIndex: usize) -> bo
   isFfiTagToken(&prevLineTokens[0])
 }
 
-/// Ищет структуры.
-///
-/// Это может быть:
+/// Ищет структуры; Это может быть:
+/// 
 /// - Вложенная структура (array/vector/list ...).   todo Необходимо вынести в отдельный метод.
+/// 
 /// - Линейное выражение ⟶ [linearStructure`];
+/// 
 /// - Условный блок ⟶ [`executeConditionStatement`].
 pub fn searchStructure(
   line: &RwLockReadGuard<Line>,

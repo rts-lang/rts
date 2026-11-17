@@ -1,5 +1,5 @@
 use super::condition::replaceConditionExpression;
-use super::expression::searchStructure;
+use super::search::searchStructure;
 use crate::parser::bytes::Bytes;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
@@ -24,6 +24,9 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 // - Создаёт `Structure`.
 //
 // Всё это приводит к работе/вычислению этих записей как кода.
+//
+//
+// `expression` - это набор `Token`, которой позволяет получить их результат.
 
 // =================================================================================================
 
