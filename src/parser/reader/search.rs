@@ -15,6 +15,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 /// Проверяет, что переданный `dataType` является математическим оператором.
 //
 // todo Есть проблема в том, что `=` и `:=` не совсем математические операторы.
+//  Возможно, что метод не должен проверять математические, а бинарные?
 pub(super) const fn isMathOperator(dataType: TokenType) -> bool
 {
   matches!(dataType,
@@ -52,9 +53,12 @@ pub fn searchStructure(
   parentLink: Arc<RwLock<Structure>>
 ) -> bool
 {
-  let lineTokens: &Vec<Token> = // Ссылка на токены линии.
-    if let Some(tokens) = &line.tokens { tokens } 
-      else { return false }; // Если в линии нет токенов, то мы её не читаем.
+  // Ссылка на токены линии.
+  let lineTokens: &Vec<Token> = match &line.tokens {
+    Some(tokens) => tokens,
+    None => return false // Если в линии нет токенов, то мы её не читаем.
+  };
+  
   let lineTokensLength: usize = lineTokens.len(); // размер токенов линии.
 
   let lineLines: Option< Vec< Arc<RwLock<Line>> > > = line.lines.clone(); // Вложенные линии.
@@ -63,7 +67,7 @@ pub fn searchStructure(
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
-  //   { ... }              ⟵ эта линия
+  //   { ... } ⟵ эта линия
   //
   // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
   // `tokens = Some(vec![])`, `lines = Some([внутренние линии])` (после фикса
@@ -108,7 +112,7 @@ pub fn searchStructure(
   // Многострочный анонимный FFI-блок:
   //
   //   [ffi]
-  //   { ... }              ⟵ эта линия
+  //   { ... } ⟵ эта линия
   //
   // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
   // `tokens = None`, `lines = Some([внутренние линии])` (после фикса
@@ -509,3 +513,5 @@ pub fn searchStructure(
   //
   false
 }
+
+// =================================================================================================
