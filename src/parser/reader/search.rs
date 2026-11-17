@@ -1,7 +1,8 @@
 use super::condition::executeConditionStatement;
 use super::linear::linearLine;
+use super::tags::{isFfiTagToken, isPrevLineFfiTag};
 use crate::parser::bytes::Bytes;
-use crate::parser::readLines;
+use crate::parser::readStructureLines;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
@@ -33,102 +34,19 @@ pub(super) const fn isMathOperator(dataType: TokenType) -> bool
 
 // =================================================================================================
 
-/// Проверяет, является ли [`Token`] тегом `[ffi]`.
+/// Ищет структуры; Это может быть:
 /// 
-/// Токен должен иметь тип [`TokenType::SquareBracketBegin`] и
-/// хранить одну вложенную линию с токеном `ffi` типа [`TokenType::Word`];
-/// 
-/// Возвращаем `true`, если это так.
-//
-// todo Когда появятся другие теги (`async`, `thread` и т.д.) — расширить.
-fn isFfiTagToken(token: &Token) -> bool
-{
-  // todo desc
-  if *token.getDataType() != TokenType::SquareBracketBegin {
-    return false;
-  }
-
-  // todo desc
-  let lines: &Vec< Arc<RwLock<Line>> > = if let Some(lines) =
-    token.lines.as_ref() { lines }
-    else { return false };
-
-  // todo desc
-  for lineLink in lines
-  {
-    // todo desc
-    let line: RwLockReadGuard<Line> = lineLink.read().unwrap();
-    let tokens: &[Token] = if let Some(tokens) =
-      line.tokens.as_ref() { tokens }
-      else { continue };
-
-    // todo desc
-    for token in tokens
-    {
-      if *token.getDataType() == TokenType::Word &&
-        token.getData().toString().unwrap_or_default() == "ffi"
-      {
-        return true;
-      }
-    }
-  }
-  
-  //
-  false
-}
-
-// =================================================================================================
-
-/// Проверяет, является ли предыдущая [`Line`] тегом `[ffi]`.
-/// 
-/// Используется для многострочной формы:
-/// ```ignore
-/// [ffi]
-/// {
-///   ...
-/// }
-/// ```
-/// 
-/// Здесь вторая [`Line`] сама по себе не знает о теге сверху.
-fn isPrevLineFfiTag(parentLink: &Arc<RwLock<Structure>>, lineIndex: usize) -> bool
-{
-  // Если до этой `Line` нет других - то ничего не будет.
-  if lineIndex == 0 {
-    return false;
-  }
-
-  // Получаем предыдущую `Line`.
-  let prevLineLinkOption: Option< Arc<RwLock<Line>> > = parentLink.read().unwrap()
-    .lines.as_ref()
-    .and_then(|lines| lines.get(lineIndex-1).cloned());
-  
-  let prevLineLink: Arc<RwLock<Line>> = match prevLineLinkOption {
-    Some(line) => line,
-    None => return false,
-  };
-
-  // Получаем токены предыдущей `Line`.
-  let prevLine: RwLockReadGuard<Line> = prevLineLink.read().unwrap();
-  let prevLineTokens: &[Token] = match prevLine.tokens.as_ref() {
-    Some(tokens) => tokens,
-    None => return false,
-  };
-  
-  // Предыдущая `Line` должна иметь ровно один токен: `[ffi]`.
-  if prevLineTokens.len() != 1 {
-    return false;
-  }
-  
-  // Проверяет, является ли токен тегом `[ffi]`.
-  isFfiTagToken(&prevLineTokens[0])
-}
-
-/// Ищет структуры.
-///
-/// Это может быть:
 /// - Вложенная структура (array/vector/list ...).   todo Необходимо вынести в отдельный метод.
+/// 
 /// - Линейное выражение ⟶ [linearStructure`];
+/// 
 /// - Условный блок ⟶ [`executeConditionStatement`].
+//
+// todo Я всё ещё думаю, что его стоит переименовать. Потому что он ищет структуры да,
+//  но не совсем так. По сути он ищет последовательности, которые приводят к их созданию.
+//  или `линейное выражение` - это фактически создание/op над структурой.
+//  Но назвать `expression` это нельзя, хотя может быть в какой-то мере и можно, ведь
+//  мы ищем именно последовательность токенов, обрабатываем и получаем результат.
 pub fn searchStructure(
   line: &RwLockReadGuard<Line>,
   parentLink: Arc<RwLock<Structure>>
@@ -174,8 +92,8 @@ pub fn searchStructure(
     newStructureLink.write().unwrap().isFfiBlock = true;
     parentLink.write().unwrap()
       .pushStructure(newStructureLink.clone());
-    // readLines сам пушнет scope, потому что isFfiBlock=true.
-    readLines(newStructureLink);
+    // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
+    readStructureLines(newStructureLink);
     return true;
   }
 
@@ -216,8 +134,8 @@ pub fn searchStructure(
     newStructureLink.write().unwrap().isFfiBlock = true;
     parentLink.write().unwrap()
       .pushStructure(newStructureLink.clone());
-    // readLines сам пушнет scope, потому что isFfiBlock=true.
-    readLines(newStructureLink);
+    // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
+    readStructureLines(newStructureLink);
     return true;
   }
 
@@ -234,7 +152,7 @@ pub fn searchStructure(
   //   3) если после тега нет больше токенов — анонимный блок: создаём структуру,
   //      пушим scope, читаем тело, пупим scope.
   //   4) если после тега есть Word — обычная структура (метод или именованный
-  //      блок), помечаем `isFfiBlock = true`. `readLines` сам за себя разберётся
+  //      блок), помечаем `isFfiBlock = true`. `readStructureLines` сам за себя разберётся
   //      с FFI scope, когда эта структура будет вызвана.
   //
   // Раньше поддерживался только тег `[ffi]` ОТДЕЛЬНОЙ строкой над структурой
@@ -270,16 +188,16 @@ pub fn searchStructure(
         parentLink.write().unwrap()
           .pushStructure(newStructureLink.clone());
 
-        // readLines сам пушнет scope, потому что isFfiBlock=true.
+        // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
         // Здесь НЕ зовём enterFfiBlock/exitFfiBlock явно — будет двойной push.
-        readLines(newStructureLink);
+        readStructureLines(newStructureLink);
         return true;
       }
 
       // --- Случай B: `[ffi] <Word> ...` — структура с тегом. ---
       // Дальше идёт стандартная обработка структуры: берём имя, парсим
       // параметры/результат, создаём Structure, читаем body. isFfiBlock
-      // проставится внутри благодаря новой логике в readLines, но чтобы
+      // проставится внутри благодаря новой логике в `readStructureLines`, но чтобы
       // не зависеть от того, что блок когда-то будет вызван, ставим флаг
       // сразу на этапе создания.
       if restTokensLength >= 1
@@ -368,10 +286,10 @@ pub fn searchStructure(
         // Для метода (с круглыми скобками) body ждёт вызова — не выполняем.
         //
         // Для именованного блока (без скобок) body выполняется прямо сейчас,
-        // под удерживаемым FFI scope. readLines сам пушнет scope, потому
+        // под удерживаемым FFI scope. `readStructureLines` сам пушнет scope, потому
         // что isFfiBlock=true, так что здесь enterFfiBlock НЕ нужен.
         if !isMethod {
-          readLines(newStructureLink);
+          readStructureLines(newStructureLink);
         }
         return true;
       }
@@ -565,12 +483,12 @@ pub fn searchStructure(
         // Для FFI-блоков (как анонимных, так и именованных) тело должно
         // выполниться прямо здесь, иначе оно никогда не выполнится —
         // никто не зовёт `name` без скобок. Метод (с круглыми скобками)
-        // ждёт явного вызова. `readLines` сам пушнет FFI scope, потому
+        // ждёт явного вызова. `readStructureLines` сам пушнет FFI scope, потому
         // что `isFfiBlock=true`.
         if isFfi && !isMethodForm {
-          readLines(newStructureLink);
+          readStructureLines(newStructureLink);
         }
-        //            readLines(
+        //            readStructureLines(
         //              parentLink.read().unwrap()
         //                .getStructureByLink(&newStructureName).unwrap(), // todo: плохой вариант, можно лучше.
         //            );

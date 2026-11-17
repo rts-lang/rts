@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use crate::{_exit, _exitCode, _sourcePath};
-use crate::parser::readLines;
+use crate::parser::readStructureLines;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::structure::Structure;
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
@@ -233,7 +233,7 @@ impl Structure
             );
             let calledClone: Arc<RwLock<Structure>> =
               Arc::new(RwLock::new(calledStructureLink.read().unwrap().deepClone()));
-            readLines(calledClone.clone());
+            readStructureLines(calledClone.clone());
             _sourcePath.with(|sourcePath|
               *sourcePath.borrow_mut() = previousSourcePath
             );
