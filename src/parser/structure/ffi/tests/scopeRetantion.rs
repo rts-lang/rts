@@ -54,7 +54,7 @@ fn plainCall() -> ()
 
 /// 2: Перед методом.
 #[test]
-fn methodBlock() -> ()
+fn methodStructure() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -81,7 +81,7 @@ fn methodBlock() -> ()
 
 /// 3: Перед методом (в одну строку).
 #[test]
-fn methodBlockOneLine() -> ()
+fn methodStructureOneLine() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -107,7 +107,7 @@ fn methodBlockOneLine() -> ()
 
 /// 4: Безымянный блок.
 #[test]
-fn unnamedBlock() -> ()
+fn unnamedStructure() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -133,7 +133,7 @@ fn unnamedBlock() -> ()
 
 /// 5: Безымянный блок (в одну строку).
 #[test]
-fn unnamedBlockOneLine() -> ()
+fn unnamedStructureOneLine() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -158,7 +158,7 @@ fn unnamedBlockOneLine() -> ()
 
 /// 6: Именованный блок.
 #[test]
-fn namedBlock() -> ()
+fn namedStructure() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -176,7 +176,8 @@ fn namedBlock() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype U32, value "6");
+  // Именной блок не запускается при объявлении — `[ffi]` только маркер.
+  checkStructure!(main, "result", stype U32, value "0");
   checkStructure!(main, "name", stype Method);
 
   let _ = std::fs::remove_file(&path);
@@ -185,7 +186,7 @@ fn namedBlock() -> ()
 
 /// 7: Именованный блок (в одну строку).
 #[test]
-fn namedBlockOneLine() -> ()
+fn namedStructureOneLine() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -202,7 +203,8 @@ fn namedBlockOneLine() -> ()
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype U32, value "7");
+  // Именной блок не запускается при объявлении — `[ffi]` только маркер.
+  checkStructure!(main, "result", stype U32, value "0");
   checkStructure!(main, "name", stype Method);
 
   let _ = std::fs::remove_file(&path);
@@ -214,7 +216,7 @@ fn namedBlockOneLine() -> ()
 /// Тег не должен "висеть" на блоке ниже: токен на имя может быть только один.
 /// Блок ниже - обычная вложенная структура, без FFI тега.
 #[test]
-fn tagWithNameAndBlockBelow() -> ()
+fn incompleteFfiTag() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 

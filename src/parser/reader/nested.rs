@@ -1,5 +1,4 @@
 use crate::parser::bytes::Bytes;
-use crate::parser::readStructureLines;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
@@ -125,34 +124,12 @@ pub fn searchNestedStructure(
     newStructure.result = newStructureResultType
       .map(|newStructureResultType| Token::newEmpty(*newStructureResultType));
 
-    // Запоминаем, была ли это форма метода (с круглыми скобками) или
-    // просто именованного блока.
-    // 
-    // Для метода `body` ждёт вызова `name()`, для именованного блока `body`
-    // выполняется сразу — иначе его никто никогда не выполнит
-    // (никто не пишет `name` без скобок для вызова).
-    let isMethodForm: bool = parameters.is_some();
-
+    // `[ffi]` только маркер `isFfiBlock`. Запуск тела — как у обычной
+    // структуры: метод ждёт вызова, именной блок при объявлении не крутится.
     let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(newStructure));
     { // Добавляем новую структуру в родителя.
       parentLink.write().unwrap()
         .pushStructure(newStructureLink.clone());
-    }
-    // Просматриваем строки этой новой структуры;
-    //
-    // todo В целом, это можно заменить на чтение при первом обращении к структуре;
-    //      сейчас же все структуры читаются (подготавливаются),
-    //      если попали на `lineIndex` указатель.
-    //
-    // Для FFI-блоков (как анонимных, так и именованных) тело должно
-    // выполниться прямо здесь, иначе оно никогда не выполнится —
-    // никто не зовёт `name` без скобок.
-    // 
-    // Метод (`Structure` с круглыми скобками) ждёт явного вызова.
-    // `readStructureLines` сам сделает `push` FFI `scope`, потому
-    // что `isFfiBlock=true`.
-    if isFfi && !isMethodForm {
-      readStructureLines(newStructureLink);
     }
     return true;
   }
