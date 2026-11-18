@@ -39,23 +39,13 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 pub fn readStructureLines(structureLink: Arc<RwLock<Structure>>) -> ()
 {
   // -----------------------------------------------------------------------------------------------
-  
-  // FFI-обёртка: если эта структура создана из `[ffi] { ... }` блока,
-  // пушим слот в FFI scope-стек на всё время чтения её тела.
-  // 
-  // Это покрывает все пути, по которым блок может быть выполнен:
-  //  
-  // - Анонимный `[ffi] { ... }`: Выполняется прямо в `searchStructure`,
-  //   но и оттуда можно звать `readStructureLines`;
+
+  // `isFfiBlock` — структура помечена тегом `[ffi]`.
   //
-  // - Метод `[ffi] test() { ... }`: Вызывается как функция в `procedure.rs`
-  //   ⟶ `readStructureLines(calledStructureLink)`;
+  // Пока читаем её линии, держим слот в FFI scope-стеке,
+  // чтобы FFI вызовы внутри шли в этот `scope`.
   //
-  // - Именованный блок `[ffi] name { ... }`.
-  //
-  // `scope` сам создаётся лениво в `scopeStack::ensureFfiScope()`
-  // при первом FFI-вызове внутри блока.
-  //
+  // Сам `scope` создаётся лениво при первом FFI-вызове внутри.
   let isFfi: bool = structureLink.read().unwrap().isFfiBlock;
   if isFfi {
     scopeStack::enterFfiBlock();

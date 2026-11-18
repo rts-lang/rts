@@ -33,7 +33,7 @@ pub(super) const fn isMathOperator(dataType: TokenType) -> bool
 
 /// Ищет структуры; Это может быть:
 /// 
-/// - Вложенная структура (array/vector/list ...). ⟶ [`searchNestedStructure`];
+/// - Вложенная структура ⟶ [`searchNestedStructure`];
 /// 
 /// - Линейное выражение ⟶ [searchLinearStructure`];
 /// 

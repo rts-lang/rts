@@ -59,7 +59,17 @@ pub fn isFfiTagToken(token: &Token) -> bool
 
 // =================================================================================================
 
-// todo desc
+/// Ищет тег `[ffi]` в начале линии и создаёт помеченную структуру:
+///
+/// - Анонимная `[ffi] { ... }` — создаёт структуру, ставит `isFfiBlock`,
+///   сразу читает тело.
+/// 
+/// - Именная `[ffi] name { ... }` / `[ffi] name() { ... }` —
+///   отдаёт хвост в `searchNestedStructure` с `isFfi = true`.
+///
+/// Тег и тело могут быть на одной линии или на соседних.
+///
+/// `true` — линия обработана; `false` — это не `[ffi]`.
 pub fn searchFfiStructure(
   line: &RwLockReadGuard<Line>,
   structureLink: Arc<RwLock<Structure>>
