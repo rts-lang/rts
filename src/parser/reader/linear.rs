@@ -30,7 +30,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 /// a~
 /// ```
 /// 
-fn linearStructure(
+fn searchLinearStructure(
   lineTokens: &[Token],
   parentLink: Arc<RwLock<Structure>>,
   isBlockValue: bool
@@ -430,8 +430,8 @@ pub fn linearLine(
 {
   match replaceConditionExpression(lineTokens, lineLines, &parentLink)
   {
-    Some(tokens) => linearStructure(&tokens, parentLink, true),
-    None => linearStructure(lineTokens, parentLink, false)
+    Some(tokens) => searchLinearStructure(&tokens, parentLink, true),
+    None => searchLinearStructure(lineTokens, parentLink, false)
   }
 }
 

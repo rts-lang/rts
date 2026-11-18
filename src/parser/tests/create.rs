@@ -332,7 +332,7 @@ fn linkHeadSearchesUpward() -> ()
 // =================================================================================================
 // Регрессия: дедлок на RwLock.
 
-/// Раньше `linearStructure` брал write-блокировку на объемлющую структуру ДО
+/// Раньше `searchLinearStructure` брал write-блокировку на объемлющую структуру ДО
 /// вычисления правой части, и поиск имени вверх по области видимости упирался
 /// в повторный read() на ту же структуру — `std::sync::RwLock` не перевзводим,
 /// и процесс вставал навсегда (0% CPU, sleeping).
@@ -389,7 +389,7 @@ fn functionCreationWithOuterReadDoesNotDeadlock() -> ()
 // `= None` не удаляет: `=` записывает `None` как значение.
 //
 // Примитивы (`type`, `String`, ...) никогда не удаляются — защита через
-// `isPrimitiveName` в `linearStructure` и safety-net внутри `removeStructure`.
+// `isPrimitiveName` в `searchLinearStructure` и safety-net внутри `removeStructure`.
 
 /// `:= None` удаляет локальную структуру: последующее обращение паникует
 /// с "Structure 'a' was not created" — то, что выдаёт `getStructure`.
@@ -444,7 +444,7 @@ fn assignNoneKeepsStructureWithNoneValue() -> ()
 }
 
 /// `:= None` на примитиве (`type`) не удаляет его — защита через
-/// `isPrimitiveName` в `linearStructure` и `removeStructure`. После `:= None`
+/// `isPrimitiveName` в `searchLinearStructure` и `removeStructure`. После `:= None`
 /// примитив остаётся на месте: `type` всё ещё `Method`.
 #[test]
 fn creationNoneOnPrimitiveIsIgnored() -> ()
