@@ -1,7 +1,5 @@
 use super::nested::searchNestedStructure;
-use crate::parser::readStructureLines;
-use crate::parser::structure::structure::{Structure, StructureMut};
-use crate::parser::structure::structureType::{PrimitiveType, StructureType};
+use crate::parser::structure::structure::Structure;
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
@@ -61,8 +59,8 @@ pub fn isFfiTagToken(token: &Token) -> bool
 
 /// Ищет тег `[ffi]` в начале линии и создаёт помеченную структуру:
 ///
-/// - Анонимная `[ffi] { ... }` — создаёт структуру, ставит `isFfiBlock`,
-///   сразу читает тело.
+/// - Анонимная `[ffi] { ... }` — вложенная структура без имени: идёт в
+///   `searchNestedStructure` с `isFfi = true`, тело читается сразу.
 /// 
 /// - Именная `[ffi] name { ... }` / `[ffi] name() { ... }` —
 ///   отдаёт хвост в `searchNestedStructure` с `isFfi = true`.
@@ -102,15 +100,15 @@ pub fn searchFfiStructure(
   //
   // - `[ffi] test() { ... }`: Метод с FFI-тегом.
   //
-  // - `[ffi] name { ... }`: Именованный FFI-блок.
+  // - `[ffi] name { ... }`: Именованная структура с FFI-тегом.
   //
-  // - `[ffi] { ... }`: Анонимный FFI-блок (на одной строке).
-  //
-  // - `[ffi]`
-  //   `{ ... }`: Анонимный FFI-блок (тело ниже, как в condition).
+  // - `[ffi] { ... }`: Анонимная структура с FFI-тегом (на одной строке).
   //
   // - `[ffi]`
-  //   `name { ... }`: Именованный FFI-блок (тело ниже, как в condition).
+  //   `{ ... }`: Анонимная структура с FFI-тегом (тело ниже, как в condition).
+  //
+  // - `[ffi]`
+  //   `name { ... }`: Именованная структура с FFI-тегом (тело ниже, как в condition).
   //
   // - `[ffi]`
   //   `name() { ... }`: Метод с FFI-тегом (тело ниже, как в condition).
@@ -122,7 +120,7 @@ pub fn searchFfiStructure(
   //
   // 2) Если после тега нет токенов и нет `body` на этой линии —
   //    смотрим следующую линию (как `collectConditionBranches`):
-  //    если у неё пустые токены — берём `body` оттуда (анонимный блок),
+  //    если у неё пустые токены — берём `body` оттуда (анонимная структура),
   //    если у неё имя и есть вложение — создаём её сразу как FFI-структуру;
   //    в обоих случаях сдвигаем `lineIndex`;
   //
@@ -143,7 +141,7 @@ pub fn searchFfiStructure(
       // Если `body` нет на этой линии и rest пуст — ищем тело ниже (как в `condition`).
       if restTokensLength == 0 && lineLines.is_none()
       {
-        // Следующая линия — это либо анонимный блок `{ ... }`,
+        // Следующая линия — это либо анонимная структура `{ ... }`,
         // либо именованная структура `name { ... }` / `name() { ... }`.
         let nextLine: Option<( Vec<Token>, Option< Vec< Arc<RwLock<Line>> > > )> =
         {
@@ -162,7 +160,7 @@ pub fn searchFfiStructure(
 
         if let Some((nextTokens, nextLines)) = nextLine
         {
-          // Анонимный блок: токенов нет, но есть вложение.
+          // Анонимная структура: токенов нет, но есть вложение.
           if nextTokens.is_empty() && nextLines.is_some()
           {
             lineLines = nextLines;
@@ -198,29 +196,21 @@ pub fn searchFfiStructure(
 
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       
-      // Случай A: анонимный блок `[ffi] { ... }` (или `[ffi]` + тело ниже).
+      // Случай A: анонимная вложенная структура `[ffi] { ... }`
+      // (или `[ffi]` + тело ниже).
       //
-      // Тег — единственный токен, и блок сразу же выполняется.
-      if restTokensLength == 0
-      {
-        let newStructureLink: Arc<RwLock<Structure>> = 
-          Arc::new(RwLock::new(Structure::new(
-            None, // Анонимный.
-            StructureMut::Constant,
-            StructureType::Primitive(PrimitiveType::Method),
-            Some(innerLines),
-            Some(structureLink.clone())
-          )));
-        // `isFfiBlock=true` уже выставлен дефолтом (false), но пометим явно для ясности.
-        newStructureLink.write().unwrap().isFfiBlock = true;
-
-        structureLink.write().unwrap()
-          .pushStructure(newStructureLink.clone());
-
-        // `readStructureLines` сам пушнет scope, потому что `isFfiBlock=true`.
-        // Здесь не зовём `enterFfiBlock`/`exitFfiBlock` явно — будет двойной push.
-        readStructureLines(newStructureLink);
-        return true;
+      // Тег — единственный токен: он только ставит маркер `isFfi`.
+      // Путь один - вложенные структуры (`searchNestedStructure`): токенов
+      // после тега нет, значит имя взять неоткуда. Голая `{ ... }` из `search`
+      // идёт туда же, отличие форм — только в маркере `isFfiBlock`.
+      if restTokensLength == 0 {
+        return searchNestedStructure(
+          restTokens,
+          restTokensLength,
+          innerLines,
+          structureLink,
+          true
+        );
       }
 
       // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -

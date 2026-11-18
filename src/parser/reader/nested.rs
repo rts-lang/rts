@@ -1,4 +1,5 @@
 use crate::parser::bytes::Bytes;
+use crate::parser::readStructureLines;
 use crate::parser::structure::primitives::isPrimitiveName;
 use crate::parser::structure::structure::{Structure, StructureMut};
 use crate::parser::structure::structureType::{PrimitiveType, StructureType};
@@ -16,6 +17,20 @@ use std::sync::{Arc, RwLock, RwLockReadGuard};
 ///   ...
 /// }
 /// ```
+///
+/// Вложенная структура бывает двух форм:
+///
+/// - Именная `name { ... }` / `name() { ... }` - имя есть, вызвать можно:
+///   тело читается при вызове, при объявлении не запускается.
+///
+/// - Анонимная `{ ... }` - токенов нет, имени нет, вызвать нечем: если тело
+///   не прочитать при создании, код внутри останется мёртвым. Поэтому тело
+///   читается один раз - сразу при создании: создать ⟶ [`readStructureLines`]
+///   ⟶ остаётся безымянной в родителе.
+///
+/// `[ffi] { ... }` из [`super::tags`] приходит сюда же с `isFfi = true`:
+/// FFI-scope пушится внутри [`readStructureLines`] сам, явный
+/// `enterFfiBlock`/`exitFfiBlock` здесь даст двойной push.
 pub fn searchNestedStructure(
   lineTokens: &[Token],
   lineTokensLength: usize,
@@ -24,6 +39,35 @@ pub fn searchNestedStructure(
   isFfi: bool
 ) -> bool
 {
+  // -----------------------------------------------------------------------------------------------
+  
+  // Анонимная форма `{ ... }`: токенов нет - имя взять неоткуда.
+  if lineTokensLength == 0
+  {
+    // Создаём анонимную структуру.
+    let mut newStructure: Structure =
+      Structure::new(
+        None, // Анонимный.
+        StructureMut::Constant,
+        StructureType::Primitive(PrimitiveType::Method),
+        Some(lineLines),
+        Some(parentLink.clone())
+      );
+    newStructure.isFfiBlock = isFfi;
+
+    // Добавляем новую структуру в родителя.
+    let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(newStructure));
+    parentLink.write().unwrap()
+      .pushStructure(newStructureLink.clone());
+
+    // Читаем тело сразу: без этого анонимная структура - мёртвый код.
+    readStructureLines(newStructureLink);
+
+    return true;
+  }
+
+  // -----------------------------------------------------------------------------------------------
+
   // Если в линии есть вложение, то это структура с вложением.
   if let Some(newStructureName) = lineTokens[0].getData().toString()
   { // Здесь первый токен - имя структуры.
@@ -124,8 +168,8 @@ pub fn searchNestedStructure(
     newStructure.result = newStructureResultType
       .map(|newStructureResultType| Token::newEmpty(*newStructureResultType));
 
-    // `[ffi]` только маркер `isFfiBlock`. Запуск тела — как у обычной
-    // структуры: метод ждёт вызова, именной блок при объявлении не крутится.
+    // `[ffi]` только маркер `isFfiBlock`. Запуск тела — как у обычной структуры:
+    // метод ждёт вызова, именованная структура при объявлении не запускается.
     let newStructureLink: Arc<RwLock<Structure>> = Arc::new(RwLock::new(newStructure));
     { // Добавляем новую структуру в родителя.
       parentLink.write().unwrap()
@@ -134,7 +178,11 @@ pub fn searchNestedStructure(
     return true;
   }
 
+  // -----------------------------------------------------------------------------------------------
+
   false
+
+  // -----------------------------------------------------------------------------------------------
 }
 
 // =================================================================================================
