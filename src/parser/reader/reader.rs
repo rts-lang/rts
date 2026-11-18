@@ -1,5 +1,6 @@
 use super::result::searchReturnLine;
 use super::search::searchStructure;
+use super::tags::searchFfiStructure;
 use crate::_exit;
 use crate::parser::structure::ffi::bridge;
 use crate::parser::structure::ffi::scopeStack;
@@ -113,35 +114,39 @@ pub fn readStructureLines(structureLink: Arc<RwLock<Structure>>) -> ()
     // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
     
     // Если всё хорошо, то начинаем читать линии через специальные функции.
-    
-    // Ищем структуры.
-    if !searchStructure(&line, structureLink.clone())
-    { 
-      // Читаем return.
-      if !searchReturnLine(&line, structureLink.clone())
+
+    // Ищем FFI структуру.
+    if !searchFfiStructure(&line, structureLink.clone())
+    {
+      // Ищем структуры.
+      if !searchStructure(&line, structureLink.clone())
       {
-        // Ищем линейные выражения.
-        let tokens: &mut Vec<Token> =
-          &mut line
-            .tokens.clone() // Клонируем токены, для сохранения возможности повторного запуска.
-            // todo Кстати не понятно, нужно ли клонировать. Дело в том, что в нужных местах сами
-            //  структуры уже клонированы. Например методы так делают. А обычному коду по идее
-            //  это не к чему, ведь он запускается один раз. Хотя возможно если речь о ветвлениях
-            //  или возвратах назад через `go`, то это необходимо.
-            .unwrap_or_default(); // todo Плохо.
-        drop(line);
-        
-        // Линия-оператор: результат никому не нужен (`lib.print(x)`).
-        structureLink.read().unwrap()
-          .expressionWith(tokens, &bridge::FfiExpect::Discard);
-      }
-    } else
-    { // `searchStructure` обработал структуру (например `?`-блок).
-      //
-      // Если после этого у метода появился `result` — внутри блока был `:=`,
-      // который поднялся до этого метода. Прерываем чтение.
-      if structureLink.read().unwrap().result.is_some() {
-        break
+        // Читаем return.
+        if !searchReturnLine(&line, structureLink.clone())
+        {
+          // Ищем линейные выражения.
+          let tokens: &mut Vec<Token> =
+            &mut line
+              .tokens.clone() // Клонируем токены, для сохранения возможности повторного запуска.
+              // todo Кстати не понятно, нужно ли клонировать. Дело в том, что в нужных местах сами
+              //  структуры уже клонированы. Например методы так делают. А обычному коду по идее
+              //  это не к чему, ведь он запускается один раз. Хотя возможно если речь о ветвлениях
+              //  или возвратах назад через `go`, то это необходимо.
+              .unwrap_or_default(); // todo Плохо.
+          drop(line);
+          
+          // Линия-оператор: результат никому не нужен (`lib.print(x)`).
+          structureLink.read().unwrap()
+            .expressionWith(tokens, &bridge::FfiExpect::Discard);
+        }
+      } else
+      { // `searchStructure` обработал структуру (например `?`-блок).
+        //
+        // Если после этого у метода появился `result` — внутри блока был `:=`,
+        // который поднялся до этого метода. Прерываем чтение.
+        if structureLink.read().unwrap().result.is_some() {
+          break
+        }
       }
     }
 
