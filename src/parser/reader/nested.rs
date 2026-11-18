@@ -21,7 +21,8 @@ pub fn searchNestedStructure(
   lineTokens: &[Token],
   lineTokensLength: usize,
   lineLines: Vec< Arc<RwLock<Line>> >,
-  parentLink: Arc<RwLock<Structure>>
+  parentLink: Arc<RwLock<Structure>>,
+  isFfi: bool
 ) -> bool
 {
   // Если в линии есть вложение, то это структура с вложением.
@@ -82,56 +83,6 @@ pub fn searchNestedStructure(
       
     }
     // Если параметров и результата не было, то просто пропускаем.
-
-    // Проверка блока тегов `[ffi]`.
-    // todo Точно требуются комментарии по этому блоку. Я описал бы их внутри.
-    let isFfi: bool = if parentLink.read().unwrap().lineIndex.get() == 0
-    { false } else
-    {
-      if let Some(siblingLines) = &parentLink.read().unwrap().lines
-      {
-        let prevLine: RwLockReadGuard<Line> = siblingLines[parentLink.read().unwrap().lineIndex.get() - 1].read().unwrap();
-        if let Some(prevTokens) = &prevLine.tokens
-        {
-          if prevTokens.is_empty() ||
-            *prevTokens[0].getDataType() != TokenType::SquareBracketBegin ||
-            prevLine.lines.is_some()
-          { false } else
-          {
-            if let Some(bracketLines) = &prevTokens[0].lines
-            {
-              let mut found: bool = false;
-              for bracketLine in bracketLines
-              {
-                let bracketLineGuard: RwLockReadGuard<Line> = bracketLine.read().unwrap();
-                if let Some(bracketTokens) = &bracketLineGuard.tokens
-                {
-                  for token in bracketTokens
-                  {
-                    if *token.getDataType() == TokenType::Word && 
-                       token.getData().toString().unwrap_or_default() == "ffi"
-                    {
-                      found = true;
-                    }
-                  }
-                  //
-                }
-              }
-              found
-              //
-            } else {
-              false
-            }
-          }
-          //
-        } else {
-          false
-        }
-      } else {
-        false
-      }
-      //
-    };
     
     // Имя структуры-примитива занято — параллельную структуру не создаём.
     if isPrimitiveName(&newStructureName) {

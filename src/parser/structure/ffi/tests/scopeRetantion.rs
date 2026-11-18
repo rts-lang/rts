@@ -209,4 +209,38 @@ fn namedBlockOneLine() -> ()
   let _ = std::fs::remove_file(&libraryPath);
 }
 
+/// 8: Тег с именем на строке, а блок - на следующей строке.
+///
+/// Тег не должен "висеть" на блоке ниже: токен на имя может быть только один.
+/// Блок ниже - обычная вложенная структура, без FFI тега.
+#[test]
+fn tagWithNameAndBlockBelow() -> ()
+{
+  let libraryPath: String = buildHelloLibrary();
+
+  let path: String = writeCodeFile!(
+    r#"
+    result~: U32 = 0
+
+    [ffi] name
+    plain {{
+      lib: Pointer = importNative("{libraryPath}")
+      result = lib.hello(8)
+    }}
+    "#
+  );
+
+  let main: Arc<RwLock<Structure>> = runCodeFile(&path);
+
+  // Блок ниже - создан, как обычная вложенная структура.
+  checkStructure!(main, "plain", stype Method);
+  // Но это не FFI-блок: его тело не исполняется.
+  checkStructure!(main, "result", stype U32, value "0");
+  // Тег с именем, но без тела - не структура.
+  assert!(main.read().unwrap().getStructureByScope("name").is_none());
+
+  let _ = std::fs::remove_file(&path);
+  let _ = std::fs::remove_file(&libraryPath);
+}
+
 // =================================================================================================

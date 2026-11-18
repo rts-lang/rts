@@ -88,7 +88,7 @@ pub fn searchStructure(
 
     return if let Some(lineLines) = lineLines
     { // Если в линии есть вложение, то это структура с вложением.
-      searchNestedStructure(lineTokens, lineTokensLength, lineLines, structureLink)
+      searchNestedStructure(lineTokens, lineTokensLength, lineLines, structureLink, false)
     } else
     { // Это линейное выражение.
       linearLine(lineTokens, &lineLines, structureLink)
