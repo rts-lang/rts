@@ -84,9 +84,9 @@ pub fn searchStructure(
   // иначе анонимный FFI-блок после `[ffi]` на предыдущей строке никогда
   // бы не дошёл досюда.
   //
-  if lineTokensLength == 0
-    && lineLines.is_some()
-    && isPrevLineFfiTag(&parentLink, parentLink.read().unwrap().lineIndex.get())
+  if lineTokensLength == 0 &&
+    lineLines.is_some() &&
+    isPrevLineFfiTag(&parentLink, parentLink.read().unwrap().lineIndex.get())
   {
     let newStructureLink: Arc<RwLock<Structure>> = 
       Arc::new(RwLock::new(Structure::new(
@@ -99,7 +99,7 @@ pub fn searchStructure(
     newStructureLink.write().unwrap().isFfiBlock = true;
     parentLink.write().unwrap()
       .pushStructure(newStructureLink.clone());
-    // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
+    // `readStructureLines` сам сделает push `scope`, потому что `isFfiBlock=true`.
     readStructureLines(newStructureLink);
     return true;
   }
@@ -110,42 +110,6 @@ pub fn searchStructure(
   }
 
   let firstTokenType: &TokenType = lineTokens[0].getDataType(); // Тип первого токена в строке.
-
-  // -----------------------------------------------------------------------------------------------
-  
-  // Многострочный анонимный FFI-блок:
-  //
-  //   [ffi]
-  //   { ... } ⟵ эта линия
-  //
-  // В tokenizer'е линия `{ ... }` (без ничего перед `{`) теперь выходит как
-  // `tokens = None`, `lines = Some([внутренние линии])` (после фикса
-  // токенайзера). Либо `tokens = Some(vec![])` — пустой список, если
-  // пред-фиксовый фикс не сработал. В обоих случаях Word/SquareBracketBegin
-  // ветки не сработают — ловим этот случай отдельно: если предыдущая
-  // линия — `[ffi]`, а текущая — пустая/None-токены с вложением,
-  // выполняем её как анонимный FFI-блок.
-  //
-  if line.tokens.is_none() || lineTokens.is_empty() && // todo Кстати интересно тут норм что || без скобок?
-     lineLines.is_some() && 
-     isPrevLineFfiTag(&parentLink, parentLink.read().unwrap().lineIndex.get())
-  {
-    let newStructureLink: Arc<RwLock<Structure>> = 
-      Arc::new(RwLock::new(
-      Structure::new(
-        None, // Анонимный
-        StructureMut::Constant,
-        StructureType::Primitive(PrimitiveType::Method),
-        lineLines.clone(),
-        Some(parentLink.clone())
-      )));
-    newStructureLink.write().unwrap().isFfiBlock = true;
-    parentLink.write().unwrap()
-      .pushStructure(newStructureLink.clone());
-    // `readStructureLines` сам пушнет scope, потому что isFfiBlock=true.
-    readStructureLines(newStructureLink);
-    return true;
-  }
 
   // -----------------------------------------------------------------------------------------------
   
