@@ -345,32 +345,6 @@ fn unknownMethod() -> ()
   let _ = std::fs::remove_file(&libraryPath);
 }
 
-/// Внутри `[ffi]` блока (scope retention).
-#[test]
-fn insideFfiBlock() -> ()
-{
-  let libraryPath: String = buildReturnsLibrary();
-
-  let path: String = writeCodeFile!(
-    r#"
-    [ffi]
-    block {{
-      inner: Pointer = importNative("{libraryPath}")
-      f1: I32 = inner.retI32()
-      f2 := inner.retUsize()
-    }}
-    "#
-  );
-
-  let main: Arc<RwLock<Structure>> = runCodeFile(&path);
-
-  checkStructure!(main, "block.f1", stype I32, value "-2000000000");
-  checkStructure!(main, "block.f2", stype U32, value "123456789");
-
-  let _ = std::fs::remove_file(&path);
-  let _ = std::fs::remove_file(&libraryPath);
-}
-
 /// Результат FFI-вызова как return функции (`= value`).
 //
 // todo Библиотека, объявленная снаружи функции, внутри неё не видна: `= libc.strnlen(s)` даёт None.

@@ -1,5 +1,5 @@
 mod simple;
 mod include;
-mod r#return;
-mod scopeRetantion;
+mod result;
+mod scopeRetention;
 mod libc;

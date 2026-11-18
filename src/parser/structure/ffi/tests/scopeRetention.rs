@@ -54,7 +54,7 @@ fn plainCall() -> ()
 
 /// 2: Перед методом.
 #[test]
-fn methodBlock() -> ()
+fn methodStructure() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -81,7 +81,7 @@ fn methodBlock() -> ()
 
 /// 3: Перед методом (в одну строку).
 #[test]
-fn methodBlockOneLine() -> ()
+fn methodStructureOneLine() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -107,7 +107,7 @@ fn methodBlockOneLine() -> ()
 
 /// 4: Безымянный блок.
 #[test]
-fn unnamedBlock() -> ()
+fn unnamedStructure() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -133,7 +133,7 @@ fn unnamedBlock() -> ()
 
 /// 5: Безымянный блок (в одну строку).
 #[test]
-fn unnamedBlockOneLine() -> ()
+fn unnamedStructureOneLine() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -158,7 +158,7 @@ fn unnamedBlockOneLine() -> ()
 
 /// 6: Именованный блок.
 #[test]
-fn namedBlock() -> ()
+fn namedStructure() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -171,11 +171,13 @@ fn namedBlock() -> ()
       lib: Pointer = importNative("{libraryPath}")
       result = lib.hello(6)
     }}
+    
+    name()
     "#
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
-
+  
   checkStructure!(main, "result", stype U32, value "6");
   checkStructure!(main, "name", stype Method);
 
@@ -185,7 +187,7 @@ fn namedBlock() -> ()
 
 /// 7: Именованный блок (в одну строку).
 #[test]
-fn namedBlockOneLine() -> ()
+fn namedStructureOneLine() -> ()
 {
   let libraryPath: String = buildHelloLibrary();
 
@@ -197,13 +199,49 @@ fn namedBlockOneLine() -> ()
       lib: Pointer = importNative("{libraryPath}")
       result = lib.hello(7)
     }}
+    
+    name()
+    "#
+  );
+
+  let main: Arc<RwLock<Structure>> = runCodeFile(&path);
+  
+  checkStructure!(main, "result", stype U32, value "7");
+  checkStructure!(main, "name", stype Method);
+
+  let _ = std::fs::remove_file(&path);
+  let _ = std::fs::remove_file(&libraryPath);
+}
+
+/// 8: Тег с именем на строке, а блок - на следующей строке.
+///
+/// Тег не должен "висеть" на блоке ниже: токен на имя может быть только один.
+/// Блок ниже - обычная вложенная структура, без FFI тега.
+#[test]
+fn incompleteFfiTag() -> ()
+{
+  let libraryPath: String = buildHelloLibrary();
+
+  let path: String = writeCodeFile!(
+    r#"
+    result~: U32 = 0
+
+    [ffi] name
+    plain {{
+      lib: Pointer = importNative("{libraryPath}")
+      result = lib.hello(8)
+    }}
     "#
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
 
-  checkStructure!(main, "result", stype U32, value "7");
-  checkStructure!(main, "name", stype Method);
+  // Блок ниже - создан, как обычная вложенная структура.
+  checkStructure!(main, "plain", stype Method);
+  // Но это не FFI-блок: его тело не исполняется.
+  checkStructure!(main, "result", stype U32, value "0");
+  // Тег с именем, но без тела - не структура.
+  assert!(main.read().unwrap().getStructureByScope("name").is_none());
 
   let _ = std::fs::remove_file(&path);
   let _ = std::fs::remove_file(&libraryPath);

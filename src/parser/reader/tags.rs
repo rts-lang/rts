@@ -1,8 +1,16 @@
-use crate::parser::structure::structure::Structure;
+use super::nested::searchNestedStructure;
+use crate::parser::readStructureLines;
+use crate::parser::structure::structure::{Structure, StructureMut};
+use crate::parser::structure::structureType::{PrimitiveType, StructureType};
 use crate::tokenizer::types::line::Line;
 use crate::tokenizer::types::token::Token;
 use crate::tokenizer::types::tokenType::TokenType;
 use std::sync::{Arc, RwLock, RwLockReadGuard};
+// =================================================================================================
+
+// todo Тут описание о том, что тут будут теги в будущем,
+//  но пока что только [ffi], но логика подготовлена на будущее.
+
 // =================================================================================================
 
 /// Проверяет, является ли [`Token`] тегом `[ffi]`.
@@ -49,48 +57,205 @@ pub fn isFfiTagToken(token: &Token) -> bool
   false
 }
 
-/// Проверяет, является ли предыдущая [`Line`] тегом `[ffi]`.
+// =================================================================================================
+
+/// Ищет тег `[ffi]` в начале линии и создаёт помеченную структуру:
+///
+/// - Анонимная `[ffi] { ... }` — создаёт структуру, ставит `isFfiBlock`,
+///   сразу читает тело.
 /// 
-/// Используется для многострочной формы:
-/// ```ignore
-/// [ffi]
-/// {
-///   ...
-/// }
-/// ```
-/// 
-/// Здесь вторая [`Line`] сама по себе не знает о теге сверху.
-pub fn isPrevLineFfiTag(parentLink: &Arc<RwLock<Structure>>, lineIndex: usize) -> bool
+/// - Именная `[ffi] name { ... }` / `[ffi] name() { ... }` —
+///   отдаёт хвост в `searchNestedStructure` с `isFfi = true`.
+///
+/// Тег и тело могут быть на одной линии или на соседних.
+///
+/// `true` — линия обработана; `false` — это не `[ffi]`.
+pub fn searchFfiStructure(
+  line: &RwLockReadGuard<Line>,
+  structureLink: Arc<RwLock<Structure>>
+) -> bool
 {
-  // Если до этой `Line` нет других - то ничего не будет.
-  if lineIndex == 0 {
-    return false;
-  }
-
-  // Получаем предыдущую `Line`.
-  let prevLineLinkOption: Option< Arc<RwLock<Line>> > = parentLink.read().unwrap()
-    .lines.as_ref()
-    .and_then(|lines| lines.get(lineIndex-1).cloned());
+  // -----------------------------------------------------------------------------------------------
   
-  let prevLineLink: Arc<RwLock<Line>> = match prevLineLinkOption {
-    Some(line) => line,
-    None => return false,
-  };
-
-  // Получаем токены предыдущей `Line`.
-  let prevLine: RwLockReadGuard<Line> = prevLineLink.read().unwrap();
-  let prevLineTokens: &[Token] = match prevLine.tokens.as_ref() {
+  // Ссылка на токены линии.
+  let lineTokens: &Vec<Token> = match &line.tokens {
     Some(tokens) => tokens,
-    None => return false,
+    None => return false // Если в линии нет токенов, то мы её не читаем.
   };
   
-  // Предыдущая `Line` должна иметь ровно один токен: `[ffi]`.
-  if prevLineTokens.len() != 1 {
+  // Размер токенов линии.
+  let lineTokensLength: usize = lineTokens.len();
+  
+  // Вложенные линии.
+  let mut lineLines: Option<Vec< Arc<RwLock<Line>> >> = line.lines.clone();
+  
+  // Если в линии нет токенов, то мы её не читаем.
+  if lineTokensLength == 0 {
     return false;
   }
+  // Тип первого токена в строке.
+  let firstTokenType: &TokenType = lineTokens[0].getDataType();
   
-  // Проверяет, является ли токен тегом `[ffi]`.
-  isFfiTagToken(&prevLineTokens[0])
+  // -----------------------------------------------------------------------------------------------
+  
+  // Обработка тега `[ffi]`:
+  //
+  // - `[ffi] test() { ... }`: Метод с FFI-тегом.
+  //
+  // - `[ffi] name { ... }`: Именованный FFI-блок.
+  //
+  // - `[ffi] { ... }`: Анонимный FFI-блок (на одной строке).
+  //
+  // - `[ffi]`
+  //   `{ ... }`: Анонимный FFI-блок (тело ниже, как в condition).
+  //
+  // - `[ffi]`
+  //   `name { ... }`: Именованный FFI-блок (тело ниже, как в condition).
+  //
+  // - `[ffi]`
+  //   `name() { ... }`: Метод с FFI-тегом (тело ниже, как в condition).
+  //
+  //
+  // Механизм как у `condition`:
+  //
+  // 1) Первый токен — SquareBracketBegin, внутри которого `ffi`;
+  //
+  // 2) Если после тега нет токенов и нет `body` на этой линии —
+  //    смотрим следующую линию (как `collectConditionBranches`):
+  //    если у неё пустые токены — берём `body` оттуда (анонимный блок),
+  //    если у неё имя и есть вложение — создаём её сразу как FFI-структуру;
+  //    в обоих случаях сдвигаем `lineIndex`;
+  //
+  // 3) Дальше единая обработка: `rest` + `body`.
+  //
+  if *firstTokenType == TokenType::SquareBracketBegin
+  {
+    // Проверяем, что внутри скобок именно "ffi" (а не любой тег).
+    let isFfiTag: bool = isFfiTagToken(&lineTokens[0]);
+    if isFfiTag
+    {
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Достаём токены после тега `[ffi]`.
+      let restTokens: &[Token] = &lineTokens[1..];
+      let restTokensLength: usize = restTokens.len();
+
+      // Если `body` нет на этой линии и rest пуст — ищем тело ниже (как в `condition`).
+      if restTokensLength == 0 && lineLines.is_none()
+      {
+        // Следующая линия — это либо анонимный блок `{ ... }`,
+        // либо именованная структура `name { ... }` / `name() { ... }`.
+        let nextLine: Option<( Vec<Token>, Option< Vec< Arc<RwLock<Line>> > > )> =
+        {
+          let parent: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+          let start: usize = parent.lineIndex.get();
+          match parent.lines.as_ref().and_then(|lines| lines.get(start + 1))
+          {
+            Some(nextLink) =>
+            {
+              let nextLine: RwLockReadGuard<Line> = nextLink.read().unwrap();
+              Some((nextLine.tokens.clone().unwrap_or_default(), nextLine.lines.clone()))
+            }
+            None => None
+          }
+        };
+
+        if let Some((nextTokens, nextLines)) = nextLine
+        {
+          // Анонимный блок: токенов нет, но есть вложение.
+          if nextTokens.is_empty() && nextLines.is_some()
+          {
+            lineLines = nextLines;
+            // Сдвигаем `lineIndex`: эту линию мы прочитали сами.
+            let parent: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+            parent.lineIndex.set(parent.lineIndex.get() + 1);
+          }
+          // Именованная структура: имя в начале и есть вложение.
+          else if !nextTokens.is_empty() && nextLines.is_some() &&
+            *nextTokens[0].getDataType() == TokenType::Word
+          {
+            // Сдвигаем `lineIndex`: эту линию мы прочитали сами.
+            {
+              let parent: RwLockReadGuard<Structure> = structureLink.read().unwrap();
+              parent.lineIndex.set(parent.lineIndex.get() + 1);
+            }
+            // Создаём её сразу как FFI-структуру.
+            return searchNestedStructure(
+              &nextTokens,
+              nextTokens.len(),
+              nextLines.unwrap(),
+              structureLink,
+              true
+            );
+          }
+        }
+      }
+
+      // Без body дальше не идём.
+      let Some(innerLines) = lineLines else {
+        return false;
+      };
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Случай A: анонимный блок `[ffi] { ... }` (или `[ffi]` + тело ниже).
+      //
+      // Тег — единственный токен, и блок сразу же выполняется.
+      if restTokensLength == 0
+      {
+        let newStructureLink: Arc<RwLock<Structure>> = 
+          Arc::new(RwLock::new(Structure::new(
+            None, // Анонимный.
+            StructureMut::Constant,
+            StructureType::Primitive(PrimitiveType::Method),
+            Some(innerLines),
+            Some(structureLink.clone())
+          )));
+        // `isFfiBlock=true` уже выставлен дефолтом (false), но пометим явно для ясности.
+        newStructureLink.write().unwrap().isFfiBlock = true;
+
+        structureLink.write().unwrap()
+          .pushStructure(newStructureLink.clone());
+
+        // `readStructureLines` сам пушнет scope, потому что `isFfiBlock=true`.
+        // Здесь не зовём `enterFfiBlock`/`exitFfiBlock` явно — будет двойной push.
+        readStructureLines(newStructureLink);
+        return true;
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Случай B: `[ffi] <Word> ...` — именная структура на той же строке.
+      //
+      // Собирает её `searchNestedStructure`. Флаг передаём явно:
+      // тег стоит на этой же линии, поэтому предыдущую строку смотреть не нужно.
+      if restTokensLength >= 1 &&
+         *restTokens[0].getDataType() == TokenType::Word
+      {
+        return searchNestedStructure(
+          restTokens,
+          restTokensLength,
+          innerLines,
+          structureLink,
+          true
+        );
+      }
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+      
+      // Неизвестная форма после `[ffi]` — падаем в основной парсер, чтобы
+      // он попробовал обработать как структуру (и корректно ругнулся, если
+      // это не структура).
+
+      // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+    }
+  }
+
+  // -----------------------------------------------------------------------------------------------
+  
+  false
+  
+  // -----------------------------------------------------------------------------------------------
 }
 
 // =================================================================================================
