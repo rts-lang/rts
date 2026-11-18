@@ -171,13 +171,14 @@ fn namedStructure() -> ()
       lib: Pointer = importNative("{libraryPath}")
       result = lib.hello(6)
     }}
+    
+    name()
     "#
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
-
-  // Именной блок не запускается при объявлении — `[ffi]` только маркер.
-  checkStructure!(main, "result", stype U32, value "0");
+  
+  checkStructure!(main, "result", stype U32, value "6");
   checkStructure!(main, "name", stype Method);
 
   let _ = std::fs::remove_file(&path);
@@ -198,13 +199,14 @@ fn namedStructureOneLine() -> ()
       lib: Pointer = importNative("{libraryPath}")
       result = lib.hello(7)
     }}
+    
+    name()
     "#
   );
 
   let main: Arc<RwLock<Structure>> = runCodeFile(&path);
-
-  // Именной блок не запускается при объявлении — `[ffi]` только маркер.
-  checkStructure!(main, "result", stype U32, value "0");
+  
+  checkStructure!(main, "result", stype U32, value "7");
   checkStructure!(main, "name", stype Method);
 
   let _ = std::fs::remove_file(&path);
