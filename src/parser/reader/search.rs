@@ -37,7 +37,7 @@ pub(super) const fn isMathOperator(dataType: TokenType) -> bool
 /// 
 /// - Линейное выражение ⟶ [searchLinearStructure`];
 /// 
-/// - Условный блок ⟶ [`executeConditionStatement`].
+/// - Условная структура ⟶ [`executeConditionStatement`].
 //
 // todo Я всё ещё думаю, что его стоит переименовать. Потому что он ищет структуры да,
 //  но не совсем так. По сути он ищет последовательности, которые приводят к их созданию.
@@ -63,9 +63,20 @@ pub fn searchStructure(
   // Вложенные линии.
   let lineLines: Option<Vec< Arc<RwLock<Line>> >> = line.lines.clone();
   
-  // Если в линии нет токенов, то мы её не читаем.
-  if lineTokensLength == 0 {
-    return false;
+  // Если в линии нет токенов, то это может быть только анонимная
+  // вложенная структура `{ ... }`: токенов нет, но вложение есть.
+  if lineTokensLength == 0
+  {
+    // Безымянную структуру вызвать нечем, поэтому тело читается сразу:
+    // иначе код внутри останется мёртвым. Путь один - вложенные структуры
+    // (`searchNestedStructure`); `[ffi] { ... }` (`tags`) идёт в него же
+    // с маркером `isFfiBlock`.
+    return if let Some(lineLines) = lineLines {
+      searchNestedStructure(lineTokens, lineTokensLength, lineLines, structureLink, false)
+    } else
+    { // Токенов и вложений нет — читать нечего.
+      false
+    };
   }
   // Тип первого токена в строке.
   let firstTokenType: &TokenType = lineTokens[0].getDataType();
